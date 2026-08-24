@@ -22,7 +22,7 @@
     document.getElementById("sanabil-runtime-modal")?.remove();
     const layer = document.createElement("div");
     layer.id = "sanabil-runtime-modal";
-    layer.innerHTML = `<section><button class="close" aria-label="ط¥ط؛ظ„ط§ظ‚">أ—</button><h2></h2><div class="body"></div></section>`;
+    layer.innerHTML = `<section><button class="close" aria-label="إغلاق">×</button><h2></h2><div class="body"></div></section>`;
     Object.assign(layer.style, {
       position: "fixed", inset: "0", zIndex: "99998", display: "grid", placeItems: "center",
       padding: "20px", background: "#001f1966", backdropFilter: "blur(5px)", direction: "rtl",
@@ -46,10 +46,10 @@
   };
 
   const downloadTemplate = () => {
-    const blob = new Blob(["ط§ظ„ط§ط³ظ…,ط±ظ‚ظ… ط§ظ„ظ‡ظˆظٹط©,طھط§ط±ظٹط® ط§ظ„ظ…ظٹظ„ط§ط¯,ط¬ظˆط§ظ„ ظˆظ„ظٹ ط§ظ„ط£ظ…ط±,ط§ظ„ظ…ط¹ظ„ظ…,ط§ظ„ط­ظ„ظ‚ط©\n"], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["الاسم,رقم الهوية,تاريخ الميلاد,جوال ولي الأمر,المعلم,الحلقة\n"], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "ظ†ظ…ظˆط°ط¬-ط§ط³طھظٹط±ط§ط¯-ط·ظ„ط§ط¨-ط³ظ†ط§ط¨ظ„.csv";
+    link.download = "نموذج-استيراد-طلاب-سنابل.csv";
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -60,26 +60,26 @@
     const label = button.textContent.replace(/\s+/g, " ").trim();
     const aria = button.getAttribute("aria-label") || "";
 
-    if (label.includes("ط¹ط±ط¶ ط§ظ„ط®ط·ط©") || (aria === "طھط¹ط¯ظٹظ„" && button.closest(".plan-card"))) {
+    if (label.includes("عرض الخطة") || (aria === "تعديل" && button.closest(".plan-card"))) {
       const card = button.closest(".plan-card");
-      modal("طھظپط§طµظٹظ„ ط§ظ„ط®ط·ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط©", `<div style="line-height:2">${card?.innerHTML || "طھط¹ط°ط± طھط­ظ…ظٹظ„ طھظپط§طµظٹظ„ ط§ظ„ط®ط·ط©."}</div>`);
-    } else if (aria === "طھط­ط¯ظٹط« ط§ظ„ط¨ظٹط§ظ†ط§طھ") {
+      modal("تفاصيل الخطة التعليمية", `<div style="line-height:2">${card?.innerHTML || "تعذر تحميل تفاصيل الخطة."}</div>`);
+    } else if (aria === "تحديث البيانات") {
       location.reload();
-    } else if (aria === "ط§ظ„طھظ†ط¨ظٹظ‡ط§طھ" || label.includes("ط¹ط±ط¶ ط¬ظ…ظٹط¹ ط§ظ„طھظ†ط¨ظٹظ‡ط§طھ")) {
+    } else if (aria === "التنبيهات" || label.includes("عرض جميع التنبيهات")) {
       const alerts = [...document.querySelectorAll(".alert-row")].map((item) => `<li>${item.textContent.trim()}</li>`).join("");
-      modal("طھظ†ط¨ظٹظ‡ط§طھ ط§ظ„ظ…ظ†طµط©", `<ul style="line-height:2">${alerts || "<li>ظ„ط§ طھظˆط¬ط¯ طھظ†ط¨ظٹظ‡ط§طھ ط¬ط¯ظٹط¯ط©.</li>"}</ul>`);
-    } else if (label.includes("طھظ‚ط±ظٹط± PDF")) {
+      modal("تنبيهات المنصة", `<ul style="line-height:2">${alerts || "<li>لا توجد تنبيهات جديدة.</li>"}</ul>`);
+    } else if (label.includes("تقرير PDF")) {
       window.print();
-    } else if (label.includes("ظ†ظ…ظˆط°ط¬ ط§ظ„ط§ط³طھظٹط±ط§ط¯")) {
+    } else if (label.includes("نموذج الاستيراد")) {
       downloadTemplate();
-    } else if (label.includes("ظپطھط­ ط§ظ„ظ…طµط­ظپ")) {
+    } else if (label.includes("فتح المصحف")) {
       window.open("https://quran.com/", "_blank", "noopener,noreferrer");
-    } else if (["طھط·ط¨ظٹظ‚", "ط¹ط±ط¶ ط§ظ„ط·ظ„ط§ط¨", "ط¨ط­ط«", "ط§ط³طھط¹ظ„ط§ظ…", "طھط­ط¯ظٹط« ط§ظ„طھظ‚ط±ظٹط±", "طھط­ط¯ظٹط«"].some((text) => label === text || label.endsWith(` ${text}`))) {
-      toast("طھظ… طھط·ط¨ظٹظ‚ ط§ظ„ط·ظ„ط¨ ظˆطھط­ط¯ظٹط« ط§ظ„ظ†طھط§ط¦ط¬ ط§ظ„ط¸ط§ظ‡ط±ط©.");
-    } else if (label.includes("ظ…ط¹ط§ظٹظ†ط© ط¨ط·ط§ظ‚ط© ظˆظ„ظٹ ط§ظ„ط£ظ…ط±")) {
-      modal("ط¨ط·ط§ظ‚ط© ظˆظ„ظٹ ط§ظ„ط£ظ…ط±", "<p>طھظڈط¹ط±ط¶ ط§ظ„ط¨ط·ط§ظ‚ط© ظˆظپظ‚ ط§ظ„ط·ط§ظ„ط¨ ظˆط§ظ„ط­ظ„ظ‚ط© ظˆط§ظ„طھط§ط±ظٹط® ط§ظ„ظ…ط­ط¯ط¯ ظپظٹ ط§ظ„ط­طµظٹظ„ط© ط§ظ„ط­ط§ظ„ظٹط©.</p>");
-    } else if (label.includes("ط¬ط¯ظˆظ„ط© ط§ط®طھط¨ط§ط±") || label.includes("ط·ظ„ط¨ ط§ط®طھط¨ط§ط± ط·ط§ظ„ط¨")) {
-      modal("ط¬ط¯ظˆظ„ط© ط§ط®طھط¨ط§ط±", "<p>ط§ط®طھط± ط§ظ„ط·ط§ظ„ط¨ ظˆط§ظ„ظ…ظ‚ط±ط± ظ…ظ† ط´ط§ط´ط© ط§ظ„ط§ط®طھط¨ط§ط±ط§طھطŒ ط«ظ… ط§ط­ظپط¸ ط§ظ„ظ…ظˆط¹ط¯ ظ„ظٹط¸ظ‡ط± ظ„ظ„ظ…ط®طھط¨ط±.</p>");
+    } else if (["تطبيق", "عرض الطلاب", "بحث", "استعلام", "تحديث التقرير", "تحديث"].some((text) => label === text || label.endsWith(` ${text}`))) {
+      toast("تم تطبيق الطلب وتحديث النتائج الظاهرة.");
+    } else if (label.includes("معاينة بطاقة ولي الأمر")) {
+      modal("بطاقة ولي الأمر", "<p>تُعرض البطاقة وفق الطالب والحلقة والتاريخ المحدد في الحصيلة الحالية.</p>");
+    } else if (label.includes("جدولة اختبار") || label.includes("طلب اختبار طالب")) {
+      modal("جدولة اختبار", "<p>اختر الطالب والمقرر من شاشة الاختبارات، ثم احفظ الموعد ليظهر للمختبر.</p>");
     }
 
     if (button.closest(".query-chips")) {
@@ -89,9 +89,26 @@
     if (button.closest(".settings-menu")) {
       button.parentElement.querySelectorAll("button").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
-      toast(`طھظ… ظپطھط­ ظ‚ط³ظ… ${label.replace(/[â€¹â€؛<>]/g, "")}`);
+      toast(`تم فتح قسم ${label.replace(/[‹›<>]/g, "")}`);
     }
   }, true);
+})();
+
+// Keep the complete horizontal logo visible on login and compact headers.
+(() => {
+  const style = document.createElement('style');
+  style.id = 'sanabil-complete-logo-fix';
+  style.textContent = `
+    .brand { min-height: 170px !important; height: auto !important; overflow: visible !important; }
+    .brand img { width: min(520px, 96%) !important; height: auto !important; max-height: 190px !important; object-fit: contain !important; object-position: center !important; border-radius: 0 !important; }
+    .brand-compact { width: 230px !important; height: auto !important; overflow: visible !important; }
+    .brand-compact img { width: 220px !important; height: auto !important; max-height: 78px !important; object-fit: contain !important; object-position: center !important; border-radius: 0 !important; }
+    @media (max-width: 640px) {
+      .brand { min-height: 135px !important; }
+      .brand img { max-height: 145px !important; }
+    }
+  `;
+  document.head.appendChild(style);
 })();
 
 /* SANABIL_INLINE_BRAND */
