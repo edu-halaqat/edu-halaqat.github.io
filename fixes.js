@@ -94,6 +94,50 @@
   }, true);
 })();
 
+// Remove the original showcase records and keep empty-state dialogs readable.
+(() => {
+  const demoMarkers = [
+    "الشيخ محمد حسن", "الشيخ الأمين مهدي", "الشيخ عبد الرحمن محمد", "الشيخ أحمد الداه",
+    "عبد المجيد الأمين مهدي", "محمود الأمين مهدي", "أحمد محمود محمد سيدي",
+    "باسل سعد الدين سمير", "عمر أحمد محمد لمين", "مسجد قباء", "مسجد السلام",
+    "S-1042", "S-1048", "S-1061", "S-1073", "S-1086"
+  ];
+  const resetLabels = new Set(["إجمالي الطلاب", "المعلمون النشطون", "الحاضرون اليوم", "الحصائل المكتملة", "اختبارات اليوم"]);
+
+  const scrub = () => {
+    document.querySelectorAll(".alert-row, .progress-row, tbody tr, .plan-card").forEach((node) => {
+      if (demoMarkers.some((marker) => node.textContent.includes(marker))) node.remove();
+    });
+    document.querySelectorAll(".stat-card, .mini-stat, .mini-stats article").forEach((card) => {
+      const label = card.querySelector("small, p, span")?.textContent?.trim() || "";
+      if (resetLabels.has(label) || /معلمًا|حاضرًا اليوم|لم يسجلوا|متوسط المكوث/.test(card.textContent)) {
+        const value = card.querySelector("b, strong, .stat-value");
+        if (value) value.textContent = "0";
+      }
+    });
+    document.querySelectorAll(".alerts-list").forEach((list) => {
+      if (!list.querySelector(".alert-row") && !list.querySelector(".sanabil-empty-state")) {
+        const empty = document.createElement("p");
+        empty.className = "sanabil-empty-state";
+        empty.textContent = "لا توجد تنبيهات حتى الآن.";
+        list.appendChild(empty);
+      }
+    });
+  };
+
+  const style = document.createElement("style");
+  style.textContent = `
+    #sanabil-runtime-modal section { padding: 32px 34px !important; }
+    #sanabil-runtime-modal h2 { margin: 0 0 20px !important; padding-inline-start: 42px; line-height: 1.5; }
+    #sanabil-runtime-modal .body ul { display: grid; gap: 14px; margin: 0; padding-inline-start: 22px; line-height: 1.9 !important; }
+    #sanabil-runtime-modal .body li { padding-block: 4px; white-space: normal; overflow-wrap: anywhere; }
+    .sanabil-empty-state { margin: 18px 0; padding: 20px; text-align: center; color: #6f7f7a; background: #f6f8f7; border-radius: 14px; }
+  `;
+  document.head.appendChild(style);
+  scrub();
+  new MutationObserver(scrub).observe(document.documentElement, { childList: true, subtree: true });
+})();
+
 // Keep the complete horizontal logo visible on login and compact headers.
 (() => {
   const style = document.createElement('style');
