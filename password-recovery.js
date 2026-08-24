@@ -10,7 +10,7 @@
   async function sendRecovery() {
     const email = window.prompt("أدخل بريد حساب المشرف", ADMIN_EMAIL);
     if (!email) return;
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(`${location.origin}/`)}`, {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent("https://edu-halaqat.github.io/")}`, {
       method: "POST",
       headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim() }),
