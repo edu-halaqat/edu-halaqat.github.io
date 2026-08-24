@@ -8,7 +8,7 @@
   };
 
   async function sendRecovery() {
-    const email = window.prompt("ط£ط¯ط®ظ„ ط¨ط±ظٹط¯ ط­ط³ط§ط¨ ط§ظ„ظ…ط´ط±ظپ", ADMIN_EMAIL);
+    const email = window.prompt("أدخل بريد حساب المشرف", ADMIN_EMAIL);
     if (!email) return;
     const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(`${location.origin}/`)}`, {
       method: "POST",
@@ -17,10 +17,10 @@
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      message(error?.msg || error?.message || "طھط¹ط°ط± ط¥ط±ط³ط§ظ„ ط±ط³ط§ظ„ط© ط§ظ„ط§ط³طھط¹ط§ط¯ط©. ط±ط§ط¬ط¹ ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ط¨ط±ظٹط¯ ظپظٹ Supabase.");
+      message(error?.msg || error?.message || "تعذر إرسال رسالة الاستعادة. راجع إعدادات البريد في Supabase.");
       return;
     }
-    message("ط£ظڈط±ط³ظ„طھ ط±ط³ط§ظ„ط© ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±. ط§ظپطھط­ ط§ظ„ط±ط§ط¨ط· ط§ظ„ظ…ظˆط¬ظˆط¯ ظپظٹ ط¨ط±ظٹط¯ظƒ ظ„ط¥ط¯ط®ط§ظ„ ظƒظ„ظ…ط© ط¬ط¯ظٹط¯ط©.");
+    message("أُرسلت رسالة استعادة كلمة المرور. افتح الرابط الموجود في بريدك لإدخال كلمة جديدة.");
   }
 
   function installRecoveryButton() {
@@ -30,7 +30,7 @@
     button.id = "sanabil-forgot-password";
     button.type = "button";
     button.className = "button button-ghost button-wide";
-    button.textContent = "ظ†ط³ظٹطھ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±طں";
+    button.textContent = "نسيت كلمة المرور؟";
     button.addEventListener("click", () => void sendRecovery());
     const note = card.querySelector(".login-note");
     card.insertBefore(button, note || null);
@@ -44,10 +44,10 @@
     layer.dir = "rtl";
     layer.innerHTML = `
       <form>
-        <h2>طھط¹ظٹظٹظ† ظƒظ„ظ…ط© ظ…ط±ظˆط± ط¬ط¯ظٹط¯ط©</h2>
-        <label>ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط¬ط¯ظٹط¯ط©<input name="password" type="password" minlength="10" required autocomplete="new-password"></label>
-        <label>طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±<input name="confirm" type="password" minlength="10" required autocomplete="new-password"></label>
-        <button class="button button-primary button-wide" type="submit">ط­ظپط¸ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±</button>
+        <h2>تعيين كلمة مرور جديدة</h2>
+        <label>كلمة المرور الجديدة<input name="password" type="password" minlength="10" required autocomplete="new-password"></label>
+        <label>تأكيد كلمة المرور<input name="confirm" type="password" minlength="10" required autocomplete="new-password"></label>
+        <button class="button button-primary button-wide" type="submit">حفظ كلمة المرور</button>
       </form>`;
     Object.assign(layer.style, { position: "fixed", inset: "0", zIndex: "100000", display: "grid", placeItems: "center", padding: "20px", background: "#003d3388", fontFamily: "inherit" });
     const form = layer.querySelector("form");
@@ -59,16 +59,16 @@
       const data = new FormData(form);
       const password = String(data.get("password") || "");
       const confirm = String(data.get("confirm") || "");
-      if (password.length < 10) return message("ظٹط¬ط¨ ط£ظ† طھظƒظˆظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± 10 ط£ط­ط±ظپ ط¹ظ„ظ‰ ط§ظ„ط£ظ‚ظ„.");
-      if (password !== confirm) return message("ظƒظ„ظ…طھط§ ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚طھظٹظ†.");
+      if (password.length < 10) return message("يجب أن تكون كلمة المرور 10 أحرف على الأقل.");
+      if (password !== confirm) return message("كلمتا المرور غير متطابقتين.");
       const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
         headers: { apikey: PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      if (!response.ok) return message("طھط¹ط°ط± ط­ظپط¸ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±ط› ط£ط¹ط¯ ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„ط§ط³طھط¹ط§ط¯ط© ظˆط­ط§ظˆظ„ ظ…ط¬ط¯ط¯ظ‹ط§.");
+      if (!response.ok) return message("تعذر حفظ كلمة المرور؛ أعد إرسال رابط الاستعادة وحاول مجددًا.");
       history.replaceState({}, "", `${location.origin}/`);
-      message("طھظ… طھط¹ظٹظٹظ† ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط¨ظ†ط¬ط§ط­. ظٹظ…ظƒظ†ظƒ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط§ظ„ط¢ظ†.");
+      message("تم تعيين كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.");
       location.reload();
     });
     document.body.appendChild(layer);
