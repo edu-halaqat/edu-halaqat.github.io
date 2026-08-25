@@ -20,19 +20,42 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Download and unpack Tallam portal
+      - name: Rebuild and validate Tallam portal
         shell: bash
         run: |
           set -euo pipefail
-          package_url="https://fvzoogbdezueswyihxiz.supabase.co/storage/v1/object/public/tallam-deployment/tallam-site.tar.gz"
-          curl --fail --location --retry 5 --retry-delay 3 "$package_url" --output /tmp/tallam-site.tar.gz
+          git fetch origin deploy-tallam-portal
+
+          : > /tmp/tallam-site.b64
+          for part in chunk-00 chunk-01 chunk-02; do
+            git show "origin/deploy-tallam-portal:.deploy/tallam/archive19/${part}" >> /tmp/tallam-site.b64
+          done
+
+          base64 --decode /tmp/tallam-site.b64 > /tmp/tallam-site.tar.xz
+          xz --test /tmp/tallam-site.tar.xz
+
+          rm -rf /tmp/tallam-extracted
+          mkdir -p /tmp/tallam-extracted
+          tar -xJf /tmp/tallam-site.tar.xz -C /tmp/tallam-extracted
+
+          if [ -f /tmp/tallam-extracted/index.html ]; then
+            source_dir=/tmp/tallam-extracted
+          elif [ -f /tmp/tallam-extracted/site/index.html ]; then
+            source_dir=/tmp/tallam-extracted/site
+          else
+            index_path="$(find /tmp/tallam-extracted -maxdepth 3 -type f -name index.html | head -n 1)"
+            test -n "$index_path"
+            source_dir="$(dirname "$index_path")"
+          fi
+
+          test -f "$source_dir/index.html"
+          test -f "$source_dir/admin/index.html"
+          test -f "$source_dir/assets/js/app.js"
+          test -f "$source_dir/assets/js/ministry-export.js"
+
           rm -rf tallam
           mkdir -p tallam
-          tar -xzf /tmp/tallam-site.tar.gz -C tallam
-          test -f tallam/index.html
-          test -f tallam/admin/index.html
-          test -f tallam/assets/js/app.js
-          test -f tallam/assets/js/ministry-export.js
+          cp -a "$source_dir"/. tallam/
 
       - name: Commit portal files
         shell: bash
