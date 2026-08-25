@@ -1,0 +1,78 @@
+              <section class="form-step" data-step="4">
+                <h3 class="section-title"><span class="num">٥</span> البيانات البنكية</h3>
+                <div class="grid">
+                  <div class="field full"><label for="iban">رقم الآيبان السعودي <span class="req">*</span></label><input id="iban" name="iban" dir="ltr" required placeholder="SA0000000000000000000000" maxlength="29"><small>يبدأ بـ SA ويتكون من 24 خانة دون احتساب المسافات.</small></div>
+                  <div class="field"><label for="bank">اسم البنك <span class="req">*</span></label><input id="bank" name="bank" required></div>
+                  <div class="field"><label for="account_holder">اسم صاحب الحساب <span class="req">*</span></label><input id="account_holder" name="account_holder" required></div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="5">
+                <h3 class="section-title"><span class="num">٦</span> الخبرات القرآنية</h3>
+                <div class="grid">
+                  <div class="field third"><label for="quran_memorization">مقدار الحفظ <span class="req">*</span></label><select id="quran_memorization" name="quran_memorization" required><option value="">اختر</option><option>القرآن كاملًا</option><option>عشرون جزءًا فأكثر</option><option>عشرة أجزاء فأكثر</option><option>أقل من عشرة أجزاء</option></select></div>
+                  <div class="field third"><label>هل لديك إسناد؟ <span class="req">*</span></label><div class="radio-row"><label class="radio-chip"><input type="radio" name="has_sanad" value="نعم" required><span>نعم</span></label><label class="radio-chip"><input type="radio" name="has_sanad" value="لا"><span>لا</span></label></div></div>
+                  <div class="field third"><label for="reading_narration">الرواية أو الإجازة</label><input id="reading_narration" name="reading_narration" placeholder="مثال: حفص عن عاصم"></div>
+                  <div class="field third"><label>شهادة القاعدة المدنية؟ <span class="req">*</span></label><div class="radio-row"><label class="radio-chip"><input type="radio" name="has_madaniyah" value="نعم" required><span>نعم</span></label><label class="radio-chip"><input type="radio" name="has_madaniyah" value="لا"><span>لا</span></label></div></div>
+                  <div class="field third"><label>شهادة القاعدة النورانية؟ <span class="req">*</span></label><div class="radio-row"><label class="radio-chip"><input type="radio" name="has_nooraniyah" value="نعم" required><span>نعم</span></label><label class="radio-chip"><input type="radio" name="has_nooraniyah" value="لا"><span>لا</span></label></div></div>
+                  <div class="field third"><label for="experience_years">سنوات الخبرة <span class="req">*</span></label><input id="experience_years" name="experience_years" type="number" min="0" max="60" required value="0"></div>
+                  <div class="field full"><label for="previous_entities">الجهات أو الحلقات التي سبق لك العمل بها</label><textarea id="previous_entities" name="previous_entities" placeholder="اكتب أسماء الجهات والفترات، أو اكتب: لا يوجد"></textarea></div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="6">
+                <h3 class="section-title"><span class="num">٧</span> المرفقات</h3>
+                <div class="grid">
+                  <div class="field third file-card"><label for="personal_photo">الصورة الشخصية للرجال</label><input id="personal_photo" name="personal_photo" type="file" accept="image/jpeg,image/png"><div class="file-list">JPG أو PNG ـ مطلوبة للمتقدم الذكر.</div></div>
+                  <div class="field third file-card"><label for="educational_certificate">الشهادة الدراسية <span class="req">*</span></label><input id="educational_certificate" name="educational_certificate" type="file" accept="application/pdf,image/jpeg,image/png" required><div class="file-list">PDF أو صورة واضحة.</div></div>
+                  <div class="field third file-card"><label for="cv">السيرة الذاتية <span class="req">*</span></label><input id="cv" name="cv" type="file" accept="application/pdf" required><div class="file-list">PDF فقط.</div></div>
+                  <div class="field third file-card"><label for="recommendation_1">تزكية الشيخ الأول <span class="req">*</span></label><input id="recommendation_1" name="recommendation_1" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="recommendation_2">تزكية الشيخ الثاني <span class="req">*</span></label><input id="recommendation_2" name="recommendation_2" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="quran_certificates">شهادات حفظ القرآن <span class="req">*</span></label><input id="quran_certificates" name="quran_certificates" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="identity_document">صورة الهوية أو الإقامة <span class="req">*</span></label><input id="identity_document" name="identity_document" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="iban_document">شهادة الآيبان <span class="req">*</span></label><input id="iban_document" name="iban_document" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="other_certificates">شهادات أخرى</label><input id="other_certificates" name="other_certificates" type="file" accept="application/pdf,image/jpeg,image/png"></div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="7">
+                <h3 class="section-title"><span class="num">٨</span> التعهد والتوقيع</h3>
+                <div class="grid">
+                  <div class="field full"><div id="reviewGrid" class="review-grid"></div></div>
+                  <div class="field full">
+                    <label>التوقيع الإلكتروني <span class="req">*</span></label>
+                    <div class="signature-wrap">
+                      <canvas id="signatureCanvas" width="900" height="240" aria-label="ارسم توقيعك هنا"></canvas>
+                      <div class="signature-actions"><button class="btn btn-danger" type="button" id="clearSignature">مسح التوقيع</button></div>
+                    </div>
+                  </div>
+                  <div class="field full">
+                    <label class="consent"><input type="checkbox" id="declaration_accepted" name="declaration_accepted" required><span>أتعهد بأن جميع البيانات والمرفقات صحيحة، وأنه ليس لي حساب غير المذكور في وسائل التواصل، وأتحمل كامل المسؤولية إذا تبين خلاف ذلك.</span></label>
+                    <label class="consent"><input type="checkbox" id="privacy_accepted" name="privacy_accepted" required><span>أوافق على جمع بياناتي ومعالجتها لغرض دراسة طلب التسجيل والتواصل بشأنه، وفق <a href="privacy.html" target="_blank">سياسة الخصوصية</a>.</span></label>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div id="formStatus" class="status" role="alert"></div>
+            <div class="form-nav">
+              <button type="button" class="btn btn-secondary" id="prevBtn" disabled>السابق</button>
+              <button type="button" class="btn btn-primary" id="nextBtn">التالي</button>
+              <button type="submit" class="btn btn-primary" id="submitBtn" hidden>إرسال الطلب وإصدار الاستمارة</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="success-panel" id="successPanel">
+          <div class="success-icon">✓</div>
+          <h2>تم استلام طلبك بنجاح</h2>
+          <p>احتفظ بالرقم المرجعي للمتابعة. جرى حفظ نسختي Word وPDF مع الطلب.</p>
+          <div class="reference" id="referenceNumber"></div>
+          <div class="downloads">
+            <button class="btn btn-primary" id="downloadZip" type="button">تنزيل Word وPDF معًا</button>
+            <button class="btn btn-secondary" id="downloadWord" type="button">تنزيل Word</button>
+            <button class="btn btn-secondary" id="downloadPdf" type="button">تنزيل PDF</button>
+          </div>
+        </div>
+      </section>
+    </div>

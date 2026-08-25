@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#006b69">
+  <meta name="description" content="بوابة جمعية تعلّم لاستقبال طلبات تسجيل معلمي القرآن الكريم.">
+  <title>تسجيل المعلمين | جمعية تعلّم</title>
+  <link rel="icon" href="assets/img/tallam-logo-web.webp">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alyamama:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="topbar">جمعية تعلّم للقرآن وعلومه ـ فرع المدينة المنورة</div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="الصفحة الرئيسية">
+        <img src="assets/img/tallam-logo-web.webp" alt="شعار جمعية تعلّم">
+        <span class="brand-copy">
+          <strong>بوابة تسجيل المعلمين</strong>
+          <span>استقبال الطلبات وإصدار استمارة الوزارة آليًا</span>
+        </span>
+      </a>
+      <nav class="header-actions" aria-label="روابط مساندة">
+        <a class="pill-link" href="privacy.html">سياسة الخصوصية</a>
+        <a class="pill-link" href="admin/">لوحة الإدارة</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">طلب إلكتروني موحّد وآمن</span>
+        <h1>انضم إلى معلمي جمعية تعلّم</h1>
+        <p>أكمل بياناتك وارفع مرفقاتك مرةً واحدة؛ وسيقوم النظام بتعبئة استمارة وزارة الشؤون الإسلامية وإصدارها بصيغتي Word وPDF وحفظها مع طلبك تلقائيًا.</p>
+        <a class="btn btn-primary" href="#application-form">ابدأ تعبئة الطلب</a>
+        <div class="hero-points">
+          <div class="hero-point"><strong>حفظ تلقائي</strong><span>تُحفظ مسودة البيانات على جهازك حتى إتمام الطلب.</span></div>
+          <div class="hero-point"><strong>تصدير مزدوج</strong><span>استمارة الوزارة بصيغتي Word وPDF بعد الإرسال.</span></div>
+          <div class="hero-point"><strong>خصوصية المرفقات</strong><span>تُخزن الهوية والوثائق في مساحة خاصة غير عامة.</span></div>
+        </div>
+      </div>
+      <aside class="hero-card" aria-label="هوية الجمعية">
+        <img src="assets/img/tallam-logo-web.webp" alt="جمعية تعلّم للقرآن وعلومه">
+        <h2>فرع المدينة المنورة</h2>
+        <p>بوابة التقديم على فرص تعليم القرآن الكريم.</p>
+      </aside>
+    </section>
+
+    <div id="appMount"><div class="main-shell"><div class="notice">جارٍ تحميل نموذج التسجيل…</div></div></div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div><strong>جمعية تعلّم للقرآن وعلومه</strong><br><span>فرع المدينة المنورة ـ بوابة تسجيل المعلمين</span></div>
+      <div><a href="privacy.html">سياسة الخصوصية</a> · <a href="admin/">لوحة الإدارة</a></div>
+    </div>
+  </footer>
+
+  <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
+    <div class="loading-box"><div class="spinner"></div><h3 id="loadingTitle">جارٍ تجهيز الطلب</h3><p id="loadingText">يرجى عدم إغلاق الصفحة حتى اكتمال الحفظ وإصدار الملفات.</p></div>
+  </div>
+
+  <div id="exportMount"></div>
+  <script defer src="assets/js/bootstrap.js"></script>
+</body>
+</html>

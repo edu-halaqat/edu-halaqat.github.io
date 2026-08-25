@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /tallam/
+Disallow: /tallam/admin/

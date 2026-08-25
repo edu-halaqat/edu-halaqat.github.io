@@ -1,0 +1,90 @@
+    <div class="main-shell" id="application-form">
+      <div class="notice"><strong>تنبيه:</strong> يرجى إدخال البيانات كما هي في الوثائق الرسمية، وتجهيز الملفات بصيغ PDF أو JPG أو PNG، وألا يتجاوز حجم الملف الواحد 8 ميغابايت.</div>
+
+      <section class="form-card" aria-labelledby="formTitle">
+        <div id="formArea">
+          <div class="form-head">
+            <h2 id="formTitle">نموذج تسجيل معلم</h2>
+            <p>الحقول المعلّمة بنجمة إلزامية. لن يُرسل الطلب قبل اكتمال جميع المراحل.</p>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar" aria-hidden="true"><span id="progressFill"></span></div>
+            <div class="step-tabs" id="stepTabs">
+              <button type="button" class="step-tab active">نوع الطلب</button>
+              <button type="button" class="step-tab">الشخصية</button>
+              <button type="button" class="step-tab">المهنية</button>
+              <button type="button" class="step-tab">الاتصال</button>
+              <button type="button" class="step-tab">البنكية</button>
+              <button type="button" class="step-tab">القرآنية</button>
+              <button type="button" class="step-tab">المرفقات</button>
+              <button type="button" class="step-tab">التعهد</button>
+            </div>
+          </div>
+
+          <form id="teacherForm" novalidate enctype="multipart/form-data">
+            <input class="hp" type="text" name="website" id="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+            <div class="form-body">
+              <section class="form-step active" data-step="0">
+                <h3 class="section-title"><span class="num">١</span> نوع التسجيل</h3>
+                <div class="grid">
+                  <div class="field full">
+                    <label for="registration_type">نوع الطلب <span class="req">*</span></label>
+                    <select id="registration_type" name="registration_type" required>
+                      <option value="">اختر نوع الطلب</option>
+                      <option>تسجيل معلم جديد</option>
+                      <option>تحديث بيانات معلم</option>
+                      <option>تسجيل معلم متعاون</option>
+                      <option>طلب نقل أو تغيير حلقة</option>
+                    </select>
+                  </div>
+                  <div class="field full">
+                    <label for="branch">الفرع</label>
+                    <input id="branch" name="branch" value="فرع المدينة المنورة" readonly>
+                  </div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="1">
+                <h3 class="section-title"><span class="num">٢</span> المعلومات الشخصية</h3>
+                <div class="grid">
+                  <div class="field full"><label for="full_name">الاسم الرباعي <span class="req">*</span></label><input id="full_name" name="full_name" autocomplete="name" required placeholder="الاسم الأول واسم الأب والجد والعائلة"></div>
+                  <div class="field third"><label for="identity_number">رقم الهوية أو الإقامة <span class="req">*</span></label><input id="identity_number" name="identity_number" inputmode="numeric" maxlength="10" required placeholder="10 أرقام"></div>
+                  <div class="field third"><label for="identity_type">نوع الهوية <span class="req">*</span></label><select id="identity_type" name="identity_type" required><option value="">اختر</option><option>هوية وطنية</option><option>إقامة</option><option>هوية زائر</option></select></div>
+                  <div class="field third"><label for="identity_expiry">تاريخ الانتهاء <span class="req">*</span></label><input id="identity_expiry" name="identity_expiry" type="date" required></div>
+                  <div class="field third"><label for="nationality">الجنسية <span class="req">*</span></label><input id="nationality" name="nationality" required></div>
+                  <div class="field third"><label>الجنس <span class="req">*</span></label><div class="radio-row"><label class="radio-chip"><input type="radio" name="gender" value="ذكر" required><span>ذكر</span></label><label class="radio-chip"><input type="radio" name="gender" value="أنثى"><span>أنثى</span></label></div></div>
+                  <div class="field third"><label for="birth_place_date">مكان وتاريخ الميلاد <span class="req">*</span></label><input id="birth_place_date" name="birth_place_date" required placeholder="مثال: المدينة المنورة ـ 1410/05/10هـ"></div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="2">
+                <h3 class="section-title"><span class="num">٣</span> المعلومات المهنية والتعليمية</h3>
+                <div class="grid">
+                  <div class="field third"><label for="qualification">المؤهل العلمي <span class="req">*</span></label><input id="qualification" name="qualification" required></div>
+                  <div class="field third"><label for="specialization">التخصص <span class="req">*</span></label><input id="specialization" name="specialization" required></div>
+                  <div class="field third"><label for="workplace">مكان العمل <span class="req">*</span></label><input id="workplace" name="workplace" required placeholder="اكتب لا يوجد عند عدم وجود عمل"></div>
+                  <div class="field third"><label for="job_title">المسمى الوظيفي <span class="req">*</span></label><input id="job_title" name="job_title" required placeholder="اكتب لا يوجد عند عدم وجود وظيفة"></div>
+                  <div class="field third"><label for="mosque">المسجد أو الجهة المطلوبة <span class="req">*</span></label><input id="mosque" name="mosque" required></div>
+                  <div class="field third"><label for="period">الفترة المناسبة <span class="req">*</span></label><select id="period" name="period" required><option value="">اختر</option><option>بعد الفجر</option><option>بعد العصر</option><option>بعد المغرب</option><option>بعد العشاء</option><option>فترة مرنة</option></select></div>
+                  <div class="field full"><label for="circle_type">نوع الحلقة أو البرنامج <span class="req">*</span></label><select id="circle_type" name="circle_type" required><option value="">اختر</option><option>حلقة تلقين للصغار</option><option>حلقة حفظ ومراجعة</option><option>حلقة إقراء وإجازة</option><option>حلقة كبار السن</option><option>برنامج موسمي أو مكثف</option><option>يحدد لاحقًا بحسب الاحتياج</option></select></div>
+                </div>
+              </section>
+
+              <section class="form-step" data-step="3">
+                <h3 class="section-title"><span class="num">٤</span> معلومات الاتصال والعنوان</h3>
+                <div class="grid">
+                  <div class="field quarter"><label for="phone">رقم الهاتف <span class="req">*</span></label><input id="phone" name="phone" inputmode="tel" required placeholder="اكتب لا يوجد إن لم يتوفر"></div>
+                  <div class="field quarter"><label for="mobile">رقم الجوال <span class="req">*</span></label><input id="mobile" name="mobile" inputmode="tel" required placeholder="05xxxxxxxx"></div>
+                  <div class="field quarter"><label for="city">المدينة <span class="req">*</span></label><input id="city" name="city" required value="المدينة المنورة"></div>
+                  <div class="field quarter"><label for="region">المنطقة <span class="req">*</span></label><input id="region" name="region" required value="منطقة المدينة المنورة"></div>
+                  <div class="field quarter"><label for="district">الحي <span class="req">*</span></label><input id="district" name="district" required></div>
+                  <div class="field quarter"><label for="street">الشارع <span class="req">*</span></label><input id="street" name="street" required></div>
+                  <div class="field quarter"><label for="building_number">رقم المبنى <span class="req">*</span></label><input id="building_number" name="building_number" required></div>
+                  <div class="field quarter"><label for="apartment_number">رقم الشقة <span class="req">*</span></label><input id="apartment_number" name="apartment_number" required placeholder="اكتب لا يوجد إن لم ينطبق"></div>
+                  <div class="field third"><label for="twitter">حساب X (تويتر سابقًا) <span class="req">*</span></label><input id="twitter" name="twitter" required placeholder="اكتب لا يوجد إن لم يتوفر"></div>
+                  <div class="field third"><label for="facebook">حساب فيسبوك <span class="req">*</span></label><input id="facebook" name="facebook" required placeholder="اكتب لا يوجد إن لم يتوفر"></div>
+                  <div class="field third"><label for="email">البريد الإلكتروني <span class="req">*</span></label><input id="email" name="email" type="email" autocomplete="email" required></div>
+                </div>
+              </section>
+
