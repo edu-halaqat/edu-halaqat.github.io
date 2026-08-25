@@ -1,25 +1,31 @@
 (() => {
   const SUPABASE_URL = "https://fvzoogbdezueswyihxiz.supabase.co";
   const PUBLISHABLE_KEY = "sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ";
-  const ADMIN_EMAIL = "abdulkareem20112011@gmail.com";
+  const RESET_URL = "https://edu-halaqat.github.io/reset-password.html";
+  const RECOVERY_COOLDOWN_MS = 60_000;
 
   const message = (text) => {
     if (typeof window.alert === "function") window.alert(text);
   };
 
   async function sendRecovery() {
-    const email = window.prompt("أدخل بريد حساب المشرف", ADMIN_EMAIL);
+    const lastRequest = Number(localStorage.getItem("sanabil-last-recovery-request") || 0);
+    const remaining = RECOVERY_COOLDOWN_MS - (Date.now() - lastRequest);
+    if (remaining > 0) return message(`انتظر ${Math.ceil(remaining / 1000)} ثانية قبل طلب رسالة أخرى.`);
+    const email = window.prompt("أدخل بريدك الإلكتروني المسجل في المنصة", "");
     if (!email) return;
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent("https://edu-halaqat.github.io/")}`, {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(RESET_URL)}`, {
       method: "POST",
       headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim() }),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      if (response.status === 429) return message("تم بلوغ حد إرسال البريد مؤقتًا. انتظر قليلًا ثم أعد المحاولة مرة واحدة.");
       message(error?.msg || error?.message || "تعذر إرسال رسالة الاستعادة. راجع إعدادات البريد في Supabase.");
       return;
     }
+    localStorage.setItem("sanabil-last-recovery-request", String(Date.now()));
     message("أُرسلت رسالة استعادة كلمة المرور. افتح الرابط الموجود في بريدك لإدخال كلمة جديدة.");
   }
 
@@ -67,16 +73,27 @@
         body: JSON.stringify({ password }),
       });
       if (!response.ok) return message("تعذر حفظ كلمة المرور؛ أعد إرسال رابط الاستعادة وحاول مجددًا.");
-      history.replaceState({}, "", `${location.origin}/`);
-      message("تم تعيين كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.");
-      location.reload();
+      await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}` },
+      }).catch(() => undefined);
+      history.replaceState({}, "", `${location.origin}/reset-password.html?success=1`);
+      message("تم تعيين كلمة المرور بنجاح. سجّل الدخول الآن بكلمة المرور الجديدة.");
+      location.replace(`${location.origin}/`);
     });
     document.body.appendChild(layer);
   }
 
   const recovery = new URLSearchParams(location.hash.slice(1));
   if (recovery.get("type") === "recovery" && recovery.get("access_token")) {
-    showPasswordForm(recovery.get("access_token"));
+    if (!location.pathname.endsWith("/reset-password.html")) {
+      location.replace(`${RESET_URL}${location.hash}`);
+    } else {
+      showPasswordForm(recovery.get("access_token"));
+    }
+  } else if (location.pathname.endsWith("/reset-password.html")) {
+    const errorDescription = recovery.get("error_description");
+    if (errorDescription) message("رابط الاستعادة غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.");
   }
 
   if (!installRecoveryButton()) {
