@@ -1,0 +1,49 @@
+name: Publish Tallam Teachers Portal
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-tallam-portal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download and unpack Tallam portal
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_url="https://fvzoogbdezueswyihxiz.supabase.co/storage/v1/object/public/tallam-deployment/tallam-site.tar.gz"
+          curl --fail --location --retry 5 --retry-delay 3 "$package_url" --output /tmp/tallam-site.tar.gz
+          rm -rf tallam
+          mkdir -p tallam
+          tar -xzf /tmp/tallam-site.tar.gz -C tallam
+          test -f tallam/index.html
+          test -f tallam/admin/index.html
+          test -f tallam/assets/js/app.js
+          test -f tallam/assets/js/ministry-export.js
+
+      - name: Commit portal files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A tallam
+          if git diff --cached --quiet; then
+            echo "Tallam portal is already current."
+            exit 0
+          fi
+          git commit -m "Publish Tallam teachers portal"
+          git push origin HEAD:main
