@@ -17,6 +17,7 @@
     "الشيخ محمد حسن", "الشيخ الأمين مهدي", "الشيخ عبد الرحمن", "الشيخ أحمد الداه",
     "عبد المجيد الأمين", "محمود الأمين", "أحمد محمود محمد سيدي",
     "باسل سعد الدين سمير", "عمر أحمد محمد لمين",
+    "موعد اختبار قريب", "مزامنة ناجحة",
   ];
 
   const hijriToday = () => new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
@@ -31,9 +32,7 @@
     }
   };
 
-  let scheduled = false;
   const scrub = () => {
-    scheduled = false;
     const date = document.querySelector(".hero-kicker");
     if (date && date.textContent.trim() !== hijriToday()) date.textContent = hijriToday();
 
@@ -70,12 +69,8 @@
     });
   };
 
-  const schedule = () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(scrub);
-  };
-  schedule();
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  // Run only during initial hydration. A permanent observer can interfere with
+  // React while dynamically mounting the platform modules.
+  [0, 250, 750, 1500, 3000].forEach((delay) => setTimeout(scrub, delay));
 })();
 
