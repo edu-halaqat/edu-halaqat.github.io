@@ -10,11 +10,8 @@
   <link rel="manifest" href="manifest.webmanifest?v=20260825-2341">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Alyamama:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alyamama:wght@300;400;500;600;700;800;900&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/app.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
@@ -25,7 +22,7 @@
         <img src="assets/img/tallam-logo-v5.svg?v=20260825-2341" alt="شعار جمعية تعلّم">
         <span class="brand-copy">
           <strong>بوابة تسجيل المعلمين</strong>
-          <span>استقبال الطلبات وإصدار استمارة الوزارة آليًا</span>
+          <span>استقبال الطلبات وتعبئة الاستمارة الرسمية آليًا</span>
         </span>
       </a>
       <nav class="header-actions" aria-label="روابط مساندة">
@@ -40,11 +37,11 @@
       <div class="hero-copy">
         <span class="eyebrow">طلب إلكتروني موحّد وآمن</span>
         <h1>انضم إلى معلمي جمعية تعلّم</h1>
-        <p>أكمل بياناتك وارفع مرفقاتك مرةً واحدة؛ وسيقوم النظام بتعبئة استمارة وزارة الشؤون الإسلامية وإصدارها بصيغتي Word وPDF وحفظها مع طلبك تلقائيًا.</p>
+        <p>أكمل بياناتك وارفع مرفقاتك مرةً واحدة؛ وسيُدخل النظام البيانات في استمارة وزارة الشؤون الإسلامية الأصلية، مع إبقاء الشعار والتنسيق والمحاذاة كما هي، ثم يصدرها بصيغتي Word وPDF ويحفظها مع طلبك.</p>
         <a class="btn btn-primary" href="#application-form">ابدأ تعبئة الطلب</a>
         <div class="hero-points">
           <div class="hero-point"><strong>حفظ تلقائي</strong><span>تُحفظ مسودة البيانات على جهازك حتى إتمام الطلب.</span></div>
-          <div class="hero-point"><strong>تصدير مزدوج</strong><span>استمارة الوزارة بصيغتي Word وPDF بعد الإرسال.</span></div>
+          <div class="hero-point"><strong>القالب الرسمي</strong><span>تعبئة النموذج الأصلي دون إعادة تصميمه أو استبدال شعاراته.</span></div>
           <div class="hero-point"><strong>خصوصية المرفقات</strong><span>تُخزن الهوية والوثائق في مساحة خاصة غير عامة.</span></div>
         </div>
       </div>
@@ -69,7 +66,6 @@
     <div class="loading-box"><div class="spinner"></div><h3 id="loadingTitle">جارٍ تجهيز الطلب</h3><p id="loadingText">يرجى عدم إغلاق الصفحة حتى اكتمال الحفظ وإصدار الملفات.</p></div>
   </div>
 
-  <div id="exportMount"></div>
-  <script defer src="assets/js/bootstrap.js"></script>
+  <script defer src="assets/js/bootstrap.js?v=20260826-0035"></script>
 </body>
 </html>
