@@ -1,18 +1,36 @@
 "use strict";
-  async function generateExports() {
-    if (!window.htmlDocx || !window.html2canvas || !window.jspdf || !window.JSZip) throw new Error("تعذر تحميل أدوات إصدار الملفات. تحقق من اتصال الإنترنت ثم أعد المحاولة.");
-    await populateMinistrySheet();
-    const html = exportHtmlDocument();
-    const docxBlob = window.htmlDocx.asBlob(html, { orientation: "portrait", margins: { top: 360, right: 300, bottom: 360, left: 300 } });
 
-    const sheet = document.getElementById("ministrySheet");
-    const capture = await window.html2canvas(sheet, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, windowWidth: 794, windowHeight: 1123 });
-    const imageData = capture.toDataURL("image/jpeg", 0.96);
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-    pdf.addImage(imageData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
-    const pdfBlob = pdf.output("blob");
-    return { docxBlob, pdfBlob };
+  async function generateExports() {
+    if (!window.TallamMinistryExporter || !window.JSZip) {
+      throw new Error("تعذر تحميل القالب الرسمي وأدوات إصدار الملفات. تحقق من اتصال الإنترنت ثم أعد المحاولة.");
+    }
+    const signatureBlob = await canvasToBlob(canvas);
+    const values = {
+      full_name: fieldValue("full_name"),
+      identity_number: normalizedIdentity(),
+      identity_type: fieldValue("identity_type"),
+      identity_expiry: fieldValue("identity_expiry"),
+      nationality: fieldValue("nationality"),
+      gender: fieldValue("gender"),
+      birth_place_date: fieldValue("birth_place_date"),
+      qualification: fieldValue("qualification"),
+      specialization: fieldValue("specialization"),
+      workplace: fieldValue("workplace"),
+      job_title: fieldValue("job_title"),
+      phone: fieldValue("phone"),
+      mobile: normalizedMobile(),
+      city: fieldValue("city"),
+      region: fieldValue("region"),
+      district: fieldValue("district"),
+      street: fieldValue("street"),
+      building_number: fieldValue("building_number"),
+      apartment_number: fieldValue("apartment_number"),
+      twitter: fieldValue("twitter"),
+      facebook: fieldValue("facebook"),
+      email: fieldValue("email")
+    };
+    const photoFile = form.elements.personal_photo?.files?.[0] || null;
+    return window.TallamMinistryExporter.generate({ values, photoFile, signatureBlob });
   }
 
   function appendText(data, name, value, fallback = "") {
@@ -28,7 +46,9 @@
       "district", "street", "building_number", "apartment_number", "twitter", "facebook", "email", "bank", "account_holder",
       "quran_memorization", "has_sanad", "has_madaniyah", "has_nooraniyah", "experience_years", "reading_narration", "previous_entities"
     ];
-    for (const name of textNames) appendText(data, name, fieldValue(name), ["phone", "apartment_number", "twitter", "facebook", "workplace", "job_title", "previous_entities"].includes(name) ? "لا يوجد" : "");
+    for (const name of textNames) {
+      appendText(data, name, fieldValue(name), ["phone", "apartment_number", "twitter", "facebook", "workplace", "job_title", "previous_entities"].includes(name) ? "لا يوجد" : "");
+    }
     appendText(data, "identity_number", normalizedIdentity());
     appendText(data, "mobile", normalizedMobile());
     appendText(data, "iban", normalizedIban());
@@ -36,7 +56,7 @@
     appendText(data, "privacy_accepted", "true");
     appendText(data, "started_at", startedAt);
     appendText(data, "form_version", CONFIG.formVersion);
-    appendText(data, "ministry_export_version", CONFIG.exportVersion);
+    appendText(data, "ministry_export_version", "3.0.0-official-template");
     appendText(data, "client_timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Riyadh");
     appendText(data, "website", fieldValue("website"));
 
@@ -45,8 +65,7 @@
       if (file) data.append(input.name, file, file.name);
     }
 
-    const signatureBlob = await canvasToBlob(canvas);
-    data.append("signature", signatureBlob, "signature.png");
+    data.append("signature", exports.signatureBlob, "signature.png");
     data.append("ministry_form_docx", exports.docxBlob, "ministry-teacher-form.docx");
     data.append("ministry_form_pdf", exports.pdfBlob, "ministry-teacher-form.pdf");
     return data;
@@ -56,7 +75,10 @@
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CONFIG.timeoutMs);
     try {
-      const response = await fetch(CONFIG.endpoint, { method: "POST", body: payload, signal: controller.signal, headers: { "x-client-info": "tallam-teachers-web/3" } });
+      const response = await fetch(CONFIG.endpoint, {
+        method: "POST", body: payload, signal: controller.signal,
+        headers: { "x-client-info": "tallam-teachers-web/4-official-template" }
+      });
       let result = {};
       try { result = await response.json(); } catch { result = {}; }
       if (!response.ok) throw new Error(result.message || `تعذر حفظ الطلب (رمز ${response.status}).`);
@@ -112,12 +134,12 @@
 
     submitBtn.disabled = true;
     prevBtn.disabled = true;
-    showLoading("جارٍ إصدار استمارة الوزارة", "يتم الآن إنشاء نسختي Word وPDF وتجهيز المرفقات.");
+    showLoading("جارٍ تعبئة الاستمارة الرسمية", "يتم إدخال البيانات في القالب الأصلي دون تغيير شعاراته أو تنسيقه.");
 
     try {
       const exports = await generateExports();
       loadingTitle.textContent = "جارٍ حفظ الطلب";
-      loadingText.textContent = "يتم رفع البيانات والمرفقات بصورة آمنة؛ يرجى عدم إغلاق الصفحة.";
+      loadingText.textContent = "يتم رفع البيانات والمرفقات ونسختي Word وPDF بصورة آمنة؛ يرجى عدم إغلاق الصفحة.";
       const payload = await buildPayload(exports);
       const result = await submitPayload(payload);
 
