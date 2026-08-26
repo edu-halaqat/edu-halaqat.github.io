@@ -23,7 +23,7 @@
     city:               { x: 396,  y: 1185, w: 311,  h: 55, size: 20, min: 12 },
     region:             { x: 85,   y: 1185, w: 311,  h: 55, size: 20, min: 12 },
     district:           { x: 1018, y: 1295, w: 311,  h: 54, size: 19, min: 11 },
-    street:             { x: 707,  y: 1295, w: 311,  h: 54, size: 18, min: 10 },
+    street:             { x: 707,  y: 1295,  w: 311,  h: 54, size: 18, min: 10 },
     building_number:    { x: 396,  y: 1295, w: 311,  h: 54, size: 20, min: 13 },
     apartment_number:   { x: 85,   y: 1295, w: 311,  h: 54, size: 20, min: 13 },
     twitter:            { x: 87,   y: 1435, w: 790,  h: 54, size: 18, min: 11 },
@@ -80,10 +80,13 @@
     await document.fonts?.ready;
     try { await document.fonts?.load('600 24px "Noto Naskh Arabic"'); } catch (_) { /* fallback below */ }
     const canvas = document.createElement("canvas");
-    canvas.width = background.naturalWidth || 1414;
-    canvas.height = background.naturalHeight || 2000;
+    // تُثبت أبعاد القالب الرسمي؛ وقد تكون صورة الخلفية مضغوطة للنقل فقط.
+    canvas.width = 1414;
+    canvas.height = 2000;
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("تعذر تجهيز الاستمارة الرسمية.");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.drawImage(background, 0, 0, canvas.width, canvas.height);
     for (const [key, box] of Object.entries(PDF_BOXES)) drawText(context, values[key] || "—", box);
     if (photoFile) drawImageCover(context, await loadImage(photoFile), { x: 76, y: 133, w: 195, h: 242 }, true);
