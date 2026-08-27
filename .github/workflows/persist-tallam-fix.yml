@@ -1,0 +1,126 @@
+name: Persist Tallam portal fix
+
+on:
+  workflow_run:
+    workflows: ["Deploy GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+env:
+  TALLAM_FIX_COMMIT: 2a207157d33d60acc4295f56164c81a6b47e7f7f
+
+jobs:
+  persist:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reconstruct and verify corrected source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          portal="$GITHUB_WORKSPACE/tallam"
+          mkdir -p "$portal/assets/js" /tmp/tallam-parts
+
+          raw_base="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${TALLAM_FIX_COMMIT}/tallam/assets/js"
+          curl --fail --location --silent --show-error "$raw_base/bootstrap.js" --output "$portal/assets/js/bootstrap.js"
+          curl --fail --location --silent --show-error "$raw_base/form-readiness.js" --output "$portal/assets/js/form-readiness.js"
+
+          candidates=(
+            1c1beef9f35860bd19f52ffabc7a7603f3619377
+            18d4ec8835f35ab746b5e198eb4c00d149594db5
+            b4501f36554c603de963d9d6c7766603863a7fbd
+            eb71f5615322e6522de831aa6093f8fb749d42c7
+            037fff83279a45662240f6abe7c5872da4378b55
+            8d03426f9d56aee5a821e8e46a539874ea0222ee
+            027112e19f2d42eadbeb24ad8e785fb0b0060f29
+            0179c2b10ea0624c3d8e525fad69622556378a89
+            8447b54b0d82cd8fcc85f2f1a6bd70550c3d5f45
+            c0bb7f81ff22031cfea1aa6fb68ae8c468e0efb0
+            76a51f4b1076194bf702baac78eef95f1090862f
+            8ed53fc45f3c6cd1fff59230f63502a7603b52e6
+            40fc0c5dbc126a0d583b4fe941c34a6ccb045404
+            32c610a1289e8380e7936d66bf0c0eb41d665446
+            2ab106cf5ff8f8a900885d2d469b2544e87d5c46
+            233341232a6f2b0b5cd274a55bb82d2a59fcdd77
+            358470e9d34cf986d40ca8ee3bb81c633dfdf286
+            c319477f2ec729e7b98a1a32f131c06f88c669aa
+            6871df14f55fc42840420fe1d8ed6191f63c97af
+          )
+
+          for sha in "${candidates[@]}"; do
+            json="/tmp/tallam-parts/${sha}.json"
+            js="/tmp/tallam-parts/${sha}.js"
+            api="https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs/${sha}"
+            if ! curl --fail --location --silent --show-error \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$api" --output "$json"; then
+              continue
+            fi
+            if ! jq -e '.encoding == "base64" and (.content | type == "string")' "$json" >/dev/null; then
+              continue
+            fi
+            if ! jq -r '.content' "$json" | tr -d '\r\n' | base64 --decode > "$js" 2>/dev/null; then
+              continue
+            fi
+            idx="$(perl -ne 'if (/\)\[(\d+)\]\s*=/) { print $1; exit }' "$js")"
+            if [[ "$idx" =~ ^([0-9]|1[0-3])$ ]]; then
+              printf -v part_no '%02d' "$((10#$idx + 1))"
+              cp "$js" "$portal/assets/js/ministry-bg-${part_no}.js"
+            fi
+          done
+
+          for part_no in $(seq -w 1 14); do
+            test -s "$portal/assets/js/ministry-bg-${part_no}.js"
+          done
+
+          cat > "$portal/assets/js/ministry-background.js" <<'JS'
+          (() => {
+            "use strict";
+            const parts = window.__TallamMinistryBackgroundParts;
+            if (!Array.isArray(parts) || parts.length < 14 || parts.slice(0, 14).some((part) => typeof part !== "string" || !part.length)) {
+              throw new Error("تعذر تحميل خلفية استمارة الوزارة الرسمية كاملة.");
+            }
+            window.TallamOfficialMinistryBackground = `data:image/webp;base64,${parts.slice(0, 14).join("")}`;
+          })();
+          JS
+
+          for script in "$portal/assets/js/bootstrap.js" "$portal/assets/js/form-readiness.js" "$portal/assets/js/ministry-background.js" "$portal/assets/js/ministry-bg-"??.js; do
+            node --check "$script"
+          done
+
+          assembled=/tmp/tallam-parts/background.b64
+          for part_no in $(seq -w 1 14); do
+            perl -0777 -ne 'while (/"([A-Za-z0-9+\/=]+)"/g) { print $1 }' "$portal/assets/js/ministry-bg-${part_no}.js"
+          done > "$assembled"
+          base64 --decode "$assembled" > /tmp/tallam-parts/background.webp
+          test "$(stat -c%s /tmp/tallam-parts/background.webp)" -gt 50000
+          file /tmp/tallam-parts/background.webp | grep -Eqi 'Web/P|WebP'
+
+      - name: Commit corrected files permanently
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tallam/assets/js/bootstrap.js \
+                  tallam/assets/js/form-readiness.js \
+                  tallam/assets/js/ministry-background.js \
+                  tallam/assets/js/ministry-bg-*.js
+          if git diff --cached --quiet; then
+            echo "Corrected source is already persisted."
+            exit 0
+          fi
+          git commit -m "تثبيت ملفات إصلاح بوابة جمعية تعلّم [skip ci]"
+          git push origin HEAD:main
