@@ -95,3 +95,105 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify deployed public portal
+        shell: bash
+        env:
+          BASE_URL: https://edu-halaqat.github.io/tallam
+          BUILD: 20260828-portal-final
+        run: |
+          set -euo pipefail
+
+          fetch_url() {
+            local url="$1"
+            local output="$2"
+            for attempt in $(seq 1 24); do
+              if curl --fail --silent --show-error --location --max-time 30 \
+                -H 'Cache-Control: no-cache' \
+                "${url}?v=${BUILD}&sha=${GITHUB_SHA}&attempt=${attempt}" \
+                --output "${output}"; then
+                test -s "${output}" && return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          fetch_url "${BASE_URL}/" /tmp/public-index.html
+          fetch_url "${BASE_URL}/assets/js/bootstrap.js" /tmp/public-bootstrap.js
+          fetch_url "${BASE_URL}/assets/js/form-readiness.js" /tmp/public-readiness.js
+          fetch_url "${BASE_URL}/assets/js/ministry-background.js" /tmp/public-background.js
+          for number in $(seq -w 1 14); do
+            fetch_url "${BASE_URL}/assets/js/ministry-bg-${number}.js" "/tmp/public-bg-${number}.js"
+          done
+
+          grep -q 'bootstrap.js?v=20260828-portal-final' /tmp/public-index.html
+          grep -q '20260828-portal-final' /tmp/public-bootstrap.js
+          grep -q 'ministry-bg-14.js' /tmp/public-bootstrap.js
+          grep -q 'form-readiness.js' /tmp/public-bootstrap.js
+          grep -q 'submitBtn.disabled = !ready' /tmp/public-readiness.js
+          grep -q 'nextBtn.hidden = isLast' /tmp/public-readiness.js
+          grep -q 'هذه هي الخطوة الأخيرة' /tmp/public-readiness.js
+          grep -q '103900' /tmp/public-background.js
+          grep -q '\[13\]' /tmp/public-bg-14.js
+
+          node <<'NODE'
+          const fs = require("fs");
+          const vm = require("vm");
+          const context = { window: {} };
+          vm.createContext(context);
+          for (let index = 1; index <= 14; index += 1) {
+            const number = String(index).padStart(2, "0");
+            vm.runInContext(fs.readFileSync(`/tmp/public-bg-${number}.js`, "utf8"), context);
+          }
+          vm.runInContext(fs.readFileSync("/tmp/public-background.js", "utf8"), context);
+          const base64 = context.window.TallamOfficialMinistryBackground?.split(",")[1];
+          if (base64?.length !== 103900) throw new Error(`Unexpected public background length: ${base64?.length}`);
+          const data = Buffer.from(base64, "base64");
+          if (data.length !== 77924 || data.slice(0, 4).toString() !== "RIFF" || data.slice(8, 12).toString() !== "WEBP") {
+            throw new Error("The public official background is invalid");
+          }
+          console.log(`Public official background verified: ${data.length} bytes`);
+          NODE
+
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          rendered=false
+          for attempt in $(seq 1 12); do
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --virtual-time-budget=25000 --dump-dom \
+              "${BASE_URL}/?v=${BUILD}&sha=${GITHUB_SHA}&render=${attempt}" > /tmp/public-dom.html || true
+            if grep -q 'id="teacherForm"' /tmp/public-dom.html \
+              && grep -q 'id="submissionReadiness"' /tmp/public-dom.html \
+              && ! grep -q 'تعذر تحميل نموذج التسجيل' /tmp/public-dom.html; then
+              rendered=true
+              break
+            fi
+            sleep 5
+          done
+          test "$rendered" = true
+
+          python3 <<'PY'
+          from html.parser import HTMLParser
+
+          class PortalParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.controls = {}
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  identifier = values.get("id")
+                  if identifier in {"submitBtn", "nextBtn", "submissionReadiness", "teacherForm"}:
+                      self.controls[identifier] = (tag, values)
+
+          parser = PortalParser()
+          with open("/tmp/public-dom.html", encoding="utf-8") as stream:
+              parser.feed(stream.read())
+          submit = parser.controls.get("submitBtn")
+          assert submit, "Public submit button is missing"
+          assert "hidden" in submit[1], "Submit button must be hidden outside the last step"
+          assert "disabled" in submit[1], "Submit button must start disabled"
+          assert "teacherForm" in parser.controls, "Public form is missing"
+          assert "submissionReadiness" in parser.controls, "Readiness controller did not load"
+          print("Public DOM verified: submit is hidden and disabled on the first step")
+          PY
