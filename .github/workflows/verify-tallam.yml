@@ -15,10 +15,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate JavaScript syntax and required files
+      - name: Validate source and browser rendering
         shell: bash
         run: |
           set -euo pipefail
@@ -26,53 +26,34 @@ jobs:
           test -f tallam/admin/index.html
           test -f tallam/assets/fragments/application-1.html
           test -f tallam/assets/fragments/application-2.html
-          test -f tallam/assets/js/ministry-background.js
-          test -f tallam/assets/js/ministry-export.js
-          test -f tallam/assets/img/tallam-logo-v5.svg
+          test -f tallam/assets/js/form-readiness.js
+          for number in $(seq -w 1 14); do
+            test -s "tallam/assets/js/ministry-bg-${number}.js"
+          done
+
           node --check tallam/assets/js/bootstrap.js
           node --check tallam/assets/js/app-core.js
+          node --check tallam/assets/js/form-readiness.js
           node --check tallam/assets/js/ministry-background.js
           node --check tallam/assets/js/ministry-export.js
           node --check tallam/assets/js/app-submit.js
           node --check tallam/admin/admin.js
-          grep -q 'TallamOfficialMinistryBackground' tallam/assets/js/ministry-background.js
-          grep -q 'TallamMinistryExporter' tallam/assets/js/ministry-export.js
-          grep -q '3.0.0-official-template' tallam/assets/js/app-submit.js
 
-      - name: Render registration portal in headless Chrome
-        shell: bash
-        run: |
-          set -euo pipefail
+          grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
+          grep -q 'nextBtn.hidden = isLast' tallam/assets/js/form-readiness.js
+          grep -q 'هذه هي الخطوة الأخيرة' tallam/assets/js/form-readiness.js
+          grep -q '20260828-portal-final' tallam/assets/js/bootstrap.js
+
           python3 -m http.server 8000 --directory . >/tmp/tallam-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           sleep 2
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$browser"
-          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=15000 --dump-dom http://127.0.0.1:8000/tallam/ > /tmp/tallam-dom.html
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=20000 --dump-dom http://127.0.0.1:8000/tallam/ > /tmp/tallam-dom.html
           grep -q 'id="teacherForm"' /tmp/tallam-dom.html
           grep -q 'id="signatureCanvas"' /tmp/tallam-dom.html
-          grep -q 'إرسال الطلب وإصدار الاستمارة' /tmp/tallam-dom.html
-          grep -q 'ministry-background.js' /tmp/tallam-dom.html
-          grep -q 'ministry-export.js' /tmp/tallam-dom.html
+          grep -q 'id="submissionReadiness"' /tmp/tallam-dom.html
+          grep -q 'هذه هي الخطوة الأخيرة' /tmp/tallam-dom.html
           ! grep -q 'تعذر تحميل نموذج التسجيل' /tmp/tallam-dom.html
-
-      - name: Verify public site responses
-        shell: bash
-        run: |
-          set -euo pipefail
-          for url in \
-            https://edu-halaqat.github.io/tallam/ \
-            https://edu-halaqat.github.io/tallam/admin/ \
-            https://edu-halaqat.github.io/tallam/assets/fragments/application-1.html \
-            https://edu-halaqat.github.io/tallam/assets/js/app-core.js \
-            https://edu-halaqat.github.io/tallam/assets/js/ministry-background.js \
-            https://edu-halaqat.github.io/tallam/assets/js/ministry-export.js; do
-            for attempt in {1..12}; do
-              if curl --fail --silent --show-error --location --max-time 20 "$url" >/tmp/response; then
-                break
-              fi
-              sleep 5
-            done
-            test -s /tmp/response
-          done

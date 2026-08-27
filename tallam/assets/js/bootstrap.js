@@ -1,30 +1,49 @@
 "use strict";
 (async () => {
+  const BUILD = "20260828-portal-final";
   const appMount = document.getElementById("appMount");
-  const read = async (url) => {
-    const response = await fetch(url, { cache: "no-cache" });
+
+  const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
+  const read = async (path) => {
+    const response = await fetch(versioned(path), { cache: "no-store" });
     if (!response.ok) throw new Error(`تعذر تحميل جزء من النموذج (${response.status}).`);
     return response.text();
   };
-  const loadScript = (src) => new Promise((resolve, reject) => {
+  const loadScript = (path) => new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = src;
+    script.src = versioned(path);
+    script.async = false;
     script.onload = resolve;
-    script.onerror = () => reject(new Error(`تعذر تحميل ${src}`));
+    script.onerror = () => reject(new Error(`تعذر تحميل ${path}`));
     document.body.appendChild(script);
   });
+  const showFatalError = (error) => {
+    console.error(error);
+    const message = String(error?.message || "تعذر تحميل نموذج التسجيل.")
+      .replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    const target = document.getElementById("teacherForm") || document.querySelector("main") || document.body;
+    const box = document.createElement("div");
+    box.className = "main-shell";
+    box.innerHTML = `<div class="status show error">${message}</div>`;
+    target.prepend(box);
+  };
+
   try {
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
       read("assets/fragments/application-2.html")
     ]);
     appMount.outerHTML = part1 + part2;
-    await loadScript("assets/js/app-core.js?v=20260826-0035");
-    await loadScript("assets/js/ministry-background.js?v=20260826-0035");
-    await loadScript("assets/js/ministry-export.js?v=20260826-0035");
-    await loadScript("assets/js/app-submit.js?v=20260826-0035");
+
+    await loadScript("assets/js/app-core.js");
+    for (let index = 1; index <= 14; index += 1) {
+      await loadScript(`assets/js/ministry-bg-${String(index).padStart(2, "0")}.js`);
+    }
+    await loadScript("assets/js/ministry-background.js");
+    await loadScript("assets/js/ministry-export.js");
+    await loadScript("assets/js/app-submit.js");
+    await loadScript("assets/js/form-readiness.js");
   } catch (error) {
-    console.error(error);
-    appMount.innerHTML = `<div class="main-shell"><div class="status show error">${String(error?.message || "تعذر تحميل نموذج التسجيل.")}</div></div>`;
+    showFatalError(error);
   }
 })();
