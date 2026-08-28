@@ -95,6 +95,9 @@ jobs:
           </head><body data-export-test="pending">جارٍ اختبار إصدار الملفات
           <script>
           (async () => {
+            const keepAlive = setInterval(() => {
+              document.documentElement.dataset.qaTick = String(Date.now());
+            }, 100);
             try {
               const signature = document.createElement("canvas");
               signature.width = 900;
@@ -147,9 +150,11 @@ jobs:
 
               const pdfHeader = new TextDecoder().decode(await output.pdfBlob.slice(0, 4).arrayBuffer());
               if (pdfHeader !== "%PDF") throw new Error("PDF header is invalid");
+              clearInterval(keepAlive);
               document.body.dataset.exportTest = "success";
               document.body.textContent = `EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size}`;
             } catch (error) {
+              clearInterval(keepAlive);
               document.body.dataset.exportTest = "error";
               document.body.textContent = `EXPORT_ERROR ${error?.stack || error}`;
             }
@@ -163,7 +168,7 @@ jobs:
           trap 'kill "$server_pid" "$export_server" 2>/dev/null || true' EXIT
           sleep 2
           "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --virtual-time-budget=60000 --dump-dom http://127.0.0.1:8765/ > /tmp/export-qa-dom.html
+            --run-all-compositor-stages-before-draw --virtual-time-budget=60000 --dump-dom http://127.0.0.1:8765/ > /tmp/export-qa-dom.html
           if ! grep -q 'data-export-test="success"' /tmp/export-qa-dom.html; then
             cat /tmp/export-qa-dom.html >&2
             exit 1
