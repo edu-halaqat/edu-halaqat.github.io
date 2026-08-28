@@ -53,7 +53,7 @@ jobs:
           fetch_expected "${BASE_URL}/assets/js/ministry-export.js" /tmp/public-export.js 'TallamMinistryExporter'
           fetch_expected "${BASE_URL}/assets/js/ministry-export-docx-fix.js" /tmp/public-export-fix.js "EXPORT_BUILD = \"${BUILD}\""
 
-          grep -Fq 'ministry-bg-14.js' /tmp/public-bootstrap.js
+          grep -Fq 'for (let index = 1; index <= 14; index += 1)' /tmp/public-bootstrap.js
           grep -Fq 'form-readiness.js' /tmp/public-bootstrap.js
           grep -Fq 'nextBtn.hidden = isLast' /tmp/public-readiness.js
           grep -Fq 'هذه هي الخطوة الأخيرة' /tmp/public-readiness.js
