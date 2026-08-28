@@ -1,6 +1,6 @@
 "use strict";
 (async () => {
-  const BUILD = "20260828-docx-inline-v2";
+  const BUILD = "20260828-lossless-rgb-v1";
   const appMount = document.getElementById("appMount");
 
   const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
@@ -40,8 +40,7 @@
       await loadScript(`assets/js/ministry-bg-${String(index).padStart(2, "0")}.js`);
     }
     await loadScript("assets/js/ministry-background.js");
-    await loadScript("assets/js/ministry-export.js");
-    await loadScript("assets/js/ministry-export-docx-fix.js");
+    await loadScript("assets/js/ministry-export-lossless.js");
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
   } catch (error) {

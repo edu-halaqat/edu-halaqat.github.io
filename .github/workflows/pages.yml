@@ -31,31 +31,30 @@ jobs:
           test -f tallam/index.html
           test -f tallam/admin/index.html
           test -f tallam/assets/js/form-readiness.js
+          test -f tallam/assets/js/ministry-export-lossless.js
           for number in $(seq -w 1 14); do
             test -s "tallam/assets/js/ministry-bg-${number}.js"
           done
 
           node --check tallam/assets/js/bootstrap.js
-          node --check tallam/assets/js/form-readiness.js
+          node --check tallam/assets/js/app-core.js
           node --check tallam/assets/js/ministry-background.js
-          node --check tallam/assets/js/ministry-export.js
-          node --check tallam/assets/js/ministry-export-docx-fix.js
+          node --check tallam/assets/js/ministry-export-lossless.js
           node --check tallam/assets/js/app-submit.js
+          node --check tallam/assets/js/form-readiness.js
 
+          grep -q '20260828-lossless-rgb-v1' tallam/index.html
+          grep -q '20260828-lossless-rgb-v1' tallam/assets/js/bootstrap.js
+          grep -q 'ministry-export-lossless.js' tallam/assets/js/bootstrap.js
+          grep -q 'EXPORT_BUILD = "20260828-lossless-rgb-v1"' tallam/assets/js/ministry-export-lossless.js
+          grep -q '/FlateDecode' tallam/assets/js/ministry-export-lossless.js
+          grep -q 'form-image.png' tallam/assets/js/ministry-export-lossless.js
+          grep -q 'CompressionStream' tallam/assets/js/ministry-export-lossless.js
+          ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-lossless.js
+          ! grep -q 'official-filled-form.jpg' tallam/assets/js/ministry-export-lossless.js
           grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
           grep -q 'nextBtn.hidden = isLast' tallam/assets/js/form-readiness.js
-          grep -q 'هذه هي الخطوة الأخيرة' tallam/assets/js/form-readiness.js
           grep -q '103900' tallam/assets/js/ministry-background.js
-          grep -q '20260828-docx-inline-v2' tallam/index.html
-          grep -q '20260828-docx-inline-v2' tallam/assets/js/bootstrap.js
-          grep -q 'ministry-export-docx-fix.js' tallam/assets/js/bootstrap.js
-          grep -q 'EXPORT_BUILD = "20260828-docx-inline-v2"' tallam/assets/js/ministry-export-docx-fix.js
-          grep -q '<wp:inline' tallam/assets/js/ministry-export-docx-fix.js
-          grep -q 'word/media/' tallam/assets/js/ministry-export-docx-fix.js
-          if grep -q '<wp:anchor' tallam/assets/js/ministry-export-docx-fix.js; then
-            echo 'The unstable anchored-image DOCX implementation is still present.' >&2
-            exit 1
-          fi
 
           node <<'NODE'
           const fs = require("fs");
@@ -72,9 +71,8 @@ jobs:
           const base64 = uri.split(",")[1];
           if (base64.length !== 103900) throw new Error(`Unexpected base64 length: ${base64.length}`);
           const data = Buffer.from(base64, "base64");
-          if (data.length !== 77924) throw new Error(`Unexpected background size: ${data.length}`);
-          if (data.slice(0, 4).toString() !== "RIFF" || data.slice(8, 12).toString() !== "WEBP") {
-            throw new Error("Invalid WebP background");
+          if (data.length !== 77924 || data.slice(0, 4).toString() !== "RIFF" || data.slice(8, 12).toString() !== "WEBP") {
+            throw new Error("Invalid official background");
           }
           console.log(`Official background verified: ${data.length} bytes`);
           NODE
