@@ -15,30 +15,226 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260828-portal-final
+      BUILD: 20260828-docx-inline-v2
       TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - name: Run the corrected public verification suite
+      - name: Verify deployed interface and corrected Word/PDF exports
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/edu-halaqat/edu-halaqat.github.io/458de8f641deec4f8c208b647f28b72479cb56c9/.github/workflows/public-verify-tallam.yml \
-            --output /tmp/public-verify-source.yml
-          python3 <<'PY'
-          from pathlib import Path
+          target_sha="${TARGET_SHA:-${GITHUB_SHA}}"
 
-          lines = Path("/tmp/public-verify-source.yml").read_text(encoding="utf-8").splitlines()
-          start = next(index for index, line in enumerate(lines) if line.strip() == "run: |")
-          script = []
-          for line in lines[start + 1:]:
-              if line.startswith("          "):
-                  script.append(line[10:])
-              elif not line.strip():
-                  script.append("")
-              else:
-                  break
-          script = [line for line in script if "grep -Fq 'ministry-bg-14.js'" not in line]
-          Path("/tmp/verify-tallam-public.sh").write_text("\n".join(script) + "\n", encoding="utf-8")
+          fetch_expected() {
+            local url="$1"
+            local output="$2"
+            local expected="$3"
+            for attempt in $(seq 1 36); do
+              if curl --fail --silent --show-error --location --max-time 30 \
+                -H 'Cache-Control: no-cache, no-store, must-revalidate' \
+                "${url}?v=${BUILD}&sha=${target_sha}&attempt=${attempt}" \
+                --output "${output}" \
+                && test -s "${output}" \
+                && grep -Fq "${expected}" "${output}"; then
+                echo "Verified ${url}"
+                return 0
+              fi
+              sleep 5
+            done
+            echo "Expected public content was not found at ${url}: ${expected}" >&2
+            sed -n '1,30p' "${output}" >&2 2>/dev/null || true
+            return 1
+          }
+
+          echo "Waiting for the corrected GitHub Pages release..."
+          fetch_expected "${BASE_URL}/" /tmp/public-index.html "bootstrap.js?v=${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/public-bootstrap.js "${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/form-readiness.js" /tmp/public-readiness.js 'submitBtn.disabled = !ready'
+          fetch_expected "${BASE_URL}/assets/js/ministry-background.js" /tmp/public-background.js '103900'
+          fetch_expected "${BASE_URL}/assets/js/ministry-export.js" /tmp/public-export.js 'TallamMinistryExporter'
+          fetch_expected "${BASE_URL}/assets/js/ministry-export-docx-fix.js" /tmp/public-export-fix.js "EXPORT_BUILD = \"${BUILD}\""
+
+          grep -Fq 'ministry-bg-14.js' /tmp/public-bootstrap.js
+          grep -Fq 'form-readiness.js' /tmp/public-bootstrap.js
+          grep -Fq 'nextBtn.hidden = isLast' /tmp/public-readiness.js
+          grep -Fq 'هذه هي الخطوة الأخيرة' /tmp/public-readiness.js
+          grep -Fq 'ministry-export-docx-fix.js' /tmp/public-bootstrap.js
+          grep -Fq '<wp:inline' /tmp/public-export-fix.js
+          grep -Fq 'word/media/' /tmp/public-export-fix.js
+          if grep -Fq '<wp:anchor' /tmp/public-export-fix.js; then
+            echo 'The deployed Word exporter still uses unstable anchored placement.' >&2
+            exit 1
+          fi
+
+          for number in $(seq -w 1 14); do
+            fetch_expected "${BASE_URL}/assets/js/ministry-bg-${number}.js" "/tmp/public-bg-${number}.js" '__TallamMinistryBackgroundParts'
+          done
+
+          node <<'NODE'
+          const fs = require("fs");
+          const vm = require("vm");
+          const context = { window: {} };
+          vm.createContext(context);
+          for (let index = 1; index <= 14; index += 1) {
+            const number = String(index).padStart(2, "0");
+            vm.runInContext(fs.readFileSync(`/tmp/public-bg-${number}.js`, "utf8"), context);
+          }
+          vm.runInContext(fs.readFileSync("/tmp/public-background.js", "utf8"), context);
+          const base64 = context.window.TallamOfficialMinistryBackground?.split(",")[1];
+          if (base64?.length !== 103900) throw new Error(`Unexpected public background length: ${base64?.length}`);
+          const data = Buffer.from(base64, "base64");
+          if (data.length !== 77924 || data.slice(0, 4).toString() !== "RIFF" || data.slice(8, 12).toString() !== "WEBP") {
+            throw new Error("The public official background is invalid");
+          }
+          console.log(`Public official background verified: ${data.length} bytes`);
+          NODE
+
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+
+          echo "Rendering the public registration portal..."
+          rendered=false
+          for attempt in $(seq 1 18); do
+            rm -rf "/tmp/chrome-portal-${attempt}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --disable-application-cache --disk-cache-size=1 \
+              --user-data-dir="/tmp/chrome-portal-${attempt}" \
+              --virtual-time-budget=30000 --dump-dom \
+              "${BASE_URL}/?v=${BUILD}&sha=${target_sha}&render=${attempt}" > /tmp/public-dom.html || true
+            if grep -q 'id="teacherForm"' /tmp/public-dom.html \
+              && grep -q 'id="submissionReadiness"' /tmp/public-dom.html \
+              && ! grep -q 'تعذر تحميل نموذج التسجيل' /tmp/public-dom.html; then
+              rendered=true
+              break
+            fi
+            sleep 5
+          done
+          test "$rendered" = true
+
+          python3 <<'PY'
+          from html.parser import HTMLParser
+
+          class PortalParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.controls = {}
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  identifier = values.get("id")
+                  if identifier in {"submitBtn", "nextBtn", "submissionReadiness", "teacherForm"}:
+                      self.controls[identifier] = (tag, values)
+
+          parser = PortalParser()
+          with open("/tmp/public-dom.html", encoding="utf-8") as stream:
+              parser.feed(stream.read())
+          submit = parser.controls.get("submitBtn")
+          assert submit, "Public submit button is missing"
+          assert "hidden" in submit[1], "Submit button must be hidden outside the last step"
+          assert "disabled" in submit[1], "Submit button must start disabled"
+          assert "teacherForm" in parser.controls, "Public form is missing"
+          assert "submissionReadiness" in parser.controls, "Readiness controller did not load"
+          print("Public DOM verified: submit is hidden and disabled on the first step")
           PY
-          bash /tmp/verify-tallam-public.sh
+
+          echo "Testing Word and PDF generation from the deployed scripts..."
+          rm -rf /tmp/tallam-export-qa
+          mkdir -p /tmp/tallam-export-qa
+          curl --fail --silent --show-error --location \
+            https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js \
+            --output /tmp/tallam-export-qa/jszip.min.js
+          cp /tmp/public-bg-*.js /tmp/tallam-export-qa/
+          cp /tmp/public-background.js /tmp/tallam-export-qa/ministry-background.js
+          cp /tmp/public-export.js /tmp/tallam-export-qa/ministry-export.js
+          cp /tmp/public-export-fix.js /tmp/tallam-export-qa/ministry-export-docx-fix.js
+
+          {
+            cat <<'HTML'
+          <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><script src="jszip.min.js"></script>
+          HTML
+            for number in $(seq -w 1 14); do
+              printf '<script src="public-bg-%s.js"></script>\n' "$number"
+            done
+            cat <<'HTML'
+          <script src="ministry-background.js"></script><script src="ministry-export.js"></script><script src="ministry-export-docx-fix.js"></script>
+          </head><body data-export-test="pending">جارٍ اختبار إصدار الملفات
+          <script>
+          (async () => {
+            try {
+              const signature = document.createElement("canvas");
+              signature.width = 900;
+              signature.height = 240;
+              const context = signature.getContext("2d");
+              context.strokeStyle = "#111";
+              context.lineWidth = 9;
+              context.lineCap = "round";
+              context.beginPath();
+              context.moveTo(120, 150);
+              context.bezierCurveTo(260, 50, 420, 210, 760, 85);
+              context.stroke();
+              const signatureBlob = await new Promise((resolve, reject) =>
+                signature.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Signature blob failed")), "image/png")
+              );
+              const values = {
+                full_name: "اختبار التصدير الآلي العام",
+                identity_number: "1234567890",
+                identity_type: "إقامة",
+                identity_expiry: "2030-01-01",
+                nationality: "اختبار",
+                gender: "ذكر",
+                birth_place_date: "المدينة المنورة - 1990/01/01م",
+                qualification: "جامعي",
+                specialization: "قراءات",
+                workplace: "جمعية تعلّم",
+                job_title: "معلم قرآن",
+                phone: "لا يوجد",
+                mobile: "0500000000",
+                city: "المدينة المنورة",
+                region: "منطقة المدينة المنورة",
+                district: "اختبار",
+                street: "اختبار",
+                building_number: "1000",
+                apartment_number: "1",
+                twitter: "لا يوجد",
+                facebook: "لا يوجد",
+                email: "qa@example.com"
+              };
+              const output = await window.TallamMinistryExporter.generate({ values, photoFile: null, signatureBlob });
+              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 50000) throw new Error("Invalid Word output");
+              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 50000) throw new Error("Invalid PDF output");
+              if (!(output.signatureBlob instanceof Blob)) throw new Error("Signature integration is missing");
+
+              const docx = await JSZip.loadAsync(output.docxBlob);
+              const documentXml = await docx.file("word/document.xml")?.async("string");
+              if (!documentXml?.includes("<wp:inline")) throw new Error("Word output does not use stable inline placement");
+              if (documentXml.includes("<wp:anchor")) throw new Error("Word output still uses unstable anchored placement");
+              if (!docx.file("word/media/form-image.jpg") && !docx.file("word/media/form-image.jpeg") && !docx.file("word/media/form-image.png")) throw new Error("The complete official form image is missing from Word");
+
+              const pdfHeader = new TextDecoder().decode(await output.pdfBlob.slice(0, 4).arrayBuffer());
+              if (pdfHeader !== "%PDF") throw new Error("PDF header is invalid");
+              document.body.dataset.exportTest = "success";
+              document.body.textContent = `EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size}`;
+            } catch (error) {
+              document.body.dataset.exportTest = "error";
+              document.body.textContent = `EXPORT_ERROR ${error?.stack || error}`;
+            }
+          })();
+          </script></body></html>
+          HTML
+          } > /tmp/tallam-export-qa/index.html
+
+          python3 -m http.server 8765 --directory /tmp/tallam-export-qa >/tmp/tallam-export-http.log 2>&1 &
+          export_server=$!
+          trap 'kill "$export_server" 2>/dev/null || true' EXIT
+          sleep 2
+          rm -rf /tmp/chrome-export-qa
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --disable-application-cache --disk-cache-size=1 \
+            --user-data-dir=/tmp/chrome-export-qa \
+            --virtual-time-budget=60000 --dump-dom \
+            http://127.0.0.1:8765/ > /tmp/export-qa-dom.html
+          if ! grep -q 'data-export-test="success"' /tmp/export-qa-dom.html; then
+            cat /tmp/export-qa-dom.html >&2
+            exit 1
+          fi
+          grep -q 'EXPORT_OK DOCX=' /tmp/export-qa-dom.html
+          grep -q ' PDF=' /tmp/export-qa-dom.html
+          echo "Deployed Word and PDF generation verified successfully."

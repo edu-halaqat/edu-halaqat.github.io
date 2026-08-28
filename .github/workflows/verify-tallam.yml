@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate source and browser rendering
+      - name: Validate source and corrected Word structure
         shell: bash
         run: |
           set -euo pipefail
@@ -36,24 +36,137 @@ jobs:
           node --check tallam/assets/js/form-readiness.js
           node --check tallam/assets/js/ministry-background.js
           node --check tallam/assets/js/ministry-export.js
+          node --check tallam/assets/js/ministry-export-docx-fix.js
           node --check tallam/assets/js/app-submit.js
           node --check tallam/admin/admin.js
 
           grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
           grep -q 'nextBtn.hidden = isLast' tallam/assets/js/form-readiness.js
           grep -q 'هذه هي الخطوة الأخيرة' tallam/assets/js/form-readiness.js
-          grep -q '20260828-portal-final' tallam/assets/js/bootstrap.js
+          grep -q '20260828-docx-inline-v2' tallam/assets/js/bootstrap.js
+          grep -q 'ministry-export-docx-fix.js' tallam/assets/js/bootstrap.js
+          grep -q 'EXPORT_BUILD = "20260828-docx-inline-v2"' tallam/assets/js/ministry-export-docx-fix.js
+          grep -q '<wp:inline' tallam/assets/js/ministry-export-docx-fix.js
+          grep -q 'word/media/' tallam/assets/js/ministry-export-docx-fix.js
+          if grep -q '<wp:anchor' tallam/assets/js/ministry-export-docx-fix.js; then
+            echo 'The unstable anchored-image DOCX implementation is still present.' >&2
+            exit 1
+          fi
 
+      - name: Validate browser rendering and generated Word/PDF files
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 -m http.server 8000 --directory . >/tmp/tallam-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           sleep 2
+
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$browser"
+
           "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --virtual-time-budget=20000 --dump-dom http://127.0.0.1:8000/tallam/ > /tmp/tallam-dom.html
+            --virtual-time-budget=30000 --dump-dom http://127.0.0.1:8000/tallam/ > /tmp/tallam-dom.html
           grep -q 'id="teacherForm"' /tmp/tallam-dom.html
           grep -q 'id="signatureCanvas"' /tmp/tallam-dom.html
           grep -q 'id="submissionReadiness"' /tmp/tallam-dom.html
           grep -q 'هذه هي الخطوة الأخيرة' /tmp/tallam-dom.html
           ! grep -q 'تعذر تحميل نموذج التسجيل' /tmp/tallam-dom.html
+
+          rm -rf /tmp/tallam-export-qa
+          mkdir -p /tmp/tallam-export-qa
+          cp tallam/assets/js/ministry-bg-*.js /tmp/tallam-export-qa/
+          cp tallam/assets/js/ministry-background.js /tmp/tallam-export-qa/
+          cp tallam/assets/js/ministry-export.js /tmp/tallam-export-qa/
+          cp tallam/assets/js/ministry-export-docx-fix.js /tmp/tallam-export-qa/
+          curl --fail --silent --show-error --location \
+            https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js \
+            --output /tmp/tallam-export-qa/jszip.min.js
+
+          {
+            cat <<'HTML'
+          <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><script src="jszip.min.js"></script>
+          HTML
+            for number in $(seq -w 1 14); do
+              printf '<script src="ministry-bg-%s.js"></script>\n' "$number"
+            done
+            cat <<'HTML'
+          <script src="ministry-background.js"></script><script src="ministry-export.js"></script><script src="ministry-export-docx-fix.js"></script>
+          </head><body data-export-test="pending">جارٍ اختبار إصدار الملفات
+          <script>
+          (async () => {
+            try {
+              const signature = document.createElement("canvas");
+              signature.width = 900;
+              signature.height = 240;
+              const context = signature.getContext("2d");
+              context.strokeStyle = "#111";
+              context.lineWidth = 9;
+              context.lineCap = "round";
+              context.beginPath();
+              context.moveTo(120, 150);
+              context.bezierCurveTo(260, 50, 420, 210, 760, 85);
+              context.stroke();
+              const signatureBlob = await new Promise((resolve, reject) =>
+                signature.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Signature blob failed")), "image/png")
+              );
+              const values = {
+                full_name: "اختبار التصدير الآلي",
+                identity_number: "1234567890",
+                identity_type: "إقامة",
+                identity_expiry: "2030-01-01",
+                nationality: "اختبار",
+                gender: "ذكر",
+                birth_place_date: "المدينة المنورة - 1990/01/01م",
+                qualification: "جامعي",
+                specialization: "قراءات",
+                workplace: "جمعية تعلّم",
+                job_title: "معلم قرآن",
+                phone: "لا يوجد",
+                mobile: "0500000000",
+                city: "المدينة المنورة",
+                region: "منطقة المدينة المنورة",
+                district: "اختبار",
+                street: "اختبار",
+                building_number: "1000",
+                apartment_number: "1",
+                twitter: "لا يوجد",
+                facebook: "لا يوجد",
+                email: "qa@example.com"
+              };
+              const output = await window.TallamMinistryExporter.generate({ values, photoFile: null, signatureBlob });
+              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 50000) throw new Error("Invalid Word output");
+              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 50000) throw new Error("Invalid PDF output");
+              if (!(output.signatureBlob instanceof Blob)) throw new Error("Signature integration is missing");
+
+              const docx = await JSZip.loadAsync(output.docxBlob);
+              const documentXml = await docx.file("word/document.xml")?.async("string");
+              if (!documentXml?.includes("<wp:inline")) throw new Error("Word output does not use stable inline placement");
+              if (documentXml.includes("<wp:anchor")) throw new Error("Word output still uses unstable anchored placement");
+              if (!docx.file("word/media/form-image.jpg") && !docx.file("word/media/form-image.jpeg") && !docx.file("word/media/form-image.png")) throw new Error("The complete official form image is missing from Word");
+
+              const pdfHeader = new TextDecoder().decode(await output.pdfBlob.slice(0, 4).arrayBuffer());
+              if (pdfHeader !== "%PDF") throw new Error("PDF header is invalid");
+              document.body.dataset.exportTest = "success";
+              document.body.textContent = `EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size}`;
+            } catch (error) {
+              document.body.dataset.exportTest = "error";
+              document.body.textContent = `EXPORT_ERROR ${error?.stack || error}`;
+            }
+          })();
+          </script></body></html>
+          HTML
+          } > /tmp/tallam-export-qa/index.html
+
+          python3 -m http.server 8765 --directory /tmp/tallam-export-qa >/tmp/tallam-export-http.log 2>&1 &
+          export_server=$!
+          trap 'kill "$server_pid" "$export_server" 2>/dev/null || true' EXIT
+          sleep 2
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=60000 --dump-dom http://127.0.0.1:8765/ > /tmp/export-qa-dom.html
+          if ! grep -q 'data-export-test="success"' /tmp/export-qa-dom.html; then
+            cat /tmp/export-qa-dom.html >&2
+            exit 1
+          fi
+          grep -q 'EXPORT_OK DOCX=' /tmp/export-qa-dom.html
+          grep -q ' PDF=' /tmp/export-qa-dom.html

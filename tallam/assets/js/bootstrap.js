@@ -1,6 +1,6 @@
 "use strict";
 (async () => {
-  const BUILD = "20260828-portal-final";
+  const BUILD = "20260828-docx-inline-v2";
   const appMount = document.getElementById("appMount");
 
   const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
@@ -41,6 +41,7 @@
     }
     await loadScript("assets/js/ministry-background.js");
     await loadScript("assets/js/ministry-export.js");
+    await loadScript("assets/js/ministry-export-docx-fix.js");
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
   } catch (error) {

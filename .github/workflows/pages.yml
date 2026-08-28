@@ -39,12 +39,23 @@ jobs:
           node --check tallam/assets/js/form-readiness.js
           node --check tallam/assets/js/ministry-background.js
           node --check tallam/assets/js/ministry-export.js
+          node --check tallam/assets/js/ministry-export-docx-fix.js
           node --check tallam/assets/js/app-submit.js
 
           grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
           grep -q 'nextBtn.hidden = isLast' tallam/assets/js/form-readiness.js
           grep -q 'هذه هي الخطوة الأخيرة' tallam/assets/js/form-readiness.js
           grep -q '103900' tallam/assets/js/ministry-background.js
+          grep -q '20260828-docx-inline-v2' tallam/index.html
+          grep -q '20260828-docx-inline-v2' tallam/assets/js/bootstrap.js
+          grep -q 'ministry-export-docx-fix.js' tallam/assets/js/bootstrap.js
+          grep -q 'EXPORT_BUILD = "20260828-docx-inline-v2"' tallam/assets/js/ministry-export-docx-fix.js
+          grep -q '<wp:inline' tallam/assets/js/ministry-export-docx-fix.js
+          grep -q 'word/media/' tallam/assets/js/ministry-export-docx-fix.js
+          if grep -q '<wp:anchor' tallam/assets/js/ministry-export-docx-fix.js; then
+            echo 'The unstable anchored-image DOCX implementation is still present.' >&2
+            exit 1
+          fi
 
           node <<'NODE'
           const fs = require("fs");
