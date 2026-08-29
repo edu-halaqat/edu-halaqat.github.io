@@ -21,7 +21,7 @@ from pathlib import Path
 from PIL import Image
 
 BUILD = "20260829-final-png-v1"
-WEBP_SHA256 = "4123590b8e5038ec8aae70c37f57c863ccedd56dbfc1d01fedf0238c146cdd7e"
+WEBP_SHA256 = "977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f"
 EXPECTED_SIZE = (1414, 2000)
 
 
