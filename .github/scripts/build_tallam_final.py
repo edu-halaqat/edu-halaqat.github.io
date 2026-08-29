@@ -21,6 +21,7 @@ from PIL import Image
 BUILD = "20260829-final-png-v1"
 WEBP_SHA256 = "4123590b8e5038ec8aae70c37f57c863ccedd56dbfc1d01fedf0238c146cdd7e"
 EXPECTED_SIZE = (1414, 2000)
+BASE64_LITERAL = re.compile(r'"([A-Za-z0-9+/=]+)"')
 
 
 def reconstruct_background(root: Path) -> bytes:
@@ -28,10 +29,12 @@ def reconstruct_background(root: Path) -> bytes:
     for index in range(1, 15):
         path = root / "tallam" / "assets" / "js" / f"ministry-bg-{index:02d}.js"
         text = path.read_text(encoding="utf-8")
-        match = re.search(r"=\s*\"([A-Za-z0-9+/=]+)\"\s*;", text)
-        if not match:
+        literals = BASE64_LITERAL.findall(text)
+        if not literals:
             raise RuntimeError(f"Could not read official background chunk: {path}")
-        parts.append(match.group(1))
+        # Some large chunks are split into several adjacent JavaScript string
+        # literals joined with `+`; collect every Base64-only literal in order.
+        parts.append("".join(literals))
 
     data = base64.b64decode("".join(parts), validate=True)
     digest = hashlib.sha256(data).hexdigest()
