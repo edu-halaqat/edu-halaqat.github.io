@@ -1,7 +1,8 @@
 "use strict";
 (async () => {
-  const BUILD = "20260828-lossless-rgb-v1";
+  const BUILD = "20260829-final-png-v1";
   const appMount = document.getElementById("appMount");
+  window.__TALLAM_BUILD__ = BUILD;
 
   const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
   const read = async (path) => {
@@ -17,6 +18,14 @@
     script.onerror = () => reject(new Error(`تعذر تحميل ${path}`));
     document.body.appendChild(script);
   });
+  const ensureImage = async (path) => {
+    const response = await fetch(versioned(path), { cache: "no-store" });
+    if (!response.ok) throw new Error(`تعذر تحميل خلفية الاستمارة الرسمية (${response.status}).`);
+    const blob = await response.blob();
+    if (blob.type !== "image/png" || blob.size < 100000) {
+      throw new Error("ملف خلفية الاستمارة الرسمية غير صالح.");
+    }
+  };
   const showFatalError = (error) => {
     console.error(error);
     const message = String(error?.message || "تعذر تحميل نموذج التسجيل.")
@@ -31,16 +40,14 @@
   try {
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
-      read("assets/fragments/application-2.html")
+      read("assets/fragments/application-2.html"),
+      ensureImage("assets/img/ministry-form-background.png")
     ]);
     appMount.outerHTML = part1 + part2;
 
+    window.TallamOfficialMinistryBackground = versioned("assets/img/ministry-form-background.png");
     await loadScript("assets/js/app-core.js");
-    for (let index = 1; index <= 14; index += 1) {
-      await loadScript(`assets/js/ministry-bg-${String(index).padStart(2, "0")}.js`);
-    }
-    await loadScript("assets/js/ministry-background.js");
-    await loadScript("assets/js/ministry-export-lossless.js");
+    await loadScript("assets/js/ministry-export-final.js");
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
   } catch (error) {

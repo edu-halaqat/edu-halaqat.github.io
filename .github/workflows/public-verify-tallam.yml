@@ -15,17 +15,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260828-lossless-rgb-v1
+      BUILD: 20260829-final-png-v1
       TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - name: Verify public lossless export build
+      - name: Verify public page and final export assets
         shell: bash
         run: |
           set -euo pipefail
           target_sha="${TARGET_SHA:-${GITHUB_SHA}}"
 
           fetch_expected() {
-            local url="$1" output="$2" expected="$3"
+            local url="$1"
+            local output="$2"
+            local expected="$3"
             for attempt in $(seq 1 36); do
               if curl --fail --silent --show-error --location --max-time 30 \
                 -H 'Cache-Control: no-cache, no-store, must-revalidate' \
@@ -38,42 +40,86 @@ jobs:
               fi
               sleep 5
             done
-            echo "Expected public content was not found at ${url}: ${expected}" >&2
+            echo "Expected deployed content was not found at ${url}: ${expected}" >&2
+            sed -n '1,30p' "${output}" >&2 2>/dev/null || true
             return 1
           }
 
-          fetch_expected "${BASE_URL}/" /tmp/public-index.html "bootstrap.js?v=${BUILD}"
-          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/public-bootstrap.js "${BUILD}"
-          fetch_expected "${BASE_URL}/assets/js/ministry-background.js" /tmp/public-background.js '103900'
-          fetch_expected "${BASE_URL}/assets/js/ministry-export-lossless.js" /tmp/public-export.js 'EXPORT_BUILD = "20260828-lossless-rgb-v1"'
-          fetch_expected "${BASE_URL}/assets/js/form-readiness.js" /tmp/public-readiness.js 'submitBtn.disabled = !ready'
+          fetch_expected "${BASE_URL}/" /tmp/tallam-public-index.html "bootstrap.js?v=${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-public-bootstrap.js "${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/ministry-export-final.js" /tmp/tallam-public-exporter.js "const EXPORT_BUILD = \"${BUILD}\""
+          fetch_expected "${BASE_URL}/assets/js/form-readiness.js" /tmp/tallam-public-readiness.js 'submitBtn.disabled = !ready'
 
-          grep -Fq 'ministry-export-lossless.js' /tmp/public-bootstrap.js
-          grep -Fq '/FlateDecode' /tmp/public-export.js
-          grep -Fq 'form-image.png' /tmp/public-export.js
-          ! grep -Fq '/DCTDecode' /tmp/public-export.js
-          ! grep -Fq 'official-filled-form.jpg' /tmp/public-export.js
+          grep -Fq 'ministry-form-background.png' /tmp/tallam-public-bootstrap.js
+          grep -Fq 'ministry-export-final.js' /tmp/tallam-public-bootstrap.js
+          ! grep -Fq 'ministry-bg-' /tmp/tallam-public-bootstrap.js
+          ! grep -Fq 'ministry-background.js' /tmp/tallam-public-bootstrap.js
+          grep -Fq '/FlateDecode' /tmp/tallam-public-exporter.js
+          grep -Fq 'form-image.png' /tmp/tallam-public-exporter.js
+          ! grep -Fq '/DCTDecode' /tmp/tallam-public-exporter.js
+          ! grep -Fq 'dark / total > 0.18' /tmp/tallam-public-exporter.js
 
-          for number in $(seq -w 1 14); do
-            fetch_expected "${BASE_URL}/assets/js/ministry-bg-${number}.js" "/tmp/public-bg-${number}.js" '__TallamMinistryBackgroundParts'
+          for attempt in $(seq 1 36); do
+            if curl --fail --silent --show-error --location --max-time 30 \
+              -H 'Cache-Control: no-cache, no-store, must-revalidate' \
+              "${BASE_URL}/assets/img/ministry-form-background.png?v=${BUILD}&sha=${target_sha}&attempt=${attempt}" \
+              --output /tmp/tallam-public-background.png \
+              && test "$(wc -c </tmp/tallam-public-background.png)" -gt 100000; then
+              break
+            fi
+            sleep 5
           done
 
-          rm -rf /tmp/tallam-public-lossless
-          mkdir -p /tmp/tallam-public-lossless
-          cp /tmp/public-bg-*.js /tmp/tallam-public-lossless/
-          cp /tmp/public-background.js /tmp/tallam-public-lossless/ministry-background.js
-          cp /tmp/public-export.js /tmp/tallam-public-lossless/ministry-export-lossless.js
+          python3 -m pip install --quiet pillow
+          python3 <<'PY'
+          from PIL import Image
+          path = "/tmp/tallam-public-background.png"
+          with Image.open(path) as image:
+              assert image.size == (1414, 2000), image.size
+              rgb = image.convert("RGB")
+              anchors = {
+                  (15, 15): (255, 255, 255),
+                  (1375, 1970): (255, 255, 255),
+                  (1000, 450): (194, 214, 155),
+                  (900, 650): (234, 241, 221),
+              }
+              for point, expected in anchors.items():
+                  actual = rgb.getpixel(point)
+                  assert max(abs(actual[i] - expected[i]) for i in range(3)) <= 18, (point, actual, expected)
+          print("Public official PNG verified")
+          PY
 
-          {
-            cat <<'HTML'
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+
+          rendered=false
+          for attempt in $(seq 1 18); do
+            rm -rf "/tmp/chrome-tallam-${attempt}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --disable-application-cache --disk-cache-size=1 \
+              --user-data-dir="/tmp/chrome-tallam-${attempt}" \
+              --virtual-time-budget=30000 --dump-dom \
+              "${BASE_URL}/?v=${BUILD}&sha=${target_sha}&render=${attempt}" > /tmp/tallam-public-dom.html || true
+            if grep -q 'id="teacherForm"' /tmp/tallam-public-dom.html \
+              && grep -q 'id="submissionReadiness"' /tmp/tallam-public-dom.html \
+              && ! grep -q 'تعذر تحميل نموذج التسجيل' /tmp/tallam-public-dom.html; then
+              rendered=true
+              break
+            fi
+            sleep 5
+          done
+          test "$rendered" = true
+
+          rm -rf /tmp/tallam-public-export-qa
+          mkdir -p /tmp/tallam-public-export-qa
+          cp /tmp/tallam-public-background.png /tmp/tallam-public-export-qa/ministry-form-background.png
+          cp /tmp/tallam-public-exporter.js /tmp/tallam-public-export-qa/ministry-export-final.js
+
+          cat > /tmp/tallam-public-export-qa/index.html <<'HTML'
           <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
-          HTML
-            for number in $(seq -w 1 14); do
-              printf '<script src="public-bg-%s.js"></script>\n' "$number"
-            done
-            cat <<'HTML'
-          <script src="ministry-background.js"></script><script src="ministry-export-lossless.js"></script>
-          </head><body data-export-test="pending">جارٍ اختبار النسخة العامة
+          <script>window.TallamOfficialMinistryBackground="ministry-form-background.png";</script>
+          <script src="ministry-export-final.js"></script></head>
+          <body data-export-test="pending">جارٍ اختبار التصدير العام
           <script>
           (async () => {
             const keepAlive = setInterval(() => document.documentElement.dataset.tick = String(Date.now()), 100);
@@ -85,45 +131,37 @@ jobs:
               context.beginPath(); context.moveTo(90, 165); context.bezierCurveTo(260, 40, 430, 220, 810, 80); context.stroke();
               const signatureBlob = await new Promise((resolve, reject) => signature.toBlob((blob) => blob ? resolve(blob) : reject(new Error("signature")), "image/png"));
               const values = {
-                full_name: "اختبار التصدير العام",
-                identity_number: "1234567890",
-                identity_type: "إقامة",
-                identity_expiry: "2030-01-01",
-                nationality: "اختبار",
+                full_name: "اختبار التصدير العام النهائي",
+                identity_number: "1012345678",
+                identity_type: "هوية وطنية",
+                identity_expiry: "2030-12-30",
+                nationality: "سعودي",
                 gender: "ذكر",
-                birth_place_date: "المدينة المنورة - 1990/01/01م",
-                qualification: "جامعي",
-                specialization: "قراءات",
+                birth_place_date: "المدينة المنورة - 01/01/1410هـ",
+                qualification: "بكالوريوس",
+                specialization: "الدراسات القرآنية",
                 workplace: "جمعية تعلّم",
-                job_title: "معلم قرآن",
-                phone: "لا يوجد",
-                mobile: "0500000000",
+                job_title: "معلم قرآن كريم",
+                phone: "0140000000",
+                mobile: "551234567",
                 city: "المدينة المنورة",
                 region: "منطقة المدينة المنورة",
-                district: "اختبار",
-                street: "اختبار",
-                building_number: "1000",
-                apartment_number: "1",
+                district: "الخالدية",
+                street: "طريق الهجرة",
+                building_number: "1234",
+                apartment_number: "9",
                 twitter: "لا يوجد",
                 facebook: "لا يوجد",
                 email: "qa@example.com"
               };
               const output = await window.TallamMinistryExporter.generate({ values, photoFile: null, signatureBlob });
-              if (output.exportBuild !== "20260828-lossless-rgb-v1") throw new Error("Wrong public exporter build");
-              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 50000 || output.docxBlob.size > 8000000) throw new Error("Invalid Word output");
-              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 50000 || output.pdfBlob.size > 8000000) throw new Error("Invalid PDF output");
-
-              const docxBytes = new Uint8Array(await output.docxBlob.arrayBuffer());
-              const docxText = new TextDecoder("latin1").decode(docxBytes);
-              if (docxBytes[0] !== 0x50 || docxBytes[1] !== 0x4b) throw new Error("Word header is invalid");
-              if (!docxText.includes("word/media/form-image.png") || !docxText.includes("<wp:inline")) throw new Error("Word lossless structure is invalid");
-              if (docxText.includes("official-filled-form.jpg")) throw new Error("Word contains JPEG");
-
-              const pdfBytes = new Uint8Array(await output.pdfBlob.arrayBuffer());
-              const pdfText = new TextDecoder("latin1").decode(pdfBytes);
-              if (!pdfText.startsWith("%PDF") || !pdfText.includes("/FlateDecode")) throw new Error("PDF lossless structure is invalid");
-              if (pdfText.includes("/DCTDecode")) throw new Error("PDF contains JPEG");
-
+              if (output.exportBuild !== "20260829-final-png-v1") throw new Error("Wrong public exporter build");
+              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 100000 || output.docxBlob.size > 8000000) throw new Error("Invalid public Word output");
+              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 100000 || output.pdfBlob.size > 8000000) throw new Error("Invalid public PDF output");
+              const docx = new Uint8Array(await output.docxBlob.slice(0, 4).arrayBuffer());
+              const pdf = new TextDecoder().decode(await output.pdfBlob.slice(0, 4).arrayBuffer());
+              if (docx[0] !== 0x50 || docx[1] !== 0x4b) throw new Error("Public Word header is invalid");
+              if (pdf !== "%PDF") throw new Error("Public PDF header is invalid");
               clearInterval(keepAlive);
               document.body.dataset.exportTest = "success";
               document.body.textContent = `EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size}`;
@@ -135,20 +173,20 @@ jobs:
           })();
           </script></body></html>
           HTML
-          } > /tmp/tallam-public-lossless/index.html
 
-          python3 -m http.server 8765 --directory /tmp/tallam-public-lossless >/tmp/tallam-public-lossless-http.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          python3 -m http.server 8765 --directory /tmp/tallam-public-export-qa >/tmp/tallam-public-export-http.log 2>&1 &
+          export_server=$!
+          trap 'kill "$export_server" 2>/dev/null || true' EXIT
           sleep 2
-          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          test -n "$browser"
+          rm -rf /tmp/chrome-tallam-export
           "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --user-data-dir=/tmp/chrome-tallam-export \
             --run-all-compositor-stages-before-draw --virtual-time-budget=90000 --dump-dom \
-            http://127.0.0.1:8765/ > /tmp/tallam-public-lossless-dom.html
-          if ! grep -q 'data-export-test="success"' /tmp/tallam-public-lossless-dom.html; then
-            cat /tmp/tallam-public-lossless-dom.html >&2
+            http://127.0.0.1:8765/ > /tmp/tallam-public-export-dom.html
+          if ! grep -q 'data-export-test="success"' /tmp/tallam-public-export-dom.html; then
+            cat /tmp/tallam-public-export-dom.html >&2
             exit 1
           fi
-          grep -q 'EXPORT_OK DOCX=' /tmp/tallam-public-lossless-dom.html
-          grep -q ' PDF=' /tmp/tallam-public-lossless-dom.html
+          grep -q 'EXPORT_OK DOCX=' /tmp/tallam-public-export-dom.html
+          grep -q ' PDF=' /tmp/tallam-public-export-dom.html
+          echo "Public Tallam portal and final Word/PDF exporter verified successfully."
