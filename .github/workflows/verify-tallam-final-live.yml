@@ -1,0 +1,154 @@
+name: Verify final Tallam portal live
+
+on:
+  workflow_run:
+    workflows: ["Deploy final Tallam Teachers Portal"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://edu-halaqat.github.io/tallam
+      BUILD: 20260829-final-static-png-v1
+    steps:
+      - name: Verify live files and generate Word and PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/tallam-live-qa
+          mkdir -p /tmp/tallam-live-qa
+
+          fetch_expected() {
+            local url="$1" output="$2" expected="$3"
+            for attempt in $(seq 1 36); do
+              if curl --fail --silent --show-error --location --max-time 30 \
+                -H 'Cache-Control: no-cache, no-store, must-revalidate' \
+                "${url}?v=${BUILD}&attempt=${attempt}" --output "$output" \
+                && test -s "$output" && grep -Fq "$expected" "$output"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          fetch_expected "${BASE_URL}/" /tmp/tallam-live-qa/public-index.html "bootstrap.js?v=${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live-qa/bootstrap.js "$BUILD"
+          fetch_expected "${BASE_URL}/assets/js/ministry-export-final.js" /tmp/tallam-live-qa/ministry-export-final.js "$BUILD"
+          grep -Fq 'ministry-form-background.png' /tmp/tallam-live-qa/bootstrap.js
+          grep -Fq 'ministry-export-final.js' /tmp/tallam-live-qa/bootstrap.js
+          ! grep -Fq 'ministry-background.js' /tmp/tallam-live-qa/bootstrap.js
+          ! grep -Fq 'ministry-bg-' /tmp/tallam-live-qa/bootstrap.js
+          grep -Fq '/FlateDecode' /tmp/tallam-live-qa/ministry-export-final.js
+          ! grep -Fq '/DCTDecode' /tmp/tallam-live-qa/ministry-export-final.js
+
+          for attempt in $(seq 1 36); do
+            if curl --fail --silent --show-error --location --max-time 30 \
+              -H 'Cache-Control: no-cache, no-store, must-revalidate' \
+              "${BASE_URL}/assets/img/ministry-form-background.png?v=${BUILD}&attempt=${attempt}" \
+              --output /tmp/tallam-live-qa/ministry-form-background.png \
+              && test -s /tmp/tallam-live-qa/ministry-form-background.png; then
+              break
+            fi
+            sleep 5
+          done
+
+          python3 <<'PY'
+          from pathlib import Path
+          import struct
+          data = Path('/tmp/tallam-live-qa/ministry-form-background.png').read_bytes()
+          assert data[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', data[16:24]) == (1414, 2000)
+          assert len(data) > 100000
+          PY
+
+          curl --fail --silent --show-error --location \
+            https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js \
+            --output /tmp/tallam-live-qa/jszip.min.js
+
+          cat > /tmp/tallam-live-qa/index.html <<'HTML'
+          <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+          <script src="jszip.min.js"></script>
+          <script>window.TallamOfficialMinistryBackground = "ministry-form-background.png";</script>
+          <script src="ministry-export-final.js"></script>
+          </head><body data-export-test="pending">جارٍ الاختبار
+          <script>
+          (async () => {
+            const keepAlive = setInterval(() => document.documentElement.dataset.tick = String(Date.now()), 100);
+            const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), value => value.toString(16).padStart(2, "0")).join("");
+            try {
+              const signature = document.createElement("canvas");
+              signature.width = 900; signature.height = 240;
+              const sc = signature.getContext("2d");
+              sc.strokeStyle = "#063f3d"; sc.lineWidth = 10; sc.lineCap = "round";
+              sc.beginPath(); sc.moveTo(80, 165); sc.bezierCurveTo(250, 35, 430, 225, 820, 75); sc.stroke();
+              const signatureBlob = await new Promise((resolve, reject) => signature.toBlob(blob => blob ? resolve(blob) : reject(new Error("signature")), "image/png"));
+              const values = {
+                full_name: "اختبار النسخة المنشورة النهائية", identity_number: "1012345678", identity_type: "هوية وطنية",
+                identity_expiry: "2030-12-30", nationality: "سعودي", gender: "ذكر",
+                birth_place_date: "المدينة المنورة - 01/01/1410هـ", qualification: "بكالوريوس",
+                specialization: "الدراسات القرآنية", workplace: "جمعية تعلّم", job_title: "معلم قرآن كريم",
+                phone: "لا يوجد", mobile: "551234567", city: "المدينة المنورة", region: "منطقة المدينة المنورة",
+                district: "الخالدية", street: "طريق الهجرة", building_number: "1234", apartment_number: "9",
+                twitter: "لا يوجد", facebook: "لا يوجد", email: "qa@example.com"
+              };
+              const output = await window.TallamMinistryExporter.generate({ values, photoFile: null, signatureBlob });
+              if (output.exportBuild !== "20260829-final-static-png-v1") throw new Error("Wrong build");
+              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 100000 || output.docxBlob.size > 8000000) throw new Error(`Bad DOCX ${output.docxBlob?.size}`);
+              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 100000 || output.pdfBlob.size > 8000000) throw new Error(`Bad PDF ${output.pdfBlob?.size}`);
+              if (output.integrity.darkRatio > 0.34 || output.integrity.lightRatio < 0.45) throw new Error("Visual integrity failed");
+
+              const docx = await JSZip.loadAsync(output.docxBlob);
+              const xml = await docx.file("word/document.xml")?.async("string");
+              const png = await docx.file("word/media/form-image.png")?.async("uint8array");
+              if (!xml?.includes("<wp:inline") || xml.includes("<wp:anchor")) throw new Error("Unstable Word placement");
+              if (!png || await sha256(png) !== output.integrity.pngSha256) throw new Error("Word pixels mismatch");
+
+              const pdfBytes = new Uint8Array(await output.pdfBlob.arrayBuffer());
+              const pdfText = new TextDecoder("latin1").decode(pdfBytes);
+              if (!pdfText.startsWith("%PDF") || !pdfText.includes("/FlateDecode") || pdfText.includes("/DCTDecode")) throw new Error("Bad PDF encoding");
+              const objectStart = pdfText.indexOf("5 0 obj");
+              const streamMarker = pdfText.indexOf("stream\n", objectStart);
+              const lengthMatch = /\/Length\s+(\d+)/.exec(pdfText.slice(objectStart, streamMarker));
+              if (objectStart < 0 || streamMarker < 0 || !lengthMatch) throw new Error("Missing PDF image stream");
+              const start = streamMarker + 7;
+              const compressed = pdfBytes.slice(start, start + Number(lengthMatch[1]));
+              const raw = new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer());
+              if (raw.length !== 1414 * 2000 * 3 || await sha256(raw) !== output.integrity.rgbSha256) throw new Error("PDF pixels mismatch");
+
+              clearInterval(keepAlive);
+              document.body.dataset.exportTest = "success";
+              document.body.textContent = `LIVE_EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size} DARK=${output.integrity.darkRatio.toFixed(4)} LIGHT=${output.integrity.lightRatio.toFixed(4)}`;
+            } catch (error) {
+              clearInterval(keepAlive);
+              document.body.dataset.exportTest = "error";
+              document.body.textContent = `LIVE_EXPORT_ERROR ${error?.stack || error}`;
+            }
+          })();
+          </script></body></html>
+          HTML
+
+          python3 -m http.server 8765 --directory /tmp/tallam-live-qa >/tmp/tallam-live-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          sleep 2
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          rm -rf /tmp/chrome-tallam-live
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --disable-application-cache --disk-cache-size=1 --user-data-dir=/tmp/chrome-tallam-live \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=120000 --dump-dom \
+            http://127.0.0.1:8765/ > /tmp/tallam-live-dom.html
+          if ! grep -q 'data-export-test="success"' /tmp/tallam-live-dom.html; then
+            cat /tmp/tallam-live-dom.html >&2
+            exit 1
+          fi
+          grep -q 'LIVE_EXPORT_OK DOCX=' /tmp/tallam-live-dom.html
+          grep -q ' PDF=' /tmp/tallam-live-dom.html
+          grep 'LIVE_EXPORT_OK' /tmp/tallam-live-dom.html
