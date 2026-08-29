@@ -1,0 +1,228 @@
+name: Deploy final Tallam Teachers Portal
+
+on:
+  workflow_run:
+    workflows: ["Deploy GitHub Pages"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-final-tallam
+  cancel-in-progress: true
+
+jobs:
+  test-and-deploy-final:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the latest main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate final source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tallam-final-source/index.html
+          test -f tallam-final-source/bootstrap.js
+          test -f tallam-final-source/ministry-export-final.js
+          test -f tallam/index.html
+          test -f tallam/admin/index.html
+          for number in $(seq -w 1 14); do test -s "tallam/assets/js/ministry-bg-${number}.js"; done
+          node --check tallam-final-source/bootstrap.js
+          node --check tallam-final-source/ministry-export-final.js
+          node --check tallam/assets/js/app-core.js
+          node --check tallam/assets/js/app-submit.js
+          node --check tallam/assets/js/form-readiness.js
+          grep -q '20260829-final-static-png-v1' tallam-final-source/index.html
+          grep -q '20260829-final-static-png-v1' tallam-final-source/bootstrap.js
+          grep -q 'ministry-form-background.png' tallam-final-source/bootstrap.js
+          grep -q 'ministry-export-final.js' tallam-final-source/bootstrap.js
+          ! grep -q 'ministry-background.js' tallam-final-source/bootstrap.js
+          ! grep -q 'ministry-bg-' tallam-final-source/bootstrap.js
+          grep -q '/FlateDecode' tallam-final-source/ministry-export-final.js
+          grep -q 'form-image.png' tallam-final-source/ministry-export-final.js
+          grep -q '<wp:inline' tallam-final-source/ministry-export-final.js
+          ! grep -q '/DCTDecode' tallam-final-source/ministry-export-final.js
+          ! grep -q '<wp:anchor' tallam-final-source/ministry-export-final.js
+
+      - name: Build an immutable PNG from the verified official form
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tallam-background
+          node <<'NODE' > /tmp/tallam-background/background.b64
+          const fs = require("fs");
+          const vm = require("vm");
+          const context = { window: {} };
+          vm.createContext(context);
+          for (let index = 1; index <= 14; index += 1) {
+            const number = String(index).padStart(2, "0");
+            vm.runInContext(fs.readFileSync(`tallam/assets/js/ministry-bg-${number}.js`, "utf8"), context);
+          }
+          vm.runInContext(fs.readFileSync("tallam/assets/js/ministry-background.js", "utf8"), context);
+          const uri = context.window.TallamOfficialMinistryBackground;
+          if (!uri?.startsWith("data:image/webp;base64,")) throw new Error("Official background data URI is missing");
+          process.stdout.write(uri.split(",")[1]);
+          NODE
+          base64 --decode /tmp/tallam-background/background.b64 > /tmp/tallam-background/background.webp
+          echo '4123590b8e5038ec8aae70c37f57c863ccedd56dbfc1d01fedf0238c146cdd7e  /tmp/tallam-background/background.webp' | sha256sum --check
+          python3 -c 'from PIL import Image' || python3 -m pip install --quiet --break-system-packages pillow
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          source = Path('/tmp/tallam-background/background.webp')
+          target = Path('/tmp/tallam-background/ministry-form-background.png')
+          with Image.open(source) as image:
+              rgb = image.convert('RGB')
+              if rgb.size != (1414, 2000):
+                  raise SystemExit(f'Unexpected official form dimensions: {rgb.size}')
+              rgb.save(target, format='PNG', optimize=True, compress_level=9)
+          data = target.read_bytes()
+          if data[:8] != b'\x89PNG\r\n\x1a\n' or len(data) < 100000:
+              raise SystemExit('Generated official PNG is invalid')
+          print(f'Official PNG generated: {len(data)} bytes')
+          PY
+          sha256sum /tmp/tallam-background/ministry-form-background.png
+
+      - name: Prepare the final site artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.deploy/' \
+            --exclude='_site/' \
+            --exclude='tallam-final-source/' \
+            ./ _site/
+          mkdir -p _site/tallam/assets/js _site/tallam/assets/img
+          cp tallam-final-source/index.html _site/tallam/index.html
+          cp tallam-final-source/bootstrap.js _site/tallam/assets/js/bootstrap.js
+          cp tallam-final-source/ministry-export-final.js _site/tallam/assets/js/ministry-export-final.js
+          cp /tmp/tallam-background/ministry-form-background.png _site/tallam/assets/img/ministry-form-background.png
+          touch _site/.nojekyll
+          test -s _site/tallam/assets/img/ministry-form-background.png
+
+      - name: Generate and inspect Word and PDF in a real browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > _site/tallam/__export_qa.html <<'HTML'
+          <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+          <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+          <script>window.TallamOfficialMinistryBackground = "assets/img/ministry-form-background.png";</script>
+          <script src="assets/js/ministry-export-final.js"></script>
+          </head><body data-export-test="pending">جارٍ اختبار التصدير
+          <script>
+          (async () => {
+            const keepAlive = setInterval(() => { document.documentElement.dataset.tick = String(Date.now()); }, 100);
+            const sha256 = async (bytes) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), value => value.toString(16).padStart(2, "0")).join("");
+            try {
+              const signature = document.createElement("canvas");
+              signature.width = 900; signature.height = 240;
+              const sc = signature.getContext("2d");
+              sc.strokeStyle = "#063f3d"; sc.lineWidth = 10; sc.lineCap = "round";
+              sc.beginPath(); sc.moveTo(90, 165); sc.bezierCurveTo(260, 40, 430, 220, 810, 80); sc.stroke();
+              const signatureBlob = await new Promise((resolve, reject) => signature.toBlob(blob => blob ? resolve(blob) : reject(new Error("signature")), "image/png"));
+
+              const photo = document.createElement("canvas");
+              photo.width = 600; photo.height = 740;
+              const pc = photo.getContext("2d");
+              pc.fillStyle = "#fff"; pc.fillRect(0, 0, 600, 740);
+              pc.fillStyle = "#ddb277"; pc.beginPath(); pc.arc(300, 180, 95, 0, Math.PI * 2); pc.fill();
+              pc.fillStyle = "#006b69"; pc.fillRect(165, 300, 270, 330);
+              const photoFile = await new Promise((resolve, reject) => photo.toBlob(blob => blob ? resolve(new File([blob], "photo.png", { type: "image/png" })) : reject(new Error("photo")), "image/png"));
+
+              const values = {
+                full_name: "محمد أحمد عبد الله السلمي", identity_number: "1012345678", identity_type: "هوية وطنية",
+                identity_expiry: "2030-12-30", nationality: "سعودي", gender: "ذكر",
+                birth_place_date: "المدينة المنورة - 01/01/1410هـ", qualification: "بكالوريوس",
+                specialization: "الدراسات القرآنية", workplace: "جمعية تعلّم", job_title: "معلم قرآن كريم",
+                phone: "0140000000", mobile: "551234567", city: "المدينة المنورة", region: "منطقة المدينة المنورة",
+                district: "الخالدية", street: "طريق الهجرة", building_number: "1234", apartment_number: "9",
+                twitter: "tallam@", facebook: "لا يوجد", email: "teacher@example.com"
+              };
+
+              const output = await window.TallamMinistryExporter.generate({ values, photoFile, signatureBlob });
+              if (output.exportBuild !== "20260829-final-static-png-v1") throw new Error("Wrong exporter build");
+              if (!(output.docxBlob instanceof Blob) || output.docxBlob.size < 100000 || output.docxBlob.size > 8000000) throw new Error(`Invalid Word output: ${output.docxBlob?.size}`);
+              if (!(output.pdfBlob instanceof Blob) || output.pdfBlob.size < 100000 || output.pdfBlob.size > 8000000) throw new Error(`Invalid PDF output: ${output.pdfBlob?.size}`);
+              if (output.integrity.width !== 1414 || output.integrity.height !== 2000) throw new Error("Wrong rendered dimensions");
+              if (output.integrity.darkRatio > 0.34 || output.integrity.lightRatio < 0.45) throw new Error("Rendered page failed visual metrics");
+
+              const docx = await JSZip.loadAsync(output.docxBlob);
+              const documentXml = await docx.file("word/document.xml")?.async("string");
+              const embeddedPng = await docx.file("word/media/form-image.png")?.async("uint8array");
+              if (!documentXml?.includes("<wp:inline") || documentXml.includes("<wp:anchor")) throw new Error("Word placement is unstable");
+              if (!embeddedPng || await sha256(embeddedPng) !== output.integrity.pngSha256) throw new Error("Word image differs from the verified render");
+
+              const pdfBytes = new Uint8Array(await output.pdfBlob.arrayBuffer());
+              const pdfText = new TextDecoder("latin1").decode(pdfBytes);
+              if (!pdfText.startsWith("%PDF") || !pdfText.includes("/FlateDecode") || pdfText.includes("/DCTDecode")) throw new Error("PDF encoding is not lossless Flate RGB");
+              const objectStart = pdfText.indexOf("5 0 obj");
+              const streamMarker = pdfText.indexOf("stream\n", objectStart);
+              const lengthMatch = /\/Length\s+(\d+)/.exec(pdfText.slice(objectStart, streamMarker));
+              if (objectStart < 0 || streamMarker < 0 || !lengthMatch) throw new Error("PDF image stream is missing");
+              const streamStart = streamMarker + 7;
+              const compressed = pdfBytes.slice(streamStart, streamStart + Number(lengthMatch[1]));
+              const rawRgb = new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer());
+              if (rawRgb.length !== 1414 * 2000 * 3 || await sha256(rawRgb) !== output.integrity.rgbSha256) throw new Error("PDF pixels differ from the verified render");
+
+              clearInterval(keepAlive);
+              document.body.dataset.exportTest = "success";
+              document.body.textContent = `EXPORT_OK DOCX=${output.docxBlob.size} PDF=${output.pdfBlob.size} DARK=${output.integrity.darkRatio.toFixed(4)} LIGHT=${output.integrity.lightRatio.toFixed(4)}`;
+            } catch (error) {
+              clearInterval(keepAlive);
+              document.body.dataset.exportTest = "error";
+              document.body.textContent = `EXPORT_ERROR ${error?.stack || error}`;
+            }
+          })();
+          </script></body></html>
+          HTML
+
+          python3 -m http.server 8765 --directory _site/tallam >/tmp/tallam-final-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          sleep 2
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          rm -rf /tmp/chrome-tallam-final
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --disable-application-cache --disk-cache-size=1 \
+            --user-data-dir=/tmp/chrome-tallam-final \
+            --run-all-compositor-stages-before-draw --virtual-time-budget=120000 --dump-dom \
+            http://127.0.0.1:8765/__export_qa.html > /tmp/tallam-final-dom.html
+          if ! grep -q 'data-export-test="success"' /tmp/tallam-final-dom.html; then
+            cat /tmp/tallam-final-dom.html >&2
+            exit 1
+          fi
+          grep -q 'EXPORT_OK DOCX=' /tmp/tallam-final-dom.html
+          grep -q ' PDF=' /tmp/tallam-final-dom.html
+          grep 'EXPORT_OK' /tmp/tallam-final-dom.html
+          rm -f _site/tallam/__export_qa.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload final Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy final GitHub Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
