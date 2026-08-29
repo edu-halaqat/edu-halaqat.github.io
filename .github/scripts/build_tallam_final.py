@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Build the final, stable Tallam ministry-form export assets.
 
-The repository keeps the official WebP source split into small JavaScript chunks.
-This builder reconstructs that source, converts it once to a static PNG, and
-creates the final exporter from the lossless exporter while replacing the old
-false-positive integrity rule with deterministic anchor checks.
+The repository keeps the official WebP source split into JavaScript chunks.
+This builder evaluates those chunks with Node exactly as the browser did,
+converts the verified source once to a static PNG, and creates the final
+lossless Word/PDF exporter with deterministic integrity checks.
 """
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ import argparse
 import base64
 import hashlib
 import io
+import os
 import re
+import subprocess
 from pathlib import Path
 
 from PIL import Image
@@ -21,22 +23,42 @@ from PIL import Image
 BUILD = "20260829-final-png-v1"
 WEBP_SHA256 = "4123590b8e5038ec8aae70c37f57c863ccedd56dbfc1d01fedf0238c146cdd7e"
 EXPECTED_SIZE = (1414, 2000)
-BASE64_LITERAL = re.compile(r'"([A-Za-z0-9+/=]+)"')
 
 
 def reconstruct_background(root: Path) -> bytes:
-    parts: list[str] = []
-    for index in range(1, 15):
-        path = root / "tallam" / "assets" / "js" / f"ministry-bg-{index:02d}.js"
-        text = path.read_text(encoding="utf-8")
-        literals = BASE64_LITERAL.findall(text)
-        if not literals:
-            raise RuntimeError(f"Could not read official background chunk: {path}")
-        # Some large chunks are split into several adjacent JavaScript string
-        # literals joined with `+`; collect every Base64-only literal in order.
-        parts.append("".join(literals))
-
-    data = base64.b64decode("".join(parts), validate=True)
+    node_script = r'''
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+const root = process.env.TALLAM_ROOT;
+if (!root) throw new Error("TALLAM_ROOT is missing");
+const context = { window: {} };
+vm.createContext(context);
+for (let index = 1; index <= 14; index += 1) {
+  const number = String(index).padStart(2, "0");
+  const filename = path.join(root, "tallam", "assets", "js", `ministry-bg-${number}.js`);
+  vm.runInContext(fs.readFileSync(filename, "utf8"), context, { filename });
+}
+const parts = context.window.__TallamMinistryBackgroundParts;
+if (!Array.isArray(parts) || parts.length < 14) throw new Error("Background chunks are incomplete");
+for (let index = 0; index < 14; index += 1) {
+  if (typeof parts[index] !== "string" || parts[index].length === 0) {
+    throw new Error(`Background chunk ${index + 1} is invalid`);
+  }
+}
+process.stdout.write(parts.slice(0, 14).join(""));
+'''
+    environment = os.environ.copy()
+    environment["TALLAM_ROOT"] = str(root)
+    completed = subprocess.run(
+        ["node", "-e", node_script],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    encoded = completed.stdout.strip()
+    data = base64.b64decode(encoded, validate=True)
     digest = hashlib.sha256(data).hexdigest()
     if digest != WEBP_SHA256:
         raise RuntimeError(f"Official WebP checksum mismatch: {digest}")
