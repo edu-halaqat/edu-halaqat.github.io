@@ -1,4 +1,4 @@
-name: Publish Tallam Teachers Portal
+name: Archived Tallam publication workflow
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  disabled:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Tallam portal is now published directly in the repository."
+      - run: echo "Publication is handled by Deploy GitHub Pages."

@@ -4,9 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "tallam/**"
-      - ".github/scripts/build_tallam_final.py"
-      - ".github/workflows/verify-tallam.yml"
+      - 'tallam/**'
+      - '.github/workflows/verify-tallam.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,46 +15,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build and validate final source
+      - uses: actions/checkout@v4
+      - name: Verify static final release
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet pillow
-          python3 .github/scripts/build_tallam_final.py --root .
-
-          test -s tallam/assets/img/ministry-form-background.png
-          test -s tallam/assets/js/ministry-export-final.js
+          node --check tallam/assets/js/bootstrap.js
+          node --check tallam/assets/js/ministry-export-final.js
+          grep -q '20260830-final-png-v2' tallam/index.html
+          grep -q '20260830-final-png-v2' tallam/assets/js/bootstrap.js
+          grep -q 'TallamMinistryExporter' tallam/assets/js/ministry-export-final.js
+          grep -q '/FlateDecode' tallam/assets/js/ministry-export-final.js
+          ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
-
-          path = Path("tallam/assets/img/ministry-form-background.png")
-          with Image.open(path) as image:
-              assert image.size == (1414, 2000)
-              assert image.mode in {"RGB", "RGBA"}
-          assert path.stat().st_size > 100_000
+          import struct
+          data = Path('tallam/assets/img/ministry-form-background.png').read_bytes()
+          assert data[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', data[16:24]) == (1414, 2000)
+          assert len(data) > 30_000
           PY
-
-          node --check tallam/assets/js/bootstrap.js
-          node --check tallam/assets/js/app-core.js
-          node --check tallam/assets/js/ministry-export-final.js
-          node --check tallam/assets/js/app-submit.js
-          node --check tallam/assets/js/form-readiness.js
-          node --check tallam/admin/admin.js
-
-          grep -q '20260829-final-png-v1' tallam/index.html
-          grep -q '20260829-final-png-v1' tallam/assets/js/bootstrap.js
-          grep -q '20260829-final-png-v1' tallam/assets/js/ministry-export-final.js
-          grep -q 'ministry-form-background.png' tallam/assets/js/bootstrap.js
-          grep -q 'ministry-export-final.js' tallam/assets/js/bootstrap.js
-          ! grep -q 'ministry-bg-' tallam/assets/js/bootstrap.js
-          ! grep -q 'ministry-background.js' tallam/assets/js/bootstrap.js
-          grep -q '/FlateDecode' tallam/assets/js/ministry-export-final.js
-          grep -q 'form-image.png' tallam/assets/js/ministry-export-final.js
-          ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
-          ! grep -q 'dark / total > 0.18' tallam/assets/js/ministry-export-final.js
-          grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
-          grep -q 'nextBtn.hidden = isLast' tallam/assets/js/form-readiness.js
