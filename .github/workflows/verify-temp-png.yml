@@ -1,0 +1,33 @@
+name: Verify temporary ministry PNG
+
+on:
+  push:
+    branches: [verify-background-blob]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import hashlib, struct
+          p = Path('.tmp/ministry-form-background.png')
+          b = p.read_bytes()
+          print('SIZE', len(b))
+          print('SHA256', hashlib.sha256(b).hexdigest())
+          print('GIT_BLOB_SHA1', hashlib.sha1(f'blob {len(b)}\0'.encode() + b).hexdigest())
+          print('SIGNATURE', b[:8].hex())
+          print('DIMENSIONS', struct.unpack('>II', b[16:24]))
+          assert b[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', b[16:24]) == (1414, 2000)
+          assert len(b) > 30000
+          PY
