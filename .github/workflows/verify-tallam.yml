@@ -6,6 +6,7 @@ on:
     paths:
       - 'tallam/**'
       - '.github/workflows/verify-tallam.yml'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -20,18 +21,57 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check tallam/admin/admin.js
           node --check tallam/assets/js/bootstrap.js
           node --check tallam/assets/js/ministry-export-final.js
+          node --check tallam/assets/js/app-submit.js
+          node --check tallam/assets/js/form-readiness.js
+
           grep -q '20260830-final-png-v2' tallam/index.html
           grep -q '20260830-final-png-v2' tallam/assets/js/bootstrap.js
           grep -q 'TallamMinistryExporter' tallam/assets/js/ministry-export-final.js
           grep -q '/FlateDecode' tallam/assets/js/ministry-export-final.js
           ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
+          grep -q 'Mad3@tallam.sa' tallam/admin/admin.js
+          grep -q 'signInWithOtp' tallam/admin/admin.js
+          grep -q 'method: "DELETE"' tallam/admin/admin.js
+          grep -q 'حذف الطلب نهائيًا' tallam/admin/admin.js
+
           python3 - <<'PY'
           from pathlib import Path
           import struct
+          import zlib
+
           data = Path('tallam/assets/img/ministry-form-background.png').read_bytes()
           assert data[:8] == b'\x89PNG\r\n\x1a\n'
-          assert struct.unpack('>II', data[16:24]) == (1414, 2000)
-          assert len(data) > 30_000
+          offset = 8
+          idat = []
+          width = height = bit_depth = color_type = None
+          saw_iend = False
+          while offset + 12 <= len(data):
+              length = struct.unpack('>I', data[offset:offset + 4])[0]
+              kind = data[offset + 4:offset + 8]
+              start = offset + 8
+              end = start + length
+              assert end + 4 <= len(data), (kind, length, offset)
+              payload = data[start:end]
+              crc_expected = struct.unpack('>I', data[end:end + 4])[0]
+              assert zlib.crc32(kind + payload) & 0xffffffff == crc_expected, kind
+              if kind == b'IHDR':
+                  width, height, bit_depth, color_type = struct.unpack('>IIBB', payload[:10])
+              elif kind == b'IDAT':
+                  idat.append(payload)
+              elif kind == b'IEND':
+                  saw_iend = True
+                  break
+              offset = end + 4
+          assert (width, height) == (1414, 2000)
+          assert bit_depth in (8, 16)
+          assert color_type in (0, 2, 3, 4, 6)
+          assert idat and saw_iend
+          decoded = zlib.decompress(b''.join(idat))
+          channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color_type]
+          expected = height * (1 + ((width * channels * bit_depth + 7) // 8))
+          assert len(decoded) == expected, (len(decoded), expected)
+          print(f'Official PNG verified: {width}x{height}, {len(data)} bytes')
           PY
