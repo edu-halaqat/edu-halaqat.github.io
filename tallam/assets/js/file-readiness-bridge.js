@@ -9,6 +9,8 @@
   const cache = window.TallamFileCache;
   let applying = false;
   let scheduled = 0;
+  let lastBlocking = false;
+  let syntheticRefresh = false;
 
   if (!form || !submitBtn || !cache?.stateOf) {
     document.body.dataset.fileReadinessBridge = "false";
@@ -61,13 +63,25 @@
     if (!lastStepVisible() || !readinessBox) return;
     readinessBox.hidden = false;
     readinessBox.classList.add("show");
-    readinessBox.classList.toggle("ready", false);
+    readinessBox.classList.remove("ready");
     readinessBox.classList.toggle("error", problem.error);
     readinessBox.textContent = problem.message;
   }
 
+  function requestBaseReadinessRefresh() {
+    if (syntheticRefresh) return;
+    syntheticRefresh = true;
+    requestAnimationFrame(() => {
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+      requestAnimationFrame(() => {
+        syntheticRefresh = false;
+        apply();
+      });
+    });
+  }
+
   function apply() {
-    if (applying) return;
+    if (applying) return null;
     applying = true;
     try {
       const problem = cacheProblem();
@@ -77,26 +91,25 @@
         submitBtn.setAttribute("aria-disabled", "true");
         submitBtn.title = problem.message;
         showCacheMessage(problem);
+      } else if (lastBlocking) {
+        requestBaseReadinessRefresh();
       }
+      lastBlocking = problem.blocking;
+      return problem;
     } finally {
       applying = false;
     }
   }
 
   function schedule() {
+    if (syntheticRefresh) return;
     cancelAnimationFrame(scheduled);
-    scheduled = requestAnimationFrame(() => {
-      apply();
-      if (!cacheProblem().blocking) {
-        form.dispatchEvent(new CustomEvent("tallam:file-cache-ready", { bubbles: true }));
-      }
-    });
+    scheduled = requestAnimationFrame(apply);
   }
 
   form.addEventListener("tallam:file-cache-state", schedule, true);
   form.addEventListener("input", schedule, true);
   form.addEventListener("change", schedule, true);
-  form.addEventListener("tallam:file-cache-ready", () => requestAnimationFrame(apply), true);
 
   form.addEventListener("submit", (event) => {
     const problem = cacheProblem();
@@ -112,7 +125,10 @@
     }
   }, true);
 
-  const observer = new MutationObserver(apply);
+  const observer = new MutationObserver(() => {
+    const problem = cacheProblem();
+    if (problem.blocking && !submitBtn.disabled) apply();
+  });
   observer.observe(submitBtn, { attributes: true, attributeFilter: ["disabled", "hidden"] });
 
   document.body.dataset.fileReadinessBridge = "true";
