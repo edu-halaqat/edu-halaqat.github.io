@@ -1,9 +1,48 @@
 "use strict";
 
+  const FILE_CACHE_BUILD = "20260831-stable-file-cache-v2";
+
+  function fileInputLabel(input) {
+    const direct = input?.id ? form.querySelector(`label[for="${CSS.escape(input.id)}"]`) : null;
+    return String(direct?.textContent || input?.closest?.(".file-card")?.querySelector("label")?.textContent || input?.name || "الملف")
+      .replace(/\*/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function friendlySubmissionError(error, label = "أحد المرفقات") {
+    const cache = window.TallamFileCache;
+    if (cache?.friendlyError) return cache.friendlyError(error, label);
+    const name = String(error?.name || "");
+    const message = String(error?.message || error || "");
+    if (/NotReadableError|SecurityError/i.test(name)
+      || /requested file could not be read|permission problems|permission denied|file could not be read/i.test(message)) {
+      return `انتهت صلاحية الوصول إلى ${label} في الهاتف. أعد اختيار الملف من تطبيق «ملفاتي» أو «الصور» ثم أرسل الطلب دون إغلاق الصفحة.`;
+    }
+    return message || "حدث خطأ غير متوقع أثناء إرسال الطلب.";
+  }
+
+  async function stabilizeSelectedFiles() {
+    if (!window.TallamFileCache?.captureAll) return new Map();
+    return window.TallamFileCache.captureAll(form);
+  }
+
+  async function stableInputFile(input) {
+    const source = input?.files?.[0] || null;
+    if (!source) return null;
+    if (!window.TallamFileCache?.getInputFile) return source;
+    try {
+      return await window.TallamFileCache.getInputFile(input);
+    } catch (error) {
+      throw new Error(friendlySubmissionError(error, `«${fileInputLabel(input)}»`));
+    }
+  }
+
   async function generateExports() {
     if (!window.TallamMinistryExporter || !window.JSZip) {
       throw new Error("تعذر تحميل القالب الرسمي وأدوات إصدار الملفات. تحقق من اتصال الإنترنت ثم أعد المحاولة.");
     }
+    await stabilizeSelectedFiles();
     const signatureBlob = await canvasToBlob(canvas);
     const values = {
       full_name: fieldValue("full_name"),
@@ -29,7 +68,8 @@
       facebook: fieldValue("facebook"),
       email: fieldValue("email")
     };
-    const photoFile = form.elements.personal_photo?.files?.[0] || null;
+    const photoInput = form.elements.personal_photo;
+    const photoFile = await stableInputFile(photoInput);
     return window.TallamMinistryExporter.generate({ values, photoFile, signatureBlob });
   }
 
@@ -56,13 +96,16 @@
     appendText(data, "privacy_accepted", "true");
     appendText(data, "started_at", startedAt);
     appendText(data, "form_version", CONFIG.formVersion);
-    appendText(data, "ministry_export_version", "3.0.0-official-template");
+    appendText(data, "ministry_export_version", `3.1.0-official-template-${FILE_CACHE_BUILD}`);
     appendText(data, "client_timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Riyadh");
     appendText(data, "website", fieldValue("website"));
 
     for (const input of form.querySelectorAll('input[type="file"]')) {
-      const file = input.files?.[0];
-      if (file) data.append(input.name, file, file.name);
+      const source = input.files?.[0];
+      if (!source) continue;
+      const stable = await stableInputFile(input);
+      if (!stable) continue;
+      data.append(input.name, stable, stable.name || source.name || `${input.name}.bin`);
     }
 
     data.append("signature", exports.signatureBlob, "signature.png");
@@ -77,7 +120,7 @@
     try {
       const response = await fetch(CONFIG.endpoint, {
         method: "POST", body: payload, signal: controller.signal,
-        headers: { "x-client-info": "tallam-teachers-web/4-official-template" }
+        headers: { "x-client-info": `tallam-teachers-web/5-${FILE_CACHE_BUILD}` }
       });
       let result = {};
       try { result = await response.json(); } catch { result = {}; }
@@ -134,9 +177,12 @@
 
     submitBtn.disabled = true;
     prevBtn.disabled = true;
-    showLoading("جارٍ تعبئة الاستمارة الرسمية", "يتم إدخال البيانات في القالب الأصلي دون تغيير شعاراته أو تنسيقه.");
+    showLoading("جارٍ تثبيت المرفقات", "يتم حفظ نسخة آمنة من الملفات المختارة داخل الصفحة قبل تعبئة الاستمارة وإرسال الطلب.");
 
     try {
+      await stabilizeSelectedFiles();
+      loadingTitle.textContent = "جارٍ تعبئة الاستمارة الرسمية";
+      loadingText.textContent = "يتم إدخال البيانات في القالب الأصلي دون تغيير شعاراته أو تنسيقه.";
       const exports = await generateExports();
       loadingTitle.textContent = "جارٍ حفظ الطلب";
       loadingText.textContent = "يتم رفع البيانات والمرفقات ونسختي Word وPDF بصورة آمنة؛ يرجى عدم إغلاق الصفحة.";
@@ -155,11 +201,12 @@
       try { await downloadBoth(); } catch (downloadError) { console.warn(downloadError); }
     } catch (error) {
       console.error(error);
-      showStatus(error?.message || "حدث خطأ غير متوقع أثناء إرسال الطلب.");
+      showStatus(friendlySubmissionError(error));
     } finally {
       hideLoading();
-      submitBtn.disabled = false;
+      submitBtn.disabled = true;
       prevBtn.disabled = stepIndex === 0;
+      requestAnimationFrame(() => form.dispatchEvent(new Event("input", { bubbles: true })));
     }
   }
 
