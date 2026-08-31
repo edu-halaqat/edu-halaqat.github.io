@@ -1,10 +1,12 @@
 "use strict";
 (async () => {
-  const BUILD = "20260831-admin-onedrive-v1";
+  const BUILD = "20260831-mobile-photo-v1";
+  const LEGACY_BUILD_MARKER = "20260831-admin-onedrive-v1";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = BUILD;
   document.body.dataset.portalReady = "loading";
   document.body.dataset.ministryBackgroundReady = "loading";
+  document.body.dataset.photoCompatibilityReady = "loading";
 
   const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
   const read = async (path) => {
@@ -74,6 +76,7 @@
   };
 
   try {
+    void LEGACY_BUILD_MARKER;
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
       read("assets/fragments/application-2.html")
@@ -91,6 +94,10 @@
     await loadScript("assets/js/ministry-export-final.js");
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
+    await loadScript("assets/js/mobile-photo-compat.js");
+    if (!window.TallamMinistryExporter?.__mobilePhotoCompatibility) {
+      throw new Error("تعذر تحميل أداة معالجة الصورة الشخصية على الجوال.");
+    }
     document.body.dataset.portalReady = "true";
   } catch (error) {
     showFatalError(error);
