@@ -1,9 +1,10 @@
 "use strict";
 (async () => {
-  const BUILD = "20260831-file-reference-v3";
+  const BUILD = "20260831-mobile-provider-v4";
   const LEGACY_BUILD_MARKER = "20260831-admin-onedrive-v1";
   const MOBILE_BUILD_MARKER = "20260831-mobile-photo-v1";
   const CACHE_BUILD_MARKER = "20260831-stable-file-cache-v2";
+  const FILE_REFERENCE_MARKER = "20260831-file-reference-v3";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = BUILD;
   document.body.dataset.portalReady = "loading";
@@ -83,6 +84,7 @@
     void LEGACY_BUILD_MARKER;
     void MOBILE_BUILD_MARKER;
     void CACHE_BUILD_MARKER;
+    void FILE_REFERENCE_MARKER;
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
       read("assets/fragments/application-2.html")
@@ -90,8 +92,8 @@
     appMount.outerHTML = part1 + part2;
 
     await loadScript("assets/js/file-cache.js");
-    if (!window.TallamFileCache?.captureAll) {
-      throw new Error("تعذر تحميل أداة تثبيت المرفقات على الجوال.");
+    if (window.TallamFileCache?.build !== BUILD) {
+      throw new Error("تعذر تحميل الإصدار الجديد من أداة تثبيت المرفقات على الجوال.");
     }
 
     window.__TallamMinistryBackgroundParts = [];
