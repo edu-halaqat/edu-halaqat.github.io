@@ -29,12 +29,15 @@ jobs:
         run: |
           set -euo pipefail
           test -s tallam/index.html
+          test -s tallam/admin/index.html
+          test -s tallam/admin/admin.js
           test -s tallam/assets/js/bootstrap.js
           test -s tallam/assets/js/ministry-export-final.js
           test -s tallam/assets/img/ministry-form-background.png
           test -s tallam/assets/fragments/application-1.html
           test -s tallam/assets/fragments/application-2.html
 
+          node --check tallam/admin/admin.js
           node --check tallam/assets/js/bootstrap.js
           node --check tallam/assets/js/app-core.js
           node --check tallam/assets/js/ministry-export-final.js
@@ -52,17 +55,48 @@ jobs:
           ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
           ! grep -q '<wp:anchor' tallam/assets/js/ministry-export-final.js
           grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
+          grep -q 'Mad3@tallam.sa' tallam/admin/admin.js
+          grep -q 'signInWithOtp' tallam/admin/admin.js
+          grep -q 'method: "DELETE"' tallam/admin/admin.js
+          grep -q 'حذف الطلب نهائيًا' tallam/admin/admin.js
 
           python3 <<'PY'
           from pathlib import Path
           import struct
+          import zlib
 
-          path = Path('tallam/assets/img/ministry-form-background.png')
-          data = path.read_bytes()
-          assert len(data) > 30_000, len(data)
+          data = Path('tallam/assets/img/ministry-form-background.png').read_bytes()
           assert data[:8] == b'\x89PNG\r\n\x1a\n'
-          assert struct.unpack('>II', data[16:24]) == (1414, 2000)
-          print(f'Official PNG verified: {len(data)} bytes')
+          offset = 8
+          chunks = []
+          width = height = bit_depth = color_type = None
+          saw_iend = False
+          while offset + 12 <= len(data):
+              length = struct.unpack('>I', data[offset:offset + 4])[0]
+              kind = data[offset + 4:offset + 8]
+              start = offset + 8
+              end = start + length
+              assert end + 4 <= len(data), (kind, length, len(data), offset)
+              payload = data[start:end]
+              crc_expected = struct.unpack('>I', data[end:end + 4])[0]
+              assert zlib.crc32(kind + payload) & 0xffffffff == crc_expected, kind
+              if kind == b'IHDR':
+                  width, height, bit_depth, color_type = struct.unpack('>IIBB', payload[:10])
+              elif kind == b'IDAT':
+                  chunks.append(payload)
+              elif kind == b'IEND':
+                  saw_iend = True
+                  break
+              offset = end + 4
+          assert (width, height) == (1414, 2000)
+          assert bit_depth in (8, 16)
+          assert color_type in (0, 2, 3, 4, 6)
+          assert chunks and saw_iend
+          decoded = zlib.decompress(b''.join(chunks))
+          channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[color_type]
+          expected = height * (1 + ((width * channels * bit_depth + 7) // 8))
+          assert len(decoded) == expected, (len(decoded), expected)
+          print(f'Official PNG verified: {width}x{height}, {len(data)} bytes')
           PY
 
       - name: Prepare Pages artifact
