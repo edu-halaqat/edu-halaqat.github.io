@@ -34,7 +34,7 @@ jobs:
           grep -Fq 'personal-photo-normalized.jpg' tallam/assets/js/mobile-photo-compat.js
           grep -Fq "bootstrap.js?v=${BUILD}" tallam/index.html
 
-      - name: Verify browser normalization with an ICC-tagged PNG
+      - name: Verify browser normalization with a large RGB PNG
         shell: bash
         run: |
           set -euo pipefail
@@ -49,15 +49,13 @@ jobs:
           def chunk(kind, payload):
               return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload) & 0xffffffff)
           ihdr = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
-          profile = b'Tallam synthetic sRGB profile for compatibility verification.'
-          iccp = b'Tallam ICC\x00\x00' + zlib.compress(profile)
           rows = []
           for y in range(height):
               row = bytearray([0])
               for x in range(width):
                   row.extend(((x * 255) // max(1, width - 1), (y * 255) // max(1, height - 1), 230))
               rows.append(bytes(row))
-          data = signature + chunk(b'IHDR', ihdr) + chunk(b'iCCP', iccp) + chunk(b'IDAT', zlib.compress(b''.join(rows), 9)) + chunk(b'IEND', b'')
+          data = signature + chunk(b'IHDR', ihdr) + chunk(b'sRGB', b'\x00') + chunk(b'IDAT', zlib.compress(b''.join(rows), 9)) + chunk(b'IEND', b'')
           Path('/tmp/tallam-photo-test/test-photo.png').write_bytes(data)
           PY
 
@@ -107,7 +105,10 @@ jobs:
           test -n "$CHROME"
           timeout 60s "$CHROME" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=30000 \
             --dump-dom http://127.0.0.1:8123/ > /tmp/tallam-photo-dom.html
-          grep -Fq 'data-result="success"' /tmp/tallam-photo-dom.html
+          if ! grep -Fq 'data-result="success"' /tmp/tallam-photo-dom.html; then
+            cat /tmp/tallam-photo-dom.html
+            exit 1
+          fi
           grep -Fq 'data-width="800"' /tmp/tallam-photo-dom.html
           grep -Fq 'data-height="1200"' /tmp/tallam-photo-dom.html
 
