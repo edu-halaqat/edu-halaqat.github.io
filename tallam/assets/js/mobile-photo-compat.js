@@ -1,9 +1,10 @@
 (() => {
   "use strict";
 
-  const COMPAT_BUILD = "20260831-stable-file-cache-v2";
-  const PHOTO_ERROR = "تعذر تجهيز الصورة الشخصية. أعد اختيار الصورة من تطبيق «الصور» أو «ملفاتي» ثم حاول مجددًا.";
-  const decodeCache = new WeakMap();
+  const COMPAT_BUILD = "20260831-file-reference-v3";
+  const PHOTO_ERROR = "تعذر تجهيز الصورة الشخصية. أعد اختيارها من تطبيق «الصور» أو «ملفاتي»، وانتظر اكتمال تثبيتها ثم حاول مجددًا.";
+  const stableCache = new WeakMap();
+  const decodedCache = new WeakMap();
   const normalizedCache = new WeakMap();
 
   const exporter = window.TallamMinistryExporter;
@@ -12,32 +13,41 @@
   function withTimeout(promise, milliseconds, message) {
     let timer = 0;
     const timeout = new Promise((_resolve, reject) => {
-      timer = window.setTimeout(() => reject(new Error(message)), milliseconds);
+      timer = window.setTimeout(() => reject(new DOMException(message, "AbortError")), milliseconds);
     });
     return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
   }
 
   async function stableSource(source) {
     if (!(source instanceof Blob) || !source.size) return source;
-    if (!window.TallamFileCache?.getStableFile) return source;
-    try {
-      return await window.TallamFileCache.getStableFile(source, "الصورة الشخصية");
-    } catch (error) {
-      const message = window.TallamFileCache.friendlyError?.(error, "الصورة الشخصية") || PHOTO_ERROR;
-      throw new Error(message);
-    }
+    if (source.__tallamStableFile) return source;
+    if (stableCache.has(source)) return stableCache.get(source);
+
+    const task = (async () => {
+      if (!window.TallamFileCache?.getStableFile) return source;
+      try {
+        return await window.TallamFileCache.getStableFile(source, "الصورة الشخصية");
+      } catch (error) {
+        const message = window.TallamFileCache.friendlyError?.(error, "الصورة الشخصية") || PHOTO_ERROR;
+        throw new Error(message);
+      }
+    })();
+    stableCache.set(source, task);
+    task.catch(() => stableCache.delete(source));
+    return task;
   }
 
   async function detectImageType(blob) {
-    const bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+    let bytes;
+    try {
+      bytes = new Uint8Array(await withTimeout(blob.slice(0, 16).arrayBuffer(), 15000, PHOTO_ERROR));
+    } catch (error) {
+      throw new Error(window.TallamFileCache?.friendlyError?.(error, "الصورة الشخصية") || PHOTO_ERROR);
+    }
     if (bytes.length >= 8
       && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
-      && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) {
-      return "image/png";
-    }
-    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-      return "image/jpeg";
-    }
+      && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return "image/png";
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
     return "";
   }
 
@@ -46,7 +56,7 @@
       const image = new Image();
       const objectUrl = URL.createObjectURL(blob);
       let settled = false;
-      const timer = window.setTimeout(() => finish(new Error(PHOTO_ERROR)), 25000);
+      const timer = window.setTimeout(() => finish(new Error(PHOTO_ERROR)), 30000);
 
       const finish = (error) => {
         if (settled) return;
@@ -57,7 +67,7 @@
           reject(error);
           return;
         }
-        resolve({ image, release: () => URL.revokeObjectURL(objectUrl) });
+        resolve({ image, release: () => window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000) });
       };
 
       image.onload = () => finish();
@@ -67,39 +77,51 @@
     });
   }
 
+  async function loadBitmapFallback(blob) {
+    if (typeof createImageBitmap !== "function") return null;
+    try {
+      return await withTimeout(
+        createImageBitmap(blob, {
+          imageOrientation: "from-image",
+          premultiplyAlpha: "default",
+          colorSpaceConversion: "default"
+        }),
+        20000,
+        PHOTO_ERROR
+      );
+    } catch (_error) {
+      try {
+        return await withTimeout(createImageBitmap(blob), 20000, PHOTO_ERROR);
+      } catch (_secondError) {
+        return null;
+      }
+    }
+  }
+
   async function decodeToStableCanvas(source) {
     const file = await stableSource(source);
-    if (decodeCache.has(file)) return decodeCache.get(file);
+    if (decodedCache.has(file)) return decodedCache.get(file);
 
     const task = (async () => {
       const detectedType = await detectImageType(file);
       if (!detectedType) throw new Error("الصورة الشخصية ليست ملف JPG أو PNG صحيحًا.");
 
-      const blob = file.type === detectedType ? file : new Blob([await file.arrayBuffer()], { type: detectedType });
-      let drawable = null;
-      let release = () => {};
-
-      if (typeof createImageBitmap === "function") {
-        try {
-          drawable = await withTimeout(
-            createImageBitmap(blob, { imageOrientation: "from-image", premultiplyAlpha: "default", colorSpaceConversion: "default" }),
-            25000,
-            PHOTO_ERROR
-          );
-        } catch (_firstError) {
-          try {
-            drawable = await withTimeout(createImageBitmap(blob), 25000, PHOTO_ERROR);
-          } catch (_secondError) {
-            drawable = null;
-          }
-        }
+      let blob = file;
+      if (file.type !== detectedType) {
+        const buffer = await withTimeout(file.arrayBuffer(), 20000, PHOTO_ERROR);
+        blob = new Blob([buffer], { type: detectedType });
       }
 
-      if (!drawable) {
+      let drawable = null;
+      let release = () => {};
+      try {
         const loaded = await loadHtmlImage(blob);
         drawable = loaded.image;
         release = loaded.release;
+      } catch (_htmlError) {
+        drawable = await loadBitmapFallback(blob);
       }
+      if (!drawable) throw new Error(PHOTO_ERROR);
 
       try {
         const sourceWidth = Number(drawable.naturalWidth || drawable.width || 0);
@@ -134,8 +156,8 @@
       }
     })();
 
-    decodeCache.set(file, task);
-    task.catch(() => decodeCache.delete(file));
+    decodedCache.set(file, task);
+    task.catch(() => decodedCache.delete(file));
     return task;
   }
 
@@ -170,13 +192,14 @@
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
-      const context = canvas.getContext("2d", { alpha: false });
+      const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
       if (!context) throw new Error(PHOTO_ERROR);
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
       context.drawImage(sourceCanvas, 0, 0, width, height);
+      context.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1);
       const jpeg = await canvasToBlob(canvas, "image/jpeg", compact ? 0.84 : 0.91);
       try {
         const normalized = new File([jpeg], "personal-photo-normalized.jpg", {
@@ -186,7 +209,9 @@
         try { Object.defineProperty(normalized, "__tallamStableFile", { value: true }); } catch (_error) { /* ignored */ }
         return normalized;
       } catch (_error) {
-        return new Blob([jpeg], { type: "image/jpeg" });
+        const normalized = new Blob([jpeg], { type: "image/jpeg" });
+        try { Object.defineProperty(normalized, "__tallamStableFile", { value: true }); } catch (_defineError) { /* ignored */ }
+        return normalized;
       }
     })();
 
@@ -210,7 +235,9 @@
         return await exporter.generate({ ...options, photoFile: standardPhoto });
       } catch (error) {
         const message = String(error?.message || "");
-        if (!message.includes("الصورة الشخصية") && !message.includes("صور الاستمارة")) throw error;
+        if (!message.includes("الصورة الشخصية") && !message.includes("صور الاستمارة") && !/NotReadableError/i.test(String(error?.name || ""))) {
+          throw error;
+        }
         const compactPhoto = await normalizePhoto(originalPhoto, true);
         return exporter.generate({ ...options, photoFile: compactPhoto });
       }
@@ -226,4 +253,5 @@
   }, { passive: true });
 
   document.body.dataset.photoCompatibilityReady = "true";
+  document.body.dataset.photoCompatibilityBuild = COMPAT_BUILD;
 })();
