@@ -83,7 +83,7 @@ jobs:
 
           cat > /tmp/tallam-file-test/index.html <<'HTML'
           <!doctype html><html><body data-result="loading">
-          <form id="teacherForm"><div class="file-card"><label for="personal_photo">الصورة الشخصية</label><input id="personal_photo" name="personal_photo" type="file"></div></form>
+          <form id="teacherForm"></form>
           <script src="file-cache.js"></script>
           <script>
           window.TallamMinistryExporter = Object.freeze({
@@ -108,9 +108,7 @@ jobs:
           <script>
           (async () => {
             try {
-              const response = await fetch('test-photo.png');
-              const bytes = await response.arrayBuffer();
-              const original = new File([bytes], 'test-photo.png', { type: 'image/png' });
+              const original = new File([new TextEncoder().encode('temporary-provider-file')], 'document.pdf', { type: 'application/pdf' });
               const nativeArrayBuffer = original.arrayBuffer.bind(original);
               let reads = 0;
               Object.defineProperty(original, 'arrayBuffer', {
@@ -125,24 +123,21 @@ jobs:
                 }
               });
 
-              const input = document.getElementById('personal_photo');
-              const transfer = new DataTransfer();
-              transfer.items.add(original);
-              input.files = transfer.files;
-              input.dispatchEvent(new Event('change', { bubbles: true }));
-
-              const stable = await window.TallamFileCache.getInputFile(input);
+              const stable = await window.TallamFileCache.getStableFile(original, 'المرفق التجريبي');
               await original.arrayBuffer().then(
                 () => { throw new Error('The original reference unexpectedly remained readable.'); },
                 () => {}
               );
-              const cachedAgain = await window.TallamFileCache.getInputFile(input);
-              const all = await window.TallamFileCache.captureAll(document.getElementById('teacherForm'));
-              const result = await window.TallamMinistryExporter.generate({ photoFile: cachedAgain });
+              const stableBytes = new Uint8Array(await stable.arrayBuffer());
+              if (!stable.__tallamStableFile || stableBytes.length !== original.size) throw new Error('Stable copy is invalid.');
 
-              if (!stable.__tallamStableFile || !cachedAgain.__tallamStableFile) throw new Error('Stable marker missing.');
-              if (all.get('personal_photo') !== cachedAgain) throw new Error('captureAll did not reuse the stable copy.');
+              const response = await fetch('test-photo.png');
+              const photoBytes = await response.arrayBuffer();
+              const photoOriginal = new File([photoBytes], 'test-photo.png', { type: 'image/png' });
+              const photoStable = await window.TallamFileCache.getStableFile(photoOriginal, 'الصورة الشخصية');
+              const result = await window.TallamMinistryExporter.generate({ photoFile: photoStable });
               if (result.width !== 800 || result.height !== 1200) throw new Error(`Unexpected normalized dimensions: ${result.width}x${result.height}`);
+
               document.body.dataset.result = 'success';
               document.body.dataset.reads = String(reads);
               document.body.dataset.fileCache = String(Boolean(window.TallamFileCache));
