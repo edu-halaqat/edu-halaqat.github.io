@@ -1,0 +1,97 @@
+name: Patch and deploy Tallam unified archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-tallam-admin-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: tallam-admin-archive-patch
+  cancel-in-progress: false
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load unified archive module in admin panel
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('tallam/admin/index.html')
+          text = path.read_text(encoding='utf-8')
+          old = '<script defer src="admin.js?v=20260831-0325"></script>'
+          replacement = '<script defer src="admin.js?v=20260831-unified-archive-v1"></script>\n  <script defer src="archive.js?v=20260831-unified-archive-v1"></script>'
+          if 'archive.js?v=20260831-unified-archive-v1' not in text:
+              if old not in text:
+                  raise SystemExit('Admin script marker not found')
+              text = text.replace(old, replacement, 1)
+              path.write_text(text, encoding='utf-8')
+          assert 'archive.js?v=20260831-unified-archive-v1' in path.read_text(encoding='utf-8')
+
+      - name: Validate JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tallam/admin/admin.js
+          node --check tallam/admin/archive.js
+          grep -Fq 'teacher-application-archive' tallam/admin/archive.js
+          grep -Fq 'جميع استمارات المعلمين.docx' tallam/admin/archive.js
+          grep -Fq 'جميع استمارات المعلمين.pdf' tallam/admin/archive.js
+          grep -Fq 'showDirectoryPicker' tallam/admin/archive.js
+          grep -Fq 'archive.js?v=20260831-unified-archive-v1' tallam/admin/index.html
+
+      - name: Commit admin page update
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- tallam/admin/index.html; then
+            echo 'Admin page already contains archive module.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add tallam/admin/index.html
+            git commit -m 'تشغيل الملفين الموحدين في لوحة الإدارة'
+            git push origin HEAD:main
+          fi
+
+      - name: Prepare Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.deploy/' \
+            --exclude='_site/' \
+            --exclude='tallam-final-source/' \
+            ./ _site/
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
