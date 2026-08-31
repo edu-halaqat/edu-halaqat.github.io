@@ -1,10 +1,12 @@
-name: Verify mobile personal photo compatibility
+name: Verify mobile file stability and personal photo compatibility
 
 on:
   push:
     branches: [main]
     paths:
+      - 'tallam/assets/js/file-cache.js'
       - 'tallam/assets/js/mobile-photo-compat.js'
+      - 'tallam/assets/js/app-submit.js'
       - 'tallam/assets/js/bootstrap.js'
       - 'tallam/index.html'
       - '.github/workflows/verify-mobile-photo-compat.yml'
@@ -18,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260831-mobile-photo-v1
+      BUILD: 20260831-stable-file-cache-v2
     steps:
       - uses: actions/checkout@v4
 
@@ -26,20 +28,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check tallam/assets/js/file-cache.js
           node --check tallam/assets/js/mobile-photo-compat.js
+          node --check tallam/assets/js/app-submit.js
           node --check tallam/assets/js/bootstrap.js
-          grep -Fq 'mobile-photo-compat.js' tallam/assets/js/bootstrap.js
+          grep -Fq 'file-cache.js' tallam/assets/js/bootstrap.js
+          grep -Fq 'captureAll(form)' tallam/assets/js/app-submit.js
+          grep -Fq 'getInputFile(input)' tallam/assets/js/app-submit.js
+          grep -Fq '__tallamStableFile' tallam/assets/js/file-cache.js
+          grep -Fq 'The requested file could not be read' tallam/assets/js/file-cache.js
           grep -Fq '__mobilePhotoCompatibility' tallam/assets/js/mobile-photo-compat.js
-          grep -Fq 'createImageBitmap' tallam/assets/js/mobile-photo-compat.js
-          grep -Fq 'personal-photo-normalized.jpg' tallam/assets/js/mobile-photo-compat.js
           grep -Fq "bootstrap.js?v=${BUILD}" tallam/index.html
 
-      - name: Verify browser normalization with a large RGB PNG
+          python3 - <<'PY'
+          from pathlib import Path
+          bootstrap = Path('tallam/assets/js/bootstrap.js').read_text(encoding='utf-8')
+          order = [
+              bootstrap.index('assets/js/file-cache.js'),
+              bootstrap.index('assets/js/app-core.js'),
+              bootstrap.index('assets/js/ministry-export-final.js'),
+              bootstrap.index('assets/js/mobile-photo-compat.js'),
+              bootstrap.index('assets/js/app-submit.js'),
+              bootstrap.index('assets/js/form-readiness.js'),
+          ]
+          assert order == sorted(order), order
+          PY
+
+      - name: Verify a file remains usable after the original reference expires
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/tallam-photo-test
-          cp tallam/assets/js/mobile-photo-compat.js /tmp/tallam-photo-test/
+          mkdir -p /tmp/tallam-file-test
+          cp tallam/assets/js/file-cache.js /tmp/tallam-file-test/
+          cp tallam/assets/js/mobile-photo-compat.js /tmp/tallam-file-test/
+
           python3 <<'PY'
           from pathlib import Path
           import struct, zlib
@@ -56,11 +78,14 @@ jobs:
                   row.extend(((x * 255) // max(1, width - 1), (y * 255) // max(1, height - 1), 230))
               rows.append(bytes(row))
           data = signature + chunk(b'IHDR', ihdr) + chunk(b'sRGB', b'\x00') + chunk(b'IDAT', zlib.compress(b''.join(rows), 9)) + chunk(b'IEND', b'')
-          Path('/tmp/tallam-photo-test/test-photo.png').write_bytes(data)
+          Path('/tmp/tallam-file-test/test-photo.png').write_bytes(data)
           PY
 
-          cat > /tmp/tallam-photo-test/index.html <<'HTML'
-          <!doctype html><html><body data-result="loading"><script>
+          cat > /tmp/tallam-file-test/index.html <<'HTML'
+          <!doctype html><html><body data-result="loading">
+          <form id="teacherForm"><div class="file-card"><label for="personal_photo">الصورة الشخصية</label><input id="personal_photo" name="personal_photo" type="file"></div></form>
+          <script src="file-cache.js"></script>
+          <script>
           window.TallamMinistryExporter = Object.freeze({
             async generate(options) {
               const photo = await new Promise((resolve, reject) => {
@@ -78,39 +103,72 @@ jobs:
               return { width: photo.naturalWidth || photo.width, height: photo.naturalHeight || photo.height };
             }
           });
-          </script><script src="mobile-photo-compat.js"></script><script>
+          </script>
+          <script src="mobile-photo-compat.js"></script>
+          <script>
           (async () => {
             try {
               const response = await fetch('test-photo.png');
               const bytes = await response.arrayBuffer();
-              const file = new File([bytes], 'test-photo.png', { type: 'image/png' });
-              const result = await window.TallamMinistryExporter.generate({ photoFile: file });
+              const original = new File([bytes], 'test-photo.png', { type: 'image/png' });
+              const nativeArrayBuffer = original.arrayBuffer.bind(original);
+              let reads = 0;
+              Object.defineProperty(original, 'arrayBuffer', {
+                configurable: true,
+                value: () => {
+                  reads += 1;
+                  if (reads > 1) return Promise.reject(new DOMException(
+                    'The requested file could not be read, typically due to permission problems that have occurred after a reference to a file was acquired.',
+                    'NotReadableError'
+                  ));
+                  return nativeArrayBuffer();
+                }
+              });
+
+              const input = document.getElementById('personal_photo');
+              const transfer = new DataTransfer();
+              transfer.items.add(original);
+              input.files = transfer.files;
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+
+              const stable = await window.TallamFileCache.getInputFile(input);
+              await original.arrayBuffer().then(
+                () => { throw new Error('The original reference unexpectedly remained readable.'); },
+                () => {}
+              );
+              const cachedAgain = await window.TallamFileCache.getInputFile(input);
+              const all = await window.TallamFileCache.captureAll(document.getElementById('teacherForm'));
+              const result = await window.TallamMinistryExporter.generate({ photoFile: cachedAgain });
+
+              if (!stable.__tallamStableFile || !cachedAgain.__tallamStableFile) throw new Error('Stable marker missing.');
+              if (all.get('personal_photo') !== cachedAgain) throw new Error('captureAll did not reuse the stable copy.');
+              if (result.width !== 800 || result.height !== 1200) throw new Error(`Unexpected normalized dimensions: ${result.width}x${result.height}`);
               document.body.dataset.result = 'success';
-              document.body.dataset.width = String(result.width);
-              document.body.dataset.height = String(result.height);
+              document.body.dataset.reads = String(reads);
+              document.body.dataset.fileCache = String(Boolean(window.TallamFileCache));
             } catch (error) {
               document.body.dataset.result = 'error';
-              document.body.dataset.error = String(error && error.message || error);
+              document.body.dataset.error = String(error && error.stack || error);
             }
           })();
           </script></body></html>
           HTML
 
-          cd /tmp/tallam-photo-test
-          python3 -m http.server 8123 >/tmp/tallam-photo-http.log 2>&1 &
+          cd /tmp/tallam-file-test
+          python3 -m http.server 8123 >/tmp/tallam-file-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          timeout 60s "$CHROME" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=30000 \
-            --dump-dom http://127.0.0.1:8123/ > /tmp/tallam-photo-dom.html
-          if ! grep -Fq 'data-result="success"' /tmp/tallam-photo-dom.html; then
-            cat /tmp/tallam-photo-dom.html
+          timeout 75s "$CHROME" --headless=new --disable-gpu --disable-dev-shm-usage --no-sandbox --virtual-time-budget=40000 \
+            --dump-dom http://127.0.0.1:8123/ > /tmp/tallam-file-dom.html
+          if ! grep -Fq 'data-result="success"' /tmp/tallam-file-dom.html; then
+            cat /tmp/tallam-file-dom.html
             exit 1
           fi
-          grep -Fq 'data-width="800"' /tmp/tallam-photo-dom.html
-          grep -Fq 'data-height="1200"' /tmp/tallam-photo-dom.html
+          grep -Fq 'data-file-cache="true"' /tmp/tallam-file-dom.html
+          grep -Fq 'data-reads="2"' /tmp/tallam-file-dom.html
 
       - name: Verify deployed files
         shell: bash
@@ -118,7 +176,7 @@ jobs:
           set -euo pipefail
           fetch_expected() {
             local url="$1" output="$2" expected="$3"
-            for attempt in $(seq 1 36); do
+            for attempt in $(seq 1 48); do
               if curl --fail --silent --show-error --location --max-time 30 \
                 -H 'Cache-Control: no-cache, no-store, must-revalidate' \
                 "${url}?v=${BUILD}&attempt=${attempt}" --output "$output" \
@@ -130,8 +188,12 @@ jobs:
             return 1
           }
           fetch_expected "${BASE_URL}/" /tmp/tallam-live-index.html "bootstrap.js?v=${BUILD}"
-          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live-bootstrap.js "mobile-photo-compat.js"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live-bootstrap.js "${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/file-cache.js" /tmp/tallam-live-cache.js "${BUILD}"
           fetch_expected "${BASE_URL}/assets/js/mobile-photo-compat.js" /tmp/tallam-live-photo.js "${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live-submit.js "captureAll(form)"
           node --check /tmp/tallam-live-bootstrap.js
+          node --check /tmp/tallam-live-cache.js
           node --check /tmp/tallam-live-photo.js
-          echo 'Mobile personal-photo compatibility release verified.'
+          node --check /tmp/tallam-live-submit.js
+          echo 'Stable mobile-file release verified.'
