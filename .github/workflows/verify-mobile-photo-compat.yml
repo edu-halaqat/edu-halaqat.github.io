@@ -1,0 +1,136 @@
+name: Verify mobile personal photo compatibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tallam/assets/js/mobile-photo-compat.js'
+      - 'tallam/assets/js/bootstrap.js'
+      - 'tallam/index.html'
+      - '.github/workflows/verify-mobile-photo-compat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://edu-halaqat.github.io/tallam
+      BUILD: 20260831-mobile-photo-v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JavaScript and wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tallam/assets/js/mobile-photo-compat.js
+          node --check tallam/assets/js/bootstrap.js
+          grep -Fq 'mobile-photo-compat.js' tallam/assets/js/bootstrap.js
+          grep -Fq '__mobilePhotoCompatibility' tallam/assets/js/mobile-photo-compat.js
+          grep -Fq 'createImageBitmap' tallam/assets/js/mobile-photo-compat.js
+          grep -Fq 'personal-photo-normalized.jpg' tallam/assets/js/mobile-photo-compat.js
+          grep -Fq "bootstrap.js?v=${BUILD}" tallam/index.html
+
+      - name: Verify browser normalization with an ICC-tagged PNG
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tallam-photo-test
+          cp tallam/assets/js/mobile-photo-compat.js /tmp/tallam-photo-test/
+          python3 <<'PY'
+          from pathlib import Path
+          import struct, zlib
+
+          width, height = 1066, 1600
+          signature = b'\x89PNG\r\n\x1a\n'
+          def chunk(kind, payload):
+              return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload) & 0xffffffff)
+          ihdr = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
+          profile = b'Tallam synthetic sRGB profile for compatibility verification.'
+          iccp = b'Tallam ICC\x00\x00' + zlib.compress(profile)
+          rows = []
+          for y in range(height):
+              row = bytearray([0])
+              for x in range(width):
+                  row.extend(((x * 255) // max(1, width - 1), (y * 255) // max(1, height - 1), 230))
+              rows.append(bytes(row))
+          data = signature + chunk(b'IHDR', ihdr) + chunk(b'iCCP', iccp) + chunk(b'IDAT', zlib.compress(b''.join(rows), 9)) + chunk(b'IEND', b'')
+          Path('/tmp/tallam-photo-test/test-photo.png').write_bytes(data)
+          PY
+
+          cat > /tmp/tallam-photo-test/index.html <<'HTML'
+          <!doctype html><html><body data-result="loading"><script>
+          window.TallamMinistryExporter = Object.freeze({
+            async generate(options) {
+              const photo = await new Promise((resolve, reject) => {
+                const image = new Image();
+                const url = URL.createObjectURL(options.photoFile);
+                image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+                image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('تعذرت قراءة الصورة الشخصية.')); };
+                image.src = url;
+              });
+              const canvas = document.createElement('canvas');
+              canvas.width = 195; canvas.height = 242;
+              const context = canvas.getContext('2d');
+              context.drawImage(photo, 0, 0, 195, 242);
+              context.getImageData(0, 0, 1, 1);
+              return { width: photo.naturalWidth || photo.width, height: photo.naturalHeight || photo.height };
+            }
+          });
+          </script><script src="mobile-photo-compat.js"></script><script>
+          (async () => {
+            try {
+              const response = await fetch('test-photo.png');
+              const bytes = await response.arrayBuffer();
+              const file = new File([bytes], 'test-photo.png', { type: 'image/png' });
+              const result = await window.TallamMinistryExporter.generate({ photoFile: file });
+              document.body.dataset.result = 'success';
+              document.body.dataset.width = String(result.width);
+              document.body.dataset.height = String(result.height);
+            } catch (error) {
+              document.body.dataset.result = 'error';
+              document.body.dataset.error = String(error && error.message || error);
+            }
+          })();
+          </script></body></html>
+          HTML
+
+          cd /tmp/tallam-photo-test
+          python3 -m http.server 8123 >/tmp/tallam-photo-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
+          sleep 1
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          timeout 60s "$CHROME" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=30000 \
+            --dump-dom http://127.0.0.1:8123/ > /tmp/tallam-photo-dom.html
+          grep -Fq 'data-result="success"' /tmp/tallam-photo-dom.html
+          grep -Fq 'data-width="800"' /tmp/tallam-photo-dom.html
+          grep -Fq 'data-height="1200"' /tmp/tallam-photo-dom.html
+
+      - name: Verify deployed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          fetch_expected() {
+            local url="$1" output="$2" expected="$3"
+            for attempt in $(seq 1 36); do
+              if curl --fail --silent --show-error --location --max-time 30 \
+                -H 'Cache-Control: no-cache, no-store, must-revalidate' \
+                "${url}?v=${BUILD}&attempt=${attempt}" --output "$output" \
+                && test -s "$output" && grep -Fq "$expected" "$output"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+          fetch_expected "${BASE_URL}/" /tmp/tallam-live-index.html "bootstrap.js?v=${BUILD}"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live-bootstrap.js "mobile-photo-compat.js"
+          fetch_expected "${BASE_URL}/assets/js/mobile-photo-compat.js" /tmp/tallam-live-photo.js "${BUILD}"
+          node --check /tmp/tallam-live-bootstrap.js
+          node --check /tmp/tallam-live-photo.js
+          echo 'Mobile personal-photo compatibility release verified.'
