@@ -1,0 +1,37 @@
+name: Verify Tallam unified archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-tallam-unified-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed admin archive module
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://edu-halaqat.github.io/tallam/admin'
+          for attempt in $(seq 1 30); do
+            curl -fsSL -H 'Cache-Control: no-cache' "${BASE}/?v=20260831-unified-archive-v1&attempt=${attempt}" -o /tmp/admin.html || true
+            curl -fsSL -H 'Cache-Control: no-cache' "${BASE}/archive.js?v=20260831-unified-archive-v1&attempt=${attempt}" -o /tmp/archive.js || true
+            if grep -Fq 'archive.js?v=20260831-unified-archive-v1' /tmp/admin.html 2>/dev/null \
+              && grep -Fq 'teacher-application-archive' /tmp/archive.js 2>/dev/null \
+              && grep -Fq 'جميع استمارات المعلمين.docx' /tmp/archive.js 2>/dev/null \
+              && grep -Fq 'جميع استمارات المعلمين.pdf' /tmp/archive.js 2>/dev/null \
+              && grep -Fq 'showDirectoryPicker' /tmp/archive.js 2>/dev/null; then
+              node --check /tmp/archive.js
+              echo 'Unified archive module is live.'
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'The unified archive module was not found on the public site.' >&2
+          exit 1
