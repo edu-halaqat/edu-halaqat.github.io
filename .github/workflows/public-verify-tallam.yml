@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260830-final-png-v2
+      BUILD: 20260831-admin-onedrive-v1
+      ADMIN_BUILD: 20260831-0325
     steps:
       - name: Verify public release
         shell: bash
@@ -39,26 +40,75 @@ jobs:
           fetch_expected "${BASE_URL}/" /tmp/tallam-live/index.html "bootstrap.js?v=${BUILD}"
           fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "$BUILD"
           fetch_expected "${BASE_URL}/assets/js/ministry-export-final.js" /tmp/tallam-live/exporter.js "TallamMinistryExporter"
+          fetch_expected "${BASE_URL}/assets/js/form-readiness.js" /tmp/tallam-live/readiness.js "submitBtn.disabled = !ready"
+          fetch_expected "${BASE_URL}/admin/" /tmp/tallam-live/admin.html "Mad3@tallam.sa"
+          fetch_expected "${BASE_URL}/admin/admin.js" /tmp/tallam-live/admin.js "signInWithOtp"
+
           grep -Fq '/FlateDecode' /tmp/tallam-live/exporter.js
           ! grep -Fq '/DCTDecode' /tmp/tallam-live/exporter.js
+          grep -Fq 'method: "DELETE"' /tmp/tallam-live/admin.js
+          grep -Fq 'حذف الطلب نهائيًا' /tmp/tallam-live/admin.js
+          grep -Fq 'onedrive_backup_status' /tmp/tallam-live/admin.js
 
-          for attempt in $(seq 1 36); do
-            if curl --fail --silent --show-error --location --max-time 30 \
-              -H 'Cache-Control: no-cache, no-store, must-revalidate' \
-              "${BASE_URL}/assets/img/ministry-form-background.png?v=${BUILD}&attempt=${attempt}" \
-              --output /tmp/tallam-live/background.png \
-              && test -s /tmp/tallam-live/background.png; then
+          for number in $(seq -w 1 14); do
+            fetch_expected "${BASE_URL}/assets/js/ministry-bg-${number}.js" "/tmp/tallam-live/ministry-bg-${number}.js" "TallamMinistryBackgroundParts"
+          done
+          fetch_expected "${BASE_URL}/assets/js/ministry-background.js" /tmp/tallam-live/ministry-background.js "TallamOfficialMinistryBackground"
+
+          node <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          global.window = global;
+          for (let index = 1; index <= 14; index += 1) {
+            require(`/tmp/tallam-live/ministry-bg-${String(index).padStart(2, '0')}.js`);
+          }
+          require('/tmp/tallam-live/ministry-background.js');
+          const prefix = 'data:image/webp;base64,';
+          const source = String(global.TallamOfficialMinistryBackground || '');
+          if (!source.startsWith(prefix)) throw new Error('Public ministry background was not assembled.');
+          const bytes = Buffer.from(source.slice(prefix.length), 'base64');
+          const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+          if (bytes.length !== 77924) throw new Error(`Unexpected public WebP size: ${bytes.length}`);
+          if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
+            throw new Error('Invalid public WebP header.');
+          }
+          if (sha256 !== '977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f') {
+            throw new Error(`Unexpected public WebP SHA-256: ${sha256}`);
+          }
+          fs.writeFileSync('/tmp/tallam-live/ministry-background.webp', bytes);
+          console.log(`Public ministry WebP verified: ${bytes.length} bytes`);
+          NODE
+
+          if command -v ffmpeg >/dev/null 2>&1; then
+            ffmpeg -v error -i /tmp/tallam-live/ministry-background.webp -f null -
+          fi
+
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+
+          for attempt in $(seq 1 12); do
+            timeout 45s "$CHROME" --headless=new --disable-gpu --no-sandbox \
+              --virtual-time-budget=20000 --dump-dom \
+              "${BASE_URL}/?v=${BUILD}&browser_attempt=${attempt}" \
+              > /tmp/tallam-live/index-dom.html 2>/tmp/tallam-live/chrome-index.log || true
+            if grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html \
+              && grep -Fq 'data-ministry-background-ready="true"' /tmp/tallam-live/index-dom.html \
+              && grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html; then
               break
             fi
             sleep 5
           done
+          grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html
+          grep -Fq 'data-ministry-background-ready="true"' /tmp/tallam-live/index-dom.html
+          grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html
+          ! grep -Fq 'data-portal-ready="false"' /tmp/tallam-live/index-dom.html
 
-          python3 <<'PY'
-          from pathlib import Path
-          import struct
-          data = Path('/tmp/tallam-live/background.png').read_bytes()
-          assert len(data) > 30_000
-          assert data[:8] == b'\x89PNG\r\n\x1a\n'
-          assert struct.unpack('>II', data[16:24]) == (1414, 2000)
-          print('Public Tallam release verified')
-          PY
+          timeout 45s "$CHROME" --headless=new --disable-gpu --no-sandbox \
+            --virtual-time-budget=12000 --dump-dom \
+            "${BASE_URL}/admin/?v=${BUILD}" \
+            > /tmp/tallam-live/admin-dom.html 2>/tmp/tallam-live/chrome-admin.log
+          grep -Fq 'value="Mad3@tallam.sa"' /tmp/tallam-live/admin-dom.html
+          grep -Fq 'إرسال رابط دخول إلى البريد' /tmp/tallam-live/admin-dom.html
+          grep -Fq 'حذف الطلب نهائيًا' /tmp/tallam-live/admin-dom.html
+
+          echo 'Public Tallam portal and admin panel verified successfully.'
