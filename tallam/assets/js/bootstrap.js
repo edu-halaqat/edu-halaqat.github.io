@@ -3,6 +3,8 @@
   const BUILD = "20260831-admin-onedrive-v1";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = BUILD;
+  document.body.dataset.portalReady = "loading";
+  document.body.dataset.ministryBackgroundReady = "loading";
 
   const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
   const read = async (path) => {
@@ -56,11 +58,14 @@
     window.TallamOfficialMinistryBackground = objectUrl;
     window.addEventListener("pagehide", () => URL.revokeObjectURL(objectUrl), { once: true });
     delete window.__TallamMinistryBackgroundParts;
+    document.body.dataset.ministryBackgroundReady = "true";
   };
   const showFatalError = (error) => {
     console.error(error);
-    const message = String(error?.message || "تعذر تحميل نموذج التسجيل.")
-      .replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+    const rawMessage = String(error?.message || "تعذر تحميل نموذج التسجيل.");
+    document.body.dataset.portalReady = "false";
+    document.body.dataset.portalError = rawMessage.slice(0, 300);
+    const message = rawMessage.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
     const target = document.getElementById("teacherForm") || document.querySelector("main") || document.body;
     const box = document.createElement("div");
     box.className = "main-shell";
@@ -86,6 +91,7 @@
     await loadScript("assets/js/ministry-export-final.js");
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
+    document.body.dataset.portalReady = "true";
   } catch (error) {
     showFatalError(error);
   }
