@@ -1,6 +1,6 @@
 "use strict";
 (async () => {
-  const BUILD = "20260830-final-png-v2";
+  const BUILD = "20260831-admin-onedrive-v1";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = BUILD;
 
@@ -18,16 +18,44 @@
     script.onerror = () => reject(new Error(`تعذر تحميل ${path}`));
     document.body.appendChild(script);
   });
-  const readUint32BE = (bytes, offset) =>
-    ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
-  const ensureImage = async (path) => {
-    const response = await fetch(versioned(path), { cache: "no-store", credentials: "same-origin" });
-    if (!response.ok) throw new Error(`تعذر تحميل خلفية الاستمارة الرسمية (${response.status}).`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-    const validSignature = bytes.length > 30000 && signature.every((value, index) => bytes[index] === value);
-    const validDimensions = validSignature && readUint32BE(bytes, 16) === 1414 && readUint32BE(bytes, 20) === 2000;
-    if (!validDimensions) throw new Error("ملف خلفية الاستمارة الرسمية غير صالح أو غير مكتمل.");
+  const loadImage = (source) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("تعذر قراءة خلفية استمارة الوزارة الرسمية."));
+    image.src = source;
+  });
+  const canvasToPngBlob = (canvas) => new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob || blob.type !== "image/png" || blob.size < 30000) {
+        reject(new Error("تعذر تجهيز خلفية استمارة الوزارة بصيغة صالحة."));
+        return;
+      }
+      resolve(blob);
+    }, "image/png");
+  });
+  const prepareOfficialBackground = async () => {
+    const webpSource = window.TallamOfficialMinistryBackground;
+    if (!String(webpSource || "").startsWith("data:image/webp;base64,")) {
+      throw new Error("خلفية استمارة الوزارة غير مكتملة.");
+    }
+    const image = await loadImage(webpSource);
+    if (image.naturalWidth !== 1414 || image.naturalHeight !== 2000) {
+      throw new Error("أبعاد خلفية استمارة الوزارة غير صحيحة.");
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = 1414;
+    canvas.height = 2000;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("تعذر تجهيز خلفية استمارة الوزارة.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const pngBlob = await canvasToPngBlob(canvas);
+    const objectUrl = URL.createObjectURL(pngBlob);
+    window.TallamOfficialMinistryBackground = objectUrl;
+    window.addEventListener("pagehide", () => URL.revokeObjectURL(objectUrl), { once: true });
+    delete window.__TallamMinistryBackgroundParts;
   };
   const showFatalError = (error) => {
     console.error(error);
@@ -43,12 +71,17 @@
   try {
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
-      read("assets/fragments/application-2.html"),
-      ensureImage("assets/img/ministry-form-background.png")
+      read("assets/fragments/application-2.html")
     ]);
     appMount.outerHTML = part1 + part2;
 
-    window.TallamOfficialMinistryBackground = versioned("assets/img/ministry-form-background.png");
+    window.__TallamMinistryBackgroundParts = [];
+    await Promise.all(Array.from({ length: 14 }, (_value, index) =>
+      loadScript(`assets/js/ministry-bg-${String(index + 1).padStart(2, "0")}.js`)
+    ));
+    await loadScript("assets/js/ministry-background.js");
+    await prepareOfficialBackground();
+
     await loadScript("assets/js/app-core.js");
     await loadScript("assets/js/ministry-export-final.js");
     await loadScript("assets/js/app-submit.js");
