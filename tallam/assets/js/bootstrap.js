@@ -103,7 +103,7 @@
     }
     document.body.dataset.photoCompatibilityReady = "true";
     await loadScript("assets/js/app-submit.js");
-    await loadScript("assets/js/form-readiness.js");
+    await loadScript("assets/js/form-readiness-v2.js");
     await loadScript("assets/js/file-readiness-bridge.js");
     if (document.body.dataset.fileReadinessBridge !== "true") {
       throw new Error("تعذر تحميل أداة التحقق من ثبات المرفقات.");
