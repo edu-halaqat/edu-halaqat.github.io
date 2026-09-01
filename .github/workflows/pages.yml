@@ -39,7 +39,7 @@ jobs:
           test -s tallam/assets/js/bootstrap.js
           test -s tallam/assets/js/app-submit.js
           test -s tallam/assets/js/ministry-preview-renderer.js
-          test -s tallam/assets/js/form-readiness.js
+          test -s tallam/assets/js/form-readiness-v2.js
           test -s tallam/assets/js/file-cache.js
           test -s tallam/assets/js/ministry-background.js
           for number in $(seq -w 1 14); do test -s "tallam/assets/js/ministry-bg-${number}.js"; done
@@ -52,7 +52,7 @@ jobs:
           node --check tallam/assets/js/app-core.js
           node --check tallam/assets/js/app-submit.js
           node --check tallam/assets/js/ministry-preview-renderer.js
-          node --check tallam/assets/js/form-readiness.js
+          node --check tallam/assets/js/form-readiness-v2.js
           node --check tallam/assets/js/file-cache.js
           node --check tallam/assets/js/file-readiness-bridge.js
           node --check tallam/assets/js/ministry-background.js
@@ -60,8 +60,10 @@ jobs:
           grep -Fq "$RELEASE" tallam/index.html
           grep -Fq "$RELEASE" tallam/assets/js/bootstrap.js
           grep -Fq "$RELEASE" tallam/admin/index.html
+          grep -Fq "$RELEASE" tallam/assets/js/form-readiness-v2.js
           grep -Fq '4.0.0-synchronized-page-v1' tallam/assets/js/ministry-preview-renderer.js
           grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
+          grep -Fq 'form-readiness-v2.js' tallam/assets/js/bootstrap.js
           grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
           grep -Fq 'download_urls' tallam/assets/js/app-submit.js
           grep -Fq 'teacher-export-repair' tallam/admin/regenerate.js
@@ -69,6 +71,8 @@ jobs:
           grep -Fq 'tallam:archive-refresh' tallam/admin/regenerate.js
           grep -Fq 'masterArchiveRebuild' tallam/admin/archive-refresh-bridge.js
           ! grep -Fq 'ministry-export-final.js' tallam/assets/js/bootstrap.js
+          ! grep -Fq 'TallamMinistryExporter' tallam/assets/js/form-readiness-v2.js
+          ! grep -Fq 'if (!window.JSZip)' tallam/assets/js/form-readiness-v2.js
           ! grep -Fq 'data.append("ministry_form_docx"' tallam/assets/js/app-submit.js
           ! grep -Fq 'data.append("ministry_form_pdf"' tallam/assets/js/app-submit.js
 
