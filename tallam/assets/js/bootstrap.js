@@ -1,19 +1,16 @@
 "use strict";
 (async () => {
-  const BUILD = "20260831-mobile-provider-v4";
-  const LEGACY_BUILD_MARKER = "20260831-admin-onedrive-v1";
-  const MOBILE_BUILD_MARKER = "20260831-mobile-photo-v1";
-  const CACHE_BUILD_MARKER = "20260831-stable-file-cache-v2";
-  const FILE_REFERENCE_MARKER = "20260831-file-reference-v3";
+  const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
+  const RELEASE = "20260901-synchronized-export-repair-v2";
   const appMount = document.getElementById("appMount");
-  window.__TALLAM_BUILD__ = BUILD;
+  window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
   document.body.dataset.ministryBackgroundReady = "loading";
   document.body.dataset.photoCompatibilityReady = "loading";
   document.body.dataset.fileCacheReady = "loading";
   document.body.dataset.fileReadinessBridge = "loading";
 
-  const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${BUILD}`;
+  const versioned = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${RELEASE}`;
   const read = async (path) => {
     const response = await fetch(versioned(path), { cache: "no-store" });
     if (!response.ok) throw new Error(`تعذر تحميل جزء من النموذج (${response.status}).`);
@@ -81,10 +78,6 @@
   };
 
   try {
-    void LEGACY_BUILD_MARKER;
-    void MOBILE_BUILD_MARKER;
-    void CACHE_BUILD_MARKER;
-    void FILE_REFERENCE_MARKER;
     const [part1, part2] = await Promise.all([
       read("assets/fragments/application-1.html"),
       read("assets/fragments/application-2.html")
@@ -92,8 +85,8 @@
     appMount.outerHTML = part1 + part2;
 
     await loadScript("assets/js/file-cache.js");
-    if (window.TallamFileCache?.build !== BUILD) {
-      throw new Error("تعذر تحميل الإصدار الجديد من أداة تثبيت المرفقات على الجوال.");
+    if (window.TallamFileCache?.build !== CACHE_COMPAT_BUILD) {
+      throw new Error("تعذر تحميل أداة تثبيت المرفقات على الجوال.");
     }
 
     window.__TallamMinistryBackgroundParts = [];
@@ -104,11 +97,11 @@
     await prepareOfficialBackground();
 
     await loadScript("assets/js/app-core.js");
-    await loadScript("assets/js/ministry-export-final.js");
-    await loadScript("assets/js/mobile-photo-compat.js");
-    if (!window.TallamMinistryExporter?.__mobilePhotoCompatibility) {
-      throw new Error("تعذر تحميل أداة معالجة الصورة الشخصية على الجوال.");
+    await loadScript("assets/js/ministry-preview-renderer.js");
+    if (window.TallamMinistryPreviewRenderer?.build !== "4.0.0-synchronized-page-v1") {
+      throw new Error("تعذر تحميل محرك الاستمارة المتزامنة.");
     }
+    document.body.dataset.photoCompatibilityReady = "true";
     await loadScript("assets/js/app-submit.js");
     await loadScript("assets/js/form-readiness.js");
     await loadScript("assets/js/file-readiness-bridge.js");
