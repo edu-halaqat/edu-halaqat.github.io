@@ -37,9 +37,10 @@ jobs:
 
           mkdir -p /tmp/tallam-live
           fetch_expected "${BASE_URL}/" /tmp/tallam-live/index.html "bootstrap.js?v=${BUILD}"
-          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "$BUILD"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "form-readiness-v2.js"
           fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live/submit.js "ministry_form_preview"
           fetch_expected "${BASE_URL}/assets/js/ministry-preview-renderer.js" /tmp/tallam-live/renderer.js "4.0.0-synchronized-page-v1"
+          fetch_expected "${BASE_URL}/assets/js/form-readiness-v2.js" /tmp/tallam-live/readiness.js "$BUILD"
           fetch_expected "${BASE_URL}/admin/" /tmp/tallam-live/admin.html "regenerate.js?v=${BUILD}"
           fetch_expected "${BASE_URL}/admin/regenerate.js" /tmp/tallam-live/regenerate.js "teacher-export-repair"
           fetch_expected "${BASE_URL}/admin/archive-refresh-bridge.js" /tmp/tallam-live/archive-bridge.js "masterArchiveRebuild"
@@ -47,6 +48,7 @@ jobs:
           node --check /tmp/tallam-live/bootstrap.js
           node --check /tmp/tallam-live/submit.js
           node --check /tmp/tallam-live/renderer.js
+          node --check /tmp/tallam-live/readiness.js
           node --check /tmp/tallam-live/regenerate.js
           node --check /tmp/tallam-live/archive-bridge.js
 
@@ -54,7 +56,10 @@ jobs:
           grep -Fq 'TallamMinistryPreviewRenderer' /tmp/tallam-live/bootstrap.js
           grep -Fq 'إعادة توليد التالفة ومزامنتها' /tmp/tallam-live/regenerate.js
           grep -Fq 'tallam:archive-refresh' /tmp/tallam-live/regenerate.js
+          grep -Fq 'submitBtn.disabled = !ready' /tmp/tallam-live/readiness.js
           ! grep -Fq 'ministry-export-final.js' /tmp/tallam-live/bootstrap.js
+          ! grep -Fq 'TallamMinistryExporter' /tmp/tallam-live/readiness.js
+          ! grep -Fq 'if (!window.JSZip)' /tmp/tallam-live/readiness.js
           ! grep -Fq 'data.append("ministry_form_docx"' /tmp/tallam-live/submit.js
           ! grep -Fq 'data.append("ministry_form_pdf"' /tmp/tallam-live/submit.js
 
@@ -66,9 +71,7 @@ jobs:
           node <<'NODE'
           const crypto = require('crypto');
           global.window = global;
-          for (let index = 1; index <= 14; index += 1) {
-            require(`/tmp/tallam-live/ministry-bg-${String(index).padStart(2, '0')}.js`);
-          }
+          for (let index = 1; index <= 14; index += 1) require(`/tmp/tallam-live/ministry-bg-${String(index).padStart(2, '0')}.js`);
           require('/tmp/tallam-live/ministry-background.js');
           const prefix = 'data:image/webp;base64,';
           const source = String(global.TallamOfficialMinistryBackground || '');
@@ -76,9 +79,7 @@ jobs:
           const bytes = Buffer.from(source.slice(prefix.length), 'base64');
           const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
           if (bytes.length !== 77924) throw new Error(`Unexpected WebP size: ${bytes.length}`);
-          if (sha256 !== '977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f') {
-            throw new Error(`Unexpected WebP SHA-256: ${sha256}`);
-          }
+          if (sha256 !== '977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f') throw new Error(`Unexpected WebP SHA-256: ${sha256}`);
           console.log(`Public official background verified: ${bytes.length} bytes`);
           NODE
 
@@ -90,6 +91,7 @@ jobs:
               "${BASE_URL}/?v=${BUILD}&browser_attempt=${attempt}" \
               > /tmp/tallam-live/index-dom.html 2>/tmp/tallam-live/chrome-index.log || true
             if grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html \
+              && grep -Fq 'data-readiness-build="20260901-synchronized-export-repair-v2"' /tmp/tallam-live/index-dom.html \
               && grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html; then
               break
             fi
@@ -97,6 +99,7 @@ jobs:
           done
           grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html
           grep -Fq 'data-ministry-background-ready="true"' /tmp/tallam-live/index-dom.html
+          grep -Fq 'data-readiness-build="20260901-synchronized-export-repair-v2"' /tmp/tallam-live/index-dom.html
           grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html
           ! grep -Fq 'data-portal-ready="false"' /tmp/tallam-live/index-dom.html
 
