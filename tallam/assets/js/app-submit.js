@@ -1,6 +1,9 @@
 "use strict";
 
   const FILE_CACHE_BUILD = "20260831-stable-file-cache-v2";
+  const SYNCHRONIZED_EXPORT_VERSION = "4.0.0-synchronized-page-v1";
+  let generatedWordUrl = "";
+  let generatedPdfUrl = "";
 
   function fileInputLabel(input) {
     const direct = input?.id ? form.querySelector(`label[for="${CSS.escape(input.id)}"]`) : null;
@@ -39,8 +42,8 @@
   }
 
   async function generateExports() {
-    if (!window.TallamMinistryExporter || !window.JSZip) {
-      throw new Error("تعذر تحميل القالب الرسمي وأدوات إصدار الملفات. تحقق من اتصال الإنترنت ثم أعد المحاولة.");
+    if (!window.TallamMinistryPreviewRenderer?.generate) {
+      throw new Error("تعذر تحميل محرك الاستمارة المتزامنة. تحقق من اتصال الإنترنت ثم أعد المحاولة.");
     }
     await stabilizeSelectedFiles();
     const signatureBlob = await canvasToBlob(canvas);
@@ -70,7 +73,8 @@
     };
     const photoInput = form.elements.personal_photo;
     const photoFile = await stableInputFile(photoInput);
-    return window.TallamMinistryExporter.generate({ values, photoFile, signatureBlob });
+    const rendered = await window.TallamMinistryPreviewRenderer.generate({ values, photoFile, signatureBlob });
+    return { ...rendered, signatureBlob };
   }
 
   function appendText(data, name, value, fallback = "") {
@@ -96,7 +100,8 @@
     appendText(data, "privacy_accepted", "true");
     appendText(data, "started_at", startedAt);
     appendText(data, "form_version", CONFIG.formVersion);
-    appendText(data, "ministry_export_version", `3.1.0-official-template-${FILE_CACHE_BUILD}`);
+    appendText(data, "ministry_export_version", SYNCHRONIZED_EXPORT_VERSION);
+    appendText(data, "ministry_export_integrity", exports?.integrity ? JSON.stringify(exports.integrity) : "");
     appendText(data, "client_timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Riyadh");
     appendText(data, "website", fieldValue("website"));
 
@@ -108,9 +113,9 @@
       data.append(input.name, stable, stable.name || source.name || `${input.name}.bin`);
     }
 
-    data.append("signature", exports.signatureBlob, "signature.png");
-    data.append("ministry_form_docx", exports.docxBlob, "ministry-teacher-form.docx");
-    data.append("ministry_form_pdf", exports.pdfBlob, "ministry-teacher-form.pdf");
+    const signatureBlob = exports?.signatureBlob || await canvasToBlob(canvas);
+    data.append("signature", signatureBlob, "signature.png");
+    if (exports) data.append("ministry_form_preview", exports.previewPngBlob, "ministry-teacher-form.png");
     return data;
   }
 
@@ -120,7 +125,7 @@
     try {
       const response = await fetch(CONFIG.endpoint, {
         method: "POST", body: payload, signal: controller.signal,
-        headers: { "x-client-info": `tallam-teachers-web/5-${FILE_CACHE_BUILD}` }
+        headers: { "x-client-info": `tallam-teachers-web/6-${SYNCHRONIZED_EXPORT_VERSION}` }
       });
       let result = {};
       try { result = await response.json(); } catch { result = {}; }
@@ -150,8 +155,33 @@
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
 
+  async function fetchGeneratedBlob(url, label) {
+    if (!url) return null;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`تعذر تنزيل ${label} (${response.status}).`);
+    const blob = await response.blob();
+    if (!blob.size) throw new Error(`${label} فارغ أو غير متاح.`);
+    return blob;
+  }
+
+  async function ensureGeneratedBlobs() {
+    if (generatedDocx && generatedPdf) return true;
+    const [word, pdf] = await Promise.all([
+      generatedDocx || fetchGeneratedBlob(generatedWordUrl, "ملف Word"),
+      generatedPdf || fetchGeneratedBlob(generatedPdfUrl, "ملف PDF")
+    ]);
+    generatedDocx = word || null;
+    generatedPdf = pdf || null;
+    return Boolean(generatedDocx && generatedPdf);
+  }
+
   async function downloadBoth() {
-    if (!generatedDocx || !generatedPdf) return;
+    if (!(await ensureGeneratedBlobs())) return;
+    if (!window.JSZip) {
+      downloadBlob(generatedDocx, `${safeName(fieldValue("full_name"))}-${generatedReference}.docx`);
+      downloadBlob(generatedPdf, `${safeName(fieldValue("full_name"))}-${generatedReference}.pdf`);
+      return;
+    }
     const zip = new window.JSZip();
     const base = `${safeName(fieldValue("full_name"))}-${generatedReference}`;
     zip.file(`${base}.docx`, generatedDocx);
@@ -177,28 +207,53 @@
 
     submitBtn.disabled = true;
     prevBtn.disabled = true;
-    showLoading("جارٍ تثبيت المرفقات", "يتم حفظ نسخة آمنة من الملفات المختارة داخل الصفحة قبل تعبئة الاستمارة وإرسال الطلب.");
+    showLoading("جارٍ تثبيت المرفقات", "يتم حفظ نسخة آمنة من الملفات المختارة داخل الصفحة قبل حفظ الطلب.");
 
     try {
       await stabilizeSelectedFiles();
+      let exports = null;
+      let exportWarning = "";
       loadingTitle.textContent = "جارٍ تعبئة الاستمارة الرسمية";
-      loadingText.textContent = "يتم إدخال البيانات في القالب الأصلي دون تغيير شعاراته أو تنسيقه.";
-      const exports = await generateExports();
+      loadingText.textContent = "يتم إنشاء صفحة رسمية واحدة تُستخدم مصدرًا متزامنًا لملفي Word وPDF.";
+      try {
+        exports = await generateExports();
+      } catch (exportError) {
+        console.warn("Client export deferred to admin repair", exportError);
+        exportWarning = friendlySubmissionError(exportError);
+      }
+
       loadingTitle.textContent = "جارٍ حفظ الطلب";
-      loadingText.textContent = "يتم رفع البيانات والمرفقات ونسختي Word وPDF بصورة آمنة؛ يرجى عدم إغلاق الصفحة.";
+      loadingText.textContent = exports
+        ? "يتم حفظ البيانات والمرفقات، ثم يعيد الخادم بناء Word وPDF من الصفحة المتزامنة نفسها."
+        : "يتم حفظ الطلب والمرفقات الآن، وستُنشأ الاستمارة لاحقًا من لوحة الإدارة دون فقد الطلب.";
       const payload = await buildPayload(exports);
       const result = await submitPayload(payload);
 
-      generatedDocx = exports.docxBlob;
-      generatedPdf = exports.pdfBlob;
+      generatedDocx = null;
+      generatedPdf = null;
+      generatedWordUrl = result.download_urls?.docx || "";
+      generatedPdfUrl = result.download_urls?.pdf || "";
       generatedReference = result.reference_number;
       referenceNumber.textContent = generatedReference;
       formArea.hidden = true;
       successPanel.classList.add("show");
+      const successText = successPanel.querySelector("p");
+      const exportReady = result.export_status === "completed";
+      if (successText) {
+        successText.textContent = exportReady
+          ? "احتفظ بالرقم المرجعي للمتابعة. جرى حفظ نسختي Word وPDF المتزامنتين مع الطلب."
+          : "تم حفظ الطلب والمرفقات بنجاح. الاستمارة في قائمة إعادة التوليد بلوحة الإدارة، ولن يلزم المتقدم إعادة تعبئة الطلب.";
+      }
+      const downloads = successPanel.querySelector(".downloads");
+      if (downloads) downloads.hidden = !exportReady || !generatedWordUrl || !generatedPdfUrl;
       localStorage.removeItem(CONFIG.draftKey);
       window.scrollTo({ top: document.getElementById("application-form").offsetTop - 80, behavior: "smooth" });
 
-      try { await downloadBoth(); } catch (downloadError) { console.warn(downloadError); }
+      if (exportReady && generatedWordUrl && generatedPdfUrl) {
+        try { await downloadBoth(); } catch (downloadError) { console.warn(downloadError); }
+      } else if (exportWarning) {
+        console.warn("Application saved with export pending:", exportWarning);
+      }
     } catch (error) {
       console.error(error);
       showStatus(friendlySubmissionError(error));
@@ -250,11 +305,17 @@
   form.addEventListener("change", scheduleDraft);
   form.addEventListener("input", (event) => markInvalid(event.target, false));
 
-  document.getElementById("downloadWord").addEventListener("click", () => {
-    if (generatedDocx) downloadBlob(generatedDocx, `${safeName(fieldValue("full_name"))}-${generatedReference}.docx`);
+  document.getElementById("downloadWord").addEventListener("click", async () => {
+    try {
+      if (!generatedDocx) generatedDocx = await fetchGeneratedBlob(generatedWordUrl, "ملف Word");
+      if (generatedDocx) downloadBlob(generatedDocx, `${safeName(fieldValue("full_name"))}-${generatedReference}.docx`);
+    } catch (error) { showStatus(friendlySubmissionError(error)); }
   });
-  document.getElementById("downloadPdf").addEventListener("click", () => {
-    if (generatedPdf) downloadBlob(generatedPdf, `${safeName(fieldValue("full_name"))}-${generatedReference}.pdf`);
+  document.getElementById("downloadPdf").addEventListener("click", async () => {
+    try {
+      if (!generatedPdf) generatedPdf = await fetchGeneratedBlob(generatedPdfUrl, "ملف PDF");
+      if (generatedPdf) downloadBlob(generatedPdf, `${safeName(fieldValue("full_name"))}-${generatedReference}.pdf`);
+    } catch (error) { showStatus(friendlySubmissionError(error)); }
   });
   document.getElementById("downloadZip").addEventListener("click", downloadBoth);
 
