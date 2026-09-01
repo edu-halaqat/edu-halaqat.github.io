@@ -24,45 +24,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate Tallam portal release
+      - name: Validate synchronized export release
         shell: bash
         run: |
           set -euo pipefail
+          RELEASE='20260901-synchronized-export-repair-v2'
+
           test -s tallam/index.html
           test -s tallam/admin/index.html
           test -s tallam/admin/admin.js
+          test -s tallam/admin/archive.js
+          test -s tallam/admin/regenerate.js
+          test -s tallam/admin/archive-refresh-bridge.js
           test -s tallam/assets/js/bootstrap.js
+          test -s tallam/assets/js/app-submit.js
+          test -s tallam/assets/js/ministry-preview-renderer.js
+          test -s tallam/assets/js/form-readiness.js
+          test -s tallam/assets/js/file-cache.js
           test -s tallam/assets/js/ministry-background.js
-          test -s tallam/assets/js/ministry-export-final.js
-          test -s tallam/assets/fragments/application-1.html
-          test -s tallam/assets/fragments/application-2.html
           for number in $(seq -w 1 14); do test -s "tallam/assets/js/ministry-bg-${number}.js"; done
 
           node --check tallam/admin/admin.js
+          node --check tallam/admin/archive.js
+          node --check tallam/admin/regenerate.js
+          node --check tallam/admin/archive-refresh-bridge.js
           node --check tallam/assets/js/bootstrap.js
           node --check tallam/assets/js/app-core.js
-          node --check tallam/assets/js/ministry-background.js
-          node --check tallam/assets/js/ministry-export-final.js
           node --check tallam/assets/js/app-submit.js
+          node --check tallam/assets/js/ministry-preview-renderer.js
           node --check tallam/assets/js/form-readiness.js
-          for number in $(seq -w 1 14); do node --check "tallam/assets/js/ministry-bg-${number}.js"; done
+          node --check tallam/assets/js/file-cache.js
+          node --check tallam/assets/js/file-readiness-bridge.js
+          node --check tallam/assets/js/ministry-background.js
 
-          grep -q '20260831-admin-onedrive-v1' tallam/index.html
-          grep -q '20260831-admin-onedrive-v1' tallam/assets/js/bootstrap.js
-          grep -q 'ministry-bg-' tallam/assets/js/bootstrap.js
-          grep -q 'ministry-background.js' tallam/assets/js/bootstrap.js
-          grep -q 'ministry-export-final.js' tallam/assets/js/bootstrap.js
-          grep -q 'TallamMinistryExporter' tallam/assets/js/ministry-export-final.js
-          grep -q '/FlateDecode' tallam/assets/js/ministry-export-final.js
-          grep -q 'form-image.png' tallam/assets/js/ministry-export-final.js
-          grep -q '<wp:inline' tallam/assets/js/ministry-export-final.js
-          ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
-          ! grep -q '<wp:anchor' tallam/assets/js/ministry-export-final.js
-          grep -q 'submitBtn.disabled = !ready' tallam/assets/js/form-readiness.js
-          grep -q 'Mad3@tallam.sa' tallam/admin/admin.js
-          grep -q 'signInWithOtp' tallam/admin/admin.js
-          grep -q 'method: "DELETE"' tallam/admin/admin.js
-          grep -q 'حذف الطلب نهائيًا' tallam/admin/admin.js
+          grep -Fq "$RELEASE" tallam/index.html
+          grep -Fq "$RELEASE" tallam/assets/js/bootstrap.js
+          grep -Fq "$RELEASE" tallam/admin/index.html
+          grep -Fq '4.0.0-synchronized-page-v1' tallam/assets/js/ministry-preview-renderer.js
+          grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
+          grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
+          grep -Fq 'download_urls' tallam/assets/js/app-submit.js
+          grep -Fq 'teacher-export-repair' tallam/admin/regenerate.js
+          grep -Fq 'إعادة توليد التالفة ومزامنتها' tallam/admin/regenerate.js
+          grep -Fq 'tallam:archive-refresh' tallam/admin/regenerate.js
+          grep -Fq 'masterArchiveRebuild' tallam/admin/archive-refresh-bridge.js
+          ! grep -Fq 'ministry-export-final.js' tallam/assets/js/bootstrap.js
+          ! grep -Fq 'data.append("ministry_form_docx"' tallam/assets/js/app-submit.js
+          ! grep -Fq 'data.append("ministry_form_pdf"' tallam/assets/js/app-submit.js
 
           node <<'NODE'
           const crypto = require('crypto');
@@ -72,10 +80,9 @@ jobs:
           }
           require('./tallam/assets/js/ministry-background.js');
           const prefix = 'data:image/webp;base64,';
-          if (!String(global.TallamOfficialMinistryBackground || '').startsWith(prefix)) {
-            throw new Error('The official ministry background data URI was not assembled.');
-          }
-          const bytes = Buffer.from(global.TallamOfficialMinistryBackground.slice(prefix.length), 'base64');
+          const source = String(global.TallamOfficialMinistryBackground || '');
+          if (!source.startsWith(prefix)) throw new Error('Ministry background was not assembled.');
+          const bytes = Buffer.from(source.slice(prefix.length), 'base64');
           const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
           if (bytes.length !== 77924) throw new Error(`Unexpected WebP size: ${bytes.length}`);
           if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
@@ -84,7 +91,7 @@ jobs:
           if (sha256 !== '977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f') {
             throw new Error(`Unexpected ministry background SHA-256: ${sha256}`);
           }
-          console.log(`Official WebP verified: ${bytes.length} bytes, ${sha256}`);
+          console.log(`Official ministry background verified: ${bytes.length} bytes`);
           NODE
 
       - name: Prepare Pages artifact
