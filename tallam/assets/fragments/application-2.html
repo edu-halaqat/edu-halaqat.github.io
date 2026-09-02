@@ -22,12 +22,18 @@
 
               <section class="form-step" data-step="6">
                 <h3 class="section-title"><span class="num">٧</span> المرفقات</h3>
+                <div class="notice" style="margin-bottom:18px">
+                  <strong style="display:block;color:var(--primary-dark);margin-bottom:6px">استمارة وزارة الشؤون الإسلامية</strong>
+                  <span>نزّل الاستمارة الأصلية، وعبّئها في برنامج Word، ثم احفظها وارفع النسخة المعبأة في الحقل المخصص أدناه.</span>
+                  <div style="margin-top:12px"><a class="btn btn-secondary" href="https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template" download>تنزيل استمارة الشؤون الإسلامية</a></div>
+                </div>
                 <div class="grid">
+                  <div class="field full file-card" style="border-color:#d5bc87;background:#fffaf1"><label for="ministry_form_filled">استمارة الشؤون الإسلامية بعد تعبئتها <span class="req">*</span></label><input id="ministry_form_filled" name="ministry_form_filled" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" required><div class="file-list">DOCX أو PDF ـ يجب رفع الاستمارة بعد تعبئة بياناتها وحفظها.</div></div>
                   <div class="field third file-card"><label for="personal_photo">الصورة الشخصية للرجال</label><input id="personal_photo" name="personal_photo" type="file" accept="image/jpeg,image/png"><div class="file-list">JPG أو PNG ـ مطلوبة للمتقدم الذكر.</div></div>
                   <div class="field third file-card"><label for="educational_certificate">الشهادة الدراسية <span class="req">*</span></label><input id="educational_certificate" name="educational_certificate" type="file" accept="application/pdf,image/jpeg,image/png" required><div class="file-list">PDF أو صورة واضحة.</div></div>
                   <div class="field third file-card"><label for="cv">السيرة الذاتية <span class="req">*</span></label><input id="cv" name="cv" type="file" accept="application/pdf" required><div class="file-list">PDF فقط.</div></div>
-                  <div class="field third file-card"><label for="recommendation_1">تزكية الشيخ الأول <span class="req">*</span></label><input id="recommendation_1" name="recommendation_1" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
-                  <div class="field third file-card"><label for="recommendation_2">تزكية الشيخ الثاني <span class="req">*</span></label><input id="recommendation_2" name="recommendation_2" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
+                  <div class="field third file-card"><label for="recommendation_1">تزكية الشيخ الأول <small>(اختياري)</small></label><input id="recommendation_1" name="recommendation_1" type="file" accept="application/pdf,image/jpeg,image/png"></div>
+                  <div class="field third file-card"><label for="recommendation_2">تزكية الشيخ الثاني <small>(اختياري)</small></label><input id="recommendation_2" name="recommendation_2" type="file" accept="application/pdf,image/jpeg,image/png"></div>
                   <div class="field third file-card"><label for="quran_certificates">شهادات حفظ القرآن <span class="req">*</span></label><input id="quran_certificates" name="quran_certificates" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
                   <div class="field third file-card"><label for="identity_document">صورة الهوية أو الإقامة <span class="req">*</span></label><input id="identity_document" name="identity_document" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
                   <div class="field third file-card"><label for="iban_document">شهادة الآيبان <span class="req">*</span></label><input id="iban_document" name="iban_document" type="file" accept="application/pdf,image/jpeg,image/png" required></div>
@@ -58,7 +64,7 @@
             <div class="form-nav">
               <button type="button" class="btn btn-secondary" id="prevBtn" disabled>السابق</button>
               <button type="button" class="btn btn-primary" id="nextBtn">التالي</button>
-              <button type="submit" class="btn btn-primary" id="submitBtn" hidden>إرسال الطلب وإصدار الاستمارة</button>
+              <button type="submit" class="btn btn-primary" id="submitBtn" hidden>إرسال الطلب</button>
             </div>
           </form>
         </div>
@@ -66,13 +72,8 @@
         <div class="success-panel" id="successPanel">
           <div class="success-icon">✓</div>
           <h2>تم استلام طلبك بنجاح</h2>
-          <p>احتفظ بالرقم المرجعي للمتابعة. جرى حفظ نسختي Word وPDF مع الطلب.</p>
+          <p>تم حفظ بياناتك وجميع مرفقاتك، بما فيها استمارة وزارة الشؤون الإسلامية المعبأة.</p>
           <div class="reference" id="referenceNumber"></div>
-          <div class="downloads">
-            <button class="btn btn-primary" id="downloadZip" type="button">تنزيل Word وPDF معًا</button>
-            <button class="btn btn-secondary" id="downloadWord" type="button">تنزيل Word</button>
-            <button class="btn btn-secondary" id="downloadPdf" type="button">تنزيل PDF</button>
-          </div>
         </div>
       </section>
     </div>
