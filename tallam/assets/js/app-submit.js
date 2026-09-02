@@ -1,7 +1,7 @@
 "use strict";
 
   const FILE_CACHE_BUILD = "20260831-stable-file-cache-v2";
-  const SYNCHRONIZED_EXPORT_VERSION = "4.0.0-synchronized-page-v1";
+  const SYNCHRONIZED_EXPORT_VERSION = "4.2.0-synchronized-office-v3";
   let generatedWordUrl = "";
   let generatedPdfUrl = "";
 

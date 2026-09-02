@@ -1,7 +1,7 @@
 "use strict";
 (async () => {
   const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
-  const RELEASE = "20260901-synchronized-export-repair-v2";
+  const RELEASE = "20260902-office-export-v3";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
@@ -98,7 +98,7 @@
 
     await loadScript("assets/js/app-core.js");
     await loadScript("assets/js/ministry-preview-renderer.js");
-    if (window.TallamMinistryPreviewRenderer?.build !== "4.0.0-synchronized-page-v1") {
+    if (window.TallamMinistryPreviewRenderer?.build !== "4.2.0-synchronized-office-v3") {
       throw new Error("تعذر تحميل محرك الاستمارة المتزامنة.");
     }
     document.body.dataset.photoCompatibilityReady = "true";

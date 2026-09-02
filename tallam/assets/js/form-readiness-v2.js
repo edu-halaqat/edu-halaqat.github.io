@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20260901-synchronized-export-repair-v2";
+  const BUILD = "20260902-office-export-v3";
   const form = document.getElementById("teacherForm");
   if (!form) return;
 

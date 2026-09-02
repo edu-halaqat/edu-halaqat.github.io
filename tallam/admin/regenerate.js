@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const RELEASE = "20260901-synchronized-export-repair-v2";
-  const EXPORT_VERSION = "4.0.0-synchronized-page-v1";
+  const RELEASE = "20260902-office-export-v3";
+  const EXPORT_VERSION = "4.2.0-synchronized-office-v3";
   const CONFIG = Object.freeze({
     supabaseUrl: "https://fvzoogbdezueswyihxiz.supabase.co",
     anonKey: "sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ",

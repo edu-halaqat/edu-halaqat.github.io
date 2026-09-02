@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "4.0.0-synchronized-page-v1";
+  const BUILD = "4.2.0-synchronized-office-v3";
   const BOXES = Object.freeze({
     full_name:        { x: 87,   y: 470,  w: 1244, h: 69, size: 25, min: 16 },
     identity_number:  { x: 915,  y: 683,  w: 414,  h: 54, size: 22, min: 15 },
