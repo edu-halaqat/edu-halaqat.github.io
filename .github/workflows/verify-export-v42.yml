@@ -1,0 +1,160 @@
+name: Verify generated Word and PDF v4.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-export-v42.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-generated-files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install document renderers
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libreoffice-writer poppler-utils qpdf python3-pil unzip
+
+      - name: Download the actual files stored by the portal
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/tmp-verify-9e98c06e5ea96f0f'
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors "$BASE?kind=docx" -o application.docx
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors "$BASE?kind=pdf" -o application.pdf
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors "$BASE?kind=png" -o application.png
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors "$BASE?kind=master_docx" -o master.docx
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors "$BASE?kind=master_pdf" -o master.pdf
+          test "$(stat -c%s application.docx)" -gt 100000
+          test "$(stat -c%s application.pdf)" -gt 100000
+          test "$(stat -c%s application.png)" -gt 100000
+          test "$(stat -c%s master.docx)" -gt 100000
+          test "$(stat -c%s master.pdf)" -gt 100000
+
+      - name: Validate packages and PDF syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t application.docx >/dev/null
+          unzip -t master.docx >/dev/null
+          unzip -l application.docx | grep -Fq 'word/media/image1.png'
+          unzip -p application.docx word/document.xml > application-document.xml
+          unzip -p master.docx word/document.xml > master-document.xml
+          grep -Fq 'http://schemas.openxmlformats.org/drawingml/2006/picture' application-document.xml
+          grep -Fq 'w:lineRule="auto"' application-document.xml
+          ! grep -Fq 'altChunk' application-document.xml
+          ! unzip -l application.docx | grep -Fq 'afchunk.mht'
+          ! grep -Fq 'altChunk' master-document.xml
+          ! unzip -l master.docx | grep -Fq 'afchunk.mht'
+          qpdf --check application.pdf
+          qpdf --check master.pdf
+          test "$(pdfinfo application.pdf | awk '/^Pages:/ {print $2}')" = '1'
+          test "$(pdfinfo master.pdf | awk '/^Pages:/ {print $2}')" = '1'
+
+      - name: Render Word and PDF with desktop engines
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p render/application-docx render/master-docx render/images
+          timeout 90s libreoffice --headless --convert-to pdf --outdir render/application-docx application.docx
+          timeout 90s libreoffice --headless --convert-to pdf --outdir render/master-docx master.docx
+          test -s render/application-docx/application.pdf
+          test -s render/master-docx/master.pdf
+          pdftoppm -png -singlefile -r 144 render/application-docx/application.pdf render/images/application-docx
+          pdftoppm -png -singlefile -r 144 application.pdf render/images/application-pdf
+          pdftoppm -png -singlefile -r 144 render/master-docx/master.pdf render/images/master-docx
+          pdftoppm -png -singlefile -r 144 master.pdf render/images/master-pdf
+          test -s render/images/application-docx.png
+          test -s render/images/application-pdf.png
+          test -s render/images/master-docx.png
+          test -s render/images/master-pdf.png
+
+      - name: Check that no rendered page is blank or visually corrupted
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageStat
+
+          paths = [
+              Path('render/images/application-docx.png'),
+              Path('render/images/application-pdf.png'),
+              Path('render/images/master-docx.png'),
+              Path('render/images/master-pdf.png'),
+          ]
+
+          def metrics(path):
+              image = Image.open(path).convert('RGB')
+              thumb = image.resize((600, 850))
+              pixels = list(thumb.getdata())
+              total = len(pixels)
+              nonwhite = sum(1 for r,g,b in pixels if min(r,g,b) < 245) / total
+              dark = sum(1 for r,g,b in pixels if max(r,g,b) < 45) / total
+              rows = []
+              for y in range(thumb.height):
+                  row = [thumb.getpixel((x,y)) for x in range(thumb.width)]
+                  rows.append(sum(1 for r,g,b in row if max(r,g,b) < 45) / thumb.width)
+              consecutive = best = 0
+              for ratio in rows:
+                  if ratio > .55:
+                      consecutive += 1
+                      best = max(best, consecutive)
+                  else:
+                      consecutive = 0
+              assert nonwhite > .025, f'{path} appears blank: nonwhite={nonwhite:.4f}'
+              assert nonwhite < .45, f'{path} is unexpectedly dense: nonwhite={nonwhite:.4f}'
+              assert dark < .20, f'{path} has excessive black content: dark={dark:.4f}'
+              assert best < 10, f'{path} contains a wide black band: rows={best}'
+              return image, nonwhite, dark, best
+
+          rendered = {}
+          for path in paths:
+              image, nonwhite, dark, best = metrics(path)
+              rendered[path.stem] = image
+              print(f'{path}: nonwhite={nonwhite:.4f}, dark={dark:.4f}, black_band_rows={best}')
+
+          # Word and PDF originate from the same canonical page. Compare their visible content
+          # after normalizing to the same canvas; tolerate small rasterizer/margin differences.
+          def normalized(image):
+              bg = Image.new('RGB', image.size, 'white')
+              diff = ImageChops.difference(image, bg).convert('L')
+              bbox = diff.point(lambda p: 255 if p > 10 else 0).getbbox()
+              assert bbox, 'no visible content'
+              crop = image.crop(bbox)
+              canvas = Image.new('RGB', (600, 850), 'white')
+              crop.thumbnail((590, 840))
+              canvas.paste(crop, ((600-crop.width)//2, (850-crop.height)//2))
+              return canvas
+
+          for a, b, label in [
+              ('application-docx', 'application-pdf', 'application'),
+              ('master-docx', 'master-pdf', 'master'),
+          ]:
+              left, right = normalized(rendered[a]), normalized(rendered[b])
+              stat = ImageStat.Stat(ImageChops.difference(left, right))
+              mean = sum(stat.mean) / 3
+              print(f'{label} Word/PDF mean pixel difference: {mean:.2f}')
+              assert mean < 30, f'{label} Word and PDF differ excessively: {mean:.2f}'
+
+          preview = Image.open('application.png').convert('RGB')
+          assert preview.size == (1414, 2000), preview.size
+          print('All generated Word/PDF files rendered successfully and passed visual checks.')
+          PY
+
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-tallam-export-v42
+          path: |
+            application.docx
+            application.pdf
+            application.png
+            master.docx
+            master.pdf
+            render/images/*.png
+          retention-days: 3
