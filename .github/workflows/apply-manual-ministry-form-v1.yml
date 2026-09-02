@@ -1,0 +1,49 @@
+name: Apply manual ministry form flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.deploy/manual-ministry-form/trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild and apply portal patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .deploy/manual-ministry-form/part-*.b64 | base64 --decode > /tmp/tallam-manual-site-patch.tar.xz
+          tar -xJf /tmp/tallam-manual-site-patch.tar.xz -C .
+
+          node --check tallam/assets/js/bootstrap.js
+          node --check tallam/assets/js/app-submit.js
+          node --check tallam/assets/js/form-readiness-v2.js
+          unzip -t tallam/assets/forms/ministry-personal-information-form.docx >/dev/null
+          grep -Fq '20260902-manual-ministry-form-v1' tallam/index.html
+          grep -Fq 'ministry_form_completed' tallam/assets/fragments/application-2.html
+          grep -Fq 'manual-applicant-upload-v1' tallam/assets/js/app-submit.js
+          ! grep -F 'name="recommendation_1"' tallam/assets/fragments/application-2.html | grep -Fq 'required'
+          ! grep -F 'name="recommendation_2"' tallam/assets/fragments/application-2.html | grep -Fq 'required'
+
+      - name: Commit portal changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Tallam Portal Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tallam
+          if git diff --cached --quiet; then
+            echo 'No portal changes were required.'
+            exit 0
+          fi
+          git commit -m 'اعتماد رفع استمارة الشؤون الإسلامية يدويًا وإلغاء إلزامية التزكيات'
+          git push origin HEAD:main
