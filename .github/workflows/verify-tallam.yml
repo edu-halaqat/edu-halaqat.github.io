@@ -17,46 +17,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify static final release
+      - name: Verify manual ministry form flow
         shell: bash
         run: |
           set -euo pipefail
+          BUILD='20260902-manual-ministry-form-v1'
           node --check tallam/admin/admin.js
           node --check tallam/assets/js/bootstrap.js
-          node --check tallam/assets/js/ministry-background.js
-          node --check tallam/assets/js/ministry-export-final.js
+          node --check tallam/assets/js/app-core.js
           node --check tallam/assets/js/app-submit.js
-          node --check tallam/assets/js/form-readiness.js
-          for number in $(seq -w 1 14); do node --check "tallam/assets/js/ministry-bg-${number}.js"; done
+          node --check tallam/assets/js/form-readiness-v2.js
+          node --check tallam/assets/js/file-cache.js
+          node --check tallam/assets/js/file-readiness-bridge.js
 
-          grep -q '20260831-admin-onedrive-v1' tallam/index.html
-          grep -q '20260831-admin-onedrive-v1' tallam/assets/js/bootstrap.js
-          grep -q 'TallamMinistryExporter' tallam/assets/js/ministry-export-final.js
-          grep -q '/FlateDecode' tallam/assets/js/ministry-export-final.js
-          ! grep -q '/DCTDecode' tallam/assets/js/ministry-export-final.js
-          grep -q 'Mad3@tallam.sa' tallam/admin/admin.js
-          grep -q 'signInWithOtp' tallam/admin/admin.js
-          grep -q 'method: "DELETE"' tallam/admin/admin.js
-          grep -q 'حذف الطلب نهائيًا' tallam/admin/admin.js
+          grep -Fq "$BUILD" tallam/index.html
+          grep -Fq "$BUILD" tallam/assets/js/bootstrap.js
+          grep -Fq "$BUILD" tallam/assets/js/form-readiness-v2.js
+          grep -Fq 'ministry_form_filled' tallam/assets/fragments/application-2.html
+          grep -Fq 'ministry-form-template' tallam/assets/fragments/application-2.html
+          grep -Fq 'ministry_form_filled' tallam/assets/js/app-submit.js
+          ! grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
+          ! grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
 
-          node <<'NODE'
-          const crypto = require('crypto');
-          global.window = global;
-          for (let index = 1; index <= 14; index += 1) {
-            require(`./tallam/assets/js/ministry-bg-${String(index).padStart(2, '0')}.js`);
-          }
-          require('./tallam/assets/js/ministry-background.js');
-          const prefix = 'data:image/webp;base64,';
-          const source = String(global.TallamOfficialMinistryBackground || '');
-          if (!source.startsWith(prefix)) throw new Error('Ministry background was not assembled.');
-          const bytes = Buffer.from(source.slice(prefix.length), 'base64');
-          const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-          if (bytes.length !== 77924) throw new Error(`Unexpected WebP size: ${bytes.length}`);
-          if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
-            throw new Error('Invalid WebP header.');
-          }
-          if (sha256 !== '977bf87fa55a137b85734c72f0dc86d3c37612dc5d2f7f3fd6234ec0fca4bb6f') {
-            throw new Error(`Unexpected SHA-256: ${sha256}`);
-          }
-          console.log(`Official WebP verified: ${bytes.length} bytes`);
-          NODE
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('tallam/assets/fragments/application-2.html').read_text(encoding='utf-8')
+          for field in ('recommendation_1', 'recommendation_2'):
+              item = re.search(rf'<input[^>]+name="{field}"[^>]*>', html)
+              assert item and ' required' not in item.group(0)
+          ministry = re.search(r'<input[^>]+name="ministry_form_filled"[^>]*>', html)
+          assert ministry and ' required' in ministry.group(0)
+          PY
+
+          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+            'https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template' \
+            -o /tmp/ministry-template.docx
+          unzip -t /tmp/ministry-template.docx >/dev/null
