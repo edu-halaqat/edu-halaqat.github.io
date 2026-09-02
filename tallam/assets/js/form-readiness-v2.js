@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20260902-office-export-v3";
+  const BUILD = "20260902-manual-ministry-form-v1";
   const form = document.getElementById("teacherForm");
   if (!form) return;
 
@@ -15,14 +15,12 @@
   const canvas = document.getElementById("signatureCanvas");
   const personalPhoto = form.elements.personal_photo;
   const REQUIRED_FILES = new Set([
-    "educational_certificate", "cv", "recommendation_1", "recommendation_2",
+    "ministry_form_filled", "educational_certificate", "cv",
     "quran_certificates", "identity_document", "iban_document"
   ]);
   const MAX_FILE_BYTES = 8 * 1024 * 1024;
   const MAX_TOTAL_BYTES = 40 * 1024 * 1024;
 
-  let assetsReady = false;
-  let assetsError = "";
   let photoState = personalPhoto?.files?.[0] ? "checking" : "empty";
   let photoError = "";
   let refreshFrame = 0;
@@ -32,7 +30,6 @@
   const readinessBox = installReadinessBox();
   installListeners();
   refreshControls();
-  void preflightAssets();
 
   function injectStyles() {
     if (document.getElementById("tallam-readiness-v2-styles")) return;
@@ -58,7 +55,7 @@
       notice = document.createElement("div");
       notice.className = "final-step-notice";
       notice.setAttribute("role", "status");
-      notice.innerHTML = "<strong>هذه هي الخطوة الأخيرة في النموذج.</strong><span>راجع البيانات والتوقيع والتعهدين. لن يتاح الإرسال إلا بعد اكتمال الحقول والمرفقات وثبات الملفات على الجهاز.</span>";
+      notice.innerHTML = "<strong>هذه هي الخطوة الأخيرة في النموذج.</strong><span>راجع البيانات والمرفقات، وتأكد من رفع استمارة وزارة الشؤون الإسلامية بعد تعبئتها. التزكيات اختيارية.</span>";
       last.querySelector(".section-title")?.insertAdjacentElement("afterend", notice);
     }
     return notice;
@@ -80,14 +77,13 @@
   function installListeners() {
     form.addEventListener("input", scheduleRefresh, true);
     form.addEventListener("change", (event) => {
-      const input = event.target;
-      if (input === personalPhoto) void inspectPersonalPhoto();
+      if (event.target === personalPhoto) void inspectPersonalPhoto();
       scheduleRefresh();
-    });
+    }, true);
     form.addEventListener("tallam:file-cache-state", (event) => {
       if (event.detail?.name === "personal_photo" && event.detail?.state === "ready") void inspectPersonalPhoto();
       scheduleRefresh();
-    });
+    }, true);
     nextBtn?.addEventListener("click", () => requestAnimationFrame(refreshControls), true);
     prevBtn?.addEventListener("click", () => requestAnimationFrame(refreshControls), true);
     canvas?.addEventListener("pointerup", scheduleRefresh, true);
@@ -116,7 +112,7 @@
     const busy = Boolean(loadingOverlay?.classList.contains("show"));
     const succeeded = Boolean(formArea?.hidden);
     const issues = collectIssues();
-    const ready = isLast && assetsReady && issues.length === 0 && !busy && !succeeded;
+    const ready = isLast && issues.length === 0 && !busy && !succeeded;
 
     if (nextBtn) {
       nextBtn.hidden = isLast;
@@ -129,19 +125,15 @@
       submitBtn.hidden = !isLast;
       submitBtn.disabled = !ready;
       submitBtn.setAttribute("aria-disabled", ready ? "false" : "true");
-      submitBtn.title = ready
-        ? "اكتملت البيانات ويمكن إرسال الطلب وإنشاء Word وPDF المتزامنين."
-        : disabledReason(issues, busy, isLast);
+      submitBtn.title = ready ? "اكتملت البيانات ويمكن إرسال الطلب." : disabledReason(issues, busy, isLast);
     }
     if (finalNotice) finalNotice.hidden = !isLast;
     updateMessage({ isLast, ready, issues, busy, succeeded });
   }
 
   function disabledReason(issues, busy, isLast) {
-    if (busy) return "جارٍ حفظ الطلب وإنشاء الاستمارة.";
+    if (busy) return "جارٍ حفظ الطلب والمرفقات.";
     if (!isLast) return "انتقل إلى الخطوة الأخيرة لإرسال الطلب.";
-    if (assetsError) return assetsError;
-    if (!assetsReady) return "جارٍ التحقق من القالب الرسمي ومحرك التصدير المتزامن.";
     if (issues.length) return `استكمل: ${issues.slice(0, 3).join("، ")}.`;
     return "يرجى مراجعة الطلب.";
   }
@@ -153,15 +145,10 @@
     readinessBox.classList.toggle("show", isLast && !succeeded);
     if (!isLast || succeeded) return;
     if (busy) {
-      readinessBox.textContent = "جارٍ حفظ الطلب وإنشاء الصفحة المرجعية وملفي Word وPDF؛ يرجى عدم إغلاق الصفحة.";
-    } else if (assetsError) {
-      readinessBox.classList.add("error");
-      readinessBox.textContent = assetsError;
-    } else if (!assetsReady) {
-      readinessBox.textContent = "جارٍ التحقق من القالب الرسمي ومحرك التصدير المتزامن…";
+      readinessBox.textContent = "جارٍ حفظ بيانات المعلم واستمارة الوزارة والمرفقات؛ يرجى عدم إغلاق الصفحة.";
     } else if (ready) {
       readinessBox.classList.add("ready");
-      readinessBox.textContent = "اكتملت جميع البيانات والمرفقات والتوقيع، وأصبح الطلب جاهزًا للإرسال.";
+      readinessBox.textContent = "اكتملت جميع البيانات والمرفقات المطلوبة، وأصبح الطلب جاهزًا للإرسال.";
     } else {
       const visible = issues.slice(0, 4).join("، ");
       const remaining = issues.length > 4 ? `، و${issues.length - 4} متطلبات أخرى` : "";
@@ -228,6 +215,7 @@
     const label = direct || control.closest(".field,.file-card")?.querySelector("label");
     const text = String(label?.textContent || control.name || "حقل مطلوب").replace(/\*/g, "").replace(/\s+/g, " ").trim();
     const names = {
+      ministry_form_filled: "استمارة الشؤون الإسلامية بعد تعبئتها",
       gender: "الجنس", has_sanad: "بيان الإسناد", has_madaniyah: "شهادة القاعدة المدنية",
       has_nooraniyah: "شهادة القاعدة النورانية", declaration_accepted: "قبول التعهد",
       privacy_accepted: "الموافقة على سياسة الخصوصية"
@@ -237,7 +225,7 @@
 
   function normalizeDigits(value) {
     const ar = "٠١٢٣٤٥٦٧٨٩", fa = "۰۱۲۳۴۵۶۷۸۹";
-    return String(value || "").replace(/[٠-٩]/g, (d) => String(ar.indexOf(d))).replace(/[۰-۹]/g, (d) => String(fa.indexOf(d)));
+    return String(value || "").replace(/[٠-٩]/g, (digit) => String(ar.indexOf(digit))).replace(/[۰-۹]/g, (digit) => String(fa.indexOf(digit)));
   }
   function normalizeMobile(value) {
     let result = normalizeDigits(value).replace(/\D/g, "");
@@ -251,14 +239,19 @@
   function matchesAccept(input, file) {
     const rules = String(input.accept || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
     if (!rules.length) return true;
-    const type = String(file.type || "").toLowerCase(), name = String(file.name || "").toLowerCase();
-    return rules.some((rule) => rule.startsWith(".") ? name.endsWith(rule) : rule.endsWith("/*") ? type.startsWith(rule.slice(0, -1)) : rule === type || (rule === "image/jpeg" && /\.jpe?g$/i.test(name)) || (rule === "image/png" && /\.png$/i.test(name)) || (rule === "application/pdf" && /\.pdf$/i.test(name)));
+    const type = String(file.type || "").toLowerCase();
+    const name = String(file.name || "").toLowerCase();
+    return rules.some((rule) => rule.startsWith(".") ? name.endsWith(rule)
+      : rule.endsWith("/*") ? type.startsWith(rule.slice(0, -1))
+      : rule === type
+      || (rule === "image/jpeg" && /\.jpe?g$/i.test(name))
+      || (rule === "image/png" && /\.png$/i.test(name))
+      || (rule === "application/pdf" && /\.pdf$/i.test(name))
+      || (rule.includes("wordprocessingml.document") && /\.docx$/i.test(name)));
   }
 
   function hasSignature() {
-    try {
-      if (typeof signatureDirty !== "undefined" && signatureDirty) return true;
-    } catch { /* use pixels */ }
+    try { if (typeof signatureDirty !== "undefined" && signatureDirty) return true; } catch { /* use pixels */ }
     if (!canvas) return false;
     try {
       const data = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height).data;
@@ -268,8 +261,7 @@
   }
 
   async function inspectPersonalPhoto() {
-    const input = personalPhoto;
-    const original = input?.files?.[0] || null;
+    const original = personalPhoto?.files?.[0] || null;
     photoError = "";
     if (!original) {
       photoState = "empty";
@@ -279,7 +271,7 @@
     photoState = "checking";
     scheduleRefresh();
     try {
-      const stable = await window.TallamFileCache?.getInputFile?.(input) || original;
+      const stable = await window.TallamFileCache?.getInputFile?.(personalPhoto) || original;
       await assertReadableImage(stable, "الصورة الشخصية");
       photoState = "valid";
     } catch (error) {
@@ -289,30 +281,13 @@
     scheduleRefresh();
   }
 
-  async function preflightAssets() {
-    assetsReady = false;
-    assetsError = "";
-    scheduleRefresh();
-    try {
-      if (!window.TallamMinistryPreviewRenderer?.generate) throw new Error("تعذر تحميل محرك الاستمارة المتزامنة. حدّث الصفحة ثم أعد المحاولة.");
-      if (!window.TallamOfficialMinistryBackground) throw new Error("تعذر تحميل خلفية استمارة الوزارة الرسمية.");
-      await assertReadableImage(window.TallamOfficialMinistryBackground, "خلفية استمارة الوزارة الرسمية", { minimumWidth: 1000, minimumHeight: 1400 });
-      assetsReady = true;
-    } catch (error) {
-      assetsError = error?.message || "تعذر تجهيز قالب الاستمارة الرسمية.";
-    }
-    scheduleRefresh();
-  }
-
-  async function assertReadableImage(source, label, limits = {}) {
-    const minimumWidth = limits.minimumWidth || 1, minimumHeight = limits.minimumHeight || 1;
+  async function assertReadableImage(source, label) {
     if (source instanceof Blob && typeof createImageBitmap === "function") {
       try {
         const bitmap = await createImageBitmap(source);
-        const width = bitmap.width, height = bitmap.height;
+        const valid = bitmap.width > 0 && bitmap.height > 0;
         bitmap.close?.();
-        if (width < minimumWidth || height < minimumHeight) throw new Error(`${label} غير مكتملة أو أبعادها غير صالحة.`);
-        return;
+        if (valid) return;
       } catch { /* use image element */ }
     }
     await new Promise((resolve, reject) => {
@@ -327,10 +302,7 @@
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         error ? reject(error) : resolve();
       };
-      image.onload = () => {
-        const width = image.naturalWidth || image.width, height = image.naturalHeight || image.height;
-        finish(width < minimumWidth || height < minimumHeight ? new Error(`${label} غير مكتملة أو أبعادها غير صالحة.`) : null);
-      };
+      image.onload = () => finish((image.naturalWidth || image.width) > 0 && (image.naturalHeight || image.height) > 0 ? null : new Error(`تعذر قراءة ${label}.`));
       image.onerror = () => finish(new Error(`تعذر قراءة ${label}.`));
       try {
         if (source instanceof Blob) { objectUrl = URL.createObjectURL(source); image.src = objectUrl; }
