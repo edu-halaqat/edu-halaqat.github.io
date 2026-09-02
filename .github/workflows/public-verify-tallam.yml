@@ -15,9 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260901-synchronized-export-repair-v2
+      BUILD: 20260902-office-export-v3
+      EXPORT: 4.2.0-synchronized-office-v3
     steps:
-      - name: Verify public synchronized release
+      - name: Verify public synchronized Office release
         shell: bash
         run: |
           set -euo pipefail
@@ -38,11 +39,11 @@ jobs:
           mkdir -p /tmp/tallam-live
           fetch_expected "${BASE_URL}/" /tmp/tallam-live/index.html "bootstrap.js?v=${BUILD}"
           fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "form-readiness-v2.js"
-          fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live/submit.js "ministry_form_preview"
-          fetch_expected "${BASE_URL}/assets/js/ministry-preview-renderer.js" /tmp/tallam-live/renderer.js "4.0.0-synchronized-page-v1"
+          fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live/submit.js "$EXPORT"
+          fetch_expected "${BASE_URL}/assets/js/ministry-preview-renderer.js" /tmp/tallam-live/renderer.js "$EXPORT"
           fetch_expected "${BASE_URL}/assets/js/form-readiness-v2.js" /tmp/tallam-live/readiness.js "$BUILD"
           fetch_expected "${BASE_URL}/admin/" /tmp/tallam-live/admin.html "regenerate.js?v=${BUILD}"
-          fetch_expected "${BASE_URL}/admin/regenerate.js" /tmp/tallam-live/regenerate.js "teacher-export-repair"
+          fetch_expected "${BASE_URL}/admin/regenerate.js" /tmp/tallam-live/regenerate.js "$EXPORT"
           fetch_expected "${BASE_URL}/admin/archive-refresh-bridge.js" /tmp/tallam-live/archive-bridge.js "masterArchiveRebuild"
 
           node --check /tmp/tallam-live/bootstrap.js
@@ -91,7 +92,7 @@ jobs:
               "${BASE_URL}/?v=${BUILD}&browser_attempt=${attempt}" \
               > /tmp/tallam-live/index-dom.html 2>/tmp/tallam-live/chrome-index.log || true
             if grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html \
-              && grep -Fq 'data-readiness-build="20260901-synchronized-export-repair-v2"' /tmp/tallam-live/index-dom.html \
+              && grep -Fq "data-readiness-build=\"${BUILD}\"" /tmp/tallam-live/index-dom.html \
               && grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html; then
               break
             fi
@@ -99,7 +100,7 @@ jobs:
           done
           grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html
           grep -Fq 'data-ministry-background-ready="true"' /tmp/tallam-live/index-dom.html
-          grep -Fq 'data-readiness-build="20260901-synchronized-export-repair-v2"' /tmp/tallam-live/index-dom.html
+          grep -Fq "data-readiness-build=\"${BUILD}\"" /tmp/tallam-live/index-dom.html
           grep -Fq 'id="teacherForm"' /tmp/tallam-live/index-dom.html
           ! grep -Fq 'data-portal-ready="false"' /tmp/tallam-live/index-dom.html
 
@@ -111,4 +112,4 @@ jobs:
           grep -Fq 'id="exportRepairPanel"' /tmp/tallam-live/admin-dom.html
           grep -Fq 'إعادة توليد التالفة ومزامنتها' /tmp/tallam-live/admin-dom.html
 
-          echo 'Public Tallam synchronized export release verified successfully.'
+          echo 'Public Tallam Office export release verified successfully.'
