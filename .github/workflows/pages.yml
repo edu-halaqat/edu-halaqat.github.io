@@ -24,11 +24,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate synchronized export release
+      - name: Validate synchronized Office export release
         shell: bash
         run: |
           set -euo pipefail
-          RELEASE='20260901-synchronized-export-repair-v2'
+          RELEASE='20260902-office-export-v3'
+          EXPORT='4.2.0-synchronized-office-v3'
 
           test -s tallam/index.html
           test -s tallam/admin/index.html
@@ -61,7 +62,9 @@ jobs:
           grep -Fq "$RELEASE" tallam/assets/js/bootstrap.js
           grep -Fq "$RELEASE" tallam/admin/index.html
           grep -Fq "$RELEASE" tallam/assets/js/form-readiness-v2.js
-          grep -Fq '4.0.0-synchronized-page-v1' tallam/assets/js/ministry-preview-renderer.js
+          grep -Fq "$EXPORT" tallam/assets/js/ministry-preview-renderer.js
+          grep -Fq "$EXPORT" tallam/assets/js/app-submit.js
+          grep -Fq "$EXPORT" tallam/admin/regenerate.js
           grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
           grep -Fq 'form-readiness-v2.js' tallam/assets/js/bootstrap.js
           grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
