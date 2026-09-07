@@ -59,7 +59,7 @@ async function buildPayload() {
   appendText(data, "declaration_accepted", "true");
   appendText(data, "privacy_accepted", "true");
   appendText(data, "started_at", startedAt);
-  appendText(data, "form_version", "4.0.0-manual-ministry-form");
+  appendText(data, "form_version", "5.0.0-final-review-consent");
   appendText(data, "client_timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Riyadh");
   appendText(data, "website", fieldValue("website"));
 
@@ -71,8 +71,6 @@ async function buildPayload() {
     data.append(input.name, stable, stable.name || source.name || `${input.name}.bin`);
   }
 
-  const signatureBlob = await canvasToBlob(canvas);
-  data.append("signature", signatureBlob, "signature.png");
   return data;
 }
 
@@ -84,7 +82,7 @@ async function submitPayload(payload) {
       method: "POST",
       body: payload,
       signal: controller.signal,
-      headers: { "x-client-info": "tallam-teachers-web/manual-ministry-form-v1" }
+      headers: { "x-client-info": "tallam-teachers-web/final-review-consent-v1" }
     });
     let result = {};
     try { result = await response.json(); } catch { result = {}; }
@@ -202,5 +200,19 @@ for (const input of form.querySelectorAll('input[type="file"]')) {
 }
 
 restoreDraft();
+// التوقيع اليدوي أُلغي من واجهة المتقدم؛ نُبقي تهيئة التوقيع القديمة غير المرئية فقط للتوافق مع app-core.js القديم.
+const legacySignatureCanvas = document.getElementById("signatureCanvas");
+if (legacySignatureCanvas) {
+  legacySignatureCanvas.setAttribute("aria-hidden", "true");
+  legacySignatureCanvas.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;";
+}
 initSignature();
+if (legacySignatureCanvas) {
+  const rect = legacySignatureCanvas.getBoundingClientRect();
+  const x = rect.left + Math.max(0.5, rect.width / 2);
+  const y = rect.top + Math.max(0.5, rect.height / 2);
+  legacySignatureCanvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerId: 1 }));
+  legacySignatureCanvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
+  window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
+}
 setStep(0);
