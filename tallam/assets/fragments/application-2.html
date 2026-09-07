@@ -57,6 +57,10 @@
                   </div>
                 </div>
               </section>
+
+              <!-- عناصر تقنية مخفية للتوافق مع نسخة app-core القديمة؛ لا تظهر للمتقدم ولا تُرسل ضمن الطلب. -->
+              <canvas id="signatureCanvas" width="900" height="240" aria-hidden="true" tabindex="-1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden"></canvas>
+              <button type="button" id="clearSignature" aria-hidden="true" tabindex="-1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden">مخفي</button>
             </div>
 
             <div id="formStatus" class="status" role="alert"></div>
