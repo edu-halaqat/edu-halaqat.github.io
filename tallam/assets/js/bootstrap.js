@@ -1,7 +1,7 @@
 "use strict";
 (async () => {
   const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
-  const RELEASE = "20260907-mobile-signature-optional-recommendations-v5";
+  const RELEASE = "20260907-mobile-signature-required-recommendations-optional-v6";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
