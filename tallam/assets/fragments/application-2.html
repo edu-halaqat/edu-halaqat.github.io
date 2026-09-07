@@ -42,15 +42,14 @@
               </section>
 
               <section class="form-step" data-step="7">
-                <h3 class="section-title"><span class="num">٨</span> التعهد والتوقيع</h3>
+                <h3 class="section-title"><span class="num">٨</span> المراجعة النهائية والتعهد</h3>
                 <div class="grid">
-                  <div class="field full"><div id="reviewGrid" class="review-grid"></div></div>
                   <div class="field full">
-                    <label>التوقيع الإلكتروني <span class="req">*</span></label>
-                    <div class="signature-wrap">
-                      <canvas id="signatureCanvas" width="900" height="240" aria-label="ارسم توقيعك هنا"></canvas>
-                      <div class="signature-actions"><button class="btn btn-danger" type="button" id="clearSignature">مسح التوقيع</button></div>
+                    <div class="notice" style="margin-bottom:18px">
+                      <strong style="display:block;color:var(--primary-dark);margin-bottom:6px">راجع بياناتك قبل الإرسال</strong>
+                      <span>تأكد من صحة جميع البيانات والمرفقات المضافة بشكل نهائي، ثم وافق على التعهد وسياسة الخصوصية لإرسال الطلب.</span>
                     </div>
+                    <div id="reviewGrid" class="review-grid"></div>
                   </div>
                   <div class="field full">
                     <label class="consent"><input type="checkbox" id="declaration_accepted" name="declaration_accepted" required><span>أتعهد بأن جميع البيانات والمرفقات صحيحة، وأنه ليس لي حساب غير المذكور في وسائل التواصل، وأتحمل كامل المسؤولية إذا تبين خلاف ذلك.</span></label>
