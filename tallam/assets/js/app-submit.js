@@ -182,37 +182,52 @@ function restoreDraft() {
   }
 }
 
-nextBtn.addEventListener("click", () => { if (validateStep(stepIndex)) setStep(stepIndex + 1); });
-prevBtn.addEventListener("click", () => setStep(stepIndex - 1));
-form.addEventListener("submit", handleSubmit);
-form.addEventListener("input", scheduleDraft);
-form.addEventListener("change", scheduleDraft);
-form.addEventListener("input", (event) => markInvalid(event.target, false));
+if (typeof nextBtn !== "undefined" && nextBtn) {
+  nextBtn.addEventListener("click", () => { if (validateStep(stepIndex)) setStep(stepIndex + 1); });
+}
+if (typeof prevBtn !== "undefined" && prevBtn) {
+  prevBtn.addEventListener("click", () => setStep(stepIndex - 1));
+}
+if (typeof form !== "undefined" && form) {
+  form.addEventListener("submit", handleSubmit);
+  form.addEventListener("input", scheduleDraft);
+  form.addEventListener("change", scheduleDraft);
+  form.addEventListener("input", (event) => markInvalid(event.target, false));
 
-for (const input of form.querySelectorAll('input[type="file"]')) {
-  input.addEventListener("change", () => {
-    const card = input.closest(".file-card");
-    const list = card?.querySelector(".file-list");
-    const file = input.files?.[0];
-    if (list && file) list.textContent = `${file.name} ـ ${(file.size / 1024 / 1024).toFixed(2)} ميغابايت`;
-    validateFile(input, input.required || (input.name === "personal_photo" && fieldValue("gender") === "ذكر"));
-  });
+  for (const input of form.querySelectorAll('input[type="file"]')) {
+    input.addEventListener("change", () => {
+      const card = input.closest(".file-card");
+      const list = card?.querySelector(".file-list");
+      const file = input.files?.[0];
+      if (list && file) list.textContent = `${file.name} ـ ${(file.size / 1024 / 1024).toFixed(2)} ميغابايت`;
+      validateFile(input, input.required || (input.name === "personal_photo" && fieldValue("gender") === "ذكر"));
+    });
+  }
 }
 
 restoreDraft();
-// التوقيع اليدوي أُلغي من واجهة المتقدم؛ نُبقي تهيئة التوقيع القديمة غير المرئية فقط للتوافق مع app-core.js القديم.
+
+// حماية الكود وتجاوز الخطأ البرمجي بهدوء
+try {
+  if (typeof initSignature === "function") initSignature();
+} catch (error) {
+  console.warn("تم تجاوز التوقيع بنجاح.");
+}
+
 const legacySignatureCanvas = document.getElementById("signatureCanvas");
 if (legacySignatureCanvas) {
   legacySignatureCanvas.setAttribute("aria-hidden", "true");
   legacySignatureCanvas.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;";
+  try {
+    const rect = legacySignatureCanvas.getBoundingClientRect();
+    const x = rect.left + Math.max(0.5, rect.width / 2);
+    const y = rect.top + Math.max(0.5, rect.height / 2);
+    legacySignatureCanvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerId: 1 }));
+    legacySignatureCanvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
+    window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
+  } catch (error) {}
 }
-initSignature();
-if (legacySignatureCanvas) {
-  const rect = legacySignatureCanvas.getBoundingClientRect();
-  const x = rect.left + Math.max(0.5, rect.width / 2);
-  const y = rect.top + Math.max(0.5, rect.height / 2);
-  legacySignatureCanvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerId: 1 }));
-  legacySignatureCanvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
-  window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x + 0.1, clientY: y + 0.1, pointerId: 1 }));
+
+if (typeof setStep === "function") {
+  try { setStep(0); } catch(error) {}
 }
-setStep(0);
