@@ -248,15 +248,13 @@
     currentId = id;
     currentReference = "";
 
-    // جلب البيانات الأساسية من الجدول المحلي أولاً لضمان عدم توقف العرض
     const localRow = currentRows.find((r) => r.id === id) || {};
-    
     let serverApp = {};
     try {
       const result = await authorizedFetch(`${CONFIG.endpoint}?id=${encodeURIComponent(id)}`);
       serverApp = result.application || {};
     } catch (e) {
-      // إذا فشل الخادم بسبب ملفات مفقودة، سنعتمد على البيانات المحلية المتاحة
+      // الاعتماد على البيانات المحلية في حال تعذر جلب الخادم التفاصيل الكاملة
     }
 
     const app = { ...localRow, ...serverApp };
