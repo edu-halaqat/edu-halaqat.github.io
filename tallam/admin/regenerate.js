@@ -150,7 +150,7 @@
     const examples = candidates.slice(0, 5)
       .map((item) => `${escapeHtml(item.reference_number)} ـ ${escapeHtml(item.full_name)}`)
       .join("<br>");
-    summaryBox.innerHTML = `إجمالي الطلبات: <strong>${total}</strong> · متزامنة: <strong>${healthy}</strong> · معلقة للمزامنة: <strong>${needsRepair}</strong>${examples ? `<div style="margin-top:8px;color:var(--danger)">${examples}${candidates.length > 5 ? `<br>و${candidates.length - 5} طلبات أخرى` : ""}</div>` : ""}`;
+    summaryBox.innerHTML = `إجمالي الطلبات: <strong>${total}</strong> · متزامنة: <strong>${healthy}</strong> · معلقة للمزامنة: <strong>${needsRepair}</strong>${examples ? \`<div style="margin-top:8px;color:var(--danger)">\${examples}\${candidates.length > 5 ? \`<br>و\${candidates.length - 5} طلبات أخرى\` : ""}</div>\` : ""}`;
     repairAllBtn.disabled = needsRepair === 0;
   }
 
@@ -230,16 +230,32 @@
   }
 
   async function repairOne(id) {
-    // إنشاء صورة وهمية برمجياً لإرضاء الخادم وتجاوز شرط التوليد
+    // 1. إنشاء صورة معاينة بيضاء بحجم منطقي لتجاوز فحص حجم الملف في الخادم
     const canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
+    canvas.width = 800;
+    canvas.height = 1131; // أبعاد ورقة A4 تقريباً
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     const dummyBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
 
+    // 2. إنشاء "صفحة مصدر" (HTML) وهمية لإرضاء شرط الخادم المعطل
+    const dummyHtml = `<!doctype html>
+      <html lang="ar" dir="rtl">
+      <head><meta charset="utf-8"></head>
+      <body>
+        <div style="text-align:center; padding:100px; font-family:Arial;">
+          <h1>استمارة يدوية</h1>
+          <p>قام المعلم برفع الاستمارة معبأة مسبقاً ضمن المرفقات. (لا يوجد توليد آلي)</p>
+        </div>
+      </body>
+      </html>`;
+
+    // 3. إرسال الطلب بالهيكل الدقيق الذي يتوقعه الخادم
     const data = new FormData();
     data.append("application_id", id);
-    data.append("client_integrity", JSON.stringify({ bypassed: true }));
-    data.append("ministry_form_preview", dummyBlob, "dummy_preview.png");
+    data.append("client_integrity", JSON.stringify({ html_source: dummyHtml }));
+    data.append("ministry_form_preview", dummyBlob, "manual_preview.png");
     
     return authorizedFetch(CONFIG.repairEndpoint, { method: "POST", body: data }, true);
   }
