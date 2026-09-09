@@ -245,47 +245,53 @@
     detailGrid.innerHTML = `<div class="empty" style="grid-column:1/-1">يرجى الانتظار…</div>`;
     attachmentsGrid.innerHTML = "";
     deleteApplicationBtn.disabled = true;
-    currentId = null;
+    currentId = id;
     currentReference = "";
-    try {
-      const result = await authorizedFetch(`${CONFIG.endpoint}?id=${encodeURIComponent(id)}`).catch(() => ({}));
-      const app = result.application || { id, reference_number: "طلب محلي", full_name: "تعذر جلب التفاصيل الكاملة من الخادم", status: "new" };
-      
-      currentId = app.id || id;
-      currentReference = app.reference_number || "";
-      deleteApplicationBtn.disabled = false;
-      document.getElementById("detailTitle").textContent = `${app.full_name || "الطلب"} ـ ${app.reference_number || ""}`;
-      detailStatus.value = app.status || "new";
-      internalNotes.value = app.internal_notes || "";
-      
-      const fields = [
-        ["الاسم", app.full_name], ["الرقم المرجعي", app.reference_number], ["نوع الطلب", app.registration_type],
-        ["الهوية", app.identity_number], ["نوع الهوية", app.identity_type], ["انتهاء الهوية", app.identity_expiry],
-        ["الجنسية", app.nationality], ["الجنس", app.gender], ["الميلاد", app.birth_place_date],
-        ["المؤهل", app.qualification], ["التخصص", app.specialization], ["مكان العمل", app.workplace],
-        ["المسمى", app.job_title], ["المسجد", app.mosque], ["الفترة", app.period],
-        ["نوع الحلقة", app.circle_type], ["الهاتف", app.phone], ["الجوال", app.mobile ? `0${app.mobile}` : "—"],
-        ["البريد", app.email], ["المدينة", app.city], ["الحي", app.district],
-        ["الشارع", app.street], ["الآيبان", app.iban], ["البنك", app.bank],
-        ["صاحب الحساب", app.account_holder], ["مقدار الحفظ", app.quran_memorization], ["الإسناد", app.has_sanad ? "نعم" : "لا"],
-        ["الرواية", app.reading_narration], ["الخبرة", app.experience_years ? `${app.experience_years} سنة` : "—"], ["جهات سابقة", app.previous_entities],
-        ["الحالة", statusLabels[app.status] || app.status || "جديد"], ["التقديم", formatDate(app.created_at)], ["مكرر محتمل", app.possible_duplicate ? "نعم" : "لا"],
-        ["نسخ OneDrive", oneDriveLabels[app.onedrive_backup_status] || app.onedrive_backup_status || "غير مسجل"],
-        ["مجلد Word", app.onedrive_word_path], ["مجلد PDF", app.onedrive_pdf_path],
-        ["آخر نسخ إلى OneDrive", formatDate(app.onedrive_backed_up_at)], ["خطأ OneDrive", app.onedrive_backup_error]
-      ];
-      detailGrid.innerHTML = fields.map(([label, value]) => `<div class="detail-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("");
 
-      const attachments = app.attachments || [];
-      attachmentsGrid.innerHTML = attachments.length
-        ? attachments.map((item) => `<div class="attachment"><strong>${escapeHtml(item.label || item.field)}</strong><span>${escapeHtml(item.original_name || "ملف")}</span><br>${item.signed_url ? `<a href="${escapeHtml(item.signed_url)}" target="_blank" rel="noopener">تنزيل المرفق</a>` : "الرابط غير متاح"}</div>`).join("")
-        : `<div class="empty" style="grid-column:1/-1">لا توجد مرفقات مسجلة.</div>`;
-        
-      if (app.signature_url) {
-        attachmentsGrid.insertAdjacentHTML("beforeend", `<div class="attachment"><strong>التوقيع الإلكتروني</strong><a href="${escapeHtml(app.signature_url)}" target="_blank" rel="noopener">عرض التوقيع</a></div>`);
-      }
-    } catch (error) {
-      detailGrid.innerHTML = `<div class="empty" style="grid-column:1/-1">تم فتح الطلب، وتجاوزنا ملفات المعاينة المفقودة بنجاح.</div>`;
+    // جلب البيانات الأساسية من الجدول المحلي أولاً لضمان عدم توقف العرض
+    const localRow = currentRows.find((r) => r.id === id) || {};
+    
+    let serverApp = {};
+    try {
+      const result = await authorizedFetch(`${CONFIG.endpoint}?id=${encodeURIComponent(id)}`);
+      serverApp = result.application || {};
+    } catch (e) {
+      // إذا فشل الخادم بسبب ملفات مفقودة، سنعتمد على البيانات المحلية المتاحة
+    }
+
+    const app = { ...localRow, ...serverApp };
+    currentReference = app.reference_number || localRow.reference_number || "";
+    deleteApplicationBtn.disabled = !currentId;
+
+    document.getElementById("detailTitle").textContent = `${app.full_name || localRow.full_name || "الطلب"} ـ ${currentReference}`;
+    detailStatus.value = app.status || localRow.status || "new";
+    internalNotes.value = app.internal_notes || localRow.internal_notes || "";
+
+    const fields = [
+      ["الاسم", app.full_name], ["الرقم المرجعي", app.reference_number], ["نوع الطلب", app.registration_type],
+      ["الهوية", app.identity_number || app.identity_number_masked], ["نوع الهوية", app.identity_type], ["انتهاء الهوية", app.identity_expiry],
+      ["الجنسية", app.nationality], ["الجنس", app.gender], ["الميلاد", app.birth_place_date],
+      ["المؤهل", app.qualification], ["التخصص", app.specialization], ["مكان العمل", app.workplace],
+      ["المسمى", app.job_title], ["المسجد", app.mosque], ["الفترة", app.period],
+      ["نوع الحلقة", app.circle_type], ["الهاتف", app.phone], ["الجوال", app.mobile ? `0${app.mobile}` : (app.mobile_masked || "—")],
+      ["البريد", app.email], ["المدينة", app.city], ["الحي", app.district],
+      ["الشارع", app.street], ["الآيبان", app.iban], ["البنك", app.bank],
+      ["صاحب الحساب", app.account_holder], ["مقدار الحفظ", app.quran_memorization], ["الإسناد", app.has_sanad === true || app.has_sanad === "نعم" ? "نعم" : "لا"],
+      ["الرواية", app.reading_narration], ["الخبرة", app.experience_years ? `${app.experience_years} سنة` : "—"], ["جهات سابقة", app.previous_entities],
+      ["الحالة", statusLabels[app.status || localRow.status] || app.status || "جديد"], ["التقديم", formatDate(app.created_at || localRow.created_at)], ["مكرر محتمل", app.possible_duplicate ? "نعم" : "لا"],
+      ["نسخ OneDrive", oneDriveLabels[app.onedrive_backup_status] || app.onedrive_backup_status || "غير مسجل"],
+      ["مجلد Word", app.onedrive_word_path], ["مجلد PDF", app.onedrive_pdf_path],
+      ["آخر نسخ إلى OneDrive", formatDate(app.onedrive_backed_up_at)], ["خطأ OneDrive", app.onedrive_backup_error]
+    ];
+    detailGrid.innerHTML = fields.map(([label, value]) => `<div class="detail-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("");
+
+    const attachments = app.attachments || [];
+    attachmentsGrid.innerHTML = attachments.length
+      ? attachments.map((item) => `<div class="attachment"><strong>${escapeHtml(item.label || item.field)}</strong><span>${escapeHtml(item.original_name || "ملف")}</span><br>${item.signed_url ? `<a href="${escapeHtml(item.signed_url)}" target="_blank" rel="noopener">تنزيل المرفق</a>` : "الرابط غير متاح"}</div>`).join("")
+      : `<div class="empty" style="grid-column:1/-1">لا توجد مرفقات مسجلة.</div>`;
+      
+    if (app.signature_url) {
+      attachmentsGrid.insertAdjacentHTML("beforeend", `<div class="attachment"><strong>التوقيع الإلكتروني</strong><a href="${escapeHtml(app.signature_url)}" target="_blank" rel="noopener">عرض التوقيع</a></div>`);
     }
   }
 
