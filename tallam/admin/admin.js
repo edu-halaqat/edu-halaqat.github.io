@@ -278,7 +278,7 @@
       attachmentsGrid.innerHTML = attachments.length
         ? attachments.map((item) => `<div class="attachment"><strong>${escapeHtml(item.label || item.field)}</strong><span>${escapeHtml(item.original_name || "ملف")}</span><br>${item.signed_url ? `<a href="${escapeHtml(item.signed_url)}" target="_blank" rel="noopener">تنزيل المرفق</a>` : "الرابط غير متاح"}</div>`).join("")
         : `<div class="empty" style="grid-column:1/-1">لا توجد مرفقات.</div>`;
-      if (app.signature_url) {
+     if (app.signature_url) {
         attachmentsGrid.insertAdjacentHTML("beforeend", `<div class="attachment"><strong>التوقيع الإلكتروني</strong><a href="${escapeHtml(app.signature_url)}" target="_blank" rel="noopener">عرض التوقيع</a></div>`);
       }
     } catch (error) {
