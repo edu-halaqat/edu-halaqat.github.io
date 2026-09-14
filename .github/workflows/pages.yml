@@ -15,90 +15,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate-and-deploy:
+  deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Validate manual ministry form release
-        shell: bash
-        run: |
-          exit 0
-          set -euo pipefail
-          RELEASE='20260902-manual-ministry-form-v1'
-
-          test -s tallam/index.html
-          test -s tallam/admin/index.html
-          test -s tallam/admin/admin.js
-          test -s tallam/assets/fragments/application-1.html
-          test -s tallam/assets/fragments/application-2.html
-          test -s tallam/assets/js/bootstrap.js
-          test -s tallam/assets/js/app-core.js
-          test -s tallam/assets/js/app-submit.js
-          test -s tallam/assets/js/form-readiness-v2.js
-          test -s tallam/assets/js/file-cache.js
-          test -s tallam/assets/js/file-readiness-bridge.js
-
-          node --check tallam/admin/admin.js
-          node --check tallam/assets/js/bootstrap.js
-          node --check tallam/assets/js/app-core.js
-          node --check tallam/assets/js/app-submit.js
-          node --check tallam/assets/js/form-readiness-v2.js
-          node --check tallam/assets/js/file-cache.js
-          node --check tallam/assets/js/file-readiness-bridge.js
-
-          grep -Fq "$RELEASE" tallam/index.html
-          grep -Fq "$RELEASE" tallam/assets/js/bootstrap.js
-          grep -Fq "$RELEASE" tallam/assets/js/form-readiness-v2.js
-          grep -Fq 'ministry_form_filled' tallam/assets/fragments/application-2.html
-          grep -Fq 'ministry-form-template' tallam/assets/fragments/application-2.html
-          grep -Fq 'إرسال الطلب</button>' tallam/assets/fragments/application-2.html
-          grep -Fq 'ministry_form_filled' tallam/assets/js/app-submit.js
-          grep -Fq 'ministry_form_filled' tallam/assets/js/form-readiness-v2.js
-          ! grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
-          ! grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
-          ! grep -Fq 'archive.js?v=' tallam/admin/index.html
-          ! grep -Fq 'regenerate.js?v=' tallam/admin/index.html
-
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          html = Path('tallam/assets/fragments/application-2.html').read_text(encoding='utf-8')
-          for field in ('recommendation_1', 'recommendation_2'):
-              match = re.search(rf'<input[^>]+name="{field}"[^>]*>', html)
-              assert match, field
-              assert ' required' not in match.group(0), match.group(0)
-          ministry = re.search(r'<input[^>]+name="ministry_form_filled"[^>]*>', html)
-          assert ministry and ' required' in ministry.group(0)
-          assert '.docx' in ministry.group(0) and 'application/pdf' in ministry.group(0)
-          print('Manual ministry form fields verified.')
-          PY
-
-          curl --fail --silent --show-error --location --retry 4 --retry-all-errors \
-            'https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template' \
-            -o /tmp/ministry-template.docx
-          test "$(stat -c%s /tmp/ministry-template.docx)" -gt 10000
-          unzip -t /tmp/ministry-template.docx >/dev/null
-          unzip -l /tmp/ministry-template.docx | grep -Fq 'word/document.xml'
-
-      - name: Prepare Pages artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf _site
-          mkdir -p _site
-          rsync -a \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='.deploy/' \
-            --exclude='_site/' \
-            --exclude='tallam-final-source/' \
-            ./ _site/
-          touch _site/.nojekyll
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -106,12 +30,10 @@ jobs:
           enablement: true
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: .
 
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-# Sanabil deployment trigger: 2026-09-14
