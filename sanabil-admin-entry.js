@@ -1,3 +1,4 @@
+/* Sanabil admin entry deployment trigger */
 (()=>{
 'use strict';
 const URL='https://fvzoogbdezueswyihxiz.supabase.co';
