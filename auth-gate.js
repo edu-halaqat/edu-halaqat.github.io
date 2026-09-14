@@ -16,10 +16,68 @@
   const fields=()=>({email:document.getElementById('login-email'),password:document.getElementById('login-password'),trusted:document.querySelector('.trusted-device input'),button:[...document.querySelectorAll('button')].find(x=>/دخول/.test(x.textContent||''))});
   async function access(token){const a=await api(`${SUPABASE_URL}/rest/v1/rpc/my_access`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:'{}'});return a||{};}
   function validAccess(a){const roles=Array.isArray(a?.roles)?a.roles.map(x=>String(x).toLowerCase()):[];return a?.active===true&&roles.some(r=>['admin','supervisor','teacher'].includes(r));}
+
+  const NAV_BY_ROLE={
+    teacher:new Set(['الرئيسية','البصمة','الحصيلة','الاختبارات']),
+    supervisor:new Set(['الرئيسية','الخطط','الاختبارات','الطلاب والمعلمون','الاستعلامات','التقارير']),
+    admin:new Set(['الرئيسية','الخطط','الاختبارات','الطلاب والمعلمون','الاستعلامات','التقارير','الإعدادات'])
+  };
+  const canonical=(label)=>String(label||'').replace(/\s+/g,' ').trim().replace(/^(إدارة|صفحة)\s+/,'');
+  function currentRole(){try{const a=JSON.parse(get(ROLE_KEY)||get(ROLE_KEY,true)||'{}');const rs=Array.isArray(a.roles)?a.roles.map(x=>String(x).toLowerCase()):[];return rs.includes('admin')?'admin':rs.includes('supervisor')?'supervisor':rs.includes('teacher')?'teacher':null}catch{return null}}
+  function roleAllows(label,role){
+    const x=canonical(label);
+    if(!role)return true;
+    if(NAV_BY_ROLE[role].has(x))return true;
+    if(role==='teacher')return false;
+    return false;
+  }
+  function enforceRoleUi(){
+    const role=currentRole();
+    if(!role||document.getElementById('login-email'))return;
+    document.querySelectorAll('.tabs button').forEach(b=>{
+      const label=canonical(b.textContent);
+      const allowed=roleAllows(label,role);
+      b.hidden=!allowed;
+      b.setAttribute('aria-hidden',String(!allowed));
+      b.style.display=allowed?'':'none';
+    });
+    document.querySelectorAll('button,[role="button"],a').forEach(el=>{
+      const label=canonical(el.textContent);
+      if(!label)return;
+      if(role==='teacher' && /الطلاب والمعلمون|التقارير|الإحصاءات|الإعدادات|الخطط|الاستعلامات/.test(label)){
+        if(!el.closest('.tabs')){el.hidden=true;el.style.display='none';}
+      }
+      if((role==='supervisor'||role==='admin') && /الحضور والبصمة|البصمة|الحصيلة اليومية|الحصيلة/.test(label) && !el.closest('.tabs')){
+        el.hidden=true;el.style.display='none';
+      }
+    });
+  }
+  let roleUiTimer=null;
+  function scheduleRoleUi(){clearTimeout(roleUiTimer);roleUiTimer=setTimeout(enforceRoleUi,40);}
+  function installRoleObserver(){
+    if(window.__sanabilRoleObserver)return;
+    window.__sanabilRoleObserver=new MutationObserver(scheduleRoleUi);
+    window.__sanabilRoleObserver.observe(document.body,{childList:true,subtree:true});
+    scheduleRoleUi();
+  }
+
   async function signIn(email,password,trusted){const t=await api(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',body:JSON.stringify({email,password})});const u=await api(`${SUPABASE_URL}/auth/v1/user`,{headers:{Authorization:`Bearer ${t.access_token}`}});const a=await access(t.access_token);if(!validAccess(a))throw new Error('تم التحقق من الحساب، لكن لا توجد صلاحية فعالة في منصة سنابل الوحي.');save({access_token:t.access_token,refresh_token:t.refresh_token,expires_at:Date.now()+Number(t.expires_in||3600)*1000,user_id:u.id},trusted);put(ROLE_KEY,JSON.stringify(a),trusted);}
   async function refresh(s,t){const x=await api(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',body:JSON.stringify({refresh_token:s.refresh_token})});save({access_token:x.access_token,refresh_token:x.refresh_token||s.refresh_token,expires_at:Date.now()+Number(x.expires_in||3600)*1000,user_id:s.user_id},t);}
   function enter(){const {button}=fields();if(button){button.dataset.authApproved='1';button.click();}}
   async function restore(){const s=sess();if(!s)return;const trusted=!!get(STORE);try{if(s.expires_at&&Date.now()>s.expires_at-30000){await refresh(s,trusted)}const current=sess();const a=await access(current.access_token);if(!validAccess(a)){clear();return}put(ROLE_KEY,JSON.stringify(a),trusted);await api(`${SUPABASE_URL}/auth/v1/user`,{headers:{Authorization:`Bearer ${current.access_token}`}});enter()}catch{clear()}}
-  document.addEventListener('click',async ev=>{const b=ev.target.closest('button');if(!b)return;const label=(b.textContent||'').replace(/\s+/g,' ').trim();if(/دخول/.test(label)&&document.getElementById('login-email')){if(b.dataset.authApproved==='1'){delete b.dataset.authApproved;return}ev.preventDefault();ev.stopImmediatePropagation();if(busy)return;const {email,password,trusted}=fields();if(!email?.value||!password?.value){toast('أدخل البريد الإلكتروني وكلمة المرور.',true);return}busy=true;const old=b.innerHTML;b.disabled=true;b.textContent='جارٍ التحقق...';try{await signIn(email.value.trim(),password.value,trusted?.checked!==false);toast('تم تسجيل الدخول والتحقق من الصلاحيات.');setTimeout(enter,120)}catch(e){toast(e.message||'بيانات الدخول غير صحيحة.',true)}finally{busy=false;b.disabled=false;b.innerHTML=old}}else if(/تسجيل الخروج|خروج/.test(label)&&!document.getElementById('login-email')){clear();location.reload()}},true);
-  window.addEventListener('load',()=>setTimeout(restore,250));
+  document.addEventListener('click',async ev=>{
+    const b=ev.target.closest('button,a,[role="button"]');if(!b)return;
+    const label=(b.textContent||'').replace(/\s+/g,' ').trim();
+    const role=currentRole();
+    if(role && !document.getElementById('login-email')){
+      const forbiddenTeacher=role==='teacher' && /الطلاب والمعلمون|التقارير|الإحصاءات|الإعدادات|الخطط|الاستعلامات/.test(label);
+      const forbiddenManager=(role==='supervisor'||role==='admin') && /إدخال الحضور|تسجيل الحضور|إدخال الحصيلة|الحصيلة اليومية للمعلم|الحصيلة/.test(label);
+      if(forbiddenTeacher||forbiddenManager){ev.preventDefault();ev.stopImmediatePropagation();toast('هذه الوظيفة غير متاحة لهذا الدور.',true);return;}
+    }
+    if(/دخول/.test(label)&&document.getElementById('login-email')){
+      if(b.dataset.authApproved==='1'){delete b.dataset.authApproved;setTimeout(installRoleObserver,80);return}
+      ev.preventDefault();ev.stopImmediatePropagation();if(busy)return;const {email,password,trusted}=fields();if(!email?.value||!password?.value){toast('أدخل البريد الإلكتروني وكلمة المرور.',true);return}busy=true;b.disabled=true;b.textContent='جارٍ التحقق...';try{await signIn(email.value.trim(),password.value,trusted?.checked!==false);toast('تم تسجيل الدخول والتحقق من الصلاحيات.');setTimeout(enter,120)}catch(e){toast(e.message||'بيانات الدخول غير صحيحة.',true)}finally{busy=false;b.disabled=false}}
+    else if(/تسجيل الخروج|خروج/.test(label)&&!document.getElementById('login-email')){clear();location.reload()}
+  },true);
+  window.addEventListener('load',()=>{setTimeout(restore,250);setTimeout(installRoleObserver,700)});
 })();
