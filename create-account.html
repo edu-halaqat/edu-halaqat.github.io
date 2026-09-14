@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إنشاء حساب جديد - سنابل الوحي</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .container { max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin: auto; }
+        input, select, button { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #1a5a40; color: white; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #12402d; }
+        .msg { text-align: center; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="color: #1a5a40; text-align: center;">إضافة مستخدم جديد</h2>
+    <form id="createUserForm">
+        <label>الاسم الرباعي:</label>
+        <input type="text" id="fullName" required>
+
+        <label>البريد الإلكتروني:</label>
+        <input type="email" id="email" required>
+
+        <label>كلمة المرور الافتراضية (6 أحرف على الأقل):</label>
+        <input type="password" id="password" required minlength="6">
+
+        <label>نوع الحساب (الصلاحية):</label>
+        <select id="role" required>
+            <option value="student">طالب</option>
+            <option value="teacher">معلم</option>
+            <option value="supervisor">مشرف مجمع</option>
+        </select>
+
+        <label>رقم المجمع (مثال: 1 أو 2):</label>
+        <input type="number" id="complexId" required>
+
+        <button type="submit">إنشاء الحساب</button>
+        <p id="msg" class="msg"></p>
+    </form>
+</div>
+
+<script>
+    // تم وضع الرابط والمفتاح بنجاح
+    const SUPABASE_URL = 'https://fvzoogbdezueswyihxiz.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2em9vZ2JkZXp1ZXN3eWloeGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMTg5NjEsImV4cCI6MjEwMTc5NDk2MX0.Y_XxPFi4jkxqkSsBru6Cb1NkEHP3DdpZgGscP6SbyZY';
+
+    const tempSupabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false }
+    });
+
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msgElement = document.getElementById('msg');
+        msgElement.innerText = "جاري إنشاء الحساب...";
+        msgElement.style.color = "blue";
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const fullName = document.getElementById('fullName').value;
+        const role = document.getElementById('role').value;
+        const complexId = document.getElementById('complexId').value;
+
+        const { data, error } = await tempSupabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    full_name: fullName,
+                    role: role,
+                    complex_id: complexId
+                }
+            }
+        });
+
+        if (error) {
+            msgElement.innerText = "حدث خطأ: " + error.message;
+            msgElement.style.color = "red";
+        } else {
+            msgElement.innerText = "تم إنشاء الحساب بنجاح! يمكنك إضافة مستخدم آخر.";
+            msgElement.style.color = "green";
+            document.getElementById('createUserForm').reset();
+        }
+    });
+</script>
+
+</body>
+</html>
