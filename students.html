@@ -40,7 +40,6 @@
             <option value="">كل الحلقات</option>
         </select>
         <button onclick="refreshStudents()">تحديث البيانات</button>
-        <!-- زر الإضافة يظهر فقط للمدير والمشرف والمعلم حسب السياسة -->
         <button id="addBtn" onclick="alert('نافذة إضافة الطالب ستبرمج هنا')" style="background:#d97706;">+ إضافة طالب جديد</button>
     </div>
 
@@ -65,20 +64,18 @@
 </div>
 
 <script>
-    // الإعدادات ومحرك قاعدة البيانات
     const SUPABASE_URL = 'https://fvzoogbdezueswyihxiz.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2em9vZ2JkZXp1ZXN3eWloeGl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMTg5NjEsImV4cCI6MjEwMTc5NDk2MX0.Y_XxPFi4jkxqkSsBru6Cb1NkEHP3DdpZgGscP6SbyZY';
     
-    // سحب المفتاح والجلسة من الذاكرة المحلية (كما هو مخزن في المنصة حالياً)
     const SESSION_DATA = JSON.parse(localStorage.getItem('sanabil-auth-session-v2') || '{}');
     const ACCESS_DATA = JSON.parse(localStorage.getItem('sanabil-auth-access-v2') || '{}');
     
-    // تأكد من وجود جلسة
     if (!SESSION_DATA.access_token) {
         alert('الرجاء تسجيل الدخول أولاً');
         window.location.href = '/';
     }
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, 'ضع_مفتاح_anon_هنا', {
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${SESSION_DATA.access_token}` } }
     });
 
@@ -86,18 +83,15 @@
     const USER_ROLE = ACCESS_DATA.roles ? ACCESS_DATA.roles[0] : null;
     let searchTimeout;
 
-    // عرض الصلاحية
     document.getElementById('userRoleDisplay').innerText = 
         USER_ROLE === 'admin' ? 'مدير النظام (صلاحية كاملة)' : 
         USER_ROLE === 'supervisor' ? 'مشرف مجمع (صلاحية مقيدة بالمجمع)' : 
         USER_ROLE === 'teacher' ? 'معلم (صلاحية مقيدة بالحلقة)' : 'صلاحية غير معروفة';
 
-    // تهيئة الفلاتر بناءً على الصلاحيات
     async function initFilters() {
         if (USER_ROLE === 'admin' || USER_ROLE === 'supervisor') {
             document.getElementById('complexSelect').style.display = 'inline-block';
             
-            // جلب المجمعات
             let query = supabase.from('complexes').select('id, name').eq('org_id', ORG_ID);
             if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) {
                 query = query.eq('id', ACCESS_DATA.complex_id);
@@ -113,14 +107,13 @@
         refreshStudents();
     }
 
-    // جلب الحلقات
     async function loadCirclesFilter() {
         const complexId = document.getElementById('complexSelect').value;
         let query = supabase.from('circles').select('id, name').eq('org_id', ORG_ID);
         
         if (complexId) query = query.eq('complex_id', complexId);
         if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) query = query.eq('complex_id', ACCESS_DATA.complex_id);
-        if (USER_ROLE === 'teacher' && ACCESS_DATA.complex_id) query = query.eq('id', ACCESS_DATA.complex_id); // إذا كانت الدالة ترجع رقم الحلقة في complex_id للمعلم
+        if (USER_ROLE === 'teacher' && ACCESS_DATA.complex_id) query = query.eq('id', ACCESS_DATA.complex_id); 
 
         const { data } = await query;
         const circleSelect = document.getElementById('circleSelect');
@@ -130,7 +123,6 @@
         });
     }
 
-    // جلب وعرض الطلاب
     async function refreshStudents() {
         document.getElementById('loading').style.display = 'block';
         document.getElementById('studentsTableBody').innerHTML = '';
@@ -141,12 +133,10 @@
 
         let query = supabase.from('students').select('id, full_name, identity_number, stage, circle_name, complex_id, active').eq('org_id', ORG_ID);
 
-        // تطبيق فلاتر المستخدم
         if (searchValue) query = query.ilike('full_name', `%${searchValue}%`);
         if (complexId) query = query.eq('complex_id', complexId);
         if (circleId) query = query.eq('circle_id', circleId);
 
-        // تطبيق النطاق الأمني (رديف لـ RLS)
         if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) query = query.eq('complex_id', ACCESS_DATA.complex_id);
         if (USER_ROLE === 'teacher' && ACCESS_DATA.complex_id) query = query.eq('circle_id', ACCESS_DATA.complex_id);
 
@@ -180,7 +170,6 @@
         `).join('');
     }
 
-    // التعطيل والتفعيل
     async function deactivateStudent(id) {
         if (!confirm('هل تريد تعطيل هذا الطالب؟')) return;
         await supabase.from('students').update({ active: false }).eq('id', id);
@@ -194,13 +183,11 @@
         refreshStudents();
     }
 
-    // تأخير البحث (Debounce)
     function debounceSearch() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(refreshStudents, 500);
     }
 
-    // بدء التشغيل
     window.onload = initFilters;
 
 </script>
