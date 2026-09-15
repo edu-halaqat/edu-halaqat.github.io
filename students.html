@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إدارة الطلاب والحلقات - سنابل الوحي</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .header { background: #006b55; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+        input { flex-grow: 1; }
+        button { background: #006b55; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00503f; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: right; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #006b55; }
+        .status-active { color: green; font-weight: bold; }
+        .status-inactive { color: red; font-weight: bold; }
+        .btn-danger { background: #b00020; }
+        .btn-danger:hover { background: #8b0015; }
+        #loading { text-align: center; font-weight: bold; color: #006b55; display: none; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>إدارة الطلاب والحلقات</h1>
+        <p id="userRoleDisplay">جاري التحقق من الصلاحيات...</p>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="ابحث عن اسم الطالب..." oninput="debounceSearch()">
+        <select id="complexSelect" onchange="loadCirclesFilter(); refreshStudents();" style="display:none;">
+            <option value="">كل المجمعات</option>
+        </select>
+        <select id="circleSelect" onchange="refreshStudents();">
+            <option value="">كل الحلقات</option>
+        </select>
+        <button onclick="refreshStudents()">تحديث البيانات</button>
+        <!-- زر الإضافة يظهر فقط للمدير والمشرف والمعلم حسب السياسة -->
+        <button id="addBtn" onclick="alert('نافذة إضافة الطالب ستبرمج هنا')" style="background:#d97706;">+ إضافة طالب جديد</button>
+    </div>
+
+    <div id="loading">جارٍ تحميل البيانات من Supabase...</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>اسم الطالب</th>
+                <th>رقم الهوية</th>
+                <th>المجمع</th>
+                <th>الحلقة</th>
+                <th>المرحلة</th>
+                <th>الحالة</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody id="studentsTableBody">
+            <!-- سيتم ملء البيانات هنا آلياً -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // الإعدادات ومحرك قاعدة البيانات
+    const SUPABASE_URL = 'https://fvzoogbdezueswyihxiz.supabase.co';
+    
+    // سحب المفتاح والجلسة من الذاكرة المحلية (كما هو مخزن في المنصة حالياً)
+    const SESSION_DATA = JSON.parse(localStorage.getItem('sanabil-auth-session-v2') || '{}');
+    const ACCESS_DATA = JSON.parse(localStorage.getItem('sanabil-auth-access-v2') || '{}');
+    
+    // تأكد من وجود جلسة
+    if (!SESSION_DATA.access_token) {
+        alert('الرجاء تسجيل الدخول أولاً');
+        window.location.href = '/';
+    }
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, 'ضع_مفتاح_anon_هنا', {
+        global: { headers: { Authorization: `Bearer ${SESSION_DATA.access_token}` } }
+    });
+
+    const ORG_ID = 'org_main';
+    const USER_ROLE = ACCESS_DATA.roles ? ACCESS_DATA.roles[0] : null;
+    let searchTimeout;
+
+    // عرض الصلاحية
+    document.getElementById('userRoleDisplay').innerText = 
+        USER_ROLE === 'admin' ? 'مدير النظام (صلاحية كاملة)' : 
+        USER_ROLE === 'supervisor' ? 'مشرف مجمع (صلاحية مقيدة بالمجمع)' : 
+        USER_ROLE === 'teacher' ? 'معلم (صلاحية مقيدة بالحلقة)' : 'صلاحية غير معروفة';
+
+    // تهيئة الفلاتر بناءً على الصلاحيات
+    async function initFilters() {
+        if (USER_ROLE === 'admin' || USER_ROLE === 'supervisor') {
+            document.getElementById('complexSelect').style.display = 'inline-block';
+            
+            // جلب المجمعات
+            let query = supabase.from('complexes').select('id, name').eq('org_id', ORG_ID);
+            if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) {
+                query = query.eq('id', ACCESS_DATA.complex_id);
+            }
+            
+            const { data } = await query;
+            const complexSelect = document.getElementById('complexSelect');
+            (data || []).forEach(c => {
+                complexSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+        await loadCirclesFilter();
+        refreshStudents();
+    }
+
+    // جلب الحلقات
+    async function loadCirclesFilter() {
+        const complexId = document.getElementById('complexSelect').value;
+        let query = supabase.from('circles').select('id, name').eq('org_id', ORG_ID);
+        
+        if (complexId) query = query.eq('complex_id', complexId);
+        if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) query = query.eq('complex_id', ACCESS_DATA.complex_id);
+        if (USER_ROLE === 'teacher' && ACCESS_DATA.complex_id) query = query.eq('id', ACCESS_DATA.complex_id); // إذا كانت الدالة ترجع رقم الحلقة في complex_id للمعلم
+
+        const { data } = await query;
+        const circleSelect = document.getElementById('circleSelect');
+        circleSelect.innerHTML = '<option value="">كل الحلقات</option>';
+        (data || []).forEach(c => {
+            circleSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+    }
+
+    // جلب وعرض الطلاب
+    async function refreshStudents() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('studentsTableBody').innerHTML = '';
+
+        const searchValue = document.getElementById('searchInput').value;
+        const complexId = document.getElementById('complexSelect').value;
+        const circleId = document.getElementById('circleSelect').value;
+
+        let query = supabase.from('students').select('id, full_name, identity_number, stage, circle_name, complex_id, active').eq('org_id', ORG_ID);
+
+        // تطبيق فلاتر المستخدم
+        if (searchValue) query = query.ilike('full_name', `%${searchValue}%`);
+        if (complexId) query = query.eq('complex_id', complexId);
+        if (circleId) query = query.eq('circle_id', circleId);
+
+        // تطبيق النطاق الأمني (رديف لـ RLS)
+        if (USER_ROLE === 'supervisor' && ACCESS_DATA.complex_id) query = query.eq('complex_id', ACCESS_DATA.complex_id);
+        if (USER_ROLE === 'teacher' && ACCESS_DATA.complex_id) query = query.eq('circle_id', ACCESS_DATA.complex_id);
+
+        const { data, error } = await query.order('full_name', { ascending: true });
+        
+        document.getElementById('loading').style.display = 'none';
+
+        if (error) {
+            console.error(error);
+            document.getElementById('studentsTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;color:red;">تعذر الاتصال بقاعدة البيانات</td></tr>`;
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            document.getElementById('studentsTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;">لا توجد بيانات طلاب</td></tr>`;
+            return;
+        }
+
+        document.getElementById('studentsTableBody').innerHTML = data.map(s => `
+            <tr>
+                <td>${s.full_name}</td>
+                <td>${s.identity_number || '—'}</td>
+                <td>مجمع رقم ${s.complex_id || '—'}</td>
+                <td>${s.circle_name || '—'}</td>
+                <td>${s.stage || '—'}</td>
+                <td class="${s.active ? 'status-active' : 'status-inactive'}">${s.active ? 'نشط' : 'معطل'}</td>
+                <td>
+                    ${s.active ? `<button class="btn-danger" onclick="deactivateStudent('${s.id}')">تعطيل</button>` : `<button onclick="activateStudent('${s.id}')">تفعيل</button>`}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // التعطيل والتفعيل
+    async function deactivateStudent(id) {
+        if (!confirm('هل تريد تعطيل هذا الطالب؟')) return;
+        await supabase.from('students').update({ active: false }).eq('id', id);
+        alert('تم تعطيل الطالب');
+        refreshStudents();
+    }
+
+    async function activateStudent(id) {
+        await supabase.from('students').update({ active: true }).eq('id', id);
+        alert('تم تفعيل الطالب');
+        refreshStudents();
+    }
+
+    // تأخير البحث (Debounce)
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(refreshStudents, 500);
+    }
+
+    // بدء التشغيل
+    window.onload = initFilters;
+
+</script>
+</body>
+</html>
