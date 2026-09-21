@@ -1,7 +1,7 @@
 "use strict";
 (async () => {
   const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
-  const RELEASE = "20260907-final-review-consent-v7";
+  const RELEASE = "20260921-ministry-github-download-v1";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
@@ -27,7 +27,7 @@
     const rawMessage = String(error?.message || "تعذر تحميل نموذج التسجيل.");
     document.body.dataset.portalReady = "false";
     document.body.dataset.portalError = rawMessage.slice(0, 300);
-    const message = rawMessage.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+    const message = rawMessage.replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" }[character]));
     const target = document.getElementById("teacherForm") || document.querySelector("main") || document.body;
     const box = document.createElement("div");
     box.className = "main-shell";
@@ -42,6 +42,7 @@
     ]);
     appMount.outerHTML = part1 + part2;
 
+    await loadScript("assets/js/ministry-download-fix.js");
     await loadScript("assets/js/file-cache.js");
     if (window.TallamFileCache?.build !== CACHE_COMPAT_BUILD) {
       throw new Error("تعذر تحميل أداة تثبيت المرفقات على الجوال.");
