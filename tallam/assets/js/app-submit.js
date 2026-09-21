@@ -136,7 +136,8 @@ async function handleSubmit(event) {
     showStatus(friendlySubmissionError(error));
   } finally {
     hideLoading();
-    submitBtn.disabled = true;
+    // إبقاء زر الإرسال متاحًا عند الفشل حتى يتمكن المتقدم من إعادة المحاولة.
+    submitBtn.disabled = successPanel.classList.contains("show");
     prevBtn.disabled = stepIndex === 0;
     requestAnimationFrame(() => form.dispatchEvent(new Event("input", { bubbles: true })));
   }
@@ -207,7 +208,6 @@ if (typeof form !== "undefined" && form) {
 
 restoreDraft();
 
-// حماية الكود وتجاوز الخطأ البرمجي بهدوء
 try {
   if (typeof initSignature === "function") initSignature();
 } catch (error) {
