@@ -1,7 +1,7 @@
 "use strict";
 (async () => {
   const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
-  const RELEASE = "20260921-ministry-github-download-v1";
+  const RELEASE = "20260921-ministry-download-direct-v2";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
@@ -42,7 +42,6 @@
     ]);
     appMount.outerHTML = part1 + part2;
 
-    await loadScript("assets/js/ministry-download-fix.js");
     await loadScript("assets/js/file-cache.js");
     if (window.TallamFileCache?.build !== CACHE_COMPAT_BUILD) {
       throw new Error("تعذر تحميل أداة تثبيت المرفقات على الجوال.");
