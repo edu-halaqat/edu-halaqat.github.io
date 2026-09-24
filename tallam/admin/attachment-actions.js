@@ -19,38 +19,6 @@
     return nativeFetch(input, init);
   };
 
-  function addAttachmentActions(card) {
-    if (!card || card.dataset.actionsReady === "1") return;
-    const existingLink = card.querySelector("a[href]");
-    if (!existingLink) return;
-
-    const previewUrl = existingLink.getAttribute("href");
-    const item = card;
-    const downloadUrl = item.dataset.downloadUrl || previewUrl;
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px";
-
-    const view = document.createElement("a");
-    view.href = previewUrl;
-    view.target = "_blank";
-    view.rel = "noopener noreferrer";
-    view.textContent = "عرض";
-    view.className = "row-btn";
-    view.style.textDecoration = "none";
-
-    const download = document.createElement("a");
-    download.href = downloadUrl;
-    download.target = "_blank";
-    download.rel = "noopener noreferrer";
-    download.textContent = "تنزيل المرفق";
-    download.className = "row-btn";
-    download.style.textDecoration = "none";
-
-    existingLink.replaceWith(actions);
-    actions.append(view, download);
-    card.dataset.actionsReady = "1";
-  }
-
   function enhanceAttachments() {
     const grid = document.getElementById("attachmentsGrid");
     if (!grid) return;
@@ -59,11 +27,40 @@
       const originalLink = card.querySelector("a[href]");
       if (!originalLink) return;
 
-      // Details endpoint returns a separate attachment URL with forced download disposition.
-      const attachmentName = card.querySelector("span")?.textContent?.trim() || "";
-      const downloadUrl = originalLink.dataset.downloadUrl || originalLink.href;
-      card.dataset.downloadUrl = downloadUrl;
-      addAttachmentActions(card);
+      const previewUrl = originalLink.href;
+      const filename = card.querySelector("span")?.textContent?.trim() || "attachment";
+      let downloadUrl = previewUrl;
+      try {
+        const url = new URL(previewUrl);
+        // Supabase Storage supports a download response override on signed URLs.
+        url.searchParams.set("download", filename);
+        downloadUrl = url.toString();
+      } catch { /* retain the valid signed URL as a fallback */ }
+
+      const actions = document.createElement("div");
+      actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px";
+
+      const view = document.createElement("a");
+      view.href = previewUrl;
+      view.target = "_blank";
+      view.rel = "noopener noreferrer";
+      view.textContent = "عرض";
+      view.className = "row-btn";
+      view.style.textDecoration = "none";
+      view.setAttribute("aria-label", `عرض ${filename}`);
+
+      const download = document.createElement("a");
+      download.href = downloadUrl;
+      download.target = "_blank";
+      download.rel = "noopener noreferrer";
+      download.textContent = "تنزيل المرفق";
+      download.className = "row-btn";
+      download.style.textDecoration = "none";
+      download.setAttribute("aria-label", `تنزيل ${filename}`);
+
+      originalLink.replaceWith(actions);
+      actions.append(view, download);
+      card.dataset.actionsReady = "1";
     });
   }
 
