@@ -228,8 +228,27 @@ async function plansPage(root){
    esc(({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type)),
    esc(p.daily_amount+' '+({lines:'سطر',pages:'صفحة',ayahs:'آية'}[p.unit]||p.unit)),
    esc(p.direction==='toward_nas'?'نحو الناس':'نحو الفاتحة'),
-   esc(p.start_date+' — '+p.end_date),esc(p.status),button('الأيام والاستثناءات','p'+i)
+   esc(p.start_date+' — '+p.end_date),esc(p.status),button('الأيام والاستثناءات','p'+i)+button('تعديل الخطة','editp'+i)
   ]));
+  plans.forEach((p,i)=>{
+   action(root,root.querySelector(`[data-action="editp${i}"]`),async()=>{
+    const s=students.find(x=>x.id===p.student_id);if(!s)throw Error('تعذر العثور على الطالب.');
+    const days=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']],excluded=(p.excluded_weekdays||[]).map(Number);
+    const b=modal('تعديل إعداد الخطة - '+({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type));
+    b.innerHTML=`<form><p>يُعاد توزيع الأيام المستقبلية فقط إذا كانت الخطة لم يبدأ تنفيذها بعد. إذا بدأت الحصيلة فسيمنع الخادم إعادة التوليد حمايةً للسجل التاريخي.</p><p><b>بداية المقرر الحالية:</b> ${esc(qref(p.start_ref))}</p><div class="form-grid two">${field('المقدار اليومي','amount','number',p.daily_amount,'min="1" max="45" required')}${field('تاريخ البداية','start','date',p.start_date,'required')}${field('تاريخ النهاية','end','date',p.end_date,'required')}</div><fieldset><legend>أيام الإجازة الأسبوعية</legend><div class="sl-checks">${days.map(([id,n])=>`<label><input type="checkbox" name="wd${id}" ${excluded.includes(Number(id))?'checked':''}> ${n}</label>`).join('')}</div></fieldset><button type="submit" class="button button-primary">حفظ وإعادة توزيع الخطة</button></form>`;
+    const form=b.querySelector('form');
+    submit(form,async()=>{
+     if(val(form,'end')<val(form,'start'))throw Error('تاريخ النهاية لا يسبق البداية.');
+     const ex=days.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id)),sr=p.start_ref||{};
+     const r=await rpc('save_plan_with_days',{
+      p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:p.unit,
+      p_daily_amount:Number(val(form,'amount')),p_direction:p.direction,p_start_surah:Number(sr.surahNo||sr.surah_no),p_start_ayah:Number(sr.ayahNo||sr.ayah),
+      p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:p.status,p_replace_existing:true
+     });
+     b.closest('dialog').close();await load();msg(root,`تم تحديث الخطة وإعادة توزيعها على ${r.generatedDays} يومًا.`);
+    })
+   });
+  });
   plans.forEach((p,i)=>action(root,root.querySelector(`[data-action="p${i}"]`),async()=>{
    const b=modal('أيام الخطة - '+({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type));
    const render=async()=>{
