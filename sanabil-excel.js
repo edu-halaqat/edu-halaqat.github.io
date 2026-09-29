@@ -117,6 +117,26 @@ async function exportTests(tests,questions=[]){
  qws.autoFilter={from:'A1',to:'I1'};
  const scores=tests.map(t=>Number(t.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100:0;
  const sum=wb.addWorksheet('مؤشرات',{views:[{rightToLeft:true}]});sum.columns=[{width:34},{width:22}];[['المؤشر','القيمة'],['عدد الاختبارات',tests.length],['متوسط النتائج',avg],['90 فأعلى',scores.filter(x=>x>=90).length],['80–89',scores.filter(x=>x>=80&&x<90).length],['70–79',scores.filter(x=>x>=70&&x<80).length],['أقل من 70',scores.filter(x=>x<70).length]].forEach(r=>sum.addRow(r));styleSheet(sum);
+ const groupSheet=(name,keyFn)=>{
+  const groups=new Map();
+  for(const t of tests){const k=keyFn(t)||'غير محدد',g=groups.get(k)||{count:0,sum:0,scores:[]};const s=Number(t.scores?.total);g.count++;if(Number.isFinite(s)){g.sum+=s;g.scores.push(s)}groups.set(k,g)}
+  const gws=addSheet(wb,name,['البيان','عدد الاختبارات','متوسط النتيجة','90 فأعلى','80–89','70–79','أقل من 70'],[30,16,18,14,14,14,14]);
+  [...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ar')).forEach(([k,g])=>gws.addRow([
+    k,g.count,g.scores.length?Math.round(g.sum/g.scores.length*100)/100:0,
+    g.scores.filter(v=>v>=90).length,g.scores.filter(v=>v>=80&&v<90).length,
+    g.scores.filter(v=>v>=70&&v<80).length,g.scores.filter(v=>v<70).length
+  ]));
+  gws.autoFilter={from:'A1',to:'G1'};
+ };
+ groupSheet('حسب الحلقات',t=>t.circle_name_snapshot||t.circle_name||'');
+ groupSheet('حسب المعلمين',t=>t.teacher_name_snapshot||t.teacher_name||'');
+ const top=addSheet(wb,'ترتيب النتائج',['الترتيب','الطالب','الحلقة','المقرر','المجموع','التقدير','التاريخ'],[10,28,22,30,14,16,16]);
+ [...tests].sort((a,b)=>Number(b.scores?.total||0)-Number(a.scores?.total||0)||String(a.student_name_snapshot||'').localeCompare(String(b.student_name_snapshot||''),'ar')).forEach((t,i)=>top.addRow([
+   i+1,t.student_name_snapshot||t.student_name||'',t.circle_name_snapshot||t.circle_name||'',
+   t.syllabus_snapshot?.label||t.syllabus_label||'',t.scores?.total??'',scoreGrade(t.scores?.total),
+   t.performed_at?new Date(t.performed_at).toLocaleDateString('ar-SA'):''
+ ]));
+ top.autoFilter={from:'A1',to:'G1'};
  save(await workbookBlob(wb),'نتائج_اختبارات_سنابل_الوحي_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function printTests(tests,title='تقرير نتائج الاختبارات'){
