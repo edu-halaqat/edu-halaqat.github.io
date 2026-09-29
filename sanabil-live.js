@@ -148,46 +148,59 @@ async function studentsPage(root){
 }
 async function outcomesPage(root){
  const l=await lookups();
- root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('عرض الطلاب ومقرراتهم','load')}</div><p>لكل مسار تقدير مستقل. عند تسجيل الطالب غائبًا أو مستأذنًا لا تُسجل له حصيلة منجزة، ويُحجب اليوم من خطته ويُعاد توزيع مقرراته تلقائيًا.</p><div class="sl-data"></div>`;
+ root.innerHTML=`<div class="sl-toolbar sl-filterbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('عرض الطلاب','load')}</div><p class="sl-help">شاشة المعلم اليومية: حضّر الطلاب جماعيًا، ثم سجّل تقدير كل مسار فقط. الغائب والمستأذن لا يُحتسب لهما مقرر اليوم.</p><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
   const box=root.querySelector('.sl-data'),attendanceItems=Object.entries(attendanceAr).map(([id,name])=>({id,name})),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'].map(x=>({id:x,name:x}));
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
-  const trackCell=(s,i,key,label,gradeKey,btnKey)=>{
-    const a=s[key];if(!a)return '<span class="muted">لا يوجد مقرر</span>';
-    return `<div class="sl-assignment">${esc(assignmentText(a))}</div><div class="sl-toolbar">${inlineSelect(gradeKey+i,gradeItems,s[gradeKey.replace('grade','').replace(/^./,x=>x.toLowerCase())+'Rating']||'','تقدير '+label+' '+s.fullName)}${button('المصحف','mushaf-'+btnKey+'-'+i)}</div>`;
+  const path=(s,i,key,title,gradeName,mushafKey,rating)=>{
+   const a=s[key];if(!a)return `<section class="sl-track is-empty"><h4>${esc(title)}</h4><p>لا يوجد مقرر لهذا المسار.</p></section>`;
+   return `<section class="sl-track"><div class="sl-track-head"><h4>${esc(title)}</h4>${button('فتح المصحف','mushaf-'+mushafKey+'-'+i)}</div><p class="sl-assignment">${esc(assignmentText(a))}</p><label>التقدير${inlineSelect(gradeName+i,gradeItems,rating||'','تقدير '+title+' '+s.fullName)}</label></section>`;
   };
-  box.innerHTML=`<form><div class="table-wrap"><table><thead><tr><th>الطالب</th><th>التحضير</th><th>الحفظ الجديد + تقديره</th><th>المراجعة القريبة + تقديرها</th><th>المراجعة الكبرى + تقديرها</th><th>تفاصيل التسميع</th><th>ملاحظة</th><th>مشاركة</th></tr></thead><tbody>${students.length?students.map((s,i)=>`<tr>
-   <td><b>${esc(s.fullName)}</b></td>
-   <td>${inlineSelect('att'+i,attendanceItems,s.attendanceStatus||'present','حضور '+s.fullName)}<div data-absence-note="${i}" class="muted"></div></td>
-   <td>${s.memorization?`<div class="sl-assignment">${esc(assignmentText(s.memorization))}</div><div class="sl-toolbar">${inlineSelect('gradeM'+i,gradeItems,s.memorizationRating||'','تقدير الحفظ الجديد '+s.fullName)}${button('المصحف','mushaf-m-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
-   <td>${s.recentReview?`<div class="sl-assignment">${esc(assignmentText(s.recentReview))}</div><div class="sl-toolbar">${inlineSelect('gradeS'+i,gradeItems,s.recentReviewRating||'','تقدير المراجعة القريبة '+s.fullName)}${button('المصحف','mushaf-s-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
-   <td>${s.review?`<div class="sl-assignment">${esc(assignmentText(s.review))}</div><div class="sl-toolbar">${inlineSelect('gradeR'+i,gradeItems,s.reviewRating||'','تقدير المراجعة الكبرى '+s.fullName)}${button('المصحف','mushaf-r-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
-   <td><span data-metric-label="${i}">${esc(metricSummary(metrics.get(s.studentId)))}</span> ${button('تفاصيل','metrics-'+i)}</td>
-   <td><input name="note${i}" value="${esc(s.notes||s.attendanceNote||'')}" aria-label="ملاحظة ${esc(s.fullName)}"></td>
-   <td>${button('واتساب','wa-'+i)}${button('بطاقة','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</td>
-  </tr>`).join(''):`<tr><td colspan="8">لا يوجد طلاب نشطون في الحلقة.</td></tr>`}</tbody></table></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ تحضير وحصيلة اليوم</button></form>`;
+  box.innerHTML=`<form class="sl-outcomes-form">
+   <div class="sl-bulkbar">
+    <div><b>التحضير الجماعي</b><small>اجعل الجميع حاضرًا ثم حدّد الاستثناءات فقط.</small></div>
+    <div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('المحدد متأخر','sel-late')}${button('المحدد مستأذن','sel-excused')}${button('المحدد غائب','sel-absent')}${button('إلغاء التحديد','clear-picks')}</div>
+   </div>
+   <div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-index="${i}">
+    <header><label class="sl-pick"><input type="checkbox" name="pick${i}"> <span>تحديد</span></label><div><h3>${esc(s.fullName)}</h3><small>${s.teacherId?'طالب نشط في الحلقة':'طالب'}</small></div></header>
+    <div class="sl-attendance-row"><label>التحضير${inlineSelect('att'+i,attendanceItems,s.attendanceStatus||'present','حضور '+s.fullName)}</label><div data-absence-note="${i}" class="sl-absence-note"></div></div>
+    <div class="sl-tracks">
+      ${path(s,i,'memorization','الحفظ الجديد','gradeM','m',s.memorizationRating)}
+      ${path(s,i,'recentReview','المراجعة القريبة','gradeS','s',s.recentReviewRating)}
+      ${path(s,i,'review','المراجعة الكبرى','gradeR','r',s.reviewRating)}
+    </div>
+    <details class="sl-details"><summary>تفاصيل التسميع والملاحظة</summary><div class="sl-details-body"><div><span data-metric-label="${i}">${esc(metricSummary(metrics.get(s.studentId)))}</span> ${button('تسجيل الأخطاء','metrics-'+i)}</div><label>ملاحظة<input name="note${i}" value="${esc(s.notes||s.attendanceNote||'')}" aria-label="ملاحظة ${esc(s.fullName)}"></label></div></details>
+    <div class="sl-share-actions">${button('واتساب','wa-'+i)}${button('بطاقة الحصيلة','img-'+i)}${button('ولي الأمر','portal-'+i)}</div>
+   </article>`).join(''):`<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>`}</div>
+   <div class="sl-savebar"><span>عدد الطلاب: <b>${students.length}</b></span><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ التحضير والحصيلة</button></div>
+  </form>`;
   const form=box.querySelector('form');
   const gradeEl=(i,k)=>form.querySelector(`[name="${k+i}"]`);
   const syncAttendance=(s,i)=>{
     const att=val(form,'att'+i),blocked=['absent','excused'].includes(att);
     for(const [k,a] of [['gradeM',s.memorization],['gradeS',s.recentReview],['gradeR',s.review]]){const el=gradeEl(i,k);if(el){if(blocked)el.value='';el.disabled=blocked||!a}}
     const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)md.disabled=blocked;
-    const note=box.querySelector(`[data-absence-note="${i}"]`);if(note)note.textContent=blocked?'لن يُحتسب هذا اليوم في الخطة، وسيعاد توزيع المقرر.':'';
+    const note=box.querySelector(`[data-absence-note="${i}"]`);if(note)note.textContent=blocked?'لن يُحتسب هذا اليوم في الخطة، وسيعاد توزيع المقرر تلقائيًا.':'';
+    const card=box.querySelector(`[data-student-index="${i}"]`);if(card)card.classList.toggle('is-absent',blocked);
   };
+  const setAttendance=(status,selectedOnly=false)=>{
+    let changed=0;
+    students.forEach((s,i)=>{
+      if(selectedOnly&&!form.querySelector(`[name="pick${i}"]`)?.checked)return;
+      const el=form.querySelector(`[name="att${i}"]`);if(el){el.value=status;syncAttendance(s,i);changed++}
+    });
+    if(selectedOnly&&!changed)throw Error('حدد طالبًا واحدًا على الأقل أولًا.');
+  };
+  action(box,box.querySelector('[data-action="all-present"]'),()=>setAttendance('present'));
+  action(box,box.querySelector('[data-action="sel-late"]'),()=>setAttendance('late',true));
+  action(box,box.querySelector('[data-action="sel-excused"]'),()=>setAttendance('excused',true));
+  action(box,box.querySelector('[data-action="sel-absent"]'),()=>setAttendance('absent',true));
+  action(box,box.querySelector('[data-action="clear-picks"]'),()=>form.querySelectorAll('[name^="pick"]').forEach(x=>x.checked=false));
   const currentRow=(s,i)=>{
     const att=val(form,'att'+i),note=val(form,'note'+i),blocked=['absent','excused'].includes(att);
-    return{
-      att,note,
-      ratings:{
-        memorization:blocked?null:(gradeEl(i,'gradeM')?.value||null),
-        recentReview:blocked?null:(gradeEl(i,'gradeS')?.value||null),
-        review:blocked?null:(gradeEl(i,'gradeR')?.value||null)
-      },
-      lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),
-      metrics:blocked?metricBlank():(metrics.get(s.studentId)||metricBlank())
-    }
+    return{att,note,ratings:{memorization:blocked?null:(gradeEl(i,'gradeM')?.value||null),recentReview:blocked?null:(gradeEl(i,'gradeS')?.value||null),review:blocked?null:(gradeEl(i,'gradeR')?.value||null)},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),metrics:blocked?metricBlank():(metrics.get(s.studentId)||metricBlank())}
   };
   const validateRow=(s,x)=>{
     if(['absent','excused'].includes(x.att))return;
@@ -213,7 +226,7 @@ async function outcomesPage(root){
   });
   submit(form,async()=>{
    const payload=students.map((s,i)=>{const x=currentRow(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});
-   await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,'حُفظ التحضير والتقديرات المنفصلة. أيام الغياب والاستئذان لا تُحتسب في الخطة، وغير المنجز يُرحّل في مساره فقط.');students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date})
+   await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,'تم حفظ التحضير والحصيلة لجميع الطلاب. الغياب والاستئذان مستبعدان من الخطة تلقائيًا، وغير المنجز يرحّل في مساره فقط.');
   })
  })
 }
