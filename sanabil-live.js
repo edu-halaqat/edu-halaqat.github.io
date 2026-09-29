@@ -277,7 +277,36 @@ async function statisticsPage(root){
  action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('حدّث المؤشرات أولًا');csv(exported.title,exported.head,exported.data)});
  await load()
 }
-async function dashboard(root){const a=await access();const queries=[['الطلاب النشطون','students',{active:true}],['المعلمون النشطون','teachers',{active:true}],['الحضور اليوم','attendance',{date_key:today()}],['الحصائل اليوم','outcomes',{date_key:today()}]];const counts=await Promise.all(queries.map(async([title,t,f])=>{let q=sb().from(t).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(f))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return{title,count:r.count}}));root.innerHTML=`<h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — بيانات ضمن نطاق صلاحياتك</p>${a.requires_scope_assignment?'<p role="alert">حسابك نشط، لكنه يحتاج ربطًا بالمجمع والحلقة من إدارة المستخدمين حتى تظهر السجلات.</p>':''}<div class="stats-grid">${counts.map(c=>`<article class="stat-card"><span>${esc(c.title)}</span><b>${c.count}</b></article>`).join('')}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;if(a.roles.includes('admin')){root.insertAdjacentHTML('beforeend',button('إدارة المستخدمين','users'));action(root,root.querySelector('[data-action="users"]'),async()=>{const b=modal('الحسابات والصلاحيات');await usersPanel(b)})}}
+async function dashboard(root){
+ const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),isTeacher=rolesNow.includes('teacher');
+ const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
+ const [studentsN,teachersN,teacherAttendanceN,outcomesN,pendingExamN,activePlansN]=await Promise.all([
+  count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),count('outcomes',{date_key:today()}),count('exam_requests',{status:'pending'}),count('plans',{status:'active'})
+ ]);
+ const cards=[['الطلاب النشطون',studentsN],['المعلمون النشطون',teachersN],['بصمات المعلمين اليوم',teacherAttendanceN],['الحصائل المرصودة اليوم',outcomesN],['طلبات الاختبار المعلقة',pendingExamN],['الخطط النشطة',activePlansN]];
+ let alerts=[];
+ if(isAdmin){
+  const u=await adminCall('list'),unassigned=(u.users||[]).filter(x=>x.active&&!x.memberships?.some(m=>m.active)),unconfirmed=(u.users||[]).filter(x=>x.active&&!x.email_confirmed);
+  const [cx,ci,mo]=await Promise.all([count('complexes',{active:true}),count('circles',{active:true}),count('mosques',{active:true})]);
+  alerts.push(`الهيكل الحالي: ${cx} مجمع، ${mo} مسجد/موقع بصمة، ${ci} حلقة.`);
+  if(unassigned.length)alerts.push(`يوجد ${unassigned.length} حساب نشط بلا إسناد صلاحية.`);
+  if(unconfirmed.length)alerts.push(`يوجد ${unconfirmed.length} حساب يحتاج تأكيد البريد.`);
+ }
+ if(isSupervisor){
+  const att=await rows('attendance','teacher_id,status,late_minutes,check_in_at',{date_key:today()}),late=att.filter(x=>Number(x.late_minutes)>0).length,abs=att.filter(x=>x.status==='absent').length,exc=att.filter(x=>x.status==='excused').length;
+  if(late)alerts.push(`معلمون متأخرون اليوم: ${late}.`);
+  if(abs)alerts.push(`غياب معلمين معتمد اليوم: ${abs}.`);
+  if(exc)alerts.push(`استئذان معلمين اليوم: ${exc}.`);
+  if(pendingExamN)alerts.push(`طلبات اختبار تنتظر الجدولة: ${pendingExamN}.`);
+ }
+ if(isTeacher){
+  const st=await rows('students','id',{active:true}),oc=await rows('outcomes','student_id',{date_key:today()}),done=new Set(oc.map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;
+  if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);
+  if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.');
+ }
+ root.innerHTML=`<h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — لوحة العمل ضمن نطاق صلاحياتك</p>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div><section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ if(isAdmin){root.insertAdjacentHTML('beforeend',button('إدارة المستخدمين','users'));action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)})}
+}
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
  root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
