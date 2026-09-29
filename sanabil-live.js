@@ -287,15 +287,15 @@ async function testsPage(root){
   rows('students','id,full_name,teacher_id,teacher_name,circle_id,complex_id,org_id,guardian_phone',{active:true}),
   manage?rows('examiners','id,full_name,complex_id',{active:true}):Promise.resolve([])
  ]);
- root.innerHTML=`<div class="sl-toolbar">${button('طلبات الاختبار','requests')}${canSchedule?button('جدولة مباشرة','new'):''}${select('الحلقة','filterCircle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث','reload')}${button('Excel النتائج','excel-results')}${button('تقرير مطبوع / PDF','print-results')}</div><div class="sl-data"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${button('طلبات الاختبار','requests')}${canSchedule?button('جدولة مباشرة','new'):''}${select('الحلقة','filterCircle',l.circles,'','جميع الحلقات')}${select('المعلم','filterTeacher',l.teachers.map(t=>({id:t.id,name:t.full_name})),'','جميع المعلمين')}${select('الطالب','filterStudent',students.map(s=>({id:s.id,name:s.full_name})),'','جميع الطلاب')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث','reload')}${button('Excel النتائج','excel-results')}${button('تقرير مطبوع / PDF','print-results')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="requests"]'),async()=>{const m=modal('طلبات الاختبار');await requestPanel(m,{canSchedule,examiners,onScheduled:load})});
  const filteredTests=async()=>{
   const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle');if(!from||!to||from>to)throw Error('تحقق من فترة التقرير');
-  let q=sb().from('tests').select('*').gte('performed_at',from+'T00:00:00+03:00').lte('performed_at',to+'T23:59:59.999+03:00').order('performed_at',{ascending:false}).limit(5000);if(circle)q=q.eq('circle_id',circle);return result(q)
+  let q=sb().from('tests').select('*').gte('performed_at',from+'T00:00:00+03:00').lte('performed_at',to+'T23:59:59.999+03:00').order('performed_at',{ascending:false}).limit(5000);if(circle)q=q.eq('circle_id',circle);const teacher=val(root,'filterTeacher'),student=val(root,'filterStudent');if(teacher)q=q.eq('teacher_id',teacher);if(student)q=q.eq('student_id',student);return result(q)
  };
  const testQuestions=async tests=>{const ids=tests.map(x=>x.id);if(!ids.length)return[];let all=[];for(let i=0;i<ids.length;i+=150){const p=await result(sb().from('exam_questions').select('*').in('test_id',ids.slice(i,i+150)).order('test_id').order('question_no'));all.push(...p)}return all};
  const load=async()=>{
-  const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle');let q=sb().from('exam_schedules').select('*').gte('scheduled_at',from+'T00:00:00+03:00').lte('scheduled_at',to+'T23:59:59.999+03:00').order('scheduled_at',{ascending:false}).limit(2000);if(circle)q=q.eq('circle_id',circle);const data=await result(q);
+  const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle'),teacher=val(root,'filterTeacher'),student=val(root,'filterStudent');let q=sb().from('exam_schedules').select('*').gte('scheduled_at',from+'T00:00:00+03:00').lte('scheduled_at',to+'T23:59:59.999+03:00').order('scheduled_at',{ascending:false}).limit(2000);if(circle)q=q.eq('circle_id',circle);if(teacher)q=q.eq('teacher_id',teacher);if(student)q=q.eq('student_id',student);const data=await result(q);
   root.querySelector('.sl-data').innerHTML=table(['الطالب','الموعد','المقرر','الحالة','النتيجة','إجراء'],data.map((d,i)=>[
    esc(d.student_name),esc(dateText(d.scheduled_at)),esc(d.syllabus_label),
    esc({scheduled:'مجدول',confirmed:'مؤكد',in_progress:'جارٍ',completed:'مكتمل',postponed:'مؤجل',no_show:'لم يحضر',cancelled:'ملغي'}[d.status]||d.status),
