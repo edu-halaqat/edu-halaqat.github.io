@@ -26,18 +26,26 @@ const qref=r=>r?(`${r.surahName||r.surah||'سورة'}: ${r.ayahNo||r.ayah||''}${
 const assignmentText=a=>a?`${qref(a.from)} ← ${qref(a.to)}${Number(a.carryIn||0)>0?' · يشمل مرحلًا '+a.carryIn:''}`:'لا يوجد مقرر';
 const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
 const waPhone=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
-const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;window.open(`https://quran.com/${r.surahNo}/${r.ayahNo||1}`,'_blank','noopener,noreferrer')};
+const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
-async function shareOutcomeImage(student,date,lesson,recent,review,grade,attendance,note){
-  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;const ctx=canvas.getContext('2d');
+async function shareOutcomeImage(student,date,lesson,recent,review,ratings,attendance,note){
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1500;const ctx=canvas.getContext('2d');
   ctx.fillStyle='#f8f5ee';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.direction='rtl';ctx.textAlign='right';
   ctx.fillStyle='#00808A';ctx.fillRect(0,0,1080,180);ctx.fillStyle='#fff';ctx.font='700 54px sans-serif';ctx.fillText('سنابل الوحي',980,95);
   ctx.font='32px sans-serif';ctx.fillText('الحصيلة اليومية',980,145);
-  ctx.fillStyle='#183c33';ctx.font='700 44px sans-serif';ctx.fillText(student,980,260);
-  ctx.font='30px sans-serif';ctx.fillText(date,980,315);
-  const items=[['الحضور',attendanceAr[attendance]||attendance||'—'],['الحفظ الجديد',lesson||'—'],['المراجعة القريبة',recent||'—'],['المراجعة الكبرى',review||'—'],['التقدير',grade||'—'],['ملاحظة',note||'—']];
-  let y=400;for(const [k,v] of items){ctx.fillStyle='#D8BD88';ctx.fillRect(80,y-40,920,62);ctx.fillStyle='#183c33';ctx.font='700 30px sans-serif';ctx.fillText(k,960,y);y+=70;ctx.font='28px sans-serif';y=wrapCanvas(ctx,v,960,y,850,44)+34}
-  ctx.fillStyle='#00808A';ctx.font='26px sans-serif';ctx.fillText('منصة سنابل الوحي · متابعة تعليمية يومية',980,1280);
+  ctx.fillStyle='#183c33';ctx.font='700 44px sans-serif';ctx.fillText(student,980,255);
+  ctx.font='30px sans-serif';ctx.fillText(date,980,310);
+  const absent=['absent','excused'].includes(attendance);
+  const line=(assignment,grade)=>absent?'لم يُحتسب مقرر اليوم وأعيدت جدولته':((assignment||'—')+(grade?' · التقدير: '+grade:''));
+  const items=[
+   ['الحضور',attendanceAr[attendance]||attendance||'—'],
+   ['الحفظ الجديد',line(lesson,ratings?.memorization)],
+   ['المراجعة القريبة',line(recent,ratings?.recentReview)],
+   ['المراجعة الكبرى',line(review,ratings?.review)],
+   ['ملاحظة',note||'—']
+  ];
+  let y=395;for(const [k,v] of items){ctx.fillStyle='#D8BD88';ctx.fillRect(80,y-40,920,62);ctx.fillStyle='#183c33';ctx.font='700 30px sans-serif';ctx.fillText(k,960,y);y+=70;ctx.font='28px sans-serif';y=wrapCanvas(ctx,v,960,y,850,44)+38}
+  ctx.fillStyle='#00808A';ctx.font='26px sans-serif';ctx.fillText('منصة سنابل الوحي · متابعة تعليمية يومية',980,1430);
   const blob=await new Promise(r=>canvas.toBlob(r,'image/png',0.95));if(!blob)throw Error('تعذر إنشاء بطاقة الحصيلة.');
   const file=new File([blob],`حصيلة-${student}-${date}.png`,{type:'image/png'});
   if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({files:[file],title:'الحصيلة اليومية',text:`حصيلة ${student} - ${date}`});return}
@@ -52,6 +60,12 @@ async function showGuardianLink(root,studentId,name){
  const b=modal('بوابة ولي الأمر - '+name);b.innerHTML=`<p>هذا الرابط مخصص لولي الأمر ويعرض الحصيلة والحضور والاختبارات والخطط دون بيانات الهوية.</p><input name="link" value="${esc(url)}" readonly style="width:100%;direction:ltr"><div class="sl-toolbar">${button('نسخ الرابط','copy')}${button('فتح البوابة','open')}</div>`;action(b,b.querySelector('[data-action="copy"]'),async()=>{await navigator.clipboard.writeText(url);msg(b,'تم نسخ الرابط.')});action(b,b.querySelector('[data-action="open"]'),()=>window.open(url,'_blank','noopener,noreferrer'))
 }
 const metricTracks=[['memorization','الحفظ الجديد'],['recentReview','المراجعة القريبة'],['review','المراجعة الكبرى']];
+const gradeOk=g=>['ممتاز','جيد جدًا','جيد'].includes(g);
+const gradeFail=g=>['لم يحفظ','لم يسمع'].includes(g);
+const outcomeRatings=o=>[o?.memorization_rating,o?.recent_review_rating,o?.review_rating].filter(Boolean);
+const outcomeTrackRate=list=>{const r=list.flatMap(outcomeRatings);return r.length?Math.round(r.filter(gradeOk).length/r.length*100):0};
+const outcomeFailCount=o=>outcomeRatings(o).filter(gradeFail).length;
+
 const metricBlank=()=>({memorization:{errors:0,doubts:0,tajweed:0},recentReview:{errors:0,doubts:0,tajweed:0},review:{errors:0,doubts:0,tajweed:0}});
 const normalizedMetrics=m=>{const o=metricBlank();for(const [k] of metricTracks)for(const f of ['errors','doubts','tajweed'])o[k][f]=Math.max(0,Math.min(100,Number(m?.[k]?.[f]||0)));return o};
 const metricTotal=m=>{const n=normalizedMetrics(m);return metricTracks.reduce((z,[k])=>z+n[k].errors+n[k].doubts+n[k].tajweed,0)};
@@ -65,18 +79,18 @@ function editMetrics(title,initial,onSave){
 async function showStudentProgress(root,s){
  const since=new Date(Date.now()-89*86400000).toISOString().slice(0,10);
  const [outcomes,attendance,tests,awards]=await Promise.all([
-  result(sb().from('outcomes').select('date_key,rating,new_lesson,recent_review,review,recitation_metrics').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
+  result(sb().from('outcomes').select('date_key,memorization_rating,recent_review_rating,review_rating,new_lesson,recent_review,review,recitation_metrics').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
   result(sb().from('student_attendance').select('date_key,status,note').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
   result(sb().from('tests').select('performed_at,scores,syllabus_snapshot').eq('student_id',s.id).gte('performed_at',since+'T00:00:00+03:00').order('performed_at',{ascending:false}).limit(50)),
   result(sb().from('student_awards').select('title,category,awarded_on,note').eq('student_id',s.id).order('awarded_on',{ascending:false}).limit(30))
  ]);
- const achieved=outcomes.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x.rating)).length,outcomeRate=outcomes.length?Math.round(achieved/outcomes.length*100):0;
+ const outcomeRate=outcomeTrackRate(outcomes);
  const present=attendance.filter(x=>['present','late'].includes(x.status)).length,attRate=attendance.length?Math.round(present/attendance.length*100):0;
  const scores=tests.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*10)/10:0;
  const detailCount=outcomes.reduce((n,x)=>n+metricTotal(x.recitation_metrics),0);
- const monthly={};for(const x of outcomes){const k=String(x.date_key).slice(0,7);monthly[k]??={days:0,ok:0,issues:0};monthly[k].days++;if(['ممتاز','جيد جدًا','جيد'].includes(x.rating))monthly[k].ok++;monthly[k].issues+=metricTotal(x.recitation_metrics)}
+ const monthly={};for(const x of outcomes){const k=String(x.date_key).slice(0,7);monthly[k]??={days:0,ok:0,total:0,issues:0};monthly[k].days++;const rs=outcomeRatings(x);monthly[k].ok+=rs.filter(gradeOk).length;monthly[k].total+=rs.length;monthly[k].issues+=metricTotal(x.recitation_metrics)}
  const b=modal('تقدم الطالب - '+s.full_name);
- b.innerHTML=`<div class="stats-grid"><article class="stat-card"><span>إنجاز 90 يومًا</span><b>${outcomeRate}%</b></article><article class="stat-card"><span>الحضور</span><b>${attRate}%</b></article><article class="stat-card"><span>متوسط الاختبارات</span><b>${avg}</b></article><article class="stat-card"><span>مؤشرات التسميع</span><b>${detailCount}</b></article></div><h3>التقدم الشهري</h3>${table(['الشهر','أيام التسميع','المنجز','نسبة الإنجاز','الأخطاء/الشك/التجويد'],Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>[esc(k),esc(v.days),esc(v.ok),esc(v.days?Math.round(v.ok/v.days*100)+'%':'0%'),esc(v.issues)]))}<h3>آخر الاختبارات</h3>${table(['التاريخ','المقرر','المجموع'],tests.slice(0,10).map(x=>[esc(dateText(x.performed_at)),esc(x.syllabus_snapshot?.label||'—'),esc(x.scores?.total??'—')]))}<h3>التكريم</h3>${table(['التاريخ','التكريم','التصنيف'],awards.map(x=>[esc(x.awarded_on),esc(x.title),esc(x.category||'—')]))}`;
+ b.innerHTML=`<div class="stats-grid"><article class="stat-card"><span>إنجاز 90 يومًا</span><b>${outcomeRate}%</b></article><article class="stat-card"><span>الحضور</span><b>${attRate}%</b></article><article class="stat-card"><span>متوسط الاختبارات</span><b>${avg}</b></article><article class="stat-card"><span>مؤشرات التسميع</span><b>${detailCount}</b></article></div><h3>التقدم الشهري</h3>${table(['الشهر','أيام التسميع','المنجز','نسبة الإنجاز','الأخطاء/الشك/التجويد'],Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>[esc(k),esc(v.days),esc(v.ok),esc(v.total?Math.round(v.ok/v.total*100)+'%':'0%'),esc(v.issues)]))}<h3>آخر الاختبارات</h3>${table(['التاريخ','المقرر','المجموع'],tests.slice(0,10).map(x=>[esc(dateText(x.performed_at)),esc(x.syllabus_snapshot?.label||'—'),esc(x.scores?.total??'—')]))}<h3>التكريم</h3>${table(['التاريخ','التكريم','التصنيف'],awards.map(x=>[esc(x.awarded_on),esc(x.title),esc(x.category||'—')]))}`;
 }
 function awardStudent(root,s,onDone){
  const b=modal('تكريم الطالب - '+s.full_name),cats=['إنجاز','انضباط','تميز','سلوك','مبادرة','مسابقة','أخرى'].map(x=>({id:x,name:x}));
@@ -133,41 +147,79 @@ async function studentsPage(root){
 }
 async function outcomesPage(root){
  const l=await lookups();
- root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('عرض الطلاب ومقرراتهم','load')}</div><p>يعرض النظام تلقائيًا الحفظ الجديد والمراجعة القريبة والمراجعة الكبرى. يكفي تسجيل التحضير والتقدير، وتفاصيل الأخطاء اختيارية.</p><div class="sl-data"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('عرض الطلاب ومقرراتهم','load')}</div><p>لكل مسار تقدير مستقل. عند تسجيل الطالب غائبًا أو مستأذنًا لا تُسجل له حصيلة منجزة، ويُحجب اليوم من خطته ويُعاد توزيع مقرراته تلقائيًا.</p><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
   const box=root.querySelector('.sl-data'),attendanceItems=Object.entries(attendanceAr).map(([id,name])=>({id,name})),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'].map(x=>({id:x,name:x}));
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
-  box.innerHTML=`<form><div class="table-wrap"><table><thead><tr><th>الطالب</th><th>التحضير</th><th>الحفظ الجديد</th><th>المراجعة القريبة</th><th>المراجعة الكبرى</th><th>التقدير</th><th>تفاصيل التسميع</th><th>ملاحظة</th><th>مشاركة</th></tr></thead><tbody>${students.length?students.map((s,i)=>`<tr>
+  const trackCell=(s,i,key,label,gradeKey,btnKey)=>{
+    const a=s[key];if(!a)return '<span class="muted">لا يوجد مقرر</span>';
+    return `<div class="sl-assignment">${esc(assignmentText(a))}</div><div class="sl-toolbar">${inlineSelect(gradeKey+i,gradeItems,s[gradeKey.replace('grade','').replace(/^./,x=>x.toLowerCase())+'Rating']||'','تقدير '+label+' '+s.fullName)}${button('المصحف','mushaf-'+btnKey+'-'+i)}</div>`;
+  };
+  box.innerHTML=`<form><div class="table-wrap"><table><thead><tr><th>الطالب</th><th>التحضير</th><th>الحفظ الجديد + تقديره</th><th>المراجعة القريبة + تقديرها</th><th>المراجعة الكبرى + تقديرها</th><th>تفاصيل التسميع</th><th>ملاحظة</th><th>مشاركة</th></tr></thead><tbody>${students.length?students.map((s,i)=>`<tr>
    <td><b>${esc(s.fullName)}</b></td>
-   <td>${inlineSelect('att'+i,attendanceItems,s.attendanceStatus||'present','حضور '+s.fullName)}</td>
-   <td><div class="sl-assignment">${esc(assignmentText(s.memorization))}</div>${s.memorization?button('المصحف','mushaf-m-'+i):''}</td>
-   <td><div class="sl-assignment">${esc(assignmentText(s.recentReview))}</div>${s.recentReview?button('المصحف','mushaf-s-'+i):''}</td>
-   <td><div class="sl-assignment">${esc(assignmentText(s.review))}</div>${s.review?button('المصحف','mushaf-r-'+i):''}</td>
-   <td>${inlineSelect('grade'+i,gradeItems,s.rating||'','تقدير '+s.fullName)}</td>
+   <td>${inlineSelect('att'+i,attendanceItems,s.attendanceStatus||'present','حضور '+s.fullName)}<div data-absence-note="${i}" class="muted"></div></td>
+   <td>${s.memorization?`<div class="sl-assignment">${esc(assignmentText(s.memorization))}</div><div class="sl-toolbar">${inlineSelect('gradeM'+i,gradeItems,s.memorizationRating||'','تقدير الحفظ الجديد '+s.fullName)}${button('المصحف','mushaf-m-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
+   <td>${s.recentReview?`<div class="sl-assignment">${esc(assignmentText(s.recentReview))}</div><div class="sl-toolbar">${inlineSelect('gradeS'+i,gradeItems,s.recentReviewRating||'','تقدير المراجعة القريبة '+s.fullName)}${button('المصحف','mushaf-s-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
+   <td>${s.review?`<div class="sl-assignment">${esc(assignmentText(s.review))}</div><div class="sl-toolbar">${inlineSelect('gradeR'+i,gradeItems,s.reviewRating||'','تقدير المراجعة الكبرى '+s.fullName)}${button('المصحف','mushaf-r-'+i)}</div>`:'<span class="muted">لا يوجد مقرر</span>'}</td>
    <td><span data-metric-label="${i}">${esc(metricSummary(metrics.get(s.studentId)))}</span> ${button('تفاصيل','metrics-'+i)}</td>
    <td><input name="note${i}" value="${esc(s.notes||s.attendanceNote||'')}" aria-label="ملاحظة ${esc(s.fullName)}"></td>
    <td>${button('واتساب','wa-'+i)}${button('بطاقة','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</td>
-  </tr>`).join(''):`<tr><td colspan="9">لا يوجد طلاب نشطون في الحلقة.</td></tr>`}</tbody></table></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ تحضير وحصيلة اليوم</button></form>`;
+  </tr>`).join(''):`<tr><td colspan="8">لا يوجد طلاب نشطون في الحلقة.</td></tr>`}</tbody></table></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ تحضير وحصيلة اليوم</button></form>`;
   const form=box.querySelector('form');
-  const currentRow=(s,i)=>{const att=val(form,'att'+i),note=val(form,'note'+i),chosen=val(form,'grade'+i),grade=chosen||(['absent','excused'].includes(att)?'لم يسمع':'');return{att,note,grade,lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),metrics:metrics.get(s.studentId)||metricBlank()}};
+  const gradeEl=(i,k)=>form.querySelector(`[name="${k+i}"]`);
+  const syncAttendance=(s,i)=>{
+    const att=val(form,'att'+i),blocked=['absent','excused'].includes(att);
+    for(const [k,a] of [['gradeM',s.memorization],['gradeS',s.recentReview],['gradeR',s.review]]){const el=gradeEl(i,k);if(el){if(blocked)el.value='';el.disabled=blocked||!a}}
+    const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)md.disabled=blocked;
+    const note=box.querySelector(`[data-absence-note="${i}"]`);if(note)note.textContent=blocked?'لن يُحتسب هذا اليوم في الخطة، وسيعاد توزيع المقرر.':'';
+  };
+  const currentRow=(s,i)=>{
+    const att=val(form,'att'+i),note=val(form,'note'+i),blocked=['absent','excused'].includes(att);
+    return{
+      att,note,
+      ratings:{
+        memorization:blocked?null:(gradeEl(i,'gradeM')?.value||null),
+        recentReview:blocked?null:(gradeEl(i,'gradeS')?.value||null),
+        review:blocked?null:(gradeEl(i,'gradeR')?.value||null)
+      },
+      lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),
+      metrics:blocked?metricBlank():(metrics.get(s.studentId)||metricBlank())
+    }
+  };
+  const validateRow=(s,x)=>{
+    if(['absent','excused'].includes(x.att))return;
+    if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);
+    if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة القريبة للطالب: '+s.fullName);
+    if(s.review&&!x.ratings.review)throw Error('اختر تقدير المراجعة الكبرى للطالب: '+s.fullName);
+  };
   students.forEach((s,i)=>{
+   syncAttendance(s,i);
+   const att=form.querySelector(`[name="att${i}"]`);if(att)att.onchange=()=>syncAttendance(s,i);
    for(const [k,a] of [['m',s.memorization],['s',s.recentReview],['r',s.review]]){const btn=box.querySelector(`[data-action="mushaf-${k}-${i}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
    const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);box.querySelector(`[data-metric-label="${i}"]`).textContent=metricSummary(x)}));
-   const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{const x=currentRow(s,i);if(!x.grade)throw Error('اختر التقدير قبل المشاركة.');const portal=await guardianLink(s.studentId);const alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nنأمل إفادتنا بسبب غياب الطالب اليوم.':x.att==='excused'?'\nتم تسجيل الطالب مستأذنًا لهذا اليوم.':'';const details=metricTotal(x.metrics)?'\nتفاصيل التسميع: '+metricSummary(x.metrics):'';const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\nالحفظ الجديد: ${x.lesson}\nالمراجعة القريبة: ${x.recent}\nالمراجعة الكبرى: ${x.review}\nالتقدير: ${x.grade}${details}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;window.open(`https://wa.me/${waPhone(s.guardianPhone)}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')});
-   const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=currentRow(s,i);if(!x.grade)throw Error('اختر التقدير قبل المشاركة.');await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,x.review,x.grade,x.att,x.note)});
+   const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
+    const x=currentRow(s,i);validateRow(s,x);const portal=await guardianLink(s.studentId);
+    const blocked=['absent','excused'].includes(x.att),alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ لم يُحتسب مقرر اليوم وسيعاد جدولته. نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم؛ لم يُحتسب مقرر اليوم وسيعاد جدولته.':'';
+    const track=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`;
+    const details=!blocked&&metricTotal(x.metrics)?'\nتفاصيل التسميع: '+metricSummary(x.metrics):'';
+    const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${track('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${track('المراجعة القريبة',x.recent,x.ratings.recentReview)}\n${track('المراجعة الكبرى',x.review,x.ratings.review)}${details}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;
+    window.open(`https://wa.me/${waPhone(s.guardianPhone)}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer')
+   });
+   const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=currentRow(s,i);validateRow(s,x);await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,x.review,x.ratings,x.att,x.note)});
    const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
   submit(form,async()=>{
-   const payload=students.map((s,i)=>{const x=currentRow(s,i);if(!x.grade)throw Error('اختر تقدير الطالب: '+s.fullName);return{studentId:s.studentId,rating:x.grade,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});
-   await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,'حُفظ التحضير والحصيلة وتفاصيل التسميع، وتم ترحيل غير المنجز إلى اليوم التالي في كل مسار.')
+   const payload=students.map((s,i)=>{const x=currentRow(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});
+   await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,'حُفظ التحضير والتقديرات المنفصلة. أيام الغياب والاستئذان لا تُحتسب في الخطة، وغير المنجز يُرحّل في مساره فقط.');students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date})
   })
  })
 }
+
 async function plansPage(root){
  const students=await rows('students','id,full_name,teacher_id,circle_id',{active:true});
- root.innerHTML=button('خطة جديدة','new')+'<p>يمكن أن تكون للطالب خطة حفظ وخطة مراجعة متزامنتان، ويولد النظام الورد اليومي تلقائيًا.</p><div class="sl-data"></div>';
+ root.innerHTML=button('خطة جديدة','new')+'<p>يمكن أن تكون للطالب ثلاث خطط متزامنة: حفظ جديد، مراجعة قريبة، ومراجعة كبرى؛ ويولد النظام الورد اليومي لكل مسار تلقائيًا.</p><div class="sl-data"></div>';
  const load=async()=>{
   const plans=await rows('plans');plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
   root.querySelector('.sl-data').innerHTML=table(['الطالب','النوع','المقدار','الاتجاه','المدة','الحالة','تفاصيل'],plans.map((p,i)=>[
@@ -320,7 +372,7 @@ async function testsPage(root){
  action(root,root.querySelector('[data-action="print-results"]'),async()=>{const tests=await filteredTests();if(!tests.length)throw Error('لا توجد نتائج في الفترة المحددة.');excelApi().printTests(tests,'تقرير نتائج الاختبارات')});
  await load()
 }
-const reportTables={outcomes:{name:'الحصيلة',date:'date_key',head:['التاريخ','الطالب','الحفظ','المراجعة القريبة','المراجعة الكبرى','التقدير'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,r.new_lesson,r.recent_review,r.review,r.rating]},tests:{name:'الاختبارات',date:'performed_at',head:['التاريخ','الطالب','الحفظ','التجويد','المجموع'],map:r=>[dateText(r.performed_at),r.student_name_snapshot,r.scores?.memorization,r.scores?.tajweed,r.scores?.total]},attendance:{name:'حضور المعلمين',date:'date_key',head:['التاريخ','المعلم','الحضور','الانصراف','التأخر','الحضور المبكر','الانصراف المبكر','الحالة'],map:(r,n,t)=>[r.date_key,t[r.teacher_id]||r.teacher_id,dateText(r.check_in_at),dateText(r.check_out_at),r.late_minutes||0,r.early_arrival_minutes||0,r.early_leave_minutes||0,r.status]},student_attendance:{name:'حضور الطلاب',date:'date_key',head:['التاريخ','الطالب','الحالة','الملاحظة'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,attendanceAr[r.status]||r.status,r.note||'']},plans:{name:'الخطط',date:'start_date',head:['الطالب','النوع','البداية','النهاية','المقدار','الحالة'],map:(r,n)=>[n[r.student_id]||r.student_id,r.type==='review'?'مراجعة':'حفظ',r.start_date,r.end_date,r.daily_amount,r.status]}};
+const reportTables={outcomes:{name:'الحصيلة',date:'date_key',head:['التاريخ','الطالب','الحفظ','تقدير الحفظ','المراجعة القريبة','تقدير القريبة','المراجعة الكبرى','تقدير الكبرى'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,r.new_lesson,r.memorization_rating||'',r.recent_review,r.recent_review_rating||'',r.review,r.review_rating||'']},tests:{name:'الاختبارات',date:'performed_at',head:['التاريخ','الطالب','الحفظ','التجويد','المجموع'],map:r=>[dateText(r.performed_at),r.student_name_snapshot,r.scores?.memorization,r.scores?.tajweed,r.scores?.total]},attendance:{name:'حضور المعلمين',date:'date_key',head:['التاريخ','المعلم','الحضور','الانصراف','التأخر','الحضور المبكر','الانصراف المبكر','الحالة'],map:(r,n,t)=>[r.date_key,t[r.teacher_id]||r.teacher_id,dateText(r.check_in_at),dateText(r.check_out_at),r.late_minutes||0,r.early_arrival_minutes||0,r.early_leave_minutes||0,r.status]},student_attendance:{name:'حضور الطلاب',date:'date_key',head:['التاريخ','الطالب','الحالة','الملاحظة'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,attendanceAr[r.status]||r.status,r.note||'']},plans:{name:'الخطط',date:'start_date',head:['الطالب','النوع','البداية','النهاية','المقدار','الحالة'],map:(r,n)=>[n[r.student_id]||r.student_id,r.type==='review'?'مراجعة':'حفظ',r.start_date,r.end_date,r.daily_amount,r.status]}};
 async function reportPage(root){const l=await lookups();root.innerHTML=`<div class="sl-toolbar">${select('السجل','kind',Object.entries(reportTables).map(([id,x])=>({id,name:x.name})),'outcomes')}${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${field('اسم الطالب','search')}${button('عرض النتائج','load')}${button('تصدير CSV','csv')}${button('طباعة / PDF','print')}</div><div class="sl-data"></div>`;let exported=null;action(root,root.querySelector('[data-action="load"]'),async()=>{exported=null;const kind=val(root,'kind'),cfg=reportTables[kind],from=val(root,'from'),to=val(root,'to');if(!cfg||!from||!to||from>to)throw Error('تحقق من الفترة؛ تاريخ النهاية لا يسبق البداية.');let data=[];for(let offset=0;;offset+=500){let q=sb().from(kind).select('*').gte(cfg.date,kind==='tests'?from+'T00:00:00+03:00':from).lte(cfg.date,kind==='tests'?to+'T23:59:59.999+03:00':to).order(cfg.date).order('id').range(offset,offset+499);if(val(root,'circle'))q=q.eq('circle_id',val(root,'circle'));const part=await result(q);data.push(...part);if(part.length<500)break;}const ids=[...new Set(data.map(r=>r.student_id).filter(Boolean))];let students=[];for(let i=0;i<ids.length;i+=100)students.push(...await result(sb().from('students').select('id,full_name').in('id',ids.slice(i,i+100))));const names=Object.fromEntries(students.map(s=>[s.id,s.full_name])),teachers=Object.fromEntries(l.teachers.map(t=>[t.id,t.full_name]));const term=val(root,'search').trim();if(term)data=data.filter(r=>String(names[r.student_id]||r.student_name_snapshot||'').includes(term));const mapped=data.map(r=>cfg.map(r,names,teachers));exported={head:cfg.head,data:mapped,title:cfg.name};root.querySelector('.sl-data').innerHTML=`<p>عدد السجلات: ${mapped.length} — من ${esc(from)} إلى ${esc(to)}</p>`+table(cfg.head,mapped.map(r=>r.map(esc)))});action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');csv(exported.title,exported.head,exported.data)});action(root,root.querySelector('[data-action="print"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');window.print()})}
 async function statisticsPage(root){
  const l=await lookups();
@@ -334,14 +386,14 @@ async function statisticsPage(root){
    result(sq),result(tq),rangeRows('student_attendance','date_key',from,to,circle),rangeRows('outcomes','date_key',from,to,circle),rangeRows('attendance','date_key',from,to,circle),rangeRows('tests','performed_at',from+'T00:00:00+03:00',to+'T23:59:59.999+03:00',circle),rangeRows('plan_days','date_key',from,to,circle)
   ]);
   const attended=sa.filter(x=>['present','late'].includes(x.status)).length,studentRate=sa.length?Math.round(attended/sa.length*100):0;
-  const done=outcomes.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x.rating)).length,outcomeRate=outcomes.length?Math.round(done/outcomes.length*100):0;
+  const outcomeRate=outcomeTrackRate(outcomes);
   const testScores=tests.map(x=>Number(x.scores?.total)).filter(Number.isFinite),testAvg=testScores.length?Math.round(testScores.reduce((a,b)=>a+b,0)/testScores.length*10)/10:0;
   const due=days.filter(x=>x.date_key<=to),completed=due.filter(x=>x.status==='completed').length,planRate=due.length?Math.round(completed/due.length*100):0;
   const teacherLate=ta.filter(x=>Number(x.late_minutes)>0).length,teacherExcused=ta.filter(x=>x.status==='excused').length,teacherAbsent=ta.filter(x=>x.status==='absent').length;
   const cards=[['الطلاب النشطون',students.length],['المعلمون النشطون',teachers.length],['حضور الطلاب',studentRate+'%'],['إنجاز الحصيلة',outcomeRate+'%'],['إنجاز أيام الخطط',planRate+'%'],['متوسط الاختبارات',testAvg],['تأخر المعلمين',teacherLate],['استئذان/غياب المعلمين',teacherExcused+' / '+teacherAbsent]];
   const circles=(circle?l.circles.filter(x=>x.id===circle):l.circles).map(cx=>{
    const ss=students.filter(x=>x.circle_id===cx.id),aa=sa.filter(x=>x.circle_id===cx.id),oo=outcomes.filter(x=>x.circle_id===cx.id),dd=days.filter(x=>x.circle_id===cx.id&&x.date_key<=to),tt=tests.filter(x=>x.circle_id===cx.id);
-   const ar=aa.length?Math.round(aa.filter(x=>['present','late'].includes(x.status)).length/aa.length*100):0,or=oo.length?Math.round(oo.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x.rating)).length/oo.length*100):0,pr=dd.length?Math.round(dd.filter(x=>x.status==='completed').length/dd.length*100):0,ts=tt.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=ts.length?Math.round(ts.reduce((a,b)=>a+b,0)/ts.length*10)/10:0;
+   const ar=aa.length?Math.round(aa.filter(x=>['present','late'].includes(x.status)).length/aa.length*100):0,or=outcomeTrackRate(oo),pr=dd.length?Math.round(dd.filter(x=>x.status==='completed').length/dd.length*100):0,ts=tt.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=ts.length?Math.round(ts.reduce((a,b)=>a+b,0)/ts.length*10)/10:0;
    return[cx.name,ss.length,ar+'%',or+'%',pr+'%',avg]
   });
   exported={head:['الحلقة','الطلاب','الحضور','إنجاز الحصيلة','إنجاز الخطط','متوسط الاختبارات'],data:circles,title:'إحصاءات سنابل الوحي'};
@@ -361,11 +413,11 @@ async function dashboard(root){
  if(isSupervisor){const att=await rows('attendance','teacher_id,status,late_minutes,check_in_at',{date_key:today()}),late=att.filter(x=>Number(x.late_minutes)>0).length,abs=att.filter(x=>x.status==='absent').length,exc=att.filter(x=>x.status==='excused').length;if(late)alerts.push(`معلمون متأخرون اليوم: ${late}.`);if(abs)alerts.push(`غياب معلمين معتمد اليوم: ${abs}.`);if(exc)alerts.push(`استئذان معلمين اليوم: ${exc}.`);if(pendingExamN)alerts.push(`طلبات اختبار تنتظر الجدولة: ${pendingExamN}.`)}
  if(rolesNow.includes('teacher')){const st=await rows('students','id',{active:true}),oc=await rows('outcomes','student_id',{date_key:today()}),done=new Set(oc.map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.')}
  const since=new Date(Date.now()-13*86400000).toISOString().slice(0,10),[recent,studentNames,announcements]=await Promise.all([
-  result(sb().from('outcomes').select('student_id,rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),
+  result(sb().from('outcomes').select('student_id,memorization_rating,recent_review_rating,review_rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),
   rows('students','id,full_name',{active:true}),
   result(sb().from('announcements').select('*').eq('active',true).lte('starts_on',today()).or('ends_on.is.null,ends_on.gte.'+today()).order('starts_on',{ascending:false}).limit(30))
  ]),names=new Map(studentNames.map(x=>[x.id,x.full_name])),risk=new Map;
- for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};if(['لم يحفظ','لم يسمع'].includes(o.rating))r.fails++;r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
+ for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};r.fails+=outcomeFailCount(o);r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
  const risky=[...risk].filter(([,r])=>r.fails>=2||r.details>=5).map(([id,r])=>({name:names.get(id)||id,...r})).sort((x,y)=>(y.fails*10+y.details)-(x.fails*10+x.details)).slice(0,10);
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
  root.innerHTML=`<h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — لوحة العمل ضمن نطاق صلاحياتك</p>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
