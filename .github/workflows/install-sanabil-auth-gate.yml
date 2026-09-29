@@ -1,60 +1,24 @@
 name: Install Sanabil auth gate
 
+# Script tags are now versioned in index.html. A second deploy workflow used
+# to cancel the main Pages deployment and inject duplicate login handlers.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'auth-gate.js'
-      - 'sanabil-admin-entry.js'
-      - '.github/workflows/install-sanabil-auth-gate.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  patch-and-deploy:
+  verify:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Install Sanabil scripts in Pages artifact
+      - uses: actions/checkout@v4
+      - name: Verify committed Sanabil entry points
         shell: python
         run: |
           from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
-          tags = [
-              '<script src="/auth-gate.js" defer></script>',
-              '<script src="/sanabil-admin-entry.js" defer></script>',
-          ]
-          for tag in tags:
-              if tag not in s:
-                  s = s.replace('</head>', tag + '</head>', 1)
-          p.write_text(s, encoding='utf-8')
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: .
-
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          html = Path("index.html").read_text()
+          assert html.count('src="/auth-gate.js') == 1
+          assert html.count('src="/sanabil-live.js') == 1
+          assert Path("auth-gate.js").is_file()
+          assert Path("sanabil-live.js").is_file()
