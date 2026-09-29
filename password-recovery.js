@@ -37,7 +37,7 @@
     button.type = "button";
     button.className = "button button-ghost button-wide";
     button.textContent = "نسيت كلمة المرور؟";
-    button.addEventListener("click", () => void sendRecovery());
+    button.addEventListener("click", async () => {button.disabled=true;try{await sendRecovery()}catch{message("تعذر الاتصال؛ تحقق من الإنترنت ثم أعد المحاولة.")}finally{button.disabled=false}});
     const note = card.querySelector(".login-note");
     card.insertBefore(button, note || null);
     return true;
@@ -67,6 +67,7 @@
       const confirm = String(data.get("confirm") || "");
       if (password.length < 10) return message("يجب أن تكون كلمة المرور 10 أحرف على الأقل.");
       if (password !== confirm) return message("كلمتا المرور غير متطابقتين.");
+      const button=form.querySelector("button[type=submit]"); if(button.disabled)return; button.disabled=true; try {
       const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
         headers: { apikey: PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -77,9 +78,11 @@
         method: "POST",
         headers: { apikey: PUBLISHABLE_KEY, Authorization: `Bearer ${accessToken}` },
       }).catch(() => undefined);
+      for(const storage of [localStorage,sessionStorage])for(const key of ["sanabil-auth","sanabil-auth-code-verifier","sanabil-auth-session-v2","sanabil-auth-access-v2"])storage.removeItem(key);
       history.replaceState({}, "", `${location.origin}/reset-password.html?success=1`);
       message("تم تعيين كلمة المرور بنجاح. سجّل الدخول الآن بكلمة المرور الجديدة.");
       location.replace(`${location.origin}/`);
+      } catch {message("تعذر الاتصال؛ تحقق من الإنترنت ثم أعد المحاولة.")} finally {button.disabled=false}
     });
     document.body.appendChild(layer);
   }
@@ -96,11 +99,7 @@
     if (errorDescription) message("رابط الاستعادة غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا.");
   }
 
-  if (!installRecoveryButton()) {
-    const observer = new MutationObserver(() => {
-      if (installRecoveryButton()) observer.disconnect();
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-  }
+  installRecoveryButton();
+  const observer = new MutationObserver(() => installRecoveryButton());
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
-
