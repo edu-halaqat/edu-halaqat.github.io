@@ -10,7 +10,7 @@ const rpc=(name,args)=>result(sb().rpc(name,args));
 const rows=async(table,select='*',filters={})=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select(select).order('id').range(offset,offset+499);for(const [k,v] of Object.entries(filters))q=q.eq(k,v);const data=await result(q);all.push(...data);if(data.length<500)return all;}};
 const access=async()=>{const a=await rpc('my_access',{});if(!a?.active)throw Error('الحساب غير نشط؛ راجع مدير النظام.');window.SanabilAccessSync?.(a);return a};
 const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
-const action=(root,button,fn)=>{button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{await fn()}catch(e){msg(root,e.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false}})};
+const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{await fn()}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false}});return button};
 const button=(label,id='')=>`<button type="button" class="button button-soft" ${id?`data-action="${id}"`:''}>${esc(label)}</button>`;
 const field=(label,name,type='text',value='',extra='')=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const select=(label,name,items,value='',empty='اختر')=>`<label>${esc(label)}<select name="${name}"><option value="">${esc(empty)}</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
@@ -54,7 +54,7 @@ async function shareOutcomeImage(student,date,lesson,recent,review,ratings,atten
 }
 const ageFromBirth=d=>{if(!d)return'—';const b=new Date(d+'T00:00:00'),n=new Date;if(Number.isNaN(b.getTime()))return'—';let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;return a>=0?a:'—'};
 const excelApi=()=>{if(!window.SanabilExcel)throw Error('مكوّن Excel لم يكتمل تحميله؛ حدّث الصفحة ثم أعد المحاولة.');return window.SanabilExcel};
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-track-ratings'};
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
