@@ -1,0 +1,94 @@
+/* Sanabil V8 — mobile-first field UX for Quran circles. */
+:root{--sanabil-safe-bottom:calc(88px + env(safe-area-inset-bottom))}
+html,body{max-width:100%;overflow-x:hidden}
+button,input,select,textarea{font:inherit}
+button{touch-action:manipulation}
+.table-wrap{-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+.table-wrap table{min-width:max(760px,100%)}
+.sl-help{margin:8px 0 14px;padding:12px 14px;border-radius:14px;background:#f5faf8;color:#45665e;line-height:1.8}
+.sl-filterbar{background:#fff;border:1px solid #dde8e3;border-radius:16px;padding:12px}
+.sl-filterbar>label{min-width:180px}
+.sl-bulkbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:10px 0 14px;padding:13px 14px;border:1px solid #d7e5df;border-radius:16px;background:linear-gradient(135deg,#fbfdfc,#f2f8f5)}
+.sl-bulkbar>div:first-child{display:grid;gap:2px}.sl-bulkbar small{color:#667b73}
+.sl-bulk-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sl-student-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sl-student-card{background:#fff;border:1px solid #dfe8e3;border-radius:18px;padding:15px;box-shadow:0 8px 22px #183c330b;overflow:hidden}
+.sl-student-card>header{display:flex;align-items:center;gap:10px;padding-bottom:11px;margin-bottom:12px;border-bottom:1px solid #edf2ef}
+.sl-student-card>header>div{min-width:0}.sl-student-card h3{margin:0;color:#174b41;font-size:18px}.sl-student-card header small{color:#788a83}
+.sl-pick{display:flex!important;align-items:center!important;gap:6px!important;padding:8px 9px;border-radius:10px;background:#f4f7f5;font-size:12px!important}.sl-pick input{width:19px!important;height:19px!important;margin:0}
+.sl-attendance-row{display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:10px;align-items:end;margin-bottom:12px}
+.sl-attendance-row select{min-height:48px}
+.sl-absence-note{color:#9a3c42;font-size:12px;font-weight:700;line-height:1.6}
+.sl-student-card.is-absent{border-color:#e2b5b9;background:#fffafa}.sl-student-card.is-absent .sl-track{opacity:.62}
+.sl-tracks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.sl-track{border:1px solid #e2ebe7;border-radius:14px;padding:11px;background:#fcfdfc;min-width:0}
+.sl-track.is-empty{background:#f7f8f7;color:#7b8984}
+.sl-track h4{margin:0;color:#006f68;font-size:14px}.sl-track p{margin:8px 0;color:#3d5d55;line-height:1.75;font-size:13px}
+.sl-track-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.sl-track-head .button{min-height:38px!important;padding:6px 9px!important;font-size:12px}
+.sl-track label{font-size:12px!important}.sl-track select{width:100%;min-height:46px;margin-top:5px}
+.sl-details{margin-top:10px;border-top:1px solid #edf2ef;padding-top:9px}.sl-details summary{cursor:pointer;color:#006f68;font-weight:700;padding:6px 0}.sl-details-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:8px}
+.sl-share-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px}.sl-share-actions .button{width:100%;margin:0!important;min-width:0}
+.sl-savebar{position:sticky;bottom:82px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:11px 13px;border:1px solid #cfded8;border-radius:16px;background:#fffffff5;backdrop-filter:blur(10px);box-shadow:0 8px 26px #173f3619}
+.sl-savebar .button{min-width:220px}
+.sl-empty{padding:30px;text-align:center;border:1px dashed #cfdcd6;border-radius:16px;color:#6d7f78;background:#fff}
+.sl-live .sl-toolbar>.button,.sl-dialog .sl-toolbar>.button{white-space:normal}
+.sl-dialog textarea{font:inherit;max-width:100%;padding:10px;border:1px solid #bdccc3;border-radius:8px}
+@media (min-width:1200px){.sl-student-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:700px) and (max-width:1199px){
+ .sl-student-grid{grid-template-columns:1fr}
+ .sl-tracks{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .sl-live .stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media (max-width:860px){
+ .app-shell{padding-bottom:var(--sanabil-safe-bottom)!important}
+ .topbar-inner{min-height:64px!important;flex-wrap:nowrap!important;gap:7px!important;padding:6px 10px!important}
+ .brand-compact{width:118px!important;min-width:118px!important;max-width:118px!important;flex:0 0 118px!important}
+ .brand-compact img{width:118px!important;height:46px!important;max-height:46px!important;object-fit:contain!important}
+ .top-actions{width:auto!important;min-width:0!important;margin:0!important;gap:5px!important;justify-content:flex-end!important;flex:1}
+ .role-badge{min-height:40px!important;max-width:116px;padding:6px 8px!important;font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .icon-button,.top-actions .button{width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important;padding:0!important}
+ .logout-button span{display:none!important}
+ .app-content{padding:0 10px var(--sanabil-safe-bottom)!important}
+ .main-content{padding-top:9px!important}
+ .mobile-nav{min-height:76px!important;padding:6px 5px calc(7px + env(safe-area-inset-bottom))!important;gap:3px!important}
+ .mobile-nav button{min-height:60px!important;border-radius:13px!important;font-size:11px!important;padding:4px 2px!important}
+ .mobile-nav button svg{width:22px;height:22px}
+ .more-sheet>section{max-height:78vh;overflow:auto}
+ .sheet-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.sheet-grid button{min-height:92px!important}
+ .sl-live{padding:8px 0!important;border:0!important;border-radius:0!important;background:transparent!important;min-height:0!important}
+ .sl-live>h1{margin:5px 2px 10px;font-size:23px}
+ .sl-filterbar{display:grid!important;grid-template-columns:1fr 1fr;align-items:end;gap:8px!important;margin:8px 0!important}
+ .sl-filterbar>label{min-width:0!important}.sl-filterbar>.button{grid-column:1/-1;width:100%}
+ .sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select,.sl-dialog textarea{min-height:48px!important;font-size:16px!important}
+ .sl-live .button,.sl-dialog .button{min-height:48px!important;padding:9px 12px!important}
+ .sl-live .sl-toolbar,.sl-dialog .sl-toolbar{gap:7px!important}
+ .sl-live .sl-toolbar>.button,.sl-dialog .sl-toolbar>.button{flex:1 1 135px}
+ .sl-bulkbar{position:sticky;top:65px;z-index:18;display:grid;gap:9px;padding:10px;margin:9px 0 12px}
+ .sl-bulk-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.sl-bulk-actions .button{width:100%;font-size:12px}
+ .sl-student-grid{grid-template-columns:1fr;gap:10px}
+ .sl-student-card{padding:12px;border-radius:16px}
+ .sl-attendance-row{grid-template-columns:1fr}
+ .sl-tracks{grid-template-columns:1fr;gap:7px}
+ .sl-track{padding:10px}.sl-track-head .button{flex:0 0 auto!important;width:auto!important;min-height:40px!important}
+ .sl-details-body{grid-template-columns:1fr}
+ .sl-share-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.sl-share-actions .button{padding:7px 4px!important;font-size:11px!important}
+ .sl-savebar{bottom:78px;border-radius:14px;padding:9px}.sl-savebar .button{min-width:0;flex:1}
+ .table-wrap{margin-inline:-2px}.table-wrap table{min-width:820px}
+ .sl-live th,.sl-live td,.sl-dialog th,.sl-dialog td{padding:10px!important}
+ .sl-dialog{width:100vw!important;max-width:none!important;max-height:94dvh!important;margin:0!important;border-radius:22px 22px 0 0!important;padding:15px!important;position:fixed;inset:auto 0 0!important}
+ .sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr!important;gap:10px!important}
+ .sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ .sl-live .stat-card{min-height:105px!important;padding:12px!important}.sl-live .stat-card b{font-size:25px!important}
+}
+@media (max-width:430px){
+ .topbar-inner{padding-inline:7px!important}
+ .brand-compact{width:96px!important;min-width:96px!important;max-width:96px!important;flex-basis:96px!important}
+ .brand-compact img{width:96px!important;height:40px!important}
+ .role-badge{max-width:100px;font-size:10px!important}
+ .notification-button{display:none!important}
+ .sl-filterbar{grid-template-columns:1fr}
+ .sl-filterbar>.button{grid-column:auto}
+ .sl-share-actions{grid-template-columns:1fr}.sl-share-actions .button{font-size:13px!important}
+ .sl-savebar span{display:none}
+ .sl-bulk-actions{grid-template-columns:1fr 1fr}
+}
