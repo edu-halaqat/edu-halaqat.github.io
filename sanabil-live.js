@@ -66,7 +66,7 @@ async function shareOutcomeImage(student,date,lesson,recent,review,ratings,atten
 }
 const ageFromBirth=d=>{if(!d)return'—';const b=new Date(d+'T00:00:00'),n=new Date;if(Number.isNaN(b.getTime()))return'—';let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;return a>=0?a:'—'};
 const excelApi=()=>{if(!window.SanabilExcel)throw Error('مكوّن Excel لم يكتمل تحميله؛ حدّث الصفحة ثم أعد المحاولة.');return window.SanabilExcel};
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-track-ratings'};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-mobile1'};
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
