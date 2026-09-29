@@ -22,6 +22,17 @@ const weekDays=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء
 const weekdayChecks=(prefix,selected=['0','1','2','3','4'])=>`<fieldset><legend>أيام الدوام</legend><div class="sl-checks">${weekDays.map(([id,n])=>`<label><input type="checkbox" name="${prefix}${id}" ${selected.map(String).includes(id)?'checked':''}> ${n}</label>`).join('')}</div></fieldset>`;
 const selectedWeekdays=(form,prefix)=>weekDays.filter(([id])=>form.querySelector(`[name="${prefix}${id}"]`)?.checked).map(([id])=>id);
 
+let surahsPromise=null;
+const quranCatalog=async()=>{if(!surahsPromise)surahsPromise=rpc('quran_surah_catalog',{}).catch(e=>{surahsPromise=null;throw e});return surahsPromise};
+async function quranFields(root,initial={}){
+ const surah=root.querySelector('[name="surah"]'),ayah=root.querySelector('[name="ayah"]');if(!surah||!ayah)return;
+ const catalog=await quranCatalog();
+ const initialSurah=Number(initial.surahNo||initial.surah||surah.value||catalog?.[0]?.surahNo||1),initialAyah=Number(initial.ayahNo||initial.ayah||ayah.value||1);
+ surah.innerHTML=(catalog||[]).map(s=>`<option value="${esc(s.surahNo)}">${esc(s.surahNo)}. ${esc(s.name)}</option>`).join('');
+ const fillAyahs=(wanted=1)=>{const row=(catalog||[]).find(s=>Number(s.surahNo)===Number(surah.value)),max=Number(row?.ayahCount||1);ayah.innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');ayah.value=String(Math.max(1,Math.min(max,Number(wanted)||1)))};
+ surah.value=String((catalog||[]).some(s=>Number(s.surahNo)===initialSurah)?initialSurah:(catalog?.[0]?.surahNo||1));fillAyahs(initialAyah);surah.addEventListener('change',()=>fillAyahs(1));
+}
+
 const qref=r=>r?(`${r.surahName||r.surah||'سورة'}: ${r.ayahNo||r.ayah||''}${r.pageNo?' (ص '+r.pageNo+')':''}`):'—';
 const assignmentText=a=>a?`${qref(a.from)} ← ${qref(a.to)}${Number(a.carryIn||0)>0?' · يشمل مرحلًا '+a.carryIn:''}`:'لا يوجد مقرر';
 const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
@@ -148,86 +159,54 @@ async function studentsPage(root){
 }
 async function outcomesPage(root){
  const l=await lookups();
- root.innerHTML=`<div class="sl-toolbar sl-filterbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('عرض الطلاب','load')}</div><p class="sl-help">شاشة المعلم اليومية: حضّر الطلاب جماعيًا، ثم سجّل تقدير كل مسار فقط. الغائب والمستأذن لا يُحتسب لهما مقرر اليوم.</p><div class="sl-data"></div>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>ابدأ بتحضير الطلاب جماعيًا، ثم سجّل تقدير كل مسار بنقرة واحدة. الغائب والمستأذن لا تُرصد لهما حصيلة.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
-  const box=root.querySelector('.sl-data'),attendanceItems=Object.entries(attendanceAr).map(([id,name])=>({id,name})),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'].map(x=>({id:x,name:x}));
+  const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'];
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
-  const path=(s,i,key,title,gradeName,mushafKey,rating)=>{
-   const a=s[key];if(!a)return `<section class="sl-track is-empty"><h4>${esc(title)}</h4><p>لا يوجد مقرر لهذا المسار.</p></section>`;
-   return `<section class="sl-track"><div class="sl-track-head"><h4>${esc(title)}</h4>${button('فتح المصحف','mushaf-'+mushafKey+'-'+i)}</div><p class="sl-assignment">${esc(assignmentText(a))}</p><label>التقدير${inlineSelect(gradeName+i,gradeItems,rating||'','تقدير '+title+' '+s.fullName)}</label></section>`;
+  const states=students.map(s=>({
+    attendance:s.attendanceStatus||'',
+    note:s.notes||s.attendanceNote||'',
+    ratings:{memorization:s.memorizationRating||'',recentReview:s.recentReviewRating||'',review:s.reviewRating||''}
+  }));
+  const attButtons=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>`<button type="button" class="sl-choice sl-att-choice ${current===id?'active':''}" data-att-student="${i}" data-att-value="${id}">${esc(name)}</button>`).join('');
+  const gradeButtons=(i,key,current)=>gradeItems.map(g=>`<button type="button" class="sl-choice sl-grade-choice ${current===g?'active':''}" data-grade-student="${i}" data-grade-key="${key}" data-grade-value="${esc(g)}">${esc(g)}</button>`).join('');
+  const track=(s,i,key,title,short)=>{
+    const a=s[key];if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${title}</b><span>لا يوجد مقرر</span></div></section>`;
+    return `<section class="sl-track"><div class="sl-track-head"><div><b>${title}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+short+'-'+i)}</div><div class="sl-grade-grid">${gradeButtons(i,key,states[i].ratings[key])}</div></section>`
   };
-  box.innerHTML=`<form class="sl-outcomes-form">
-   <div class="sl-bulkbar">
-    <div><b>التحضير الجماعي</b><small>اجعل الجميع حاضرًا ثم حدّد الاستثناءات فقط.</small></div>
-    <div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('المحدد متأخر','sel-late')}${button('المحدد مستأذن','sel-excused')}${button('المحدد غائب','sel-absent')}${button('إلغاء التحديد','clear-picks')}</div>
-   </div>
-   <div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-index="${i}">
-    <header><label class="sl-pick"><input type="checkbox" name="pick${i}"> <span>تحديد</span></label><div><h3>${esc(s.fullName)}</h3><small>${s.teacherId?'طالب نشط في الحلقة':'طالب'}</small></div></header>
-    <div class="sl-attendance-row"><label>التحضير${inlineSelect('att'+i,attendanceItems,s.attendanceStatus||'present','حضور '+s.fullName)}</label><div data-absence-note="${i}" class="sl-absence-note"></div></div>
-    <div class="sl-tracks">
-      ${path(s,i,'memorization','الحفظ الجديد','gradeM','m',s.memorizationRating)}
-      ${path(s,i,'recentReview','المراجعة القريبة','gradeS','s',s.recentReviewRating)}
-      ${path(s,i,'review','المراجعة الكبرى','gradeR','r',s.reviewRating)}
-    </div>
-    <details class="sl-details"><summary>تفاصيل التسميع والملاحظة</summary><div class="sl-details-body"><div><span data-metric-label="${i}">${esc(metricSummary(metrics.get(s.studentId)))}</span> ${button('تسجيل الأخطاء','metrics-'+i)}</div><label>ملاحظة<input name="note${i}" value="${esc(s.notes||s.attendanceNote||'')}" aria-label="ملاحظة ${esc(s.fullName)}"></label></div></details>
-    <div class="sl-share-actions">${button('واتساب','wa-'+i)}${button('بطاقة الحصيلة','img-'+i)}${button('ولي الأمر','portal-'+i)}</div>
-   </article>`).join(''):`<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>`}</div>
-   <div class="sl-savebar"><span>عدد الطلاب: <b>${students.length}</b></span><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ التحضير والحصيلة</button></div>
-  </form>`;
+  const renderSummary=()=>{
+    const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>counts[x.attendance]?counts[x.attendance]++:counts.unset++);
+    const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`;
+  };
+  const syncCard=i=>{
+    const st=states[i],card=box.querySelector(`[data-student-card="${i}"]`),blocked=['absent','excused'].includes(st.attendance);if(!card)return;
+    card.dataset.attendance=st.attendance||'unset';
+    card.querySelectorAll('[data-att-student]').forEach(b=>b.classList.toggle('active',b.dataset.attValue===st.attendance));
+    card.querySelectorAll('[data-grade-student]').forEach(b=>{b.disabled=blocked;b.classList.toggle('active',b.dataset.gradeValue===st.ratings[b.dataset.gradeKey])});
+    const note=card.querySelector('.sl-absence-note');if(note)note.textContent=blocked?'لن يُحتسب مقرر هذا اليوم، وسيعاد توزيع الخطة عند حفظ الحصيلة.':'';
+    if(blocked){st.ratings={memorization:'',recentReview:'',review:''};card.querySelectorAll('[data-grade-student]').forEach(b=>b.classList.remove('active'))}
+    renderSummary();
+  };
+  box.innerHTML=`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>اضغط «الجميع حاضر» ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>التحضير</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${track(s,i,'memorization','الحفظ الجديد','m')}${track(s,i,'recentReview','المراجعة القريبة / الصغرى','s')}${track(s,i,'review','المراجعة الكبرى','r')}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions">${button('تفاصيل التسميع','metrics-'+i)}${button('واتساب','wa-'+i)}${button('بطاقة ولي الأمر','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><div class="sl-savebar"><div><b>حفظ الحصيلة</b><small>يتم حفظ التحضير والتقديرات الثلاثة وترحيل غير المنجز في مساره فقط.</small></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ حصيلة الحلقة</button></div></form>`;
   const form=box.querySelector('form');
-  const gradeEl=(i,k)=>form.querySelector(`[name="${k+i}"]`);
-  const syncAttendance=(s,i)=>{
-    const att=val(form,'att'+i),blocked=['absent','excused'].includes(att);
-    for(const [k,a] of [['gradeM',s.memorization],['gradeS',s.recentReview],['gradeR',s.review]]){const el=gradeEl(i,k);if(el){if(blocked)el.value='';el.disabled=blocked||!a}}
-    const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)md.disabled=blocked;
-    const note=box.querySelector(`[data-absence-note="${i}"]`);if(note)note.textContent=blocked?'لن يُحتسب هذا اليوم في الخطة، وسيعاد توزيع المقرر تلقائيًا.':'';
-    const card=box.querySelector(`[data-student-index="${i}"]`);if(card)card.classList.toggle('is-absent',blocked);
-  };
-  const setAttendance=(status,selectedOnly=false)=>{
-    let changed=0;
-    students.forEach((s,i)=>{
-      if(selectedOnly&&!form.querySelector(`[name="pick${i}"]`)?.checked)return;
-      const el=form.querySelector(`[name="att${i}"]`);if(el){el.value=status;syncAttendance(s,i);changed++}
-    });
-    if(selectedOnly&&!changed)throw Error('حدد طالبًا واحدًا على الأقل أولًا.');
-  };
-  action(box,box.querySelector('[data-action="all-present"]'),()=>setAttendance('present'));
-  action(box,box.querySelector('[data-action="sel-late"]'),()=>setAttendance('late',true));
-  action(box,box.querySelector('[data-action="sel-excused"]'),()=>setAttendance('excused',true));
-  action(box,box.querySelector('[data-action="sel-absent"]'),()=>setAttendance('absent',true));
-  action(box,box.querySelector('[data-action="clear-picks"]'),()=>form.querySelectorAll('[name^="pick"]').forEach(x=>x.checked=false));
-  const currentRow=(s,i)=>{
-    const att=val(form,'att'+i),note=val(form,'note'+i),blocked=['absent','excused'].includes(att);
-    return{att,note,ratings:{memorization:blocked?null:(gradeEl(i,'gradeM')?.value||null),recentReview:blocked?null:(gradeEl(i,'gradeS')?.value||null),review:blocked?null:(gradeEl(i,'gradeR')?.value||null)},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),metrics:blocked?metricBlank():(metrics.get(s.studentId)||metricBlank())}
-  };
-  const validateRow=(s,x)=>{
-    if(['absent','excused'].includes(x.att))return;
-    if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);
-    if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة القريبة للطالب: '+s.fullName);
-    if(s.review&&!x.ratings.review)throw Error('اختر تقدير المراجعة الكبرى للطالب: '+s.fullName);
-  };
+  const rowData=(s,i)=>({att:states[i].attendance,note:val(form,'note'+i),ratings:{...states[i].ratings},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),metrics:metrics.get(s.studentId)||metricBlank()});
+  const validateAttendance=()=>{const miss=states.findIndex(x=>!x.attendance);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+students[miss].fullName)};
+  const validateRow=(s,x)=>{if(['absent','excused'].includes(x.att))return;if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة الصغرى للطالب: '+s.fullName);if(s.review&&!x.ratings.review)throw Error('اختر تقدير المراجعة الكبرى للطالب: '+s.fullName)};
+  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i)});
+  box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent),key=b.dataset.gradeKey;states[i].ratings[key]=b.dataset.gradeValue;syncCard(i)});
+  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i)});msg(box,'تم تحديد جميع الطلاب حاضرين؛ عدّل حالات الغياب أو التأخر أو الاستئذان فقط.')});
+  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpc('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload});msg(box,`تم حفظ تحضير ${r.saved} طالبًا دون اشتراط تسجيل الحصيلة.`)});
   students.forEach((s,i)=>{
-   syncAttendance(s,i);
-   const att=form.querySelector(`[name="att${i}"]`);if(att)att.onchange=()=>syncAttendance(s,i);
-   for(const [k,a] of [['m',s.memorization],['s',s.recentReview],['r',s.review]]){const btn=box.querySelector(`[data-action="mushaf-${k}-${i}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
-   const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);box.querySelector(`[data-metric-label="${i}"]`).textContent=metricSummary(x)}));
-   const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
-    const x=currentRow(s,i);validateRow(s,x);const portal=await guardianLink(s.studentId);
-    const blocked=['absent','excused'].includes(x.att),alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ لم يُحتسب مقرر اليوم وسيعاد جدولته. نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم؛ لم يُحتسب مقرر اليوم وسيعاد جدولته.':'';
-    const track=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`;
-    const details=!blocked&&metricTotal(x.metrics)?'\nتفاصيل التسميع: '+metricSummary(x.metrics):'';
-    const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${track('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${track('المراجعة القريبة',x.recent,x.ratings.recentReview)}\n${track('المراجعة الكبرى',x.review,x.ratings.review)}${details}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;
-    openWhatsApp(s.guardianPhone,text)
-   });
-   const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=currentRow(s,i);validateRow(s,x);await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,x.review,x.ratings,x.att,x.note)});
-   const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
+    syncCard(i);
+    for(const [k,a] of [['m',s.memorization],['s',s.recentReview],['r',s.review]]){const btn=box.querySelector(`[data-action="mushaf-${k}-${i}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
+    const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت تفاصيل التسميع مؤقتًا؛ اضغط حفظ حصيلة الحلقة لتثبيتها.')})});
+    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const portal=await guardianLink(s.studentId),blocked=['absent','excused'].includes(x.att),track=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`,alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم.':'';const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${track('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${track('المراجعة الصغرى',x.recent,x.ratings.recentReview)}\n${track('المراجعة الكبرى',x.review,x.ratings.review)}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;openWhatsApp(s.guardianPhone,text)});
+    const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,x.review,x.ratings,x.att,x.note)});
+    const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
-  submit(form,async()=>{
-   const payload=students.map((s,i)=>{const x=currentRow(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});
-   await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,'تم حفظ التحضير والحصيلة لجميع الطلاب. الغياب والاستئذان مستبعدان من الخطة تلقائيًا، وغير المنجز يرحّل في مساره فقط.');
-  })
+  submit(form,async()=>{validateAttendance();const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});const r=await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا. الغياب والاستئذان لا يُحتسبان، وغير المنجز يُرحّل في مساره فقط.`);students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date})})
  })
 }
 
