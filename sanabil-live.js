@@ -62,6 +62,28 @@ function editMetrics(title,initial,onSave){
  const form=b.querySelector('form');submit(form,async()=>{const x=metricBlank();for(const [k] of metricTracks){x[k].errors=Number(val(form,k+'Errors'));x[k].doubts=Number(val(form,k+'Doubts'));x[k].tajweed=Number(val(form,k+'Tajweed'));}onSave(normalizedMetrics(x));b.closest('dialog').close()})
 }
 
+async function showStudentProgress(root,s){
+ const since=new Date(Date.now()-89*86400000).toISOString().slice(0,10);
+ const [outcomes,attendance,tests,awards]=await Promise.all([
+  result(sb().from('outcomes').select('date_key,rating,new_lesson,recent_review,review,recitation_metrics').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
+  result(sb().from('student_attendance').select('date_key,status,note').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
+  result(sb().from('tests').select('performed_at,scores,syllabus_snapshot').eq('student_id',s.id).gte('performed_at',since+'T00:00:00+03:00').order('performed_at',{ascending:false}).limit(50)),
+  result(sb().from('student_awards').select('title,category,awarded_on,note').eq('student_id',s.id).order('awarded_on',{ascending:false}).limit(30))
+ ]);
+ const achieved=outcomes.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x.rating)).length,outcomeRate=outcomes.length?Math.round(achieved/outcomes.length*100):0;
+ const present=attendance.filter(x=>['present','late'].includes(x.status)).length,attRate=attendance.length?Math.round(present/attendance.length*100):0;
+ const scores=tests.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*10)/10:0;
+ const detailCount=outcomes.reduce((n,x)=>n+metricTotal(x.recitation_metrics),0);
+ const monthly={};for(const x of outcomes){const k=String(x.date_key).slice(0,7);monthly[k]??={days:0,ok:0,issues:0};monthly[k].days++;if(['ممتاز','جيد جدًا','جيد'].includes(x.rating))monthly[k].ok++;monthly[k].issues+=metricTotal(x.recitation_metrics)}
+ const b=modal('تقدم الطالب - '+s.full_name);
+ b.innerHTML=`<div class="stats-grid"><article class="stat-card"><span>إنجاز 90 يومًا</span><b>${outcomeRate}%</b></article><article class="stat-card"><span>الحضور</span><b>${attRate}%</b></article><article class="stat-card"><span>متوسط الاختبارات</span><b>${avg}</b></article><article class="stat-card"><span>مؤشرات التسميع</span><b>${detailCount}</b></article></div><h3>التقدم الشهري</h3>${table(['الشهر','أيام التسميع','المنجز','نسبة الإنجاز','الأخطاء/الشك/التجويد'],Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>[esc(k),esc(v.days),esc(v.ok),esc(v.days?Math.round(v.ok/v.days*100)+'%':'0%'),esc(v.issues)]))}<h3>آخر الاختبارات</h3>${table(['التاريخ','المقرر','المجموع'],tests.slice(0,10).map(x=>[esc(dateText(x.performed_at)),esc(x.syllabus_snapshot?.label||'—'),esc(x.scores?.total??'—')]))}<h3>التكريم</h3>${table(['التاريخ','التكريم','التصنيف'],awards.map(x=>[esc(x.awarded_on),esc(x.title),esc(x.category||'—')]))}`;
+}
+function awardStudent(root,s,onDone){
+ const b=modal('تكريم الطالب - '+s.full_name),cats=['إنجاز','انضباط','تميز','سلوك','مبادرة','مسابقة','أخرى'].map(x=>({id:x,name:x}));
+ b.innerHTML=`<form><div class="form-grid two">${field('عنوان التكريم','title','text','','required')}${select('التصنيف','category',cats,'إنجاز')}${field('التاريخ','awarded_on','date',today(),'required')}${field('ملاحظة','note','text','')}</div><button class="button button-primary" type="submit">حفظ التكريم</button></form>`;
+ const form=b.querySelector('form');submit(form,async()=>{await result(sb().from('student_awards').insert({org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,student_id:s.id,title:val(form,'title').trim(),category:val(form,'category'),awarded_on:val(form,'awarded_on'),note:val(form,'note').trim()||null}).select('id').single());b.closest('dialog').close();await onDone?.();msg(root,'تم حفظ التكريم وسيظهر في بوابة ولي الأمر.')})
+}
+
 
 const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const url=URL.createObjectURL(new Blob(['\ufeff'+[head,...data].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
@@ -80,11 +102,13 @@ async function studentsPage(root){
   root.querySelector('.sl-data').innerHTML=table(['الاسم','العمر','الحلقة','المعلم','ولي الأمر','الإجراءات'],current.map((s,i)=>[
    esc(s.full_name),esc(ageFromBirth(s.birth_date)),esc(l.circles.find(c=>c.id===s.circle_id)?.name||s.circle_name),
    esc(l.teachers.find(t=>t.id===s.teacher_id)?.full_name||s.teacher_name),esc(s.guardian_phone),
-   button('تعديل','edit-'+i)+button('بوابة ولي الأمر','guardian-'+i)+button('إيقاف','off-'+i)
+   button('تعديل','edit-'+i)+button('التقدم','progress-'+i)+button('تكريم','award-'+i)+button('بوابة ولي الأمر','guardian-'+i)+button('إيقاف','off-'+i)
   ]));
   root.querySelector('.sl-page').textContent='صفحة '+(page+1);root.querySelector('[data-action="prev"]').disabled=page===0;root.querySelector('[data-action="next"]').disabled=current.length<50;
   current.forEach((s,i)=>{
    action(root,root.querySelector(`[data-action="edit-${i}"]`),()=>edit(s));
+   action(root,root.querySelector(`[data-action="progress-${i}"]`),()=>showStudentProgress(root,s));
+   action(root,root.querySelector(`[data-action="award-${i}"]`),()=>awardStudent(root,s,load));
    action(root,root.querySelector(`[data-action="guardian-${i}"]`),()=>showGuardianLink(root,s.id,s.full_name));
    action(root,root.querySelector(`[data-action="off-${i}"]`),async()=>{if(!confirm('إيقاف الطالب وإخفاؤه من القوائم اليومية مع حفظ سجلاته؟'))return;await result(sb().from('students').update({active:false}).eq('id',s.id).select('id').single());await load()})
   })
@@ -329,19 +353,29 @@ async function statisticsPage(root){
  await load()
 }
 async function dashboard(root){
- const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),isTeacher=rolesNow.includes('teacher');
+ const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
  const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
  const [studentsN,teachersN,teacherAttendanceN,outcomesN,pendingExamN,activePlansN]=await Promise.all([count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),count('outcomes',{date_key:today()}),count('exam_requests',{status:'pending'}),count('plans',{status:'active'})]);
  const cards=[['الطلاب النشطون',studentsN],['المعلمون النشطون',teachersN],['بصمات المعلمين اليوم',teacherAttendanceN],['الحصائل المرصودة اليوم',outcomesN],['طلبات الاختبار المعلقة',pendingExamN],['الخطط النشطة',activePlansN]],alerts=[];
  if(isAdmin){const u=await adminCall('list'),unassigned=(u.users||[]).filter(x=>x.active&&!x.memberships?.some(m=>m.active)),unconfirmed=(u.users||[]).filter(x=>x.active&&!x.email_confirmed);const [cx,ci,mo]=await Promise.all([count('complexes',{active:true}),count('circles',{active:true}),count('mosques',{active:true})]);alerts.push(`الهيكل الحالي: ${cx} مجمع، ${mo} مسجد/موقع بصمة، ${ci} حلقة.`);if(unassigned.length)alerts.push(`يوجد ${unassigned.length} حساب نشط بلا إسناد صلاحية.`);if(unconfirmed.length)alerts.push(`يوجد ${unconfirmed.length} حساب يحتاج تأكيد البريد.`)}
  if(isSupervisor){const att=await rows('attendance','teacher_id,status,late_minutes,check_in_at',{date_key:today()}),late=att.filter(x=>Number(x.late_minutes)>0).length,abs=att.filter(x=>x.status==='absent').length,exc=att.filter(x=>x.status==='excused').length;if(late)alerts.push(`معلمون متأخرون اليوم: ${late}.`);if(abs)alerts.push(`غياب معلمين معتمد اليوم: ${abs}.`);if(exc)alerts.push(`استئذان معلمين اليوم: ${exc}.`);if(pendingExamN)alerts.push(`طلبات اختبار تنتظر الجدولة: ${pendingExamN}.`)}
- if(isTeacher){const st=await rows('students','id',{active:true}),oc=await rows('outcomes','student_id',{date_key:today()}),done=new Set(oc.map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.')}
- const since=new Date(Date.now()-13*86400000).toISOString().slice(0,10),[recent,studentNames]=await Promise.all([result(sb().from('outcomes').select('student_id,rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),rows('students','id,full_name',{active:true})]),names=new Map(studentNames.map(x=>[x.id,x.full_name])),risk=new Map;
+ if(rolesNow.includes('teacher')){const st=await rows('students','id',{active:true}),oc=await rows('outcomes','student_id',{date_key:today()}),done=new Set(oc.map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.')}
+ const since=new Date(Date.now()-13*86400000).toISOString().slice(0,10),[recent,studentNames,announcements]=await Promise.all([
+  result(sb().from('outcomes').select('student_id,rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),
+  rows('students','id,full_name',{active:true}),
+  result(sb().from('announcements').select('*').eq('active',true).lte('starts_on',today()).or('ends_on.is.null,ends_on.gte.'+today()).order('starts_on',{ascending:false}).limit(30))
+ ]),names=new Map(studentNames.map(x=>[x.id,x.full_name])),risk=new Map;
  for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};if(['لم يحفظ','لم يسمع'].includes(o.rating))r.fails++;r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
  const risky=[...risk].filter(([,r])=>r.fails>=2||r.details>=5).map(([id,r])=>({name:names.get(id)||id,...r})).sort((x,y)=>(y.fails*10+y.details)-(x.fails*10+x.details)).slice(0,10);
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
- root.innerHTML=`<h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — لوحة العمل ضمن نطاق صلاحياتك</p>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div><section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
- if(isAdmin){root.insertAdjacentHTML('beforeend',button('إدارة المستخدمين','users'));action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)})}
+ root.innerHTML=`<h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — لوحة العمل ضمن نطاق صلاحياتك</p>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
+ if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
+  const l=await lookups(),m=modal('إضافة إعلان أو مناسبة');
+  m.innerHTML=`<form><div class="form-grid two">${field('العنوان','title','text','','required')}${select('المجمع (فارغ = كل المؤسسة)','complex_id',l.complexes)}${select('الحلقة (اختياري)','circle_id',l.circles)}${field('يبدأ في','starts_on','date',today(),'required')}${field('ينتهي في','ends_on','date','')}</div><label>نص الإعلان<textarea name="body" rows="5" required style="width:100%"></textarea></label><button class="button button-primary" type="submit">نشر الإعلان</button></form>`;
+  const form=m.querySelector('form'),cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]');const fillCircles=()=>{ci.innerHTML='<option value="">كل حلقات المجمع</option>'+l.circles.filter(x=>!cx.value||x.complex_id===cx.value).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')};cx.onchange=fillCircles;fillCircles();
+  submit(form,async()=>{const complex=val(form,'complex_id')||null,circle=val(form,'circle_id')||null;if(rolesNow.includes('supervisor')&&!isAdmin&&!isOrgManager&&!complex)throw Error('المشرف ينشر الإعلان داخل مجمعه؛ اختر المجمع.');if(circle&&!complex)throw Error('اختر المجمع قبل الحلقة.');const ends=val(form,'ends_on')||null;if(ends&&ends<val(form,'starts_on'))throw Error('تاريخ النهاية لا يسبق البداية.');await result(sb().from('announcements').insert({org_id:a.org_id,complex_id:complex,circle_id:circle,title:val(form,'title').trim(),body:form.elements.body.value.trim(),starts_on:val(form,'starts_on'),ends_on:ends,active:true}).select('id').single());m.closest('dialog').close();await dashboard(root)})
+ })
 }
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
