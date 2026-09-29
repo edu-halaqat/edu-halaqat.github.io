@@ -1,0 +1,482 @@
+/* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
+(()=>{'use strict';
+const titles={dashboard:'الرئيسية',students:'الطلاب والمعلمون',outcomes:'الحصيلة اليومية',plans:'الخطط التعليمية',attendance:'الحضور والبصمة',tests:'الاختبارات',inquiries:'الاستعلامات',reports:'التقارير والإحصاءات',settings:'إعدادات المنصة'};
+const roles={admin:'مدير النظام',manager:'مدير المؤسسة',supervisor:'مشرف مجمع',teacher:'معلم',examiner:'مختبر'};
+const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
+const rpc=(name,args)=>result(sb().rpc(name,args));
+const rows=async(table,select='*',filters={})=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select(select).order('id').range(offset,offset+499);for(const [k,v] of Object.entries(filters))q=q.eq(k,v);const data=await result(q);all.push(...data);if(data.length<500)return all;}};
+const access=async()=>{const a=await rpc('my_access',{});if(!a?.active)throw Error('الحساب غير نشط؛ راجع مدير النظام.');window.SanabilAccessSync?.(a);return a};
+const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
+const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{await fn()}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false}});return button};
+const navigateView=key=>{const label=titles[key],short={dashboard:'الرئيسية',attendance:'البصمة',outcomes:'الحصيلة',plans:'الخطط',tests:'الاختبارات',students:'الطلاب',inquiries:'استعلام',reports:'التقارير',settings:'الإعدادات'}[key];const buttons=[...document.querySelectorAll('.tabs button,.mobile-nav button,.sheet-grid button')],b=buttons.find(x=>x.textContent.trim()===label)||buttons.find(x=>x.textContent.trim()===short);if(b){b.click();return}location.hash='#'+key;location.reload()};
+const button=(label,id='')=>`<button type="button" class="button button-soft" ${id?`data-action="${id}"`:''}>${esc(label)}</button>`;
+const field=(label,name,type='text',value='',extra='')=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
+const select=(label,name,items,value='',empty='اختر')=>`<label>${esc(label)}<select name="${name}"><option value="">${esc(empty)}</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+const table=(headers,data)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${data.length?data.map(row=>`<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}">لا توجد سجلات مطابقة.</td></tr>`}</tbody></table></div>`;
+const val=(root,name)=>root.querySelector(`[name="${name}"]`).value;
+const dateText=d=>d?new Date(d).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',dateStyle:'short',timeStyle:'short'}):'—';
+const attendanceAr={present:'حاضر',late:'متأخر',excused:'مستأذن',absent:'غائب'};
+const weekDays=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']];
+const weekdayChecks=(prefix,selected=['0','1','2','3','4'])=>`<fieldset><legend>أيام الدوام</legend><div class="sl-checks">${weekDays.map(([id,n])=>`<label><input type="checkbox" name="${prefix}${id}" ${selected.map(String).includes(id)?'checked':''}> ${n}</label>`).join('')}</div></fieldset>`;
+const selectedWeekdays=(form,prefix)=>weekDays.filter(([id])=>form.querySelector(`[name="${prefix}${id}"]`)?.checked).map(([id])=>id);
+
+let surahsPromise=null;
+const quranCatalog=async()=>{if(!surahsPromise)surahsPromise=rpc('quran_surah_catalog',{}).catch(e=>{surahsPromise=null;throw e});return surahsPromise};
+async function quranFields(root,initial={}){
+ const surah=root.querySelector('[name="surah"]'),ayah=root.querySelector('[name="ayah"]');if(!surah||!ayah)return;
+ const catalog=await quranCatalog();
+ const initialSurah=Number(initial.surahNo||initial.surah||surah.value||catalog?.[0]?.surahNo||1),initialAyah=Number(initial.ayahNo||initial.ayah||ayah.value||1);
+ surah.innerHTML=(catalog||[]).map(s=>`<option value="${esc(s.surahNo)}">${esc(s.surahNo)}. ${esc(s.name)}</option>`).join('');
+ const fillAyahs=(wanted=1)=>{const row=(catalog||[]).find(s=>Number(s.surahNo)===Number(surah.value)),max=Number(row?.ayahCount||1);ayah.innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');ayah.value=String(Math.max(1,Math.min(max,Number(wanted)||1)))};
+ surah.value=String((catalog||[]).some(s=>Number(s.surahNo)===initialSurah)?initialSurah:(catalog?.[0]?.surahNo||1));fillAyahs(initialAyah);surah.addEventListener('change',()=>fillAyahs(1));
+}
+
+const qref=r=>r?(`${r.surahName||r.surah||'سورة'}: ${r.ayahNo||r.ayah||''}${r.pageNo?' (ص '+r.pageNo+')':''}`):'—';
+const assignmentText=a=>a?`${qref(a.from)} ← ${qref(a.to)}${Number(a.carryIn||0)>0?' · يشمل مرحلًا '+a.carryIn:''}`:'لا يوجد مقرر';
+const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
+const waPhone=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
+const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const w=window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');if(!w)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return w};
+const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
+const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
+async function shareOutcomeImage(student,date,lesson,recent,review,ratings,attendance,note){
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1500;const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#f8f5ee';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.direction='rtl';ctx.textAlign='right';
+  ctx.fillStyle='#00808A';ctx.fillRect(0,0,1080,180);ctx.fillStyle='#fff';ctx.font='700 54px sans-serif';ctx.fillText('سنابل الوحي',980,95);
+  ctx.font='32px sans-serif';ctx.fillText('الحصيلة اليومية',980,145);
+  ctx.fillStyle='#183c33';ctx.font='700 44px sans-serif';ctx.fillText(student,980,255);
+  ctx.font='30px sans-serif';ctx.fillText(date,980,310);
+  const absent=['absent','excused'].includes(attendance);
+  const line=(assignment,grade)=>absent?'لم يُحتسب مقرر اليوم وأعيدت جدولته':((assignment||'—')+(grade?' · التقدير: '+grade:''));
+  const items=[
+   ['الحضور',attendanceAr[attendance]||attendance||'—'],
+   ['الحفظ الجديد',line(lesson,ratings?.memorization)],
+   ['المراجعة القريبة',line(recent,ratings?.recentReview)],
+   ['المراجعة الكبرى',line(review,ratings?.review)],
+   ['ملاحظة',note||'—']
+  ];
+  let y=395;for(const [k,v] of items){ctx.fillStyle='#D8BD88';ctx.fillRect(80,y-40,920,62);ctx.fillStyle='#183c33';ctx.font='700 30px sans-serif';ctx.fillText(k,960,y);y+=70;ctx.font='28px sans-serif';y=wrapCanvas(ctx,v,960,y,850,44)+38}
+  ctx.fillStyle='#00808A';ctx.font='26px sans-serif';ctx.fillText('منصة سنابل الوحي · متابعة تعليمية يومية',980,1430);
+  const blob=await new Promise(r=>canvas.toBlob(r,'image/png',0.95));if(!blob)throw Error('تعذر إنشاء بطاقة الحصيلة.');
+  const file=new File([blob],`حصيلة-${student}-${date}.png`,{type:'image/png'});
+  if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({files:[file],title:'الحصيلة اليومية',text:`حصيلة ${student} - ${date}`});return}
+  const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+const ageFromBirth=d=>{if(!d)return'—';const b=new Date(d+'T00:00:00'),n=new Date;if(Number.isNaN(b.getTime()))return'—';let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;return a>=0?a:'—'};
+const excelApi=()=>{if(!window.SanabilExcel)throw Error('مكوّن Excel لم يكتمل تحميله؛ حدّث الصفحة ثم أعد المحاولة.');return window.SanabilExcel};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-mobile1'};
+async function showGuardianLink(root,studentId,name){
+ const url=await guardianLink(studentId);
+ if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
+ const b=modal('بوابة ولي الأمر - '+name);b.innerHTML=`<p>هذا الرابط مخصص لولي الأمر ويعرض الحصيلة والحضور والاختبارات والخطط دون بيانات الهوية.</p><input name="link" value="${esc(url)}" readonly style="width:100%;direction:ltr"><div class="sl-toolbar">${button('نسخ الرابط','copy')}${button('فتح البوابة','open')}</div>`;action(b,b.querySelector('[data-action="copy"]'),async()=>{await navigator.clipboard.writeText(url);msg(b,'تم نسخ الرابط.')});action(b,b.querySelector('[data-action="open"]'),()=>window.open(url,'_blank','noopener,noreferrer'))
+}
+const metricTracks=[['memorization','الحفظ الجديد'],['recentReview','المراجعة القريبة'],['review','المراجعة الكبرى']];
+const gradeOk=g=>['ممتاز','جيد جدًا','جيد'].includes(g);
+const gradeFail=g=>['لم يحفظ','لم يسمع'].includes(g);
+const outcomeRatings=o=>[o?.memorization_rating,o?.recent_review_rating,o?.review_rating].filter(Boolean);
+const outcomeTrackRate=list=>{const r=list.flatMap(outcomeRatings);return r.length?Math.round(r.filter(gradeOk).length/r.length*100):0};
+const outcomeFailCount=o=>outcomeRatings(o).filter(gradeFail).length;
+
+const metricBlank=()=>({memorization:{errors:0,doubts:0,tajweed:0},recentReview:{errors:0,doubts:0,tajweed:0},review:{errors:0,doubts:0,tajweed:0}});
+const normalizedMetrics=m=>{const o=metricBlank();for(const [k] of metricTracks)for(const f of ['errors','doubts','tajweed'])o[k][f]=Math.max(0,Math.min(100,Number(m?.[k]?.[f]||0)));return o};
+const metricTotal=m=>{const n=normalizedMetrics(m);return metricTracks.reduce((z,[k])=>z+n[k].errors+n[k].doubts+n[k].tajweed,0)};
+const metricSummary=m=>{const n=normalizedMetrics(m),e=metricTracks.reduce((z,[k])=>z+n[k].errors,0),d=metricTracks.reduce((z,[k])=>z+n[k].doubts,0),t=metricTracks.reduce((z,[k])=>z+n[k].tajweed,0);return e+d+t?`خطأ ${e} · شك ${d} · تجويد ${t}`:'لا تفاصيل'};
+function editMetrics(title,initial,onSave){
+ const b=modal('تفاصيل التسميع - '+title),m=normalizedMetrics(initial);
+ b.innerHTML=`<form><p>هذه التفاصيل اختيارية وتفيد في اكتشاف مواضع التعثر. اتركها صفرًا إذا كنت تريد الاكتفاء بالتقدير.</p>${metricTracks.map(([k,n])=>`<fieldset><legend>${esc(n)}</legend><div class="form-grid three">${field('الأخطاء',k+'Errors','number',m[k].errors,'min="0" max="100"')}${field('الشكوك/التردد',k+'Doubts','number',m[k].doubts,'min="0" max="100"')}${field('أخطاء التجويد',k+'Tajweed','number',m[k].tajweed,'min="0" max="100"')}</div></fieldset>`).join('')}<button class="button button-primary" type="submit">حفظ التفاصيل</button></form>`;
+ const form=b.querySelector('form');submit(form,async()=>{const x=metricBlank();for(const [k] of metricTracks){x[k].errors=Number(val(form,k+'Errors'));x[k].doubts=Number(val(form,k+'Doubts'));x[k].tajweed=Number(val(form,k+'Tajweed'));}onSave(normalizedMetrics(x));b.closest('dialog').close()})
+}
+
+async function showStudentProgress(root,s){
+ const since=new Date(Date.now()-89*86400000).toISOString().slice(0,10);
+ const [outcomes,attendance,tests,awards]=await Promise.all([
+  result(sb().from('outcomes').select('date_key,memorization_rating,recent_review_rating,review_rating,new_lesson,recent_review,review,recitation_metrics').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
+  result(sb().from('student_attendance').select('date_key,status,note').eq('student_id',s.id).gte('date_key',since).order('date_key',{ascending:false}).limit(300)),
+  result(sb().from('tests').select('performed_at,scores,syllabus_snapshot').eq('student_id',s.id).gte('performed_at',since+'T00:00:00+03:00').order('performed_at',{ascending:false}).limit(50)),
+  result(sb().from('student_awards').select('title,category,awarded_on,note').eq('student_id',s.id).order('awarded_on',{ascending:false}).limit(30))
+ ]);
+ const outcomeRate=outcomeTrackRate(outcomes);
+ const present=attendance.filter(x=>['present','late'].includes(x.status)).length,attRate=attendance.length?Math.round(present/attendance.length*100):0;
+ const scores=tests.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*10)/10:0;
+ const detailCount=outcomes.reduce((n,x)=>n+metricTotal(x.recitation_metrics),0);
+ const monthly={};for(const x of outcomes){const k=String(x.date_key).slice(0,7);monthly[k]??={days:0,ok:0,total:0,issues:0};monthly[k].days++;const rs=outcomeRatings(x);monthly[k].ok+=rs.filter(gradeOk).length;monthly[k].total+=rs.length;monthly[k].issues+=metricTotal(x.recitation_metrics)}
+ const b=modal('تقدم الطالب - '+s.full_name);
+ b.innerHTML=`<div class="stats-grid"><article class="stat-card"><span>إنجاز 90 يومًا</span><b>${outcomeRate}%</b></article><article class="stat-card"><span>الحضور</span><b>${attRate}%</b></article><article class="stat-card"><span>متوسط الاختبارات</span><b>${avg}</b></article><article class="stat-card"><span>مؤشرات التسميع</span><b>${detailCount}</b></article></div><h3>التقدم الشهري</h3>${table(['الشهر','أيام التسميع','المنجز','نسبة الإنجاز','الأخطاء/الشك/التجويد'],Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>[esc(k),esc(v.days),esc(v.ok),esc(v.total?Math.round(v.ok/v.total*100)+'%':'0%'),esc(v.issues)]))}<h3>آخر الاختبارات</h3>${table(['التاريخ','المقرر','المجموع'],tests.slice(0,10).map(x=>[esc(dateText(x.performed_at)),esc(x.syllabus_snapshot?.label||'—'),esc(x.scores?.total??'—')]))}<h3>التكريم</h3>${table(['التاريخ','التكريم','التصنيف'],awards.map(x=>[esc(x.awarded_on),esc(x.title),esc(x.category||'—')]))}`;
+}
+function awardStudent(root,s,onDone){
+ const b=modal('تكريم الطالب - '+s.full_name),cats=['إنجاز','انضباط','تميز','سلوك','مبادرة','مسابقة','أخرى'].map(x=>({id:x,name:x}));
+ b.innerHTML=`<form><div class="form-grid two">${field('عنوان التكريم','title','text','','required')}${select('التصنيف','category',cats,'إنجاز')}${field('التاريخ','awarded_on','date',today(),'required')}${field('ملاحظة','note','text','')}</div><button class="button button-primary" type="submit">حفظ التكريم</button></form>`;
+ const form=b.querySelector('form');submit(form,async()=>{await result(sb().from('student_awards').insert({org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,student_id:s.id,title:val(form,'title').trim(),category:val(form,'category'),awarded_on:val(form,'awarded_on'),note:val(form,'note').trim()||null}).select('id').single());b.closest('dialog').close();await onDone?.();msg(root,'تم حفظ التكريم وسيظهر في بوابة ولي الأمر.')})
+}
+
+
+const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const url=URL.createObjectURL(new Blob(['\ufeff'+[head,...data].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
+const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){msg(form,e.message,true)}finally{b.disabled=false}})};
+let lookupPromise=null,lookupAt=0;
+async function lookups(){if(!lookupPromise||Date.now()-lookupAt>30000){lookupAt=Date.now();lookupPromise=Promise.all([rows('complexes','id,name,org_id',{active:true}),rows('circles','id,name,complex_id,org_id,mosque_id',{active:true}),rows('teachers','id,full_name,circle_id,complex_id,user_id,phone',{active:true})]).then(([complexes,circles,teachers])=>({complexes,circles,teachers})).catch(e=>{lookupPromise=null;throw e})}return lookupPromise}
+function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,data.teachers.filter(x=>x.circle_id===ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
+async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
+async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.')})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
+async function studentsPage(root){
+ const l=await lookups();let page=0,term='',current=[];
+ root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${button('بحث','search')}${button('إضافة طالب','add')}${button('المعلمون','teachers')}${button('تصدير المعروض','export')}</div><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون المسندون');b.innerHTML=table(['المعلم','الحلقة'],l.teachers.map(t=>[esc(t.full_name),esc(l.circles.find(c=>c.id===t.circle_id)?.name||t.circle_id)]))});
+ const load=async()=>{
+  let q=sb().from('students').select('*').eq('active',true).order('full_name').order('id').range(page*50,page*50+49);if(term)q=q.ilike('full_name','%'+term.replace(/[%_]/g,'')+'%');current=await result(q);
+  root.querySelector('.sl-data').innerHTML=table(['الاسم','العمر','الحلقة','المعلم','ولي الأمر','الإجراءات'],current.map((s,i)=>[
+   esc(s.full_name),esc(ageFromBirth(s.birth_date)),esc(l.circles.find(c=>c.id===s.circle_id)?.name||s.circle_name),
+   esc(l.teachers.find(t=>t.id===s.teacher_id)?.full_name||s.teacher_name),esc(s.guardian_phone),
+   button('تعديل','edit-'+i)+button('التقدم','progress-'+i)+button('تكريم','award-'+i)+button('بوابة ولي الأمر','guardian-'+i)+button('إيقاف','off-'+i)
+  ]));
+  root.querySelector('.sl-page').textContent='صفحة '+(page+1);root.querySelector('[data-action="prev"]').disabled=page===0;root.querySelector('[data-action="next"]').disabled=current.length<50;
+  current.forEach((s,i)=>{
+   action(root,root.querySelector(`[data-action="edit-${i}"]`),()=>edit(s));
+   action(root,root.querySelector(`[data-action="progress-${i}"]`),()=>showStudentProgress(root,s));
+   action(root,root.querySelector(`[data-action="award-${i}"]`),()=>awardStudent(root,s,load));
+   action(root,root.querySelector(`[data-action="guardian-${i}"]`),()=>showGuardianLink(root,s.id,s.full_name));
+   action(root,root.querySelector(`[data-action="off-${i}"]`),async()=>{if(!confirm('إيقاف الطالب وإخفاؤه من القوائم اليومية مع حفظ سجلاته؟'))return;await result(sb().from('students').update({active:false}).eq('id',s.id).select('id').single());await load()})
+  })
+ };
+ const edit=s=>{
+  const b=modal(s?'تعديل بيانات الطالب':'إضافة طالب');
+  b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',l.teachers.map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
+  const form=b.querySelector('form');bindScope(form,l,s||{});
+  submit(form,async()=>{
+   const row=Object.fromEntries(new FormData(form));if(row.full_name.trim().split(/\s+/).length<3)throw Error('أدخل الاسم الثلاثي');if(!row.circle_id||!row.complex_id)throw Error('اختر المجمع والحلقة');
+   for(const k of ['student_phone','guardian_phone']){row[k]=row[k].replace(/[\s()-]/g,'');if(row[k]&&!/^(?:05\d{8}|(?:\+?966)5\d{8})$/.test(row[k]))throw Error('رقم الجوال غير صحيح: استخدم 05 أو 9665')}
+   for(const k of Object.keys(row))if(row[k]==='')row[k]=null;
+   row.full_name=row.full_name.trim();row.full_name_normalized=row.full_name.replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+   const circle=l.circles.find(c=>c.id===row.circle_id);if(!circle)throw Error('الحلقة غير موجودة');row.org_id=circle.org_id;row.circle_name=circle.name;row.teacher_name=l.teachers.find(t=>t.id===row.teacher_id)?.full_name||null;
+   let moved=false;
+   if(s&&(s.circle_id!==row.circle_id||s.teacher_id!==row.teacher_id)){await rpc('move_student_with_history',{p_student_id:s.id,p_circle_id:row.circle_id,p_teacher_id:row.teacher_id});moved=s.circle_id!==row.circle_id}
+   if(s)await result(sb().from('students').update(row).eq('id',s.id).select('id').single());else await result(sb().from('students').insert({...row,id:crypto.randomUUID(),active:true}).select('id').single());
+   b.closest('dialog').close();lookupPromise=null;await load();msg(root,moved?'نُقل الطالب وحصيلته وخططه واختباراته إلى الحلقة الجديدة وحُفظت بياناته.':'حُفظت بيانات الطالب.')
+  })
+ };
+ action(root,root.querySelector('[data-action="search"]'),async()=>{term=val(root,'search').trim();page=0;await load()});action(root,root.querySelector('[data-action="add"]'),()=>edit(null));action(root,root.querySelector('[data-action="prev"]'),async()=>{page--;await load()});action(root,root.querySelector('[data-action="next"]'),async()=>{page++;await load()});action(root,root.querySelector('[data-action="export"]'),()=>excelApi().exportTable('سجل الطلاب',['الاسم','العمر','الحلقة','المعلم','جوال ولي الأمر'],current.map(s=>[s.full_name,ageFromBirth(s.birth_date),s.circle_name,s.teacher_name,s.guardian_phone]),[['عدد الطلاب',current.length]]));await load()
+}
+async function outcomesPage(root){
+ const l=await lookups();
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>ابدأ بتحضير الطلاب جماعيًا، ثم سجّل تقدير كل مسار بنقرة واحدة. الغائب والمستأذن لا تُرصد لهما حصيلة.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
+ action(root,root.querySelector('[data-action="load"]'),async()=>{
+  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
+  let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+  const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'];
+  const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
+  const states=students.map(s=>({
+    attendance:s.attendanceStatus||'',
+    note:s.notes||s.attendanceNote||'',
+    ratings:{memorization:s.memorizationRating||'',recentReview:s.recentReviewRating||'',review:s.reviewRating||''}
+  }));
+  const attButtons=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>`<button type="button" class="sl-choice sl-att-choice ${current===id?'active':''}" data-att-student="${i}" data-att-value="${id}">${esc(name)}</button>`).join('');
+  const gradeButtons=(i,key,current)=>gradeItems.map(g=>`<button type="button" class="sl-choice sl-grade-choice ${current===g?'active':''}" data-grade-student="${i}" data-grade-key="${key}" data-grade-value="${esc(g)}">${esc(g)}</button>`).join('');
+  const track=(s,i,key,title,short)=>{
+    const a=s[key];if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${title}</b><span>لا يوجد مقرر</span></div></section>`;
+    return `<section class="sl-track"><div class="sl-track-head"><div><b>${title}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+short+'-'+i)}</div><div class="sl-grade-grid">${gradeButtons(i,key,states[i].ratings[key])}</div></section>`
+  };
+  const renderSummary=()=>{
+    const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>counts[x.attendance]?counts[x.attendance]++:counts.unset++);
+    const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`;
+  };
+  const syncCard=i=>{
+    const st=states[i],card=box.querySelector(`[data-student-card="${i}"]`),blocked=['absent','excused'].includes(st.attendance);if(!card)return;
+    card.dataset.attendance=st.attendance||'unset';
+    card.querySelectorAll('[data-att-student]').forEach(b=>b.classList.toggle('active',b.dataset.attValue===st.attendance));
+    card.querySelectorAll('[data-grade-student]').forEach(b=>{b.disabled=blocked;b.classList.toggle('active',b.dataset.gradeValue===st.ratings[b.dataset.gradeKey])});
+    const note=card.querySelector('.sl-absence-note');if(note)note.textContent=blocked?'لن يُحتسب مقرر هذا اليوم، وسيعاد توزيع الخطة عند حفظ الحصيلة.':'';
+    if(blocked){st.ratings={memorization:'',recentReview:'',review:''};card.querySelectorAll('[data-grade-student]').forEach(b=>b.classList.remove('active'))}
+    renderSummary();
+  };
+  box.innerHTML=`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>اضغط «الجميع حاضر» ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>التحضير</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${track(s,i,'memorization','الحفظ الجديد','m')}${track(s,i,'recentReview','المراجعة القريبة / الصغرى','s')}${track(s,i,'review','المراجعة الكبرى','r')}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions">${button('تفاصيل التسميع','metrics-'+i)}${button('واتساب','wa-'+i)}${button('بطاقة ولي الأمر','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><div class="sl-savebar"><div><b>حفظ الحصيلة</b><small>يتم حفظ التحضير والتقديرات الثلاثة وترحيل غير المنجز في مساره فقط.</small></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ حصيلة الحلقة</button></div></form>`;
+  const form=box.querySelector('form');
+  const rowData=(s,i)=>({att:states[i].attendance,note:val(form,'note'+i),ratings:{...states[i].ratings},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),review:assignmentText(s.review),metrics:metrics.get(s.studentId)||metricBlank()});
+  const validateAttendance=()=>{const miss=states.findIndex(x=>!x.attendance);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+students[miss].fullName)};
+  const validateRow=(s,x)=>{if(['absent','excused'].includes(x.att))return;if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة الصغرى للطالب: '+s.fullName);if(s.review&&!x.ratings.review)throw Error('اختر تقدير المراجعة الكبرى للطالب: '+s.fullName)};
+  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i)});
+  box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent),key=b.dataset.gradeKey;states[i].ratings[key]=b.dataset.gradeValue;syncCard(i)});
+  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i)});msg(box,'تم تحديد جميع الطلاب حاضرين؛ عدّل حالات الغياب أو التأخر أو الاستئذان فقط.')});
+  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpc('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload});msg(box,`تم حفظ تحضير ${r.saved} طالبًا دون اشتراط تسجيل الحصيلة.`)});
+  students.forEach((s,i)=>{
+    syncCard(i);
+    for(const [k,a] of [['m',s.memorization],['s',s.recentReview],['r',s.review]]){const btn=box.querySelector(`[data-action="mushaf-${k}-${i}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
+    const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت تفاصيل التسميع مؤقتًا؛ اضغط حفظ حصيلة الحلقة لتثبيتها.')})});
+    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const portal=await guardianLink(s.studentId),blocked=['absent','excused'].includes(x.att),track=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`,alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم.':'';const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${track('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${track('المراجعة الصغرى',x.recent,x.ratings.recentReview)}\n${track('المراجعة الكبرى',x.review,x.ratings.review)}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;openWhatsApp(s.guardianPhone,text)});
+    const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,x.review,x.ratings,x.att,x.note)});
+    const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
+  });
+  submit(form,async()=>{validateAttendance();const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});const r=await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا. الغياب والاستئذان لا يُحتسبان، وغير المنجز يُرحّل في مساره فقط.`);students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date})})
+ })
+}
+
+async function plansPage(root){
+ const students=await rows('students','id,full_name,teacher_id,circle_id',{active:true});
+ root.innerHTML=button('خطة جديدة','new')+'<p>يمكن أن تكون للطالب ثلاث خطط متزامنة: حفظ جديد، مراجعة قريبة، ومراجعة كبرى؛ ويولد النظام الورد اليومي لكل مسار تلقائيًا.</p><div class="sl-data"></div>';
+ const load=async()=>{
+  const plans=await rows('plans');plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+  root.querySelector('.sl-data').innerHTML=table(['الطالب','النوع','المقدار','الاتجاه','المدة','الحالة','تفاصيل'],plans.map((p,i)=>[
+   esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id),
+   esc(({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type)),
+   esc(p.daily_amount+' '+({lines:'سطر',pages:'صفحة',ayahs:'آية'}[p.unit]||p.unit)),
+   esc(p.direction==='toward_nas'?'نحو الناس':'نحو الفاتحة'),
+   esc(p.start_date+' — '+p.end_date),esc(p.status),button('الأيام والاستثناءات','p'+i)+button('تعديل الخطة','editp'+i)
+  ]));
+  plans.forEach((p,i)=>{
+   action(root,root.querySelector(`[data-action="editp${i}"]`),async()=>{
+    const s=students.find(x=>x.id===p.student_id);if(!s)throw Error('تعذر العثور على الطالب.');
+    const days=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']],excluded=(p.excluded_weekdays||[]).map(Number);
+    const b=modal('تعديل إعداد الخطة - '+({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type));
+    b.innerHTML=`<form><p>يُعاد توزيع الأيام المستقبلية فقط إذا كانت الخطة لم يبدأ تنفيذها بعد. إذا بدأت الحصيلة فسيمنع الخادم إعادة التوليد حمايةً للسجل التاريخي.</p><p><b>بداية المقرر الحالية:</b> ${esc(qref(p.start_ref))}</p><div class="form-grid two">${field('المقدار اليومي','amount','number',p.daily_amount,'min="1" max="45" required')}${field('تاريخ البداية','start','date',p.start_date,'required')}${field('تاريخ النهاية','end','date',p.end_date,'required')}</div><fieldset><legend>أيام الإجازة الأسبوعية</legend><div class="sl-checks">${days.map(([id,n])=>`<label><input type="checkbox" name="wd${id}" ${excluded.includes(Number(id))?'checked':''}> ${n}</label>`).join('')}</div></fieldset><button type="submit" class="button button-primary">حفظ وإعادة توزيع الخطة</button></form>`;
+    const form=b.querySelector('form');
+    submit(form,async()=>{
+     if(val(form,'end')<val(form,'start'))throw Error('تاريخ النهاية لا يسبق البداية.');
+     const ex=days.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id)),sr=p.start_ref||{};
+     const r=await rpc('save_plan_with_days',{
+      p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:p.unit,
+      p_daily_amount:Number(val(form,'amount')),p_direction:p.direction,p_start_surah:Number(sr.surahNo||sr.surah_no),p_start_ayah:Number(sr.ayahNo||sr.ayah),
+      p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:p.status,p_replace_existing:true
+     });
+     b.closest('dialog').close();await load();msg(root,`تم تحديث الخطة وإعادة توزيعها على ${r.generatedDays} يومًا.`);
+    })
+   });
+  });
+  plans.forEach((p,i)=>action(root,root.querySelector(`[data-action="p${i}"]`),async()=>{
+   const b=modal('أيام الخطة - '+({memorization:'حفظ جديد',recent_review:'مراجعة قريبة',review:'مراجعة كبرى'}[p.type]||p.type));
+   const render=async()=>{
+    const days=await rows('plan_days','*',{plan_id:p.id});days.sort((a,b)=>a.date_key.localeCompare(b.date_key));
+    b.innerHTML=`<p>يمكن استثناء أي يوم لم يبدأ تنفيذه؛ يعيد النظام جدولة ذلك اليوم وما بعده دون فقد المقرر.</p>`+table(['التاريخ','المقرر','المطلوب','المنجز','المرحل','الحالة','إجراء'],days.map((d,j)=>[
+      esc(d.date_key),esc(qref(d.carry_from||d.target_from)+' ← '+qref(d.target_to)),esc(Number(d.target_amount||0)+Number(d.carry_in||0)),esc(d.completed_amount),esc(d.carry_out),esc(d.status),d.rating? 'تم الرصد':button('استثناء اليوم','x'+j)
+    ]));
+    days.forEach((d,j)=>{const x=b.querySelector(`[data-action="x${j}"]`);if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,`تم الاستثناء ونقل ${r.movedDays} يومًا. نهاية الخطة الجديدة: ${r.newEndDate}`);await render();await load()})})
+   };await render();
+  }))
+ };
+ action(root,root.querySelector('[data-action="new"]'),async()=>{
+  const b=modal('إعداد خطة حفظ أو مراجعة');
+  const days=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']];
+  b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('نوع الخطة','type',[{id:'memorization',name:'حفظ جديد'},{id:'recent_review',name:'مراجعة قريبة / صغرى'},{id:'review',name:'مراجعة كبرى / قديمة'}],'memorization')}${select('الوحدة','unit',[{id:'lines',name:'أسطر'},{id:'pages',name:'صفحات'},{id:'ayahs',name:'آيات'}],'lines')}${field('المقدار اليومي','amount','number','5','min="1" max="45" required')}${select('الاتجاه','direction',[{id:'toward_nas',name:'نحو الناس'},{id:'toward_fatiha',name:'نحو الفاتحة'}],'toward_nas')}${select('سورة البداية','surah',[])}${select('آية البداية','ayah',[])}${field('البداية','start','date',today(),'required')}${field('النهاية المبدئية','end','date','','required')}</div><fieldset><legend>أيام الإجازة الأسبوعية</legend><div class="sl-checks">${days.map(([id,n])=>`<label><input type="checkbox" name="wd${id}" ${['5','6'].includes(id)?'checked':''}> ${n}</label>`).join('')}</div></fieldset><p>بعد الإنشاء تستطيع استثناء تواريخ مفردة من شاشة «الأيام والاستثناءات».</p><button type="submit" class="button button-primary">إنشاء الخطة وتوزيع المقرر</button></form>`;
+  const form=b.querySelector('form');await quranFields(form);
+  submit(form,async()=>{
+   const student=students.find(s=>s.id===val(form,'student'));if(!student)throw Error('اختر الطالب');if(!student.teacher_id)throw Error('يجب إسناد معلم للطالب أولًا');if(val(form,'end')<val(form,'start'))throw Error('النهاية لا تسبق البداية');
+   const excluded=days.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
+   const r=await rpc('save_plan_with_days',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_program_id:null,p_type:val(form,'type'),p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_status:'active',p_replace_existing:false});
+   b.closest('dialog').close();await load();msg(root,`حُفظت الخطة ووزّع النظام المقرر على ${r.generatedDays} يومًا${r.boundaryReached?' حتى نهاية نطاق القرآن':''}.`);
+  })
+ });await load()
+}
+async function attendancePage(root){
+ const a=await access(),l=await lookups(),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
+ root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
+ const selected=()=>l.circles.find(c=>c.id===val(root,'circle'));
+ const getWindow=async c=>{if(!c?.mosque_id)return null;const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
+ const minuteNow=()=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date),get=t=>p.find(x=>x.type===t)?.value||'0';return Number(get('hour'))*60+Number(get('minute'))};
+ const tmin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m};
+ let lastWindow=null,lastAttendance=[];
+ const load=async()=>{
+  const c=selected(),date=val(root,'date');if(!c||!date){root.querySelector('.sl-data').innerHTML='<p>اختر الحلقة والتاريخ.</p>';return}
+  const [att,win]=await Promise.all([rows('attendance','*',{circle_id:c.id,date_key:date}),getWindow(c)]);lastWindow=win;lastAttendance=att;
+  root.querySelector('.sl-window').innerHTML=win?`<p><b>نافذة اليوم:</b> ${esc(win.start)} – ${esc(win.end)} · السماح بالتأخير ${esc(win.lateAllowMinutes)} د · الحضور المبكر ${esc(win.earlyArrivalMinutes)} د · الانصراف المبكر ${esc(win.earlyLeaveMinutes)} د · الغياب بعد ${esc(win.absenceAfterMinutes)} د · النطاق ${esc(win.radiusMeters)}م.</p>`:'';
+  const teachers=l.teachers.filter(t=>t.circle_id===c.id),day=new Date(date+'T12:00:00+03:00').getDay(),working=win?.weekdays?.map(Number).includes(day);
+  const autoAbsent=working&&(date<today()||(date===today()&&minuteNow()>tmin(win.start)+Number(win.absenceAfterMinutes||60)));
+  root.querySelector('.sl-data').innerHTML=table(['المعلم','الحضور','الانصراف','الحالة','ملاحظة','إجراء'],teachers.map((t,i)=>{
+    const r=att.find(x=>x.teacher_id===t.id),bits=[];
+    if(r?.status==='excused')bits.push('مستأذن');else if(r?.status==='absent')bits.push('غائب');
+    else if(r?.check_in_at){bits.push('حاضر');if(Number(r.late_minutes)>0)bits.push('متأخر '+r.late_minutes+' د');if(Number(r.early_arrival_minutes)>0)bits.push('مبكر '+r.early_arrival_minutes+' د');if(Number(r.early_leave_minutes)>0)bits.push('انصرف مبكرًا '+r.early_leave_minutes+' د')}
+    else bits.push(autoAbsent?'غائب - غير معتمد':'لم يسجل');
+    const noteworthy=r?.status==='excused'||r?.status==='absent'||Number(r?.late_minutes)>0||autoAbsent;
+    return[esc(t.full_name),esc(dateText(r?.check_in_at)),esc(dateText(r?.check_out_at)),esc(bits.join(' · ')),esc(r?.excuse_note||'—'),(manager&&!r?.check_in_at?button('مستأذن','exc-'+i)+button('غائب','abs-'+i):'')+(manager&&noteworthy&&t.phone?button('مراسلة','msg-'+i):'')];
+  }));
+  if(manager)teachers.forEach((t,i)=>{
+   const r=att.find(x=>x.teacher_id===t.id);
+   for(const [kind,status] of [['exc','excused'],['abs','absent']]){const btn=root.querySelector(`[data-action="${kind}-${i}"]`);if(btn)action(root,btn,async()=>{const note=prompt(status==='excused'?'سبب الاستئذان:':'سبب الغياب أو الملاحظة:','')||'';await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:status,p_note:note});await load()})}
+   const mb=root.querySelector(`[data-action="msg-${i}"]`);if(mb)action(root,mb,async()=>{const state=r?.status==='excused'?'الاستئذان':r?.status==='absent'?'الغياب':Number(r?.late_minutes)>0?'التأخر في الحضور':'عدم تسجيل الحضور';const txt=`السلام عليكم ورحمة الله وبركاته، نود الاستفسار عن ${state} بتاريخ ${date}. شاكرين تعاونكم. — سنابل الوحي`;openWhatsApp(t.phone,txt)})
+  })
+ };
+ for(const kind of ['in','out']){const btn=root.querySelector(`[data-action="${kind}"]`);if(btn)action(root,btn,async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');if(val(root,'date')!==today())throw Error('البصمة الجغرافية متاحة لليوم الحالي فقط');const p=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,e=>reject(Error(e.code===1?'اسمح بالوصول للموقع لتسجيل البصمة.':'تعذر تحديد الموقع؛ أعد المحاولة.')),{enableHighAccuracy:true,timeout:20000,maximumAge:0}));const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{t=(await error.context.json()).error||t}catch{}throw Error(t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
+ if(manager){
+  action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=l.teachers.filter(t=>t.circle_id===c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
+  action(root,root.querySelector('[data-action="fingerprint-settings"]'),async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single()),cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{},d=modal('إعدادات بصمة '+m.name),prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];d.innerHTML=`<form><div class="form-grid two">${field('خط العرض','latitude','number',m.latitude,'step="any" required')}${field('خط الطول','longitude','number',m.longitude,'step="any" required')}${field('النطاق بالمتر','radius','number',m.radius_meters||100,'min="20" max="500"')}${select('البداية','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('النهاية','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('الحضور المبكر','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('الانصراف المبكر','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('اعتبار الغياب بعد','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي</button><button type="submit" class="button button-primary">حفظ</button></form>`;const form=d.querySelector('form');action(d,d.querySelector('[data-action="gps"]'),async()=>{const p=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000}));form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={...cfg,action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(cfg.checkoutGraceMinutes??120)};await result(sb().from('mosques').update({latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],updated_at:new Date().toISOString()}).eq('id',m.id).select('id').single());d.closest('dialog').close();await load();msg(root,'تم حفظ إعدادات البصمة لهذا المجمع.')})})
+ }
+ action(root,root.querySelector('[data-action="load"]'),load);await load()
+}
+
+async function requestPanel(root,options={}){
+ const a=await access(),canSchedule=options.canSchedule??a.roles.some(r=>['admin','manager','supervisor'].includes(r));
+ const students=await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name',{active:true});
+ const examiners=options.examiners??(canSchedule?await rows('examiners','id,full_name,complex_id',{active:true}):[]);
+ root.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})))}${select('النوع','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر المطلوب','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="15" required')}</div><button type="submit" class="button button-primary">إرسال طلب الاختبار</button></form><div class="sl-requests"></div>`;
+ const scheduleRequest=async req=>{
+  const s=students.find(x=>x.id===req.student_id);if(!s)throw Error('بيانات الطالب غير متاحة.');
+  const m=modal('جدولة طلب اختبار - '+s.full_name);
+  m.innerHTML=`<form><p><b>المقرر:</b> ${esc(req.syllabus?.label||req.type)} · <b>الأسئلة:</b> ${esc(req.question_count)}</p><div class="form-grid two">${select('المختبر (اختياري إذا سيجريه المشرف)','examiner',examiners.map(x=>({id:x.id,name:x.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}</div><button type="submit" class="button button-primary">اعتماد الموعد</button></form>`;
+  const form=m.querySelector('form');
+  submit(form,async()=>{
+   const ex=examiners.find(x=>x.id===val(form,'examiner'));if(ex&&ex.complex_id!==s.complex_id)throw Error('المختبر لا يتبع مجمع الطالب.');
+   const scheduleId=crypto.randomUUID();
+   await result(sb().from('exam_schedules').insert({
+    id:scheduleId,request_id:req.id,student_id:s.id,student_name:s.full_name,
+    teacher_id:s.teacher_id,teacher_name:s.teacher_name,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,
+    assigned_examiner_id:ex?.id||null,type:req.type,syllabus_label:req.syllabus?.label||req.type,
+    syllabus:{...(req.syllabus||{}),questionCount:req.question_count,linesPerQuestion:req.lines_per_question},
+    scheduled_at:new Date(val(form,'when')+':00+03:00').toISOString(),status:'scheduled'
+   }).select('id').single());
+   await result(sb().from('exam_requests').update({status:'scheduled',updated_at:new Date().toISOString()}).eq('id',req.id).select('id').single());
+   m.closest('dialog').close();await refresh();await options.onScheduled?.();msg(root,'تمت جدولة الطلب وربطه بالموعد.');
+  })
+ };
+ const refresh=async()=>{
+  const list=await rows('exam_requests');list.sort((x,y)=>String(y.requested_at).localeCompare(String(x.requested_at)));
+  root.querySelector('.sl-requests').innerHTML=table(['الطالب','المقرر','الأسئلة','تاريخ الطلب','الحالة','إجراء'],list.map((r,i)=>[
+   esc(students.find(s=>s.id===r.student_id)?.full_name||r.student_id),esc(r.syllabus?.label||r.type),esc(r.question_count),
+   esc(dateText(r.requested_at)),esc({pending:'قيد المراجعة',approved:'مقبول',scheduled:'مجدول',rejected:'مرفوض',cancelled:'ملغي'}[r.status]||r.status),
+   canSchedule&&['pending','approved'].includes(r.status)?button('جدولة','schedule-'+i):'—'
+  ]));
+  if(canSchedule)list.forEach((r,i)=>{const btn=root.querySelector(`[data-action="schedule-${i}"]`);if(btn)action(root,btn,()=>scheduleRequest(r))})
+ };
+ const form=root.querySelector('form');
+ submit(form,async()=>{
+  const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
+  await result(sb().from('exam_requests').insert({
+   id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
+   type:val(form,'type'),syllabus:{label:val(form,'syllabus')},question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
+  }).select('id').single());
+  form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
+ });
+ await refresh()
+}
+async function testsPage(root){
+ const a=await access(),manage=a.roles.some(r=>['admin','manager','supervisor','examiner'].includes(r)),canSchedule=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),l=await lookups();
+ const [students,examiners]=await Promise.all([
+  rows('students','id,full_name,teacher_id,teacher_name,circle_id,complex_id,org_id,guardian_phone',{active:true}),
+  manage?rows('examiners','id,full_name,complex_id',{active:true}):Promise.resolve([])
+ ]);
+ root.innerHTML=`<div class="sl-toolbar">${button('طلبات الاختبار','requests')}${canSchedule?button('جدولة مباشرة','new'):''}${select('الحلقة','filterCircle',l.circles,'','جميع الحلقات')}${select('المعلم','filterTeacher',l.teachers.map(t=>({id:t.id,name:t.full_name})),'','جميع المعلمين')}${select('الطالب','filterStudent',students.map(s=>({id:s.id,name:s.full_name})),'','جميع الطلاب')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث','reload')}${button('Excel النتائج','excel-results')}${button('تقرير مطبوع / PDF','print-results')}</div><div class="sl-data"></div>`;
+ action(root,root.querySelector('[data-action="requests"]'),async()=>{const m=modal('طلبات الاختبار');await requestPanel(m,{canSchedule,examiners,onScheduled:load})});
+ const filteredTests=async()=>{
+  const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle');if(!from||!to||from>to)throw Error('تحقق من فترة التقرير');
+  let q=sb().from('tests').select('*').gte('performed_at',from+'T00:00:00+03:00').lte('performed_at',to+'T23:59:59.999+03:00').order('performed_at',{ascending:false}).limit(5000);if(circle)q=q.eq('circle_id',circle);const teacher=val(root,'filterTeacher'),student=val(root,'filterStudent');if(teacher)q=q.eq('teacher_id',teacher);if(student)q=q.eq('student_id',student);return result(q)
+ };
+ const testQuestions=async tests=>{const ids=tests.map(x=>x.id);if(!ids.length)return[];let all=[];for(let i=0;i<ids.length;i+=150){const p=await result(sb().from('exam_questions').select('*').in('test_id',ids.slice(i,i+150)).order('test_id').order('question_no'));all.push(...p)}return all};
+ const load=async()=>{
+  const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle'),teacher=val(root,'filterTeacher'),student=val(root,'filterStudent');let q=sb().from('exam_schedules').select('*').gte('scheduled_at',from+'T00:00:00+03:00').lte('scheduled_at',to+'T23:59:59.999+03:00').order('scheduled_at',{ascending:false}).limit(2000);if(circle)q=q.eq('circle_id',circle);if(teacher)q=q.eq('teacher_id',teacher);if(student)q=q.eq('student_id',student);const data=await result(q);
+  root.querySelector('.sl-data').innerHTML=table(['الطالب','الموعد','المقرر','الحالة','النتيجة','إجراء'],data.map((d,i)=>[
+   esc(d.student_name),esc(dateText(d.scheduled_at)),esc(d.syllabus_label),
+   esc({scheduled:'مجدول',confirmed:'مؤكد',in_progress:'جارٍ',completed:'مكتمل',postponed:'مؤجل',no_show:'لم يحضر',cancelled:'ملغي'}[d.status]||d.status),
+   esc(d.scores?.total??'—'),
+   (manage&&['scheduled','confirmed','in_progress'].includes(d.status)?button('فتح الاختبار','t'+i):'')+(d.status==='completed'&&d.scores?button('مشاركة','share-'+i)+button('تقرير','report-'+i):'—')
+  ]));
+  data.forEach((d,i)=>{
+   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await rpc('start_exam',{p_schedule_id:d.id});await exam(d);await load()});
+   const share=root.querySelector(`[data-action="share-${i}"]`);if(share)action(root,share,async()=>{const s=students.find(x=>x.id===d.student_id),portal=s?await guardianLink(s.id):'';const txt=`نتيجة اختبار القرآن — سنابل الوحي\nالطالب: ${d.student_name}\nالمقرر: ${d.syllabus_label||''}\nالحفظ: ${d.scores?.memorization??'—'} / 80\nالتجويد: ${d.scores?.tajweed??'—'} / 20\nالمجموع: ${d.scores?.total??'—'} / 100${portal?'\n\nبوابة ولي الأمر: '+portal:''}`;openWhatsApp(s?.guardian_phone,txt)});
+   const rp=root.querySelector(`[data-action="report-${i}"]`);if(rp)action(root,rp,async()=>{const t=await result(sb().from('tests').select('*').eq('schedule_id',d.id).single());excelApi().printTests([t],'نتيجة اختبار الطالب')})
+  })
+ };
+ const exam=async d=>{
+  const m=modal('رصد الاختبار: '+d.student_name),request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null,count=Number(request?.question_count||d.syllabus?.questionCount||3);
+  m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. تُحسب النتيجة النهائية في الخادم.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
+  const form=m.querySelector('form'),boxes=[];for(let i=0;i<count;i++){const q=document.createElement('fieldset');q.innerHTML=`<legend>السؤال ${i+1}</legend><div class="form-grid three">${select('السورة','surah',[])}${select('الآية','ayah',[])}${field('الأخطاء','errors','number',0,'min="0" max="100" required')}${field('الشكوك','doubts','number',0,'min="0" max="100" required')}${field('أخطاء التجويد','tajweed','number',0,'min="0" max="100" required')}</div>`;form.querySelector('.sl-questions').append(q);boxes.push(q);await quranFields(q)}
+  submit(form,async()=>{const r=await rpc('complete_exam',{p_schedule_id:d.id,p_answers:boxes.map(q=>({surahNo:Number(val(q,'surah')),ayahNo:Number(val(q,'ayah')),errors:Number(val(q,'errors')),doubts:Number(val(q,'doubts')),tajweed:Number(val(q,'tajweed'))})),p_notes:val(form,'notes')});m.innerHTML=`<h3>حُفظت النتيجة</h3><p>الحفظ: ${esc(r.scores.memorization)} / 80 — التجويد: ${esc(r.scores.tajweed)} / 20 — المجموع: ${esc(r.scores.total)} / 100</p><p>رمز الاستعلام: ${esc(r.publicCode||'—')}</p>`;await load()})
+ };
+ if(canSchedule)action(root,root.querySelector('[data-action="new"]'),()=>{const m=modal('جدولة اختبار مباشرة');m.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المختبر (اختياري إذا سيجريه المشرف)','examiner',examiners.map(s=>({id:s.id,name:s.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}${select('نوع الاختبار','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}</div><button type="submit" class="button button-primary">حفظ الموعد</button></form>`;const form=m.querySelector('form');submit(form,async()=>{const s=students.find(x=>x.id===val(form,'student')),ex=examiners.find(x=>x.id===val(form,'examiner'));if(!s)throw Error('اختر الطالب');if(ex&&ex.complex_id!==s.complex_id)throw Error('المختبر لا يتبع مجمع الطالب.');await result(sb().from('exam_schedules').insert({id:crypto.randomUUID(),student_id:s.id,student_name:s.full_name,teacher_id:s.teacher_id,teacher_name:s.teacher_name,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,assigned_examiner_id:ex?.id||null,type:val(form,'type'),syllabus_label:val(form,'syllabus'),syllabus:{questionCount:Number(val(form,'count'))},scheduled_at:new Date(val(form,'when')+':00+03:00').toISOString(),status:'scheduled'}).select('id').single());m.closest('dialog').close();await load();msg(root,'حُفظ موعد الاختبار، ويمكن للمشرف إجراء الاختبار مباشرة أو إسناده لمختبر.')})});
+ action(root,root.querySelector('[data-action="reload"]'),load);
+ action(root,root.querySelector('[data-action="excel-results"]'),async()=>{const tests=await filteredTests();if(!tests.length)throw Error('لا توجد نتائج في الفترة المحددة.');excelApi().exportTests(tests,await testQuestions(tests))});
+ action(root,root.querySelector('[data-action="print-results"]'),async()=>{const tests=await filteredTests();if(!tests.length)throw Error('لا توجد نتائج في الفترة المحددة.');excelApi().printTests(tests,'تقرير نتائج الاختبارات')});
+ await load()
+}
+const reportTables={outcomes:{name:'الحصيلة',date:'date_key',head:['التاريخ','الطالب','الحفظ','تقدير الحفظ','المراجعة القريبة','تقدير القريبة','المراجعة الكبرى','تقدير الكبرى'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,r.new_lesson,r.memorization_rating||'',r.recent_review,r.recent_review_rating||'',r.review,r.review_rating||'']},tests:{name:'الاختبارات',date:'performed_at',head:['التاريخ','الطالب','الحفظ','التجويد','المجموع'],map:r=>[dateText(r.performed_at),r.student_name_snapshot,r.scores?.memorization,r.scores?.tajweed,r.scores?.total]},attendance:{name:'حضور المعلمين',date:'date_key',head:['التاريخ','المعلم','الحضور','الانصراف','التأخر','الحضور المبكر','الانصراف المبكر','الحالة'],map:(r,n,t)=>[r.date_key,t[r.teacher_id]||r.teacher_id,dateText(r.check_in_at),dateText(r.check_out_at),r.late_minutes||0,r.early_arrival_minutes||0,r.early_leave_minutes||0,r.status]},student_attendance:{name:'حضور الطلاب',date:'date_key',head:['التاريخ','الطالب','الحالة','الملاحظة'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,attendanceAr[r.status]||r.status,r.note||'']},plans:{name:'الخطط',date:'start_date',head:['الطالب','النوع','البداية','النهاية','المقدار','الحالة'],map:(r,n)=>[n[r.student_id]||r.student_id,r.type==='review'?'مراجعة':'حفظ',r.start_date,r.end_date,r.daily_amount,r.status]}};
+async function reportPage(root){const l=await lookups();root.innerHTML=`<div class="sl-toolbar">${select('السجل','kind',Object.entries(reportTables).map(([id,x])=>({id,name:x.name})),'outcomes')}${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${field('اسم الطالب','search')}${button('عرض النتائج','load')}${button('تصدير Excel','csv')}${button('تقرير منسق / PDF','print')}</div><div class="sl-data"></div>`;let exported=null;action(root,root.querySelector('[data-action="load"]'),async()=>{exported=null;const kind=val(root,'kind'),cfg=reportTables[kind],from=val(root,'from'),to=val(root,'to');if(!cfg||!from||!to||from>to)throw Error('تحقق من الفترة؛ تاريخ النهاية لا يسبق البداية.');let data=[];for(let offset=0;;offset+=500){let q=sb().from(kind).select('*').gte(cfg.date,kind==='tests'?from+'T00:00:00+03:00':from).lte(cfg.date,kind==='tests'?to+'T23:59:59.999+03:00':to).order(cfg.date).order('id').range(offset,offset+499);if(val(root,'circle'))q=q.eq('circle_id',val(root,'circle'));const part=await result(q);data.push(...part);if(part.length<500)break;}const ids=[...new Set(data.map(r=>r.student_id).filter(Boolean))];let students=[];for(let i=0;i<ids.length;i+=100)students.push(...await result(sb().from('students').select('id,full_name').in('id',ids.slice(i,i+100))));const names=Object.fromEntries(students.map(s=>[s.id,s.full_name])),teachers=Object.fromEntries(l.teachers.map(t=>[t.id,t.full_name]));const term=val(root,'search').trim();if(term)data=data.filter(r=>String(names[r.student_id]||r.student_name_snapshot||'').includes(term));const mapped=data.map(r=>cfg.map(r,names,teachers));exported={head:cfg.head,data:mapped,title:cfg.name};root.querySelector('.sl-data').innerHTML=`<p>عدد السجلات: ${mapped.length} — من ${esc(from)} إلى ${esc(to)}</p>`+table(cfg.head,mapped.map(r=>r.map(esc)))});action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().exportTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])});action(root,root.querySelector('[data-action="print"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().printTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])})}
+async function statisticsPage(root){
+ const l=await lookups();
+ root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث المؤشرات','load')}${button('التقارير التفصيلية','detail')}${button('تصدير الملخص','csv')}</div><div class="sl-stats"></div>`;
+ let exported=null;
+ const rangeRows=async(table,dateCol,from,to,circle)=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select('*').gte(dateCol,from).lte(dateCol,to).order(dateCol).range(offset,offset+499);if(circle)q=q.eq('circle_id',circle);const part=await result(q);all.push(...part);if(part.length<500)return all}};
+ const load=async()=>{
+  const from=val(root,'from'),to=val(root,'to'),circle=val(root,'circle');if(!from||!to||from>to)throw Error('تحقق من الفترة المحددة.');
+  let sq=sb().from('students').select('*').eq('active',true),tq=sb().from('teachers').select('*').eq('active',true);if(circle){sq=sq.eq('circle_id',circle);tq=tq.eq('circle_id',circle)}
+  const [students,teachers,sa,outcomes,ta,tests,days]=await Promise.all([
+   result(sq),result(tq),rangeRows('student_attendance','date_key',from,to,circle),rangeRows('outcomes','date_key',from,to,circle),rangeRows('attendance','date_key',from,to,circle),rangeRows('tests','performed_at',from+'T00:00:00+03:00',to+'T23:59:59.999+03:00',circle),rangeRows('plan_days','date_key',from,to,circle)
+  ]);
+  const attended=sa.filter(x=>['present','late'].includes(x.status)).length,studentRate=sa.length?Math.round(attended/sa.length*100):0;
+  const outcomeRate=outcomeTrackRate(outcomes);
+  const testScores=tests.map(x=>Number(x.scores?.total)).filter(Number.isFinite),testAvg=testScores.length?Math.round(testScores.reduce((a,b)=>a+b,0)/testScores.length*10)/10:0;
+  const due=days.filter(x=>x.date_key<=to),completed=due.filter(x=>x.status==='completed').length,planRate=due.length?Math.round(completed/due.length*100):0;
+  const teacherLate=ta.filter(x=>Number(x.late_minutes)>0).length,teacherExcused=ta.filter(x=>x.status==='excused').length,teacherAbsent=ta.filter(x=>x.status==='absent').length;
+  const cards=[['الطلاب النشطون',students.length],['المعلمون النشطون',teachers.length],['حضور الطلاب',studentRate+'%'],['إنجاز الحصيلة',outcomeRate+'%'],['إنجاز أيام الخطط',planRate+'%'],['متوسط الاختبارات',testAvg],['تأخر المعلمين',teacherLate],['استئذان/غياب المعلمين',teacherExcused+' / '+teacherAbsent]];
+  const circles=(circle?l.circles.filter(x=>x.id===circle):l.circles).map(cx=>{
+   const ss=students.filter(x=>x.circle_id===cx.id),aa=sa.filter(x=>x.circle_id===cx.id),oo=outcomes.filter(x=>x.circle_id===cx.id),dd=days.filter(x=>x.circle_id===cx.id&&x.date_key<=to),tt=tests.filter(x=>x.circle_id===cx.id);
+   const ar=aa.length?Math.round(aa.filter(x=>['present','late'].includes(x.status)).length/aa.length*100):0,or=outcomeTrackRate(oo),pr=dd.length?Math.round(dd.filter(x=>x.status==='completed').length/dd.length*100):0,ts=tt.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=ts.length?Math.round(ts.reduce((a,b)=>a+b,0)/ts.length*10)/10:0;
+   return[cx.name,ss.length,ar+'%',or+'%',pr+'%',avg]
+  });
+  exported={head:['الحلقة','الطلاب','الحضور','إنجاز الحصيلة','إنجاز الخطط','متوسط الاختبارات'],data:circles,title:'إحصاءات سنابل الوحي'};
+  root.querySelector('.sl-stats').innerHTML=`<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div><h2>مقارنة الحلقات</h2>${table(exported.head,circles.map(r=>r.map(esc)))}<p>الفترة: ${esc(from)} إلى ${esc(to)}. المؤشرات مبنية على السجلات الفعلية ضمن صلاحيات الحساب.</p>`;
+ };
+ action(root,root.querySelector('[data-action="load"]'),load);
+ action(root,root.querySelector('[data-action="detail"]'),async()=>{const b=modal('التقارير التفصيلية');await reportPage(b)});
+ action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('حدّث المؤشرات أولًا');excelApi().exportTable(exported.title,exported.head,exported.data,[['عدد الحلقات',exported.data.length]])});
+ await load()
+}
+async function dashboard(root){
+ const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
+ const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
+ const [studentsN,teachersN,teacherAttendanceN,outcomesN,pendingExamN,activePlansN]=await Promise.all([count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),count('outcomes',{date_key:today()}),count('exam_requests',{status:'pending'}),count('plans',{status:'active'})]);
+ const cards=[['الطلاب النشطون',studentsN],['المعلمون النشطون',teachersN],['بصمات المعلمين اليوم',teacherAttendanceN],['الحصائل المرصودة اليوم',outcomesN],['طلبات الاختبار المعلقة',pendingExamN],['الخطط النشطة',activePlansN]],alerts=[];
+ if(isAdmin){const u=await adminCall('list'),unassigned=(u.users||[]).filter(x=>x.active&&!x.memberships?.some(m=>m.active)),unconfirmed=(u.users||[]).filter(x=>x.active&&!x.email_confirmed);const [cx,ci,mo]=await Promise.all([count('complexes',{active:true}),count('circles',{active:true}),count('mosques',{active:true})]);alerts.push(`الهيكل الحالي: ${cx} مجمع، ${mo} مسجد/موقع بصمة، ${ci} حلقة.`);if(unassigned.length)alerts.push(`يوجد ${unassigned.length} حساب نشط بلا إسناد صلاحية.`);if(unconfirmed.length)alerts.push(`يوجد ${unconfirmed.length} حساب يحتاج تأكيد البريد.`)}
+ if(isSupervisor){const att=await rows('attendance','teacher_id,status,late_minutes,check_in_at',{date_key:today()}),late=att.filter(x=>Number(x.late_minutes)>0).length,abs=att.filter(x=>x.status==='absent').length,exc=att.filter(x=>x.status==='excused').length;if(late)alerts.push(`معلمون متأخرون اليوم: ${late}.`);if(abs)alerts.push(`غياب معلمين معتمد اليوم: ${abs}.`);if(exc)alerts.push(`استئذان معلمين اليوم: ${exc}.`);if(pendingExamN)alerts.push(`طلبات اختبار تنتظر الجدولة: ${pendingExamN}.`)}
+ if(rolesNow.includes('teacher')){const [st,oc,sa]=await Promise.all([rows('students','id',{active:true}),rows('outcomes','student_id',{date_key:today()}),rows('student_attendance','student_id,status',{date_key:today()})]),done=new Set([...oc.map(x=>x.student_id),...sa.filter(x=>['absent','excused'].includes(x.status)).map(x=>x.student_id)]),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتمل تحضير وحصيلة طلابك لليوم.')}
+ const since=new Date(Date.now()-13*86400000).toISOString().slice(0,10),[recent,studentNames,announcements]=await Promise.all([
+  result(sb().from('outcomes').select('student_id,memorization_rating,recent_review_rating,review_rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),
+  rows('students','id,full_name',{active:true}),
+  result(sb().from('announcements').select('*').eq('active',true).lte('starts_on',today()).or('ends_on.is.null,ends_on.gte.'+today()).order('starts_on',{ascending:false}).limit(30))
+ ]),names=new Map(studentNames.map(x=>[x.id,x.full_name])),risk=new Map;
+ for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};r.fails+=outcomeFailCount(o);r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
+ const risky=[...risk].filter(([,r])=>r.fails>=2||r.details>=5).map(([id,r])=>({name:names.get(id)||id,...r})).sort((x,y)=>(y.fails*10+y.details)-(x.fails*10+x.details)).slice(0,10);
+ if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
+ const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
+  if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
+ if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
+  const l=await lookups(),m=modal('إضافة إعلان أو مناسبة');
+  m.innerHTML=`<form><div class="form-grid two">${field('العنوان','title','text','','required')}${select('المجمع (فارغ = كل المؤسسة)','complex_id',l.complexes)}${select('الحلقة (اختياري)','circle_id',l.circles)}${field('يبدأ في','starts_on','date',today(),'required')}${field('ينتهي في','ends_on','date','')}</div><label>نص الإعلان<textarea name="body" rows="5" required style="width:100%"></textarea></label><button class="button button-primary" type="submit">نشر الإعلان</button></form>`;
+  const form=m.querySelector('form'),cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]');const fillCircles=()=>{ci.innerHTML='<option value="">كل حلقات المجمع</option>'+l.circles.filter(x=>!cx.value||x.complex_id===cx.value).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')};cx.onchange=fillCircles;fillCircles();
+  submit(form,async()=>{const complex=val(form,'complex_id')||null,circle=val(form,'circle_id')||null;if(rolesNow.includes('supervisor')&&!isAdmin&&!isOrgManager&&!complex)throw Error('المشرف ينشر الإعلان داخل مجمعه؛ اختر المجمع.');if(circle&&!complex)throw Error('اختر المجمع قبل الحلقة.');const ends=val(form,'ends_on')||null;if(ends&&ends<val(form,'starts_on'))throw Error('تاريخ النهاية لا يسبق البداية.');await result(sb().from('announcements').insert({org_id:a.org_id,complex_id:complex,circle_id:circle,title:val(form,'title').trim(),body:form.elements.body.value.trim(),starts_on:val(form,'starts_on'),ends_on:ends,active:true}).select('id').single());m.closest('dialog').close();await dashboard(root)})
+ })
+}
+async function settingsPage(root){
+ const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
+ root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('استيراد / تصدير Excel','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
+ action(root,root.querySelector('[data-action="users"]'),async()=>{const b=modal('الحسابات والصلاحيات');await usersPanel(b)});
+ const bulkPanel=async()=>{
+  const b=modal('الاستيراد والتصدير الجماعي عبر Excel');let parsed=null;
+  b.innerHTML=`<p>قالب واحد متعدد الأوراق للمجمعات والمساجد والحلقات والمعلمين والطلاب. يتم التحقق أولًا ثم يحفظ الخادم الدفعة كاملة أو يلغيها كاملة عند وجود خطأ.</p><div class="sl-toolbar">${button('تحميل قالب فارغ','template')}${button('تصدير البيانات الحالية','export-master')}</div><label>اختر ملف Excel بعد تعبئته<input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div class="sl-import-preview"><p>لم يتم اختيار ملف بعد.</p></div><button type="button" class="button button-primary" data-action="import" disabled>استيراد البيانات المعاينة</button><p>ملاحظة: ورقة المعلمين تنشئ سجلات المعلمين التشغيلية؛ حسابات الدخول وكلمات المرور تبقى من «إدارة المستخدمين» حفاظًا على أمان الحسابات.</p>`;
+  action(b,b.querySelector('[data-action="template"]'),()=>excelApi().template());
+  action(b,b.querySelector('[data-action="export-master"]'),async()=>{const [complexes,mosques,circles,teachers,students]=await Promise.all([rows('complexes'),rows('mosques'),rows('circles'),rows('teachers'),rows('students')]);await excelApi().exportMaster({complexes,mosques,circles,teachers,students})});
+  const input=b.querySelector('[name="file"]'),preview=b.querySelector('.sl-import-preview'),go=b.querySelector('[data-action="import"]');
+  input.addEventListener('change',async()=>{go.disabled=true;parsed=null;try{const file=input.files?.[0];if(!file)throw Error('اختر ملف Excel');parsed=await excelApi().parse(file);const v=parsed.validation,labels={complexes:'المجمعات',mosques:'المساجد',circles:'الحلقات',teachers:'المعلمون',students:'الطلاب'};preview.innerHTML=`<div class="stats-grid">${Object.entries(v.counts).map(([k,n])=>`<article class="stat-card"><span>${esc(labels[k]||k)}</span><b>${esc(n)}</b></article>`).join('')}</div>${v.errors.length?'<h3>أخطاء تمنع الاستيراد</h3><ul>'+v.errors.slice(0,50).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${v.warnings.length?'<h3>تنبيهات</h3><ul>'+v.warnings.slice(0,50).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${!v.errors.length?'<p>المعاينة سليمة ويمكن تنفيذ الاستيراد.</p>':''}`;go.disabled=!!v.errors.length}catch(e){preview.innerHTML='<p role="alert">'+esc(e.message)+'</p>'}});
+  action(b,go,async()=>{if(!parsed||parsed.validation.errors.length)throw Error('أصلح أخطاء الملف أولًا.');if(!confirm('تنفيذ الاستيراد الآن؟ سيتم تحديث السجلات المتطابقة ونقل الطالب مع تاريخه إذا تغيرت حلقته.'))return;const payload=JSON.parse(JSON.stringify(parsed.payload,(k,v)=>k==='__row'?undefined:v)),r=await rpc('bulk_import_master_data',{p_org_id:a.org_id,p_payload:payload});lookupPromise=null;preview.innerHTML=`<h3>تم الاستيراد بنجاح</h3><p>المجمعات: ${esc(r.complexes)} — المساجد: ${esc(r.mosques)} — الحلقات: ${esc(r.circles)} — المعلمون: ${esc(r.teachers)} — الطلاب: ${esc(r.students)} — الطلاب المنقولون: ${esc(r.movedStudents)}</p>`;go.disabled=true;await load()})
+ };
+ action(root,root.querySelector('[data-action="bulk-excel"]'),bulkPanel);
+ const load=async()=>{
+  const [items,complexes,mosques,circles]=await Promise.all([rows('settings','*',{org_id:a.org_id}),rows('complexes','*'),rows('mosques','*'),rows('circles','*')]);
+  const s=items.find(x=>x.id===a.org_id+'_settings'),v=s?.values||{},box=root.querySelector('.sl-settings');
+  box.innerHTML=`<h2>إعدادات عامة</h2><form><div class="form-grid two">${field('اسم المنصة','platformName','text',v.platformName||'سنابل الوحي')}${field('أيام السماح بتعديل الحصيلة','outcomesEditDays','number',v.outcomesEditDays??7,'min="0" max="365" required')}</div><button type="submit" class="button button-primary">حفظ الإعدادات العامة</button></form>`;
+  submit(box.querySelector('form'),async()=>{const values={...v,platformName:val(box,'platformName'),outcomesEditDays:Number(val(box,'outcomesEditDays')),timezone:'Asia/Riyadh'};await result(sb().from('settings').upsert({id:s?.id||a.org_id+'_settings',org_id:a.org_id,values}).select('id').single());msg(box,'تم حفظ الإعدادات العامة.')});
+  const area=root.querySelector('.sl-structure');
+  area.innerHTML=`<h2>المجمعات</h2>${table(['المجمع','الحالة'],complexes.map(x=>[esc(x.name),esc(x.active?'نشط':'موقف')]))}<h2>المساجد ومواقع البصمة</h2>${table(['المسجد','المجمع','الإحداثيات','النطاق','إعدادات الحضور','إجراء'],mosques.map((m,i)=>{const cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{};return[esc(m.name),esc(complexes.find(x=>x.id===m.complex_id)?.name||m.complex_id),esc(m.latitude+', '+m.longitude),esc(m.radius_meters+'م'),esc((cfg.startPrayer||'Asr')+' → '+(cfg.endPrayer||'Maghrib')+' · تأخير '+(cfg.lateAllowMinutes??15)+'د'),button('تعديل','mosque-'+i)]}))}<h2>الحلقات</h2>${table(['الحلقة','المجمع','المسجد','الحالة','إجراء'],circles.map((x,i)=>[esc(x.name),esc(complexes.find(c=>c.id===x.complex_id)?.name||x.complex_id),esc(mosques.find(m=>m.id===x.mosque_id)?.name||x.mosque_id),esc(x.active?'نشطة':'موقفة'),button('تعديل','circle-'+i)]))}`;
+  mosques.forEach((m,i)=>action(area,area.querySelector(`[data-action="mosque-${i}"]`),()=>editMosque(m,complexes)));
+  circles.forEach((x,i)=>action(area,area.querySelector(`[data-action="circle-${i}"]`),()=>editCircle(x,complexes,mosques)));
+ };
+ const editMosque=(m,complexes)=>{const b=modal(m?'تعديل المسجد وإعدادات البصمة':'إضافة مسجد وموقع بصمة');const cfg=Array.isArray(m?.attendance_windows)?m.attendance_windows[0]||{}:{};const prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];b.innerHTML=`<form><div class="form-grid two">${select('المجمع','complex_id',complexes,m?.complex_id)}${field('اسم المسجد','name','text',m?.name||'','required')}${field('خط العرض','latitude','number',m?.latitude||'','step="any" required')}${field('خط الطول','longitude','number',m?.longitude||'','step="any" required')}${field('نطاق البصمة بالمتر','radius','number',m?.radius_meters||100,'min="20" max="500" required')}${select('بداية الدوام','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('نهاية الدوام','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير بالدقائق','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('حد الحضور المبكر بالدقائق','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('سماح الانصراف المبكر بالدقائق','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('يعد غائبًا بعد بداية الدوام بـ','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}${field('مهلة الانصراف بعد نهاية الدوام','grace','number',cfg.checkoutGraceMinutes??120,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي الحالي</button><button type="submit" class="button button-primary">حفظ المسجد وإعدادات البصمة</button></form>`;const form=b.querySelector('form');action(b,b.querySelector('[data-action="gps"]'),async()=>{const p=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000}));form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(val(form,'grace'))};const row={org_id:a.org_id,complex_id:val(form,'complex_id'),name:val(form,'name'),latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],timezone:'Asia/Riyadh',active:true,updated_at:new Date().toISOString()};if(m)await result(sb().from('mosques').update(row).eq('id',m.id).select('id').single());else await result(sb().from('mosques').insert({id:'mosque-'+crypto.randomUUID(),...row}).select('id').single());lookupPromise=null;b.closest('dialog').close();await load();msg(root,'تم حفظ موقع المسجد وإعدادات البصمة.')})};
+ const editCircle=(x,complexes,mosques)=>{const b=modal(x?'تعديل الحلقة':'إضافة حلقة');b.innerHTML=`<form><div class="form-grid two">${select('المجمع','complex_id',complexes,x?.complex_id)}${select('المسجد','mosque_id',mosques.map(m=>({id:m.id,name:m.name})),x?.mosque_id)}${field('اسم الحلقة','name','text',x?.name||'','required')}<label>نشطة<input name="active" type="checkbox" ${x?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحلقة</button></form>`;const form=b.querySelector('form');submit(form,async()=>{const mosque=mosques.find(m=>m.id===val(form,'mosque_id'));if(!mosque||mosque.complex_id!==val(form,'complex_id'))throw Error('اختر مسجدًا تابعًا للمجمع نفسه');const row={org_id:a.org_id,complex_id:val(form,'complex_id'),mosque_id:mosque.id,name:val(form,'name'),active:form.elements.active.checked,updated_at:new Date().toISOString()};if(x)await result(sb().from('circles').update(row).eq('id',x.id).select('id').single());else await result(sb().from('circles').insert({id:'circle-'+crypto.randomUUID(),...row}).select('id').single());lookupPromise=null;b.closest('dialog').close();await load();msg(root,'تم حفظ الحلقة.')})};
+ action(root,root.querySelector('[data-action="add-complex"]'),async()=>{const b=modal('إضافة مجمع');b.innerHTML=`<form>${field('اسم المجمع','name','text','','required')}<button type="submit" class="button button-primary">إنشاء المجمع</button></form>`;const form=b.querySelector('form');submit(form,async()=>{await result(sb().from('complexes').insert({id:'complex-'+crypto.randomUUID(),org_id:a.org_id,name:val(form,'name'),active:true}).select('id').single());lookupPromise=null;b.closest('dialog').close();await load();msg(root,'تم إنشاء المجمع، ويمكن الآن إضافة مسجد وحلقات وحسابات له.')})});
+ action(root,root.querySelector('[data-action="add-mosque"]'),async()=>{const complexes=await rows('complexes','*',{active:true});editMosque(null,complexes)});
+ action(root,root.querySelector('[data-action="add-circle"]'),async()=>{const [complexes,mosques]=await Promise.all([rows('complexes','*',{active:true}),rows('mosques','*',{active:true})]);editCircle(null,complexes,mosques)});
+ await load()
+}
+async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20260930-mobile1';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await render(b)}catch(e){msg(b,e.message,true)}}
+window.SanabilLive={mount,usersPanel};window.dispatchEvent(new Event("sanabil-live-ready"));
+window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null});
+const style=document.createElement('style');style.textContent=`.sl-live{background:white;border:1px solid #dde5df;border-radius:20px;padding:24px;min-height:300px}.sl-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:15px 0}.sl-live label,.sl-dialog label{display:grid;gap:8px;font-weight:600}.sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select{font:inherit;max-width:100%;min-width:0;padding:10px;border:1px solid #bdccc3;border-radius:8px;background:white}.sl-live table,.sl-dialog table{width:100%;border-collapse:collapse}.sl-live th,.sl-live td,.sl-dialog td,.sl-dialog th{padding:12px;text-align:right;border-bottom:1px solid #e2e9e5}.sl-dialog{direction:rtl;width:min(900px,94vw);max-height:90vh;border:0;border-radius:18px;padding:24px;color:#183c33}.sl-dialog::backdrop{background:#002c2580}.sl-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.sl-dialog fieldset{border:1px solid #ddd;border-radius:12px;margin:12px 0}.sl-live .button,.sl-dialog .button{margin:3px}.sl-message{padding:12px;background:#f3f7f4;border-radius:8px}.sl-tasks{margin:18px 0;padding:16px;border:1px solid #dde5df;border-radius:16px;background:#fbfdfc}.sl-announcement{padding:12px 0;border-bottom:1px solid #e2e9e5}.sl-announcement:last-child{border-bottom:0}.sl-announcement b{color:#00808A}.sl-announcement small{color:#63766e}.sl-import-preview{margin:14px 0}.sl-dialog .form-grid,.sl-live .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.sl-live .table-wrap{overflow:auto}.sl-data input{width:100%;box-sizing:border-box}.sl-live .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:650px){.sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr}.sl-live{padding:14px}.sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.topbar,.tabs,.mobile-nav,.sl-toolbar,button,.more-sheet{display:none!important}.app-content,.sl-live{margin:0!important;padding:0!important;border:0}.table-wrap{overflow:visible!important}thead{display:table-header-group}tr{break-inside:avoid}body{background:white!important}}`;document.head.append(style);
+})();
