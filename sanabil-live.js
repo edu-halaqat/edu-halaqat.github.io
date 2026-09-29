@@ -151,10 +151,100 @@ async function attendancePage(root){
  action(root,root.querySelector('[data-action="load"]'),load);await load()
 }
 
-async function requestPanel(root){const students=await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id',{active:true});root.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})))}${select('النوع','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر المطلوب','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="15" required')}</div><button type="submit" class="button button-primary">إرسال طلب الاختبار</button></form><div class="sl-requests"></div>`;const refresh=async()=>{const list=await rows('exam_requests');root.querySelector('.sl-requests').innerHTML=table(['الطالب','المقرر','عدد الأسئلة','تاريخ الطلب','الحالة'],list.map(r=>[esc(students.find(s=>s.id===r.student_id)?.full_name||r.student_id),esc(r.syllabus?.label||r.type),esc(r.question_count),esc(dateText(r.requested_at)),esc(r.status)]))};const f=root.querySelector('form');submit(f,async()=>{const s=students.find(s=>s.id===val(f,'student'));if(!s)throw Error('اختر الطالب');await result(sb().from('exam_requests').insert({id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,type:val(f,'type'),syllabus:{label:val(f,'syllabus')},question_count:Number(val(f,'count')),lines_per_question:Number(val(f,'lines'))}).select('id').single());await refresh();msg(root,'تم تسجيل طلب الاختبار للمراجعة.')});await refresh()}
-async function testsPage(root){const a=await access(),manage=a.roles.some(r=>['admin','manager','supervisor','examiner'].includes(r)),canSchedule=a.roles.some(r=>['admin','manager','supervisor'].includes(r));const [students,examiners]=await Promise.all([rows('students','id,full_name,teacher_id,teacher_name,circle_id,complex_id,org_id,guardian_phone',{active:true}),manage?rows('examiners','id,full_name,complex_id',{active:true}):Promise.resolve([])]);root.innerHTML=button('طلبات الاختبار','requests')+(canSchedule?button('جدولة اختبار','new'):'')+'<div class="sl-data"></div>';action(root,root.querySelector('[data-action="requests"]'),async()=>{const b=modal('طلبات الاختبار');await requestPanel(b)});const load=async()=>{const data=await rows('exam_schedules');data.sort((a,b)=>b.scheduled_at.localeCompare(a.scheduled_at));root.querySelector('.sl-data').innerHTML=table(['الطالب','الموعد','المقرر','الحالة','النتيجة','إجراء'],data.map((d,i)=>[esc(d.student_name),esc(dateText(d.scheduled_at)),esc(d.syllabus_label),esc({scheduled:'مجدول',confirmed:'مؤكد',in_progress:'جارٍ',completed:'مكتمل'}[d.status]||d.status),esc(d.scores?.total??'—'),(manage&&['scheduled','confirmed','in_progress'].includes(d.status)?button('فتح الاختبار','t'+i):'')+(d.status==='completed'&&d.scores?button('مشاركة النتيجة','share-'+i):'—')]));data.forEach((d,i)=>{const b=root.querySelector(`[data-action="t${i}"]`);if(b)action(root,b,async()=>{await rpc('start_exam',{p_schedule_id:d.id});await exam(d);await load()});const sh=root.querySelector(`[data-action="share-${i}"]`);if(sh)action(root,sh,async()=>{const s=students.find(x=>x.id===d.student_id),phone=waPhone(s?.guardian_phone),txt=`نتيجة اختبار القرآن — سنابل الوحي\nالطالب: ${d.student_name}\nالمقرر: ${d.syllabus_label||''}\nالحفظ: ${d.scores?.memorization??'—'} / 80\nالتجويد: ${d.scores?.tajweed??'—'} / 20\nالمجموع: ${d.scores?.total??'—'} / 100`;window.open(`https://wa.me/${phone}?text=${encodeURIComponent(txt)}`,'_blank','noopener,noreferrer')})})};
-const exam=async d=>{const b=modal('رصد الاختبار: '+d.student_name);const request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null;const count=Number(request?.question_count||d.syllabus?.questionCount||3);b.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. تُحسب النتيجة النهائية في الخادم.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;const f=b.querySelector('form');const boxes=[];for(let i=0;i<count;i++){const q=document.createElement('fieldset');q.innerHTML=`<legend>السؤال ${i+1}</legend><div class="form-grid three">${select('السورة','surah',[])}${select('الآية','ayah',[])}${field('الأخطاء','errors','number',0,'min="0" max="100" required')}${field('الشكوك','doubts','number',0,'min="0" max="100" required')}${field('أخطاء التجويد','tajweed','number',0,'min="0" max="100" required')}</div>`;f.querySelector('.sl-questions').append(q);boxes.push(q);await quranFields(q)}submit(f,async()=>{const r=await rpc('complete_exam',{p_schedule_id:d.id,p_answers:boxes.map(q=>({surahNo:Number(val(q,'surah')),ayahNo:Number(val(q,'ayah')),errors:Number(val(q,'errors')),doubts:Number(val(q,'doubts')),tajweed:Number(val(q,'tajweed'))})),p_notes:val(f,'notes')});b.innerHTML=`<h3>حُفظت النتيجة</h3><p>الحفظ: ${esc(r.scores.memorization)} / 80 — التجويد: ${esc(r.scores.tajweed)} / 20 — المجموع: ${esc(r.scores.total)} / 100</p><p>رمز الاستعلام: ${esc(r.publicCode||'—')}</p>`;await load()})};
-if(canSchedule)action(root,root.querySelector('[data-action="new"]'),()=>{const b=modal('جدولة اختبار');b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المختبر','examiner',examiners.map(s=>({id:s.id,name:s.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}${select('نوع الاختبار','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}</div><button type="submit" class="button button-primary">حفظ الموعد</button></form>`;const f=b.querySelector('form');submit(f,async()=>{const s=students.find(s=>s.id===val(f,'student')),ex=examiners.find(e=>e.id===val(f,'examiner'));if(!s||!ex||ex.complex_id!==s.complex_id)throw Error('اختر طالبًا ومختبرًا في المجمع نفسه');await result(sb().from('exam_schedules').insert({id:crypto.randomUUID(),student_id:s.id,student_name:s.full_name,teacher_id:s.teacher_id,teacher_name:s.teacher_name,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,assigned_examiner_id:ex.id,type:val(f,'type'),syllabus_label:val(f,'syllabus'),syllabus:{questionCount:Number(val(f,'count'))},scheduled_at:new Date(val(f,'when')+':00+03:00').toISOString()}).select('id').single());b.closest('dialog').close();await load();msg(root,'حُفظ موعد الاختبار.')})});await load()}
+async function requestPanel(root,options={}){
+ const a=await access(),canSchedule=options.canSchedule??a.roles.some(r=>['admin','manager','supervisor'].includes(r));
+ const students=await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name',{active:true});
+ const examiners=options.examiners??(canSchedule?await rows('examiners','id,full_name,complex_id',{active:true}):[]);
+ root.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})))}${select('النوع','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر المطلوب','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="15" required')}</div><button type="submit" class="button button-primary">إرسال طلب الاختبار</button></form><div class="sl-requests"></div>`;
+ const scheduleRequest=async req=>{
+  const s=students.find(x=>x.id===req.student_id);if(!s)throw Error('بيانات الطالب غير متاحة.');
+  const m=modal('جدولة طلب اختبار - '+s.full_name);
+  m.innerHTML=`<form><p><b>المقرر:</b> ${esc(req.syllabus?.label||req.type)} · <b>الأسئلة:</b> ${esc(req.question_count)}</p><div class="form-grid two">${select('المختبر (اختياري إذا سيجريه المشرف)','examiner',examiners.map(x=>({id:x.id,name:x.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}</div><button type="submit" class="button button-primary">اعتماد الموعد</button></form>`;
+  const form=m.querySelector('form');
+  submit(form,async()=>{
+   const ex=examiners.find(x=>x.id===val(form,'examiner'));if(ex&&ex.complex_id!==s.complex_id)throw Error('المختبر لا يتبع مجمع الطالب.');
+   const scheduleId=crypto.randomUUID();
+   await result(sb().from('exam_schedules').insert({
+    id:scheduleId,request_id:req.id,student_id:s.id,student_name:s.full_name,
+    teacher_id:s.teacher_id,teacher_name:s.teacher_name,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,
+    assigned_examiner_id:ex?.id||null,type:req.type,syllabus_label:req.syllabus?.label||req.type,
+    syllabus:{...(req.syllabus||{}),questionCount:req.question_count,linesPerQuestion:req.lines_per_question},
+    scheduled_at:new Date(val(form,'when')+':00+03:00').toISOString(),status:'scheduled'
+   }).select('id').single());
+   await result(sb().from('exam_requests').update({status:'scheduled',updated_at:new Date().toISOString()}).eq('id',req.id).select('id').single());
+   m.closest('dialog').close();await refresh();await options.onScheduled?.();msg(root,'تمت جدولة الطلب وربطه بالموعد.');
+  })
+ };
+ const refresh=async()=>{
+  const list=await rows('exam_requests');list.sort((x,y)=>String(y.requested_at).localeCompare(String(x.requested_at)));
+  root.querySelector('.sl-requests').innerHTML=table(['الطالب','المقرر','الأسئلة','تاريخ الطلب','الحالة','إجراء'],list.map((r,i)=>[
+   esc(students.find(s=>s.id===r.student_id)?.full_name||r.student_id),esc(r.syllabus?.label||r.type),esc(r.question_count),
+   esc(dateText(r.requested_at)),esc({pending:'قيد المراجعة',approved:'مقبول',scheduled:'مجدول',rejected:'مرفوض',cancelled:'ملغي'}[r.status]||r.status),
+   canSchedule&&['pending','approved'].includes(r.status)?button('جدولة','schedule-'+i):'—'
+  ]));
+  if(canSchedule)list.forEach((r,i)=>{const btn=root.querySelector(`[data-action="schedule-${i}"]`);if(btn)action(root,btn,()=>scheduleRequest(r))})
+ };
+ const form=root.querySelector('form');
+ submit(form,async()=>{
+  const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
+  await result(sb().from('exam_requests').insert({
+   id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
+   type:val(form,'type'),syllabus:{label:val(form,'syllabus')},question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
+  }).select('id').single());
+  form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
+ });
+ await refresh()
+}
+async function testsPage(root){
+ const a=await access(),manage=a.roles.some(r=>['admin','manager','supervisor','examiner'].includes(r)),canSchedule=a.roles.some(r=>['admin','manager','supervisor'].includes(r));
+ const [students,examiners]=await Promise.all([
+  rows('students','id,full_name,teacher_id,teacher_name,circle_id,complex_id,org_id,guardian_phone',{active:true}),
+  manage?rows('examiners','id,full_name,complex_id',{active:true}):Promise.resolve([])
+ ]);
+ root.innerHTML=button('طلبات الاختبار','requests')+(canSchedule?button('جدولة مباشرة','new'):'')+'<div class="sl-data"></div>';
+ action(root,root.querySelector('[data-action="requests"]'),async()=>{const m=modal('طلبات الاختبار');await requestPanel(m,{canSchedule,examiners,onScheduled:load})});
+ const load=async()=>{
+  const data=await rows('exam_schedules');data.sort((x,y)=>String(y.scheduled_at).localeCompare(String(x.scheduled_at)));
+  root.querySelector('.sl-data').innerHTML=table(['الطالب','الموعد','المقرر','الحالة','النتيجة','إجراء'],data.map((d,i)=>[
+   esc(d.student_name),esc(dateText(d.scheduled_at)),esc(d.syllabus_label),
+   esc({scheduled:'مجدول',confirmed:'مؤكد',in_progress:'جارٍ',completed:'مكتمل',postponed:'مؤجل',no_show:'لم يحضر',cancelled:'ملغي'}[d.status]||d.status),
+   esc(d.scores?.total??'—'),
+   (manage&&['scheduled','confirmed','in_progress'].includes(d.status)?button('فتح الاختبار','t'+i):'')+(d.status==='completed'&&d.scores?button('مشاركة النتيجة','share-'+i):'—')
+  ]));
+  data.forEach((d,i)=>{
+   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await rpc('start_exam',{p_schedule_id:d.id});await exam(d);await load()});
+   const share=root.querySelector(`[data-action="share-${i}"]`);if(share)action(root,share,async()=>{
+    const s=students.find(x=>x.id===d.student_id),txt=`نتيجة اختبار القرآن — سنابل الوحي\nالطالب: ${d.student_name}\nالمقرر: ${d.syllabus_label||''}\nالحفظ: ${d.scores?.memorization??'—'} / 80\nالتجويد: ${d.scores?.tajweed??'—'} / 20\nالمجموع: ${d.scores?.total??'—'} / 100`;
+    window.open(`https://wa.me/${waPhone(s?.guardian_phone)}?text=${encodeURIComponent(txt)}`,'_blank','noopener,noreferrer')
+   })
+  })
+ };
+ const exam=async d=>{
+  const m=modal('رصد الاختبار: '+d.student_name);
+  const request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null;
+  const count=Number(request?.question_count||d.syllabus?.questionCount||3);
+  m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. تُحسب النتيجة النهائية في الخادم.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
+  const form=m.querySelector('form'),boxes=[];
+  for(let i=0;i<count;i++){const q=document.createElement('fieldset');q.innerHTML=`<legend>السؤال ${i+1}</legend><div class="form-grid three">${select('السورة','surah',[])}${select('الآية','ayah',[])}${field('الأخطاء','errors','number',0,'min="0" max="100" required')}${field('الشكوك','doubts','number',0,'min="0" max="100" required')}${field('أخطاء التجويد','tajweed','number',0,'min="0" max="100" required')}</div>`;form.querySelector('.sl-questions').append(q);boxes.push(q);await quranFields(q)}
+  submit(form,async()=>{const r=await rpc('complete_exam',{p_schedule_id:d.id,p_answers:boxes.map(q=>({surahNo:Number(val(q,'surah')),ayahNo:Number(val(q,'ayah')),errors:Number(val(q,'errors')),doubts:Number(val(q,'doubts')),tajweed:Number(val(q,'tajweed'))})),p_notes:val(form,'notes')});m.innerHTML=`<h3>حُفظت النتيجة</h3><p>الحفظ: ${esc(r.scores.memorization)} / 80 — التجويد: ${esc(r.scores.tajweed)} / 20 — المجموع: ${esc(r.scores.total)} / 100</p><p>رمز الاستعلام: ${esc(r.publicCode||'—')}</p>`;await load()})
+ };
+ if(canSchedule)action(root,root.querySelector('[data-action="new"]'),()=>{
+  const m=modal('جدولة اختبار مباشرة');
+  m.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المختبر (اختياري إذا سيجريه المشرف)','examiner',examiners.map(s=>({id:s.id,name:s.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}${select('نوع الاختبار','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}</div><button type="submit" class="button button-primary">حفظ الموعد</button></form>`;
+  const form=m.querySelector('form');
+  submit(form,async()=>{
+   const s=students.find(x=>x.id===val(form,'student')),ex=examiners.find(x=>x.id===val(form,'examiner'));if(!s)throw Error('اختر الطالب');if(ex&&ex.complex_id!==s.complex_id)throw Error('المختبر لا يتبع مجمع الطالب.');
+   await result(sb().from('exam_schedules').insert({
+    id:crypto.randomUUID(),student_id:s.id,student_name:s.full_name,teacher_id:s.teacher_id,teacher_name:s.teacher_name,
+    org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,assigned_examiner_id:ex?.id||null,type:val(form,'type'),
+    syllabus_label:val(form,'syllabus'),syllabus:{questionCount:Number(val(form,'count'))},
+    scheduled_at:new Date(val(form,'when')+':00+03:00').toISOString(),status:'scheduled'
+   }).select('id').single());
+   m.closest('dialog').close();await load();msg(root,'حُفظ موعد الاختبار، ويمكن للمشرف إجراء الاختبار مباشرة أو إسناده لمختبر.');
+  })
+ });
+ await load()
+}
 const reportTables={outcomes:{name:'الحصيلة',date:'date_key',head:['التاريخ','الطالب','الحفظ','المراجعة القريبة','المراجعة الكبرى','التقدير'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,r.new_lesson,r.recent_review,r.review,r.rating]},tests:{name:'الاختبارات',date:'performed_at',head:['التاريخ','الطالب','الحفظ','التجويد','المجموع'],map:r=>[dateText(r.performed_at),r.student_name_snapshot,r.scores?.memorization,r.scores?.tajweed,r.scores?.total]},attendance:{name:'حضور المعلمين',date:'date_key',head:['التاريخ','المعلم','الحضور','الانصراف','التأخر','الحضور المبكر','الانصراف المبكر','الحالة'],map:(r,n,t)=>[r.date_key,t[r.teacher_id]||r.teacher_id,dateText(r.check_in_at),dateText(r.check_out_at),r.late_minutes||0,r.early_arrival_minutes||0,r.early_leave_minutes||0,r.status]},student_attendance:{name:'حضور الطلاب',date:'date_key',head:['التاريخ','الطالب','الحالة','الملاحظة'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,attendanceAr[r.status]||r.status,r.note||'']},plans:{name:'الخطط',date:'start_date',head:['الطالب','النوع','البداية','النهاية','المقدار','الحالة'],map:(r,n)=>[n[r.student_id]||r.student_id,r.type==='review'?'مراجعة':'حفظ',r.start_date,r.end_date,r.daily_amount,r.status]}};
 async function reportPage(root){const l=await lookups();root.innerHTML=`<div class="sl-toolbar">${select('السجل','kind',Object.entries(reportTables).map(([id,x])=>({id,name:x.name})),'outcomes')}${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${field('اسم الطالب','search')}${button('عرض النتائج','load')}${button('تصدير CSV','csv')}${button('طباعة / PDF','print')}</div><div class="sl-data"></div>`;let exported=null;action(root,root.querySelector('[data-action="load"]'),async()=>{exported=null;const kind=val(root,'kind'),cfg=reportTables[kind],from=val(root,'from'),to=val(root,'to');if(!cfg||!from||!to||from>to)throw Error('تحقق من الفترة؛ تاريخ النهاية لا يسبق البداية.');let data=[];for(let offset=0;;offset+=500){let q=sb().from(kind).select('*').gte(cfg.date,kind==='tests'?from+'T00:00:00+03:00':from).lte(cfg.date,kind==='tests'?to+'T23:59:59.999+03:00':to).order(cfg.date).order('id').range(offset,offset+499);if(val(root,'circle'))q=q.eq('circle_id',val(root,'circle'));const part=await result(q);data.push(...part);if(part.length<500)break;}const ids=[...new Set(data.map(r=>r.student_id).filter(Boolean))];let students=[];for(let i=0;i<ids.length;i+=100)students.push(...await result(sb().from('students').select('id,full_name').in('id',ids.slice(i,i+100))));const names=Object.fromEntries(students.map(s=>[s.id,s.full_name])),teachers=Object.fromEntries(l.teachers.map(t=>[t.id,t.full_name]));const term=val(root,'search').trim();if(term)data=data.filter(r=>String(names[r.student_id]||r.student_name_snapshot||'').includes(term));const mapped=data.map(r=>cfg.map(r,names,teachers));exported={head:cfg.head,data:mapped,title:cfg.name};root.querySelector('.sl-data').innerHTML=`<p>عدد السجلات: ${mapped.length} — من ${esc(from)} إلى ${esc(to)}</p>`+table(cfg.head,mapped.map(r=>r.map(esc)))});action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');csv(exported.title,exported.head,exported.data)});action(root,root.querySelector('[data-action="print"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');window.print()})}
 async function statisticsPage(root){
