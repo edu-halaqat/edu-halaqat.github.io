@@ -480,6 +480,7 @@ async function outcomesPage(root){
           (placed&&!r.completed&&ll.pageFrom?button('فتح الدرس','to-open-'+i):'')+
           (placed&&!r.completed&&ll.mediaUrl?button('استماع / مشاهدة','to-media-'+i):'')+
           (placed&&!r.completed?button('تقييم','to-rate-'+i):'')+
+          (placed&&!r.completed&&r.lessonSource!=='custom'?button('تمديد هذا الدرس','to-extend-'+i):'')+
           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+
           button('الخطة الشخصية','to-pace-'+i)+
           (placed&&!r.completed&&!r.activeCustomLesson?button('درس خاص','to-custom-'+i):'')+
@@ -491,6 +492,7 @@ async function outcomesPage(root){
         const op=box.querySelector('[data-action="to-open-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll));
         const md=box.querySelector('[data-action="to-media-'+i+'"]');if(md)action(box,md,()=>window.open(ll.mediaUrl,'_blank','noopener,noreferrer'));
         const rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(rt)action(box,rt,()=>assessTalaqqinStudent(root,r,renderTalaqqin));
+        const ex=box.querySelector('[data-action="to-extend-'+i+'"]');if(ex)action(box,ex,()=>extendTalaqqinLesson(root,r,renderTalaqqin));
         const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
         const pc=box.querySelector('[data-action="to-pace-'+i+'"]');if(pc)action(box,pc,()=>paceTalaqqinStudent(root,r,renderTalaqqin));
         const cu=box.querySelector('[data-action="to-custom-'+i+'"]');if(cu)action(box,cu,()=>addCustomTalaqqinLesson(root,r,renderTalaqqin));
@@ -833,15 +835,29 @@ const paceTalaqqinStudent=async(root,row,refresh)=>{
  const body=units.map(u=>'<tr><td>'+esc(u.unitNo+'. '+u.unitName)+'</td><td>'+esc(u.baselineWeeks)+' أسابيع</td><td><input type="number" name="weeks_'+u.unitNo+'" min="1" max="52" value="'+esc(u.plannedWeeks)+'" required style="width:95px"></td><td><input name="note_'+u.unitNo+'" value="'+esc(u.note||'')+'" placeholder="مثلاً: يحتاج تكرارًا أكثر"></td></tr>').join('');
  b.innerHTML='<form><p>المدة المرجعية للمنهج 50 أسبوعًا. عدّل مدة كل وحدة لهذا الطالب وحده؛ ويمكن أن تصبح الخطة 60 أو 80 أو 90 أسبوعًا أو غير ذلك دون تغيير خطة بقية الطلاب.</p>'+
    '<div class="table-wrap"><table><thead><tr><th>الوحدة</th><th>المرجعي</th><th>مدة الطالب</th><th>ملاحظة</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
-   '<div class="stats-grid" style="margin-top:12px"><article class="stat-card"><span>إجمالي الخطة الشخصية</span><b class="tl-total">'+esc(pacing.totalWeeks||50)+'</b><small>أسبوعًا</small></article><article class="stat-card"><span>الخطة المرجعية</span><b>50</b><small>أسبوعًا</small></article></div>'+
+   '<div class="stats-grid" style="margin-top:12px"><article class="stat-card"><span>إجمالي الخطة الشخصية</span><b class="tl-total">'+esc(pacing.totalWeeks||50)+'</b><small>أسبوعًا</small></article><article class="stat-card"><span>الخطة المرجعية</span><b>50</b><small>أسبوعًا</small></article><article class="stat-card"><span>تمديدات دروس بعينها</span><b>'+esc(pacing.extraLessonWeeks||0)+'</b><small>أسبوعًا</small></article></div>'+
    '<label>ملاحظة عامة على خطة الطالب<textarea name="plan_note" rows="3" style="width:100%">'+esc(row.planNote||'')+'</textarea></label>'+
    '<button type="submit" class="button button-primary">حفظ الخطة الشخصية</button></form>';
- const form=b.querySelector('form'),total=()=>{const n=units.reduce((s,u)=>s+(Number(form.elements['weeks_'+u.unitNo]?.value)||0),0);const el=b.querySelector('.tl-total');if(el)el.textContent=n};
+ const form=b.querySelector('form'),extraLessonWeeks=Number(pacing.extraLessonWeeks||0),total=()=>{const n=units.reduce((s,u)=>s+(Number(form.elements['weeks_'+u.unitNo]?.value)||0),0)+extraLessonWeeks;const el=b.querySelector('.tl-total');if(el)el.textContent=n};
  units.forEach(u=>form.elements['weeks_'+u.unitNo]?.addEventListener('input',total));total();
  submit(form,async()=>{
    const payload=units.map(u=>({unitNo:u.unitNo,weeks:Number(form.elements['weeks_'+u.unitNo].value),note:form.elements['note_'+u.unitNo].value.trim()||null}));
    const r=await rpc('save_talaqqin_pacing',{p_student_id:row.studentId,p_units:payload,p_plan_note:form.elements.plan_note.value.trim()||null});
    b.closest('dialog').close();msg(root,'تم حفظ الخطة الشخصية للطالب بمدة '+r.totalWeeks+' أسبوعًا.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+};
+const extendTalaqqinLesson=async(root,row,refresh)=>{
+ if(!row.placementSet)throw Error('حدد موضع الطالب أولًا.');
+ if(row.lessonSource==='custom')throw Error('مدة الدرس الخاص تضبط من بيانات الدرس الخاص نفسه.');
+ const l=row.lesson||{},b=modal('تمديد هذا الدرس · '+row.fullName);
+ b.innerHTML='<form><p><b>'+esc(l.title||'الدرس الحالي')+'</b></p><p>استخدم هذا الخيار إذا كان هذا الدرس وحده يحتاج وقتًا إضافيًا، مع بقاء بقية الوحدات والدروس على مددها المخططة.</p>'+
+   '<div class="form-grid two">'+field('أسابيع إضافية لهذا الدرس','extra_weeks','number',row.lessonExtraWeeks||0,'min="0" max="52" required')+
+   field('سبب التمديد / ملاحظة','note','text',row.lessonExtensionNote||'')+'</div>'+
+   '<p class="sl-help">ضع صفرًا لإلغاء التمديد الخاص بهذا الدرس.</p><button type="submit" class="button button-primary">حفظ تمديد الدرس</button></form>';
+ submit(b.querySelector('form'),async()=>{
+   const r=await rpc('set_talaqqin_lesson_extension',{p_student_id:row.studentId,p_lesson_no:Number(row.currentLessonNo),p_extra_weeks:Number(val(b,'extra_weeks')||0),p_note:val(b,'note')||null});
+   b.closest('dialog').close();msg(root,r.extraWeeks?'تم تمديد هذا الدرس وحده '+r.extraWeeks+' أسبوع/أسابيع إضافية.':'تم إلغاء تمديد هذا الدرس.');
    if(refresh)await refresh();else await dashboard(root);
  });
 };
@@ -932,6 +948,7 @@ async function dashboard(root){
        (placed&&!r.completed&&l.pageFrom?button('فتح الدرس','tl-open-'+i):'')+
        (placed&&!r.completed&&l.mediaUrl?button('استماع / مشاهدة','tl-media-'+i):'')+
        (placed&&!r.completed?button('تقييم الدرس','tl-rate-'+i):'')+
+       (placed&&!r.completed&&r.lessonSource!=='custom'?button('تمديد هذا الدرس','tl-extend-'+i):'')+
        button(placed?'تعديل موضع الطالب':'تحديد موضع البداية','tl-place-'+i)+
        button('الخطة الشخصية','tl-pace-'+i)+
        (placed&&!r.completed&&!r.activeCustomLesson?button('إضافة درس خاص','tl-custom-'+i):'')+
@@ -945,6 +962,7 @@ async function dashboard(root){
      const op=sec.querySelector('[data-action="tl-open-'+i+'"]');if(op)action(sec,op,()=>openTalaqqinLesson(l));
      const md=sec.querySelector('[data-action="tl-media-'+i+'"]');if(md)action(sec,md,()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
      const rt=sec.querySelector('[data-action="tl-rate-'+i+'"]');if(rt)action(sec,rt,()=>assessTalaqqinStudent(root,r,refresh));
+     const ex=sec.querySelector('[data-action="tl-extend-'+i+'"]');if(ex)action(sec,ex,()=>extendTalaqqinLesson(root,r,refresh));
      const pl=sec.querySelector('[data-action="tl-place-'+i+'"]');if(pl)action(sec,pl,()=>placeTalaqqinStudent(root,r,refresh));
      const pc=sec.querySelector('[data-action="tl-pace-'+i+'"]');if(pc)action(sec,pc,()=>paceTalaqqinStudent(root,r,refresh));
      const cu=sec.querySelector('[data-action="tl-custom-'+i+'"]');if(cu)action(sec,cu,()=>addCustomTalaqqinLesson(root,r,refresh));
