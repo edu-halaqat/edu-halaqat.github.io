@@ -87,9 +87,14 @@ Deno.serve(async(req:Request)=>{
         const {data:pacing,error:pe}=await db.from("talaqqin_student_unit_pacing")
           .select("unit_no,planned_weeks,note").eq("student_id",s.id).order("unit_no");
         if(pe) throw pe;
+        const {data:lessonPacing,error:lpe}=await db.from("talaqqin_student_lesson_pacing")
+          .select("lesson_no,extra_weeks,note").eq("student_id",s.id);
+        if(lpe) throw lpe;
         const baseline=[4,2,4,5,6,7,6,8,7,1];
         const paceMap=new Map((pacing||[]).map((x:any)=>[Number(x.unit_no),Number(x.planned_weeks)]));
-        const totalWeeks=baseline.reduce((sum,w,i)=>sum+(paceMap.get(i+1)||w),0);
+        const extraLessonWeeks=(lessonPacing||[]).reduce((sum:number,x:any)=>sum+Number(x.extra_weeks||0),0);
+        const currentExtension=(lessonPacing||[]).find((x:any)=>Number(x.lesson_no)===Number(st.current_lesson_no))||null;
+        const totalWeeks=baseline.reduce((sum,w,i)=>sum+(paceMap.get(i+1)||w),0)+extraLessonWeeks;
         const {data:lastAssessment,error:lae}=await db.from("talaqqin_assessments")
           .select("lesson_no,custom_lesson_id,rating,passed,notes,assessed_on")
           .eq("student_id",s.id).order("created_at",{ascending:false}).limit(1).maybeSingle();
@@ -108,7 +113,8 @@ Deno.serve(async(req:Request)=>{
           weekStart:lesson.unit_week_start,weekEnd:lesson.unit_week_end,
           title:lesson.lesson_title,skill:lesson.skill,
           pageFrom:lesson.book_page_from,pageTo:lesson.book_page_to,
-          mediaUrl:lesson.media_url,mediaLabel:lesson.media_label,isCustom:false
+          mediaUrl:lesson.media_url,mediaLabel:lesson.media_label,
+          extraWeeks:Number(currentExtension?.extra_weeks||0),extensionNote:currentExtension?.note||null,isCustom:false
         }:null)):null;
         talaqqin={
           completed:!!st.completed,
@@ -119,6 +125,7 @@ Deno.serve(async(req:Request)=>{
           placementNote:st.placement_note||null,
           planNote:st.plan_note||null,
           totalWeeks,
+          extraLessonWeeks,
           lesson:current,
           lastAssessment:lastAssessment||null
         };
