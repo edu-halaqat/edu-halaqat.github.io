@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تدريب نور البيان | سنابل الوحي</title>
+<link rel="icon" href="/assets/logo-sanabil-icon-v6.png">
+<style>
+@font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Regular.ttf') format('truetype');font-display:swap}
+@font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+:root{--deep:#073c34;--teal:#00808a;--gold:#d8bd88;--cream:#f8f5ee;--line:#dce7e2}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--deep);font-family:Alyamama,Tahoma,sans-serif}
+header{background:#fff;border-bottom:1px solid #eadfc9;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}header img{width:135px}
+main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(135deg,#073c34,#0b6a56);color:#fff;border-radius:22px;padding:20px}.hero b{color:var(--gold)}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:14px;text-align:center}.prompt{font-size:clamp(48px,10vw,88px);font-weight:700;line-height:1.5;min-height:150px;display:grid;place-items:center}.hint{color:#64776f;line-height:1.8}.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}.btn{border:1px solid #cfe0d9;border-radius:13px;background:#eaf5f2;color:var(--deep);padding:11px 16px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}.btn.primary{background:var(--deep);color:#fff}.progress{height:10px;background:#edf2ef;border-radius:99px;overflow:hidden;margin:18px 0}.progress span{display:block;height:100%;background:var(--gold);width:0}.small{font-size:13px;color:#687a73}.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:16px}.choice{border:1px solid #d9e5e0;background:#fff;border-radius:14px;padding:14px;font:inherit;font-size:25px;cursor:pointer}.choice.ok{background:#e7f6ef;border-color:#9bcbb9}.choice.bad{background:#fff0ed;border-color:#e2b0a8}
+</style></head>
+<body>
+<header><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><a class="btn" href="/" rel="noopener">العودة للمنصة</a></header>
+<main>
+<section class="hero"><b>حلقات التلقين · نور البيان</b><h1 id="title">تدريب تفاعلي</h1><p>تدريب مساعد قصير بلا موسيقى: استمع، كرر، ثم انتقل إلى البطاقة التالية. المرجع المعتمد هو صفحة نور البيان المحددة للدرس.</p></section>
+<section class="card">
+<div class="progress"><span id="bar"></span></div>
+<div class="prompt" id="prompt"></div>
+<p class="hint" id="hint"></p>
+<div class="actions"><button class="btn primary" id="speak">استمع</button><button class="btn" id="again">كرر</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="choices" id="choices"></div>
+<p class="small">الصوت يستخدم قارئ العربية المتاح في جهازك، ولا يحتوي التدريب على موسيقى أو مؤثرات.</p>
+</section>
+</main>
+<script>
+(()=>{'use strict';
+ const p=new URLSearchParams(location.search),lesson=Number(p.get('lesson')||1),unit=Number(p.get('unit')||1),title=p.get('title')||'تدريب نور البيان',page=Number(p.get('page')||3);
+ document.getElementById('title').textContent=title;document.getElementById('book').href='/noor-bayan.html?page='+page+'&title='+encodeURIComponent(title);
+ const letters={1:['أ','ب','ت','ث'],2:['ج','ح','خ','د'],3:['ذ','ر','ز','س'],4:['ش','ص','ض','ط'],5:['ظ','ع','غ','ف'],6:['ق','ك','ل','م'],7:['ن','هـ','و','ي']};
+ const lessonMap={
+  8:['أَ','بَ','تَ','ثَ','جَ','حَ','خَ'],9:['دَ','ذَ','رَ','زَ','سَ','شَ','صَ'],10:['ضَ','طَ','ظَ','عَ','غَ','فَ','قَ'],11:['كَ','لَ','مَ','نَ','هَ','وَ','يَ'],
+  12:['كَتَبَ','ذَهَبَ','فَتَحَ','جَلَسَ'],13:['فَتَحَ بَابًا','ذَهَبَ وَلَدٌ','كَتَبَ دَرْسًا'],14:['ذَهَبَ وَلَدٌ مُبَكِّرًا','فَتَحَ أَحْمَدُ بَابًا'],
+  15:['بِ','تِ','ثِ','جِ','حِ','خِ'],16:['بِسْمِ اللهِ','فِي بَيْتٍ','مِنْ كِتَابٍ'],17:['بِسْمِ اللهِ نَبْدَأُ','فِي بَيْتٍ كَبِيرٍ'],
+  18:['بُ','تُ','ثُ','جُ','حُ','خُ'],19:['نُورٌ مُبِينٌ','كُتُبٌ جَدِيدَةٌ'],20:['هُوَ رَسُولٌ كَرِيمٌ'],
+  21:['بَا','تَا','ثَا','نَا'],22:['بِي','تِي','فِي','لِي'],23:['هٰذِهِ','فِيهِ'],24:['بُو','تُو','نُو','هُو'],25:['دَاوُدُ','هُوَ'],
+  26:['أَبْ','أَتْ','مِنْ','لَمْ','هَلْ'],27:['كِتَابًا','عِلْمًا','نُورًا'],28:['كِتَابٍ','عِلْمٍ','نُورٍ'],29:['كِتَابٌ','عِلْمٌ','نُورٌ'],
+  30:['رَبَّ','إِنَّ','ثُمَّ'],31:['حَقًّا','رَبًّا'],32:['حَقٍّ','رَبٍّ'],33:['حَقٌّ','رَبٌّ'],34:['اقْرَأْ بِتَأَنٍّ','رَاعِ الحَرَكَاتِ وَالمَدَّ وَالسُّكُونَ']
+ };
+ const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0;
+ const render=()=>{prompt.textContent=items[i];hint.textContent='استمع إلى النموذج، ثم كرره بصوت واضح ثلاث مرات.';bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML=''};
+ const speak=()=>{if(!('speechSynthesis' in window))return alert('ميزة النطق غير متاحة في هذا الجهاز.');speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(items[i]);u.lang='ar-SA';u.rate=.65;u.pitch=1;speechSynthesis.speak(u)};
+ document.getElementById('speak').onclick=speak;document.getElementById('again').onclick=speak;document.getElementById('next').onclick=()=>{i=(i+1)%items.length;render();speak()};render();
+})();
+</script></body></html>
