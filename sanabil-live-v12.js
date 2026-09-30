@@ -781,12 +781,12 @@ const showTalaqqinCurriculum=async()=>{
 };
 const assessTalaqqinStudent=(root,row)=>{
  const l=row.lesson||{},b=modal('تقييم درس التلقين · '+row.fullName);
- b.innerHTML=\`<form><p><b>\${esc(l.title||'الدرس الحالي')}</b><br><span class="sl-help">\${esc(l.unitName||'')} · الخطة الزمنية: الأسبوع \${esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd))}</span></p>
- <div class="sl-toolbar">\${l.pageFrom?button('فتح صفحة الدرس','open-lesson'):''}\${l.mediaUrl?button('استماع / مشاهدة الشرح','media'):''}</div>
+ b.innerHTML=`<form><p><b>${esc(l.title||'الدرس الحالي')}</b><br><span class="sl-help">${esc(l.unitName||'')} · الخطة الزمنية: الأسبوع ${esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd))}</span></p>
+ <div class="sl-toolbar">${l.pageFrom?button('فتح صفحة الدرس','open-lesson'):''}${l.mediaUrl?button('استماع / مشاهدة الشرح','media'):''}</div>
  <label>تقدير الدرس<select name="rating" required><option value="">اختر التقدير</option><option>ممتاز</option><option>جيد جدًا</option><option>جيد</option><option>يحتاج إعادة</option><option>لم يسمع</option></select></label>
  <label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>
  <p class="sl-help">ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى الدرس نفسه لليوم التالي.</p>
- <button type="submit" class="button button-primary">حفظ التقييم</button></form>\`;
+ <button type="submit" class="button button-primary">حفظ التقييم</button></form>`;
  if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l));
  if(l.mediaUrl)action(b,b.querySelector('[data-action="media"]'),()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
  submit(b.querySelector('form'),async()=>{
