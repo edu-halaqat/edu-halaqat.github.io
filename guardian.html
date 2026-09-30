@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#006b74">
 <title>بوابة ولي الأمر | سنابل الوحي</title>
 <link rel="icon" href="/assets/logo-sanabil-icon-v6.png">
-<style>
+<link rel="stylesheet" href="/sanabil-identity.css?v=20260930-guide1"><style>
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
@@ -63,8 +63,8 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
 .then(d=>{
  const a=d.attendance||[],o=d.outcomes||[],t=d.tests||[],p=d.plans||[],next=d.nextAssignments||[],aw=d.awards||[],an=d.announcements||[];
  const present=a.filter(x=>x.status==='present'||x.status==='late').length,attRate=a.length?Math.round(present/a.length*100):0;
- const ratings=x=>[x.memorization_rating,x.recent_review_rating,x.review_rating].filter(Boolean),all=o.flatMap(ratings),outRate=all.length?Math.round(all.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x)).length/all.length*100):0;
- const testScores=t.map(x=>Number(x.scores?.total)).filter(Number.isFinite),avg=testScores.length?Math.round(testScores.reduce((x,y)=>x+y,0)/testScores.length*10)/10:'—';
+ const ratings=x=>[x.memorization_rating,x.recent_review_rating,...(Array.isArray(x.recitation_metrics?.reviewPlans)&&x.recitation_metrics.reviewPlans.length?x.recitation_metrics.reviewPlans.map(r=>r.rating||r.grade):[x.review_rating])].filter(Boolean),all=o.flatMap(ratings),outRate=all.length?Math.round(all.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x)).length/all.length*100):0;
+ const testScores=t.filter(x=>x.scores?.total!=null).map(x=>Number(x.scores.total)).filter(Number.isFinite),avg=testScores.length?Math.round(testScores.reduce((x,y)=>x+y,0)/testScores.length*10)/10:'—';
  const latestAtt=a[0],todayNext=next[0]?.date||'—';
  const metrics=x=>{const m=x?.recitation_metrics||{},sum=k=>['memorization','recentReview','review'].reduce((n,q)=>n+Number(m?.[q]?.[k]||0),0),e=sum('errors'),s=sum('doubts'),j=sum('tajweed');return e+s+j?('خطأ '+e+' · شك '+s+' · تجويد '+j):''};
  const outcomeHtml=o.slice(0,12).map(x=>'<article class="outcome"><div class="outcome-head"><b>حصيلة اليوم</b><time>'+esc(x.date_key)+'</time></div>'+
@@ -75,8 +75,8 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  const testsHtml=t.slice(0,8).map(x=>'<div class="item"><span class="item-icon">ق</span><div><b>'+esc(x.syllabus_snapshot?.label||x.type||'اختبار قرآن')+'</b><small>'+esc(date(x.performed_at))+'</small></div><span class="status">'+esc(x.scores?.total??'—')+'/100</span></div>').join('');
  const plansHtml=p.map(x=>'<div class="item"><span class="item-icon">خ</span><div><b>'+esc(x.name||types[x.type]||x.type)+'</b><small>'+esc(x.daily_amount)+' '+esc(units[x.unit]||x.unit)+' يوميًا · '+esc(directions[x.direction]||'')+' · '+esc(x.start_date)+' — '+esc(x.end_date)+(x.range_end_surah?' · حد الالتقاء عند السورة '+esc(x.range_end_surah):'')+(x.cycle_enabled?' · دورية تلقائيًا':'')+'</small></div><span class="status">نشطة</span></div>').join('');
  const awardsHtml=aw.slice(0,10).map(x=>'<div class="item"><span class="item-icon">★</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.awarded_on)+(x.note?' · '+esc(x.note):'')+'</small></div><span class="status">'+esc(x.category||'تكريم')+'</span></div>').join('');
- app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><img class="guardian-title" src="/assets/guardian-title-doran.png" alt="بوابة ولي الأمر"><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
- '<section class="metrics"><article class="metric"><span>الحضور</span><b>'+attRate+'%</b></article><article class="metric"><span>إنجاز المسارات</span><b>'+outRate+'%</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
+ app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1>بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
+ '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
  '<section class="section"><div class="section-head"><h2>المقرر القادم</h2><small>للاستعداد قبل الحلقة</small></div>'+(nextHtml?'<div class="next-grid">'+nextHtml+'</div>':'<div class="empty">لا يوجد مقرر قادم مجدول حاليًا.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>آخر الحصائل</h2><small>الحفظ والمراجعات بتقدير مستقل</small></div>'+(outcomeHtml?'<div class="outcomes">'+outcomeHtml+'</div>':'<div class="empty">لا توجد حصيلة حديثة.</div>')+'</section>'+
@@ -84,7 +84,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<section class="section"><div class="section-head"><h2>الاختبارات</h2></div>'+(testsHtml?'<div class="test-list">'+testsHtml+'</div>':'<div class="empty">لا توجد اختبارات حتى الآن.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الخطة التعليمية</h2></div>'+(plansHtml?'<div class="plan-list">'+plansHtml+'</div>':'<div class="empty">لا توجد خطة نشطة حاليًا.</div>')+'</section>'+
  (awardsHtml?'<section class="section"><div class="section-head"><h2>التكريم والإنجاز</h2></div><div class="award-list">'+awardsHtml+'</div></section>':'')+
- '<footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V11 · 2026.09.30</div></footer>';
+ '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V11 · 2026.09.30</div></footer>';
 }).catch(e=>{app.innerHTML='<div class="error">'+esc(e.message)+'</div><a class="back" href="/">العودة إلى سنابل الوحي</a>'});
 })();
 </script>
