@@ -40,6 +40,7 @@ button,a{touch-action:manipulation}
  .item{grid-template-columns:auto 1fr}.item>.status{grid-column:2;justify-self:start}
 }
 @media(max-width:390px){.brandrow{align-items:flex-start}.brandrow img{width:98px}.hero-badge{font-size:10px}.metrics{grid-template-columns:1fr 1fr}.metric span{font-size:11px}}
+.guardian-title-text{color:#d8bd88!important;font-family:Doran,Alyamama,sans-serif;font-size:clamp(40px,8vw,72px)!important;font-weight:800!important;line-height:1.1;margin:8px 0 14px!important;text-shadow:0 2px 12px rgba(0,0,0,.12)}
 </style>
 </head>
 <body><p style="text-align:center">مسار الدليل · بيانات تدريبية منفصلة</p>
@@ -54,7 +55,7 @@ const types={memorization:'الحفظ الجديد',recent_review:'المراج�
 const units={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة'};
 const directions={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
 const qref=r=>r?((r.surahName||r.surah||'سورة')+' '+(r.ayahNo||r.ayah||'')):'—';
-const segText=x=>Array.isArray(x?.segments)&&x.segments.length?x.segments.map(s=>'سورة '+(s.surahName||s.from?.surahName||'')+': '+(s.from?.ayahNo||s.from?.ayah||'')+'–'+(s.to?.ayahNo||s.to?.ayah||'')).join('، ثم '):(qref(x?.from)+' ← '+qref(x?.to));
+const segText=x=>x?.displayLabel||(Array.isArray(x?.segments)&&x.segments.length?x.segments.map(s=>'سورة '+(s.surahName||s.from?.surahName||'')+': '+(s.from?.ayahNo||s.from?.ayah||'')+'–'+(s.to?.ayahNo||s.to?.ayah||'')).join('، ثم '):(qref(x?.from)+' ← '+qref(x?.to)));
 const gradeCls=g=>['لم يحفظ','لم يسمع'].includes(g)?'bad':!g?'none':'';
 Promise.resolve(window.GuideGuardianData)
 .then(d=>{
@@ -72,7 +73,7 @@ Promise.resolve(window.GuideGuardianData)
  const testsHtml=t.slice(0,8).map(x=>'<div class="item"><span class="item-icon">ق</span><div><b>'+esc(x.syllabus_snapshot?.label||x.type||'اختبار قرآن')+'</b><small>'+esc(date(x.performed_at))+'</small></div><span class="status">'+esc(x.scores?.total??'—')+'/100</span></div>').join('');
  const plansHtml=p.map(x=>'<div class="item"><span class="item-icon">خ</span><div><b>'+esc(x.name||types[x.type]||x.type)+'</b><small>'+esc(x.daily_amount)+' '+esc(units[x.unit]||x.unit)+' يوميًا · '+esc(directions[x.direction]||'')+' · '+esc(x.start_date)+' — '+esc(x.end_date)+(x.range_end_surah?' · حد الالتقاء عند السورة '+esc(x.range_end_surah):'')+(x.cycle_enabled?' · دورية تلقائيًا':'')+'</small></div><span class="status">نشطة</span></div>').join('');
  const awardsHtml=aw.slice(0,10).map(x=>'<div class="item"><span class="item-icon">★</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.awarded_on)+(x.note?' · '+esc(x.note):'')+'</small></div><span class="status">'+esc(x.category||'تكريم')+'</span></div>').join('');
- app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1>بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
+ app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
  '<section class="section"><div class="section-head"><h2>المقرر القادم</h2><small>للاستعداد قبل الحلقة</small></div>'+(nextHtml?'<div class="next-grid">'+nextHtml+'</div>':'<div class="empty">لا يوجد مقرر قادم مجدول حاليًا.</div>')+'</section>'+
