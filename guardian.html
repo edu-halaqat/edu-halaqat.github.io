@@ -41,6 +41,7 @@ button,a{touch-action:manipulation}
 }
 @media(max-width:390px){.brandrow{align-items:flex-start}.brandrow img{width:98px}.hero-badge{font-size:10px}.metrics{grid-template-columns:1fr 1fr}.metric span{font-size:11px}}
 .guardian-title-text{margin:8px 0 14px;color:#d8bd88!important;font-family:Doran,Alyamama,sans-serif;font-size:clamp(40px,8vw,72px);font-weight:800;line-height:1.1;text-shadow:0 2px 12px rgba(0,0,0,.12)}
+.prep-card{border:1px solid #d8bd88;border-radius:18px;padding:15px;background:linear-gradient(180deg,#fffdf7,#f7fbf9);margin:8px 0}.prep-card strong{display:block;font-size:18px;margin:7px 0}.prep-card small{color:var(--muted);line-height:1.7}.prep-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.prep-button{border:1px solid #cfe0d9;border-radius:12px;background:#eaf5f2;color:var(--teal2);padding:9px 12px;font-family:inherit;font-weight:800;cursor:pointer;text-decoration:none}.prep-button.gold{background:#fff8e8;border-color:#e8d19f;color:#73551b}.media-overlay{position:fixed;inset:0;background:#082c27cc;z-index:9999;display:grid;place-items:center;padding:16px}.media-box{width:min(720px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;padding:18px;box-shadow:0 24px 70px #0005}.media-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.media-head h3{margin:0;color:var(--teal2)}.media-close{border:0;border-radius:10px;background:#eef4f1;padding:8px 12px;font-family:inherit;cursor:pointer}.media-box audio{width:100%;margin:12px 0}.media-status{background:#f5f8f7;border-radius:12px;padding:10px;margin:8px 0;color:var(--muted)}.media-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.media-controls select,.media-controls button{font-family:inherit;border:1px solid #d4e2dd;border-radius:10px;padding:8px 10px;background:#fff}.media-video{aspect-ratio:16/9;width:100%;border:0;border-radius:14px}
 </style>
 </head>
 <body>
@@ -57,12 +58,47 @@ const directions={toward_nas:'نحو الناس',toward_fatiha:'نحو الفا�
 const qref=r=>r?((r.surahName||r.surah||'سورة')+' '+(r.ayahNo||r.ayah||'')):'—';
 const segText=x=>x?.displayLabel||(Array.isArray(x?.segments)&&x.segments.length?x.segments.map(s=>'سورة '+(s.surahName||s.from?.surahName||'')+': '+(s.from?.ayahNo||s.from?.ayah||'')+'–'+(s.to?.ayahNo||s.to?.ayah||'')).join('، ثم '):(qref(x?.from)+' ← '+qref(x?.to)));
 const gradeCls=g=>['لم يحفظ','لم يسمع'].includes(g)?'bad':!g?'none':'';
+const HUSARY='https://everyayah.com/data/Husary_Muallim_128kbps/';
+const pad3=n=>String(Number(n)||0).padStart(3,'0');
+const assignmentAyahs=x=>{
+ const out=[],seen=new Set,add=(s,a)=>{const k=Number(s)+':'+Number(a);if(s&&a&&!seen.has(k)){seen.add(k);out.push({surah:Number(s),ayah:Number(a)})}};
+ if(Array.isArray(x?.segments)&&x.segments.length){
+   x.segments.forEach(seg=>{const s=Number(seg.surahNo||seg.from?.surahNo),a=Number(seg.from?.ayahNo||seg.from?.ayah),b=Number(seg.to?.ayahNo||seg.to?.ayah);if(s&&a&&b)for(let n=Math.min(a,b);n<=Math.max(a,b);n++)add(s,n)});
+ }else if(x?.from?.surahNo===x?.to?.surahNo){
+   for(let n=Number(x.from.ayahNo||x.from.ayah);n<=Number(x.to.ayahNo||x.to.ayah);n++)add(x.from.surahNo,n);
+ }
+ return out;
+};
+const mediaOverlay=title=>{
+ const ov=document.createElement('div');ov.className='media-overlay';
+ ov.innerHTML='<section class="media-box" role="dialog" aria-modal="true"><div class="media-head"><h3>'+esc(title)+'</h3><button class="media-close" type="button">إغلاق</button></div><div class="media-body"></div></section>';
+ document.body.appendChild(ov);const close=()=>{const a=ov.querySelector('audio');if(a){a.pause();a.src=''}ov.remove()};ov.querySelector('.media-close').onclick=close;ov.addEventListener('click',e=>{if(e.target===ov)close()});return{ov,body:ov.querySelector('.media-body'),close};
+};
+const openHusary=x=>{
+ const ayahs=assignmentAyahs(x);if(!ayahs.length){alert('تعذر تحديد آيات المقرر الصوتي.');return}
+ const m=mediaOverlay('الاستماع للمصحف المعلم · الشيخ الحصري');
+ m.body.innerHTML='<p><b>'+esc(segText(x))+'</b></p><div class="media-status"></div><audio controls preload="none"></audio><div class="media-controls"><label>تكرار المقرر <select><option value="1">مرة</option><option value="3" selected>3 مرات</option><option value="5">5 مرات</option><option value="10">10 مرات</option></select></label><button type="button" class="play">ابدأ من أول المقرر</button></div><p style="color:#667a72;font-size:12px">تُقرأ آيات المقرر آيةً آية بصوت محمود خليل الحصري – المصحف المعلم، ثم يعاد المقرر بحسب عدد مرات التكرار المختار.</p>';
+ const audio=m.body.querySelector('audio'),status=m.body.querySelector('.media-status'),sel=m.body.querySelector('select');let idx=0,round=1;
+ const load=()=>{const v=ayahs[idx];audio.src=HUSARY+pad3(v.surah)+pad3(v.ayah)+'.mp3';status.textContent='التكرار '+round+' من '+sel.value+' · السورة '+v.surah+' · الآية '+v.ayah+' · '+(idx+1)+' من '+ayahs.length};
+ const play=()=>{load();audio.play().catch(()=>{})};m.body.querySelector('.play').onclick=()=>{idx=0;round=1;play()};
+ audio.onended=()=>{if(idx<ayahs.length-1){idx++;play();return}if(round<Number(sel.value)){round++;idx=0;play();return}status.textContent='اكتمل الاستماع إلى المقرر '+sel.value+' مرة/مرات.'};
+ load();
+};
+const openTalaqqinMedia=l=>{
+ const u=String(l?.mediaUrl||'');if(!u)return;
+ const id=(u.match(/[?&]v=([\w-]{6,})/)||[])[1];
+ if(!id){window.open(u,'_blank','noopener,noreferrer');return}
+ const m=mediaOverlay(l.mediaLabel||'شرح درس نور البيان');
+ m.body.innerHTML='<iframe class="media-video" src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?rel=0" title="'+esc(l.title||'شرح الدرس')+'" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe><p style="color:#667a72;font-size:12px">هذا شرح مساعد خارجي للتحضير، والمرجع المعتمد للدرس هو صفحة نور البيان داخل المنصة.</p>';
+};
+const quranLessonUrl=x=>{const s=x?.from?.surahNo,a=x?.from?.ayahNo||x?.from?.ayah;return s&&a?'https://quran.ksu.edu.sa/index.php?aya='+encodeURIComponent(s+'_'+a)+'&l=ar':'https://quran.ksu.edu.sa/'};
+
 const code=new URLSearchParams(location.search).get('code')||'';
 if(!/^[A-Fa-f0-9]{32}$/.test(code)){app.innerHTML='<div class="error">رابط ولي الأمر غير مكتمل أو غير صالح.</div><a class="back" href="/">العودة إلى سنابل الوحي</a>';return}
 fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
 .then(async r=>{const j=await r.json().catch(()=>({error:'تعذر قراءة الاستجابة.'}));if(!r.ok||j.error)throw Error(j.error||'تعذر فتح البوابة.');return j})
 .then(d=>{
- const a=d.attendance||[],o=d.outcomes||[],t=d.tests||[],p=d.plans||[],next=d.nextAssignments||[],aw=d.awards||[],an=d.announcements||[];
+ const a=d.attendance||[],o=d.outcomes||[],t=d.tests||[],p=d.plans||[],next=d.nextAssignments||[],prep=d.prepAssignments||[],talaqqin=d.talaqqin||null,aw=d.awards||[],an=d.announcements||[];
  const present=a.filter(x=>x.status==='present'||x.status==='late').length,attRate=a.length?Math.round(present/a.length*100):0;
  const ratings=x=>[x.memorization_rating,x.recent_review_rating,...(Array.isArray(x.recitation_metrics?.reviewPlans)&&x.recitation_metrics.reviewPlans.length?x.recitation_metrics.reviewPlans.map(r=>r.rating||r.grade):[x.review_rating])].filter(Boolean),all=o.flatMap(ratings),outRate=all.length?Math.round(all.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x)).length/all.length*100):0;
  const testScores=t.filter(x=>x.scores?.total!=null).map(x=>Number(x.scores.total)).filter(Number.isFinite),avg=testScores.length?Math.round(testScores.reduce((x,y)=>x+y,0)/testScores.length*10)/10:'—';
@@ -76,16 +112,25 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  const testsHtml=t.slice(0,8).map(x=>'<div class="item"><span class="item-icon">ق</span><div><b>'+esc(x.syllabus_snapshot?.label||x.type||'اختبار قرآن')+'</b><small>'+esc(date(x.performed_at))+'</small></div><span class="status">'+esc(x.scores?.total??'—')+'/100</span></div>').join('');
  const plansHtml=p.map(x=>'<div class="item"><span class="item-icon">خ</span><div><b>'+esc(x.name||types[x.type]||x.type)+'</b><small>'+esc(x.daily_amount)+' '+esc(units[x.unit]||x.unit)+' يوميًا'+(x.type==='recent_review'?' · تتبع نهاية الدرس تلقائيًا':' · '+esc(directions[x.direction]||''))+' · '+esc(x.start_date)+' — '+esc(x.end_date)+(x.range_end_surah?' · حد الالتقاء عند السورة '+esc(x.range_end_surah):'')+(x.range_end_rub?' · حد الالتقاء عند ربع الحزب '+esc(x.range_end_rub):'')+(x.cycle_enabled?' · دورية تلقائيًا':'')+'</small></div><span class="status">نشطة</span></div>').join('');
  const awardsHtml=aw.slice(0,10).map(x=>'<div class="item"><span class="item-icon">★</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.awarded_on)+(x.note?' · '+esc(x.note):'')+'</small></div><span class="status">'+esc(x.category||'تكريم')+'</span></div>').join('');
+ const quranPrep=(prep.length?prep:next).filter(x=>x.type==='memorization').slice(0,1);
+ const talaqqinLesson=talaqqin&&!talaqqin.completed?talaqqin.lesson:null;
+ const talaqqinPrep=talaqqinLesson?'<article class="prep-card"><span class="type">حلقات التلقين · درس الغد</span><strong>'+esc(talaqqinLesson.title)+'</strong><small>'+esc(talaqqinLesson.unitName)+' · الخطة الزمنية: الأسبوع '+esc(talaqqinLesson.weekStart===talaqqinLesson.weekEnd?talaqqinLesson.weekStart:(talaqqinLesson.weekStart+'–'+talaqqinLesson.weekEnd))+(talaqqinLesson.pageFrom?' · صفحة '+esc(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'–'+esc(talaqqinLesson.pageTo):''):'')+'</small><div class="prep-actions">'+(talaqqinLesson.pageFrom?'<button class="prep-button gold" type="button" data-talaqqin-preview>معاينة الدرس</button>':'')+(talaqqinLesson.mediaUrl?'<button class="prep-button" type="button" data-talaqqin-media>استمع / شاهد طريقة القراءة</button>':'')+'</div></article>':'';
+ const quranPrepHtml=quranPrep.map((x,i)=>'<article class="prep-card"><span class="type">حلقات القرآن · التحضير للمقرر القادم</span><strong>'+esc(segText(x))+'</strong><small>'+esc(x.date)+' · '+esc(x.amount)+' '+esc(units[x.unit]||'وحدة')+(x.from?.pageNo?' · صفحة المصحف '+esc(x.from.pageNo)+(x.to?.pageNo&&x.to.pageNo!==x.from.pageNo?'–'+esc(x.to.pageNo):''):'')+'</small><div class="prep-actions"><a class="prep-button gold" target="_blank" rel="noopener noreferrer" href="'+esc(quranLessonUrl(x))+'">عرض موضع الدرس في المصحف</a><button class="prep-button" type="button" data-husary="'+i+'">استمع للمصحف المعلم · الحصري</button></div></article>').join('');
+ const preparationHtml=talaqqinPrep||quranPrepHtml;
  app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
+ (preparationHtml?'<section class="section"><div class="section-head"><h2>الاستعداد لدرس الغد</h2><small>معاينة الدرس والاستماع قبل الحلقة</small></div>'+preparationHtml+'</section>':'')+
  '<section class="section"><div class="section-head"><h2>المقرر القادم</h2><small>للاستعداد قبل الحلقة</small></div>'+(nextHtml?'<div class="next-grid">'+nextHtml+'</div>':'<div class="empty">لا يوجد مقرر قادم مجدول حاليًا.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>آخر الحصائل</h2><small>الحفظ والمراجعات بتقدير مستقل</small></div>'+(outcomeHtml?'<div class="outcomes">'+outcomeHtml+'</div>':'<div class="empty">لا توجد حصيلة حديثة.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الحضور</h2></div>'+(attHtml?'<div class="att-list">'+attHtml+'</div>':'<div class="empty">لا توجد سجلات حضور حديثة.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الاختبارات</h2></div>'+(testsHtml?'<div class="test-list">'+testsHtml+'</div>':'<div class="empty">لا توجد اختبارات حتى الآن.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الخطة التعليمية</h2></div>'+(plansHtml?'<div class="plan-list">'+plansHtml+'</div>':'<div class="empty">لا توجد خطة نشطة حاليًا.</div>')+'</section>'+
  (awardsHtml?'<section class="section"><div class="section-head"><h2>التكريم والإنجاز</h2></div><div class="award-list">'+awardsHtml+'</div></section>':'')+
- '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V12 · 2026.09.30</div></footer>';
+ '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V12.4 · 2026.10.01</div></footer>';
+ const tp=app.querySelector('[data-talaqqin-preview]');if(tp&&talaqqinLesson)tp.onclick=()=>window.open('/noor-bayan.html?page='+encodeURIComponent(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'&to='+encodeURIComponent(talaqqinLesson.pageTo):'')+'&title='+encodeURIComponent(talaqqinLesson.title),'_blank','noopener,noreferrer');
+ const tm=app.querySelector('[data-talaqqin-media]');if(tm&&talaqqinLesson)tm.onclick=()=>openTalaqqinMedia(talaqqinLesson);
+ app.querySelectorAll('[data-husary]').forEach(b=>{b.onclick=()=>openHusary(quranPrep[Number(b.dataset.husary)])});
 }).catch(e=>{app.innerHTML='<div class="error">'+esc(e.message)+'</div><a class="back" href="/">العودة إلى سنابل الوحي</a>'});
 })();
 </script>
