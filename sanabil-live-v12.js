@@ -779,30 +779,95 @@ const openTalaqqinLesson=l=>{
  if(l.pageFrom)window.open(noorLessonUrl(l),'_blank','noopener,noreferrer');
  else window.open('https://quran.ksu.edu.sa/','_blank','noopener,noreferrer');
 };
+const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
 const showTalaqqinCurriculum=async()=>{
- const lessons=await result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
- const b=modal('منهج حلقات التلقين · نور البيان');
- b.innerHTML='<p>المسار الزمني المعتمد 50 أسبوعًا، والتقدم إتقاني: لا ينتقل الطالب إلى الدرس التالي حتى يجتاز تقييم الدرس الحالي.</p>'+
- table(['#','الوحدة','الأسابيع','الدرس','صفحات نور البيان'],lessons.map(x=>[
+ const lessons=await talaqqinLessons(),b=modal('منهج حلقات التلقين · نور البيان');
+ b.innerHTML='<p>الخطة ذات 50 أسبوعًا هي المسار المرجعي، وليست قيدًا على جميع الطلاب. يحدد المعلم موضع البداية والمدة الشخصية، ويمكنه إضافة درس خاص عند الحاجة.</p>'+
+ table(['#','الوحدة','الأسابيع المرجعية','الدرس','صفحات نور البيان'],lessons.map(x=>[
    esc(x.lesson_no),esc(x.unit_name),esc(x.unit_week_start===x.unit_week_end?x.unit_week_start:(x.unit_week_start+'–'+x.unit_week_end)),
    esc(x.lesson_title),esc(x.book_page_from?(x.book_page_from+(x.book_page_to!==x.book_page_from?'–'+x.book_page_to:'')):'القراءة من المصحف')
  ]));
 };
-const assessTalaqqinStudent=(root,row)=>{
- const l=row.lesson||{},b=modal('تقييم درس التلقين · '+row.fullName);
- b.innerHTML=`<form><p><b>${esc(l.title||'الدرس الحالي')}</b><br><span class="sl-help">${esc(l.unitName||'')} · الخطة الزمنية: الأسبوع ${esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd))}</span></p>
- <div class="sl-toolbar">${l.pageFrom?button('فتح صفحة الدرس','open-lesson'):''}${l.mediaUrl?button('استماع / مشاهدة الشرح','media'):''}</div>
- <label>تقدير الدرس<select name="rating" required><option value="">اختر التقدير</option><option>ممتاز</option><option>جيد جدًا</option><option>جيد</option><option>يحتاج إعادة</option><option>لم يسمع</option></select></label>
- <label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>
- <p class="sl-help">ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى الدرس نفسه لليوم التالي.</p>
- <button type="submit" class="button button-primary">حفظ التقييم</button></form>`;
+const placeTalaqqinStudent=async(root,row,refresh)=>{
+ const lessons=await talaqqinLessons(),b=modal('تحديد موضع الطالب · '+row.fullName);
+ const options=lessons.map(x=>({id:String(x.lesson_no),name:'الوحدة '+x.unit_no+' — '+x.unit_name+' — '+x.lesson_title+(x.book_page_from?' · ص '+x.book_page_from+(x.book_page_to!==x.book_page_from?'–'+x.book_page_to:''):'')}));
+ b.innerHTML='<form><p>اختر الدرس الذي وصل إليه الطالب فعليًا. هذا لا يحذف سجلاته السابقة، ويمكن تعديل الموضع لاحقًا عند الحاجة.</p><div class="form-grid two">'+
+   select('الدرس الحالي','lesson_no',options,String(row.currentLessonNo||1))+
+   field('ملاحظة تحديد المستوى','placement_note','text',row.placementNote||'')+
+   '</div><button type="submit" class="button button-primary">اعتماد موضع البداية</button></form>';
+ submit(b.querySelector('form'),async()=>{
+   await rpc('set_talaqqin_placement',{p_student_id:row.studentId,p_lesson_no:Number(val(b,'lesson_no')),p_note:val(b,'placement_note')||null});
+   b.closest('dialog').close();msg(root,'تم تحديد موضع الطالب في منهج التلقين.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+};
+const paceTalaqqinStudent=async(root,row,refresh)=>{
+ const pacing=row.pacing||{},units=Array.isArray(pacing.units)?pacing.units:[],b=modal('الخطة الشخصية · '+row.fullName);
+ const body=units.map(u=>'<tr><td>'+esc(u.unitNo+'. '+u.unitName)+'</td><td>'+esc(u.baselineWeeks)+' أسابيع</td><td><input type="number" name="weeks_'+u.unitNo+'" min="1" max="52" value="'+esc(u.plannedWeeks)+'" required style="width:95px"></td><td><input name="note_'+u.unitNo+'" value="'+esc(u.note||'')+'" placeholder="مثلاً: يحتاج تكرارًا أكثر"></td></tr>').join('');
+ b.innerHTML='<form><p>المدة المرجعية للمنهج 50 أسبوعًا. عدّل مدة كل وحدة لهذا الطالب وحده؛ ويمكن أن تصبح الخطة 60 أو 80 أو 90 أسبوعًا أو غير ذلك دون تغيير خطة بقية الطلاب.</p>'+
+   '<div class="table-wrap"><table><thead><tr><th>الوحدة</th><th>المرجعي</th><th>مدة الطالب</th><th>ملاحظة</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+   '<div class="stats-grid" style="margin-top:12px"><article class="stat-card"><span>إجمالي الخطة الشخصية</span><b class="tl-total">'+esc(pacing.totalWeeks||50)+'</b><small>أسبوعًا</small></article><article class="stat-card"><span>الخطة المرجعية</span><b>50</b><small>أسبوعًا</small></article></div>'+
+   '<label>ملاحظة عامة على خطة الطالب<textarea name="plan_note" rows="3" style="width:100%">'+esc(row.planNote||'')+'</textarea></label>'+
+   '<button type="submit" class="button button-primary">حفظ الخطة الشخصية</button></form>';
+ const form=b.querySelector('form'),total=()=>{const n=units.reduce((s,u)=>s+(Number(form.elements['weeks_'+u.unitNo]?.value)||0),0);const el=b.querySelector('.tl-total');if(el)el.textContent=n};
+ units.forEach(u=>form.elements['weeks_'+u.unitNo]?.addEventListener('input',total));total();
+ submit(form,async()=>{
+   const payload=units.map(u=>({unitNo:u.unitNo,weeks:Number(form.elements['weeks_'+u.unitNo].value),note:form.elements['note_'+u.unitNo].value.trim()||null}));
+   const r=await rpc('save_talaqqin_pacing',{p_student_id:row.studentId,p_units:payload,p_plan_note:form.elements.plan_note.value.trim()||null});
+   b.closest('dialog').close();msg(root,'تم حفظ الخطة الشخصية للطالب بمدة '+r.totalWeeks+' أسبوعًا.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+};
+const addCustomTalaqqinLesson=async(root,row,refresh)=>{
+ if(!row.placementSet)throw Error('حدد موضع الطالب أولًا.');
+ if(row.activeCustomLesson)throw Error('لدى الطالب درس خاص نشط بالفعل؛ أتمه أو ألغِه أولًا.');
+ const l=row.lesson||{},b=modal('إضافة درس خاص · '+row.fullName);
+ b.innerHTML='<form><p>الدرس الخاص يخص هذا الطالب فقط. يمكن استخدامه لتقسيم درس صعب، أو إضافة تدريب علاجي، أو إبطاء المسار دون تغيير خطة بقية الطلاب.</p><div class="form-grid two">'+
+   field('عنوان الدرس الخاص','title','text','','required')+
+   field('المهارة المستهدفة','skill','text',l.skill||'')+
+   field('صفحة نور البيان من','page_from','number',l.pageFrom||'','min="1" max="98"')+
+   field('إلى صفحة','page_to','number',l.pageTo||l.pageFrom||'','min="1" max="98"')+
+   field('المدة المخططة بالأسابيع','planned_weeks','number',1,'min="1" max="52" required')+
+   field('رابط شرح/صوت اختياري','media_url','url','')+
+   '</div><label>بعد إتقان الدرس الخاص<select name="after_pass_action"><option value="stay">العودة إلى الدرس الأصلي نفسه</option><option value="advance">اعتباره بديلًا عن الدرس الحالي والانتقال للدرس التالي</option></select></label>'+
+   '<label>ملاحظات<textarea name="notes" rows="3" style="width:100%"></textarea></label><button type="submit" class="button button-primary">إضافة الدرس الخاص الآن</button></form>';
+ submit(b.querySelector('form'),async()=>{
+   const pf=val(b,'page_from'),pt=val(b,'page_to');
+   await rpc('add_talaqqin_custom_lesson',{
+     p_student_id:row.studentId,p_title:val(b,'title').trim(),p_skill:val(b,'skill')||null,
+     p_page_from:pf?Number(pf):null,p_page_to:pt?Number(pt):null,
+     p_planned_weeks:Number(val(b,'planned_weeks')||1),p_media_url:val(b,'media_url')||null,
+     p_notes:b.querySelector('[name="notes"]').value.trim()||null,p_after_pass_action:val(b,'after_pass_action')||'stay'
+   });
+   b.closest('dialog').close();msg(root,'تم تعيين الدرس الخاص لهذا الطالب فقط.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+};
+const cancelCustomTalaqqinLesson=async(root,row,refresh)=>{
+ if(!row.activeCustomLesson)return;
+ if(!confirm('إلغاء الدرس الخاص والعودة إلى الدرس الأصلي للطالب؟'))return;
+ await rpc('cancel_talaqqin_custom_lesson',{p_student_id:row.studentId});
+ msg(root,'تم إلغاء الدرس الخاص والعودة إلى المسار الأصلي.');
+ if(refresh)await refresh();else await dashboard(root);
+};
+const assessTalaqqinStudent=(root,row,refresh)=>{
+ if(!row.placementSet)throw Error('حدد موضع الطالب أولًا.');
+ const l=row.lesson||{},isCustom=row.lessonSource==='custom',b=modal('تقييم درس التلقين · '+row.fullName);
+ b.innerHTML='<form><p><b>'+esc(l.title||'الدرس الحالي')+'</b>'+(isCustom?' <span class="status">درس خاص</span>':'')+'<br><span class="sl-help">'+esc(l.unitName||'')+
+   (l.weekStart?' · الخطة المرجعية: الأسبوع '+esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd)):'')+
+   (l.plannedWeeks?' · المدة المخططة للدرس الخاص: '+esc(l.plannedWeeks)+' أسبوع/أسابيع':'')+
+   '</span></p><div class="sl-toolbar">'+(l.pageFrom?button('فتح صفحة الدرس','open-lesson'):'')+(l.mediaUrl?button('استماع / مشاهدة الشرح','media'):'')+'</div>'+
+   '<label>تقدير الدرس<select name="rating" required><option value="">اختر التقدير</option><option>ممتاز</option><option>جيد جدًا</option><option>جيد</option><option>يحتاج إعادة</option><option>لم يسمع</option></select></label>'+
+   '<label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>'+
+   '<p class="sl-help">'+(isCustom?(l.afterPassAction==='advance'?'عند الاجتياز سيُعتمد الدرس الخاص بديلًا عن الدرس الحالي وينتقل الطالب إلى التالي.':'عند الاجتياز سيعود الطالب إلى الدرس الأصلي نفسه.'):'ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى على الدرس نفسه دون أن تتغير خطة بقية الطلاب.')+'</p>'+
+   '<button type="submit" class="button button-primary">حفظ التقييم</button></form>';
  if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l));
  if(l.mediaUrl)action(b,b.querySelector('[data-action="media"]'),()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
  submit(b.querySelector('form'),async()=>{
    const r=await rpc('save_talaqqin_assessment',{p_student_id:row.studentId,p_rating:val(b,'rating'),p_notes:b.querySelector('[name="notes"]').value.trim()||null});
    b.closest('dialog').close();
-   msg(root,r.completed?'أتم الطالب منهج حلقات التلقين كاملًا.':(r.passed?'تم اجتياز الدرس والانتقال إلى الدرس التالي.':'حُفظ التقييم وسيُعاد الدرس نفسه.'));
-   await dashboard(root);
+   msg(root,r.completed?'أتم الطالب منهج حلقات التلقين كاملًا.':(r.passed?(r.wasCustom?'تم اجتياز الدرس الخاص وتطبيق إجراء ما بعده.':'تم اجتياز الدرس والانتقال إلى الدرس التالي.'):'حُفظ التقييم وسيبقى الطالب على الدرس نفسه.'));
+   if(refresh)await refresh();else await dashboard(root);
  });
 };
 
