@@ -69,7 +69,7 @@ Deno.serve(async(req:Request)=>{
     let talaqqin:any=null;
     if(circleRes.data?.circle_type==="حلقات التلقين"){
       const {data:st,error:ste}=await db.from("talaqqin_student_state")
-        .select("current_lesson_no,completed,completed_at,started_at")
+        .select("current_lesson_no,current_custom_lesson_id,placement_set,placement_note,completed,completed_at,started_at,lesson_started_on,plan_note")
         .eq("student_id",s.id).eq("active",true).maybeSingle();
       if(ste) throw ste;
       if(st){
@@ -77,21 +77,49 @@ Deno.serve(async(req:Request)=>{
           .select("lesson_no,unit_no,unit_name,unit_week_start,unit_week_end,lesson_title,skill,book_page_from,book_page_to,media_url,media_label")
           .eq("lesson_no",st.current_lesson_no).maybeSingle();
         if(le) throw le;
+        let custom:any=null;
+        if(st.current_custom_lesson_id){
+          const cr=await db.from("talaqqin_custom_lessons")
+            .select("id,title,skill,book_page_from,book_page_to,media_url,planned_weeks,notes,after_pass_action,status")
+            .eq("id",st.current_custom_lesson_id).eq("status","active").maybeSingle();
+          if(cr.error) throw cr.error; custom=cr.data;
+        }
+        const {data:pacing,error:pe}=await db.from("talaqqin_student_unit_pacing")
+          .select("unit_no,planned_weeks,note").eq("student_id",s.id).order("unit_no");
+        if(pe) throw pe;
+        const baseline=[4,2,4,5,6,7,6,8,7,1];
+        const paceMap=new Map((pacing||[]).map((x:any)=>[Number(x.unit_no),Number(x.planned_weeks)]));
+        const totalWeeks=baseline.reduce((sum,w,i)=>sum+(paceMap.get(i+1)||w),0);
         const {data:lastAssessment,error:lae}=await db.from("talaqqin_assessments")
-          .select("lesson_no,rating,passed,notes,assessed_on")
+          .select("lesson_no,custom_lesson_id,rating,passed,notes,assessed_on")
           .eq("student_id",s.id).order("created_at",{ascending:false}).limit(1).maybeSingle();
         if(lae) throw lae;
+        const current=st.placement_set?(custom?{
+          customLessonId:custom.id,lessonNo:lesson?.lesson_no||st.current_lesson_no,
+          unitNo:lesson?.unit_no||null,unitName:lesson?.unit_name||"درس خاص",
+          weekStart:lesson?.unit_week_start||null,weekEnd:lesson?.unit_week_end||null,
+          title:custom.title,skill:custom.skill,
+          pageFrom:custom.book_page_from,pageTo:custom.book_page_to,
+          mediaUrl:custom.media_url,mediaLabel:"مادة مساعدة للدرس الخاص",
+          plannedWeeks:custom.planned_weeks,notes:custom.notes,
+          afterPassAction:custom.after_pass_action,isCustom:true
+        }:(lesson?{
+          lessonNo:lesson.lesson_no,unitNo:lesson.unit_no,unitName:lesson.unit_name,
+          weekStart:lesson.unit_week_start,weekEnd:lesson.unit_week_end,
+          title:lesson.lesson_title,skill:lesson.skill,
+          pageFrom:lesson.book_page_from,pageTo:lesson.book_page_to,
+          mediaUrl:lesson.media_url,mediaLabel:lesson.media_label,isCustom:false
+        }:null)):null;
         talaqqin={
           completed:!!st.completed,
           completedAt:st.completed_at||null,
           startedAt:st.started_at||null,
-          lesson:lesson?{
-            lessonNo:lesson.lesson_no,unitNo:lesson.unit_no,unitName:lesson.unit_name,
-            weekStart:lesson.unit_week_start,weekEnd:lesson.unit_week_end,
-            title:lesson.lesson_title,skill:lesson.skill,
-            pageFrom:lesson.book_page_from,pageTo:lesson.book_page_to,
-            mediaUrl:lesson.media_url,mediaLabel:lesson.media_label
-          }:null,
+          lessonStartedOn:st.lesson_started_on||null,
+          placementSet:!!st.placement_set,
+          placementNote:st.placement_note||null,
+          planNote:st.plan_note||null,
+          totalWeeks,
+          lesson:current,
           lastAssessment:lastAssessment||null
         };
       }
