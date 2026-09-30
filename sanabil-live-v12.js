@@ -290,7 +290,7 @@ async function studentsPage(root){
   current=await result(q);
   root.querySelector('.sl-data').innerHTML=table([canMove?'اختيار':'#','الاسم','العمر','المستوى','الحلقة','المعلم','ولي الأمر','الإجراءات'],current.map((s,i)=>[
    canMove?`<input type="checkbox" data-student-select="${esc(s.id)}" ${selected.has(s.id)?'checked':''} aria-label="اختيار ${esc(s.full_name)}">`:esc(i+1),
-   esc(s.full_name),esc(ageFromBirth(s.birth_date)),esc(s.memorization_level||s.stage||'—'),esc(l.circles.find(c=>c.id===s.circle_id)?.name||s.circle_name),
+   esc(s.full_name),esc(ageFromBirth(s.birth_date)),esc(s.memorization_level||s.evaluation||s.stage||'—'),esc(l.circles.find(c=>c.id===s.circle_id)?.name||s.circle_name),
    esc(l.teachers.find(t=>t.id===s.teacher_id)?.full_name||s.teacher_name||'غير مسند'),esc(s.guardian_phone||'—'),
    button('تعديل','edit-'+i)+(canMove?button('نقل','move-'+i):'')+button('التقدم','progress-'+i)+button('تكريم','award-'+i)+button('بطاقة الطالب','card-'+i)+button('بوابة ولي الأمر','guardian-'+i)+button('إيقاف','off-'+i)
   ]));
@@ -309,7 +309,7 @@ async function studentsPage(root){
  };
  const edit=s=>{
   const b=modal(s?'تعديل بيانات الطالب':'إضافة طالب');
-  b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('المستوى/المقدار السابق','memorization_level','text',s?.memorization_level||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',l.teachers.map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
+  b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('المستوى/المقدار السابق','memorization_level','text',s?.memorization_level||s?.evaluation||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',l.teachers.map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
   const form=b.querySelector('form');bindScope(form,l,s||{});
   submit(form,async()=>{
    const row=Object.fromEntries(new FormData(form));if(row.full_name.trim().split(/\s+/).length<3)throw Error('أدخل الاسم الثلاثي');if(!row.circle_id||!row.complex_id)throw Error('اختر المجمع والحلقة');
@@ -334,7 +334,7 @@ async function studentsPage(root){
  }
  action(root,root.querySelector('[data-action="prev"]'),async()=>{page--;await load()});
  action(root,root.querySelector('[data-action="next"]'),async()=>{page++;await load()});
- action(root,root.querySelector('[data-action="export"]'),()=>excelApi().exportTable('سجل الطلاب',['الاسم','العمر','المستوى','الحلقة','المعلم','جوال ولي الأمر'],current.map(s=>[s.full_name,ageFromBirth(s.birth_date),s.memorization_level||s.stage,s.circle_name,s.teacher_name,s.guardian_phone]),[['عدد الطلاب',current.length]]));
+ action(root,root.querySelector('[data-action="export"]'),()=>excelApi().exportTable('سجل الطلاب',['الاسم','العمر','المستوى','الحلقة','المعلم','جوال ولي الأمر'],current.map(s=>[s.full_name,ageFromBirth(s.birth_date),s.memorization_level||s.evaluation||s.stage,s.circle_name,s.teacher_name,s.guardian_phone]),[['عدد الطلاب',current.length]]));
  await load()
 }
 async function outcomesPage(root){
