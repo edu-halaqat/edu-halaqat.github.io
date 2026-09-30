@@ -40,7 +40,7 @@ Deno.serve(async(req:Request)=>{
     const [
       circleRes,teacherRes,outcomesRes,attendanceRes,testsRes,plansRes,planDaysRes,awardsRes,announcementsRes
     ]=await Promise.all([
-      db.from("circles").select("name").eq("id",s.circle_id).maybeSingle(),
+      db.from("circles").select("name,circle_type").eq("id",s.circle_id).maybeSingle(),
       s.teacher_id?db.from("teachers").select("full_name").eq("id",s.teacher_id).maybeSingle():Promise.resolve({data:null,error:null}),
       db.from("outcomes").select("date_key,new_lesson,recent_review,review,memorization_rating,recent_review_rating,review_rating,notes,recitation_metrics")
         .eq("student_id",s.id).gte("date_key",since).order("date_key",{ascending:false}).limit(60),
@@ -63,6 +63,37 @@ Deno.serve(async(req:Request)=>{
     const announcements=(announcementsRes.data||[]).filter((a:any)=>
       (!a.ends_on||a.ends_on>=today)&&(!a.complex_id||a.complex_id===g.complex_id)&&(!a.circle_id||a.circle_id===g.circle_id)
     );
+
+    let talaqqin:any=null;
+    if(circleRes.data?.circle_type==="حلقات التلقين"){
+      const {data:st,error:ste}=await db.from("talaqqin_student_state")
+        .select("current_lesson_no,completed,completed_at,started_at")
+        .eq("student_id",s.id).eq("active",true).maybeSingle();
+      if(ste) throw ste;
+      if(st){
+        const {data:lesson,error:le}=await db.from("talaqqin_lessons")
+          .select("lesson_no,unit_no,unit_name,unit_week_start,unit_week_end,lesson_title,skill,book_page_from,book_page_to,media_url,media_label")
+          .eq("lesson_no",st.current_lesson_no).maybeSingle();
+        if(le) throw le;
+        const {data:lastAssessment,error:lae}=await db.from("talaqqin_assessments")
+          .select("lesson_no,rating,passed,notes,assessed_on")
+          .eq("student_id",s.id).order("created_at",{ascending:false}).limit(1).maybeSingle();
+        if(lae) throw lae;
+        talaqqin={
+          completed:!!st.completed,
+          completedAt:st.completed_at||null,
+          startedAt:st.started_at||null,
+          lesson:lesson?{
+            lessonNo:lesson.lesson_no,unitNo:lesson.unit_no,unitName:lesson.unit_name,
+            weekStart:lesson.unit_week_start,weekEnd:lesson.unit_week_end,
+            title:lesson.lesson_title,skill:lesson.skill,
+            pageFrom:lesson.book_page_from,pageTo:lesson.book_page_to,
+            mediaUrl:lesson.media_url,mediaLabel:lesson.media_label
+          }:null,
+          lastAssessment:lastAssessment||null
+        };
+      }
+    }
     const activePlans=new Map((plansRes.data||[]).map((p:any)=>[p.id,p]));
     const nextAssignments:any[]=[];
     for(const d of (planDaysRes.data||[])){
@@ -76,6 +107,7 @@ Deno.serve(async(req:Request)=>{
       student:{
         fullName:s.full_name,
         circleName:circleRes.data?.name||"",
+        circleType:circleRes.data?.circle_type||"",
         teacherName:teacherRes.data?.full_name||""
       },
       outcomes:outcomesRes.data||[],
@@ -83,6 +115,7 @@ Deno.serve(async(req:Request)=>{
       tests:testsRes.data||[],
       plans:plansRes.data||[],
       nextAssignments,
+      talaqqin,
       awards:awardsRes.data||[],
       announcements,
       generatedAt:new Date().toISOString()
