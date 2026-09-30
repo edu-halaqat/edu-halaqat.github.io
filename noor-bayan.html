@@ -25,8 +25,8 @@ nav{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0
 </header>
 <main>
 <section class="intro"><b>كتاب نور البيان</b><div id="lessonTitle">معاينة صفحة الدرس المقرر في حلقات التلقين.</div></section>
-<nav><button class="btn" id="prev">الصفحة السابقة</button><button class="btn primary" id="reload">فتح الصفحة</button><button class="btn" id="next">الصفحة التالية</button><a class="btn" id="fallbackLink" target="_blank" rel="noopener noreferrer">فتح النسخة الاحتياطية</a></nav>
-<section class="viewer"><iframe id="pdf" title="كتاب نور البيان"></iframe><div class="fallback" id="err" hidden>إذا تعذر عرض الصفحة داخل المتصفح، استخدم زر «فتح النسخة الاحتياطية» أعلاه.</div></section>
+<nav><button class="btn" id="prev">الصفحة السابقة</button><button class="btn primary" id="reload">إعادة تحميل الصفحة</button><button class="btn" id="next">الصفحة التالية</button><a class="btn" id="directLink" target="_blank" rel="noopener noreferrer">فتح PDF مباشرة</a><a class="btn" id="fallbackLink" target="_blank" rel="noopener noreferrer">فتح نسخة Google Drive</a></nav>
+<section class="viewer"><iframe id="pdf" title="كتاب نور البيان" referrerpolicy="no-referrer"></iframe><div class="fallback" id="err" hidden>إذا لم تظهر الصفحة خلال ثوانٍ، استخدم «فتح PDF مباشرة» أو «فتح نسخة Google Drive». رقم الصفحة المطلوب ظاهر أعلى الشاشة.</div></section>
 </main>
 <script>
 (()=>{'use strict';
@@ -34,8 +34,8 @@ nav{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0
  const DRIVE='https://drive.google.com/file/d/1MDXoqUOHw5O7QGJo7upcIYIRTMOK4Tzo/preview';
  const p=new URLSearchParams(location.search);let page=Math.min(98,Math.max(1,Number(p.get('page')||3)||3));
  const title=(p.get('title')||'').slice(0,140),to=Math.min(98,Math.max(page,Number(p.get('to')||page)||page));
- const frame=document.getElementById('pdf'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle'),fallback=document.getElementById('fallbackLink');
- const show=()=>{chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;lt.textContent=title||'معاينة صفحة الدرس المقرر في حلقات التلقين.';frame.src=PROXY+'#page='+page+'&zoom=page-width';fallback.href=DRIVE;history.replaceState(null,'','?page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''))};
+ const frame=document.getElementById('pdf'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle'),fallback=document.getElementById('fallbackLink'),direct=document.getElementById('directLink'),err=document.getElementById('err');
+ const show=()=>{chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;lt.textContent=(title||'معاينة صفحة الدرس المقرر في حلقات التلقين.')+' — ابدأ من الصفحة '+page+'.';const src=PROXY+'?t='+(Date.now());frame.src='https://docs.google.com/gview?embedded=1&url='+encodeURIComponent(src)+'#page='+page;direct.href=PROXY+'#page='+page+'&zoom=page-width';fallback.href=DRIVE;err.hidden=true;setTimeout(()=>{err.hidden=false},7000);history.replaceState(null,'','?page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''))};
  document.getElementById('prev').onclick=()=>{page=Math.max(1,page-1);show()};document.getElementById('next').onclick=()=>{page=Math.min(98,page+1);show()};document.getElementById('reload').onclick=show;
  frame.addEventListener('error',()=>document.getElementById('err').hidden=false);show();
 })();
