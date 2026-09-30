@@ -763,6 +763,40 @@ async function statisticsPage(root){
  action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('حدّث المؤشرات أولًا');excelApi().exportTable(exported.title,exported.head,exported.data,[['عدد الحلقات',exported.data.length]])});
  await load()
 }
+
+const noorLessonUrl=l=>'/noor-bayan.html?page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const openTalaqqinLesson=l=>{
+ if(!l)return;
+ if(l.pageFrom)window.open(noorLessonUrl(l),'_blank','noopener,noreferrer');
+ else window.open('https://quran.ksu.edu.sa/','_blank','noopener,noreferrer');
+};
+const showTalaqqinCurriculum=async()=>{
+ const lessons=await result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
+ const b=modal('منهج حلقات التلقين · نور البيان');
+ b.innerHTML='<p>المسار الزمني المعتمد 50 أسبوعًا، والتقدم إتقاني: لا ينتقل الطالب إلى الدرس التالي حتى يجتاز تقييم الدرس الحالي.</p>'+
+ table(['#','الوحدة','الأسابيع','الدرس','صفحات نور البيان'],lessons.map(x=>[
+   esc(x.lesson_no),esc(x.unit_name),esc(x.unit_week_start===x.unit_week_end?x.unit_week_start:(x.unit_week_start+'–'+x.unit_week_end)),
+   esc(x.lesson_title),esc(x.book_page_from?(x.book_page_from+(x.book_page_to!==x.book_page_from?'–'+x.book_page_to:'')):'القراءة من المصحف')
+ ]));
+};
+const assessTalaqqinStudent=(root,row)=>{
+ const l=row.lesson||{},b=modal('تقييم درس التلقين · '+row.fullName);
+ b.innerHTML=\`<form><p><b>\${esc(l.title||'الدرس الحالي')}</b><br><span class="sl-help">\${esc(l.unitName||'')} · الخطة الزمنية: الأسبوع \${esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd))}</span></p>
+ <div class="sl-toolbar">\${l.pageFrom?button('فتح صفحة الدرس','open-lesson'):''}\${l.mediaUrl?button('استماع / مشاهدة الشرح','media'):''}</div>
+ <label>تقدير الدرس<select name="rating" required><option value="">اختر التقدير</option><option>ممتاز</option><option>جيد جدًا</option><option>جيد</option><option>يحتاج إعادة</option><option>لم يسمع</option></select></label>
+ <label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>
+ <p class="sl-help">ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى الدرس نفسه لليوم التالي.</p>
+ <button type="submit" class="button button-primary">حفظ التقييم</button></form>\`;
+ if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l));
+ if(l.mediaUrl)action(b,b.querySelector('[data-action="media"]'),()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
+ submit(b.querySelector('form'),async()=>{
+   const r=await rpc('save_talaqqin_assessment',{p_student_id:row.studentId,p_rating:val(b,'rating'),p_notes:b.querySelector('[name="notes"]').value.trim()||null});
+   b.closest('dialog').close();
+   msg(root,r.completed?'أتم الطالب منهج حلقات التلقين كاملًا.':(r.passed?'تم اجتياز الدرس والانتقال إلى الدرس التالي.':'حُفظ التقييم وسيُعاد الدرس نفسه.'));
+   await dashboard(root);
+ });
+};
+
 async function dashboard(root){
  const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
  const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
@@ -781,6 +815,26 @@ async function dashboard(root){
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
  const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+
+ let talaqqinRows=[];
+ try{talaqqinRows=await rpc('get_talaqqin_dashboard',{})}catch(e){talaqqinRows=[]}
+ if(Array.isArray(talaqqinRows)&&talaqqinRows.length){
+   const sec=document.createElement('section');sec.className='sl-tasks sl-talaqqin-dashboard';
+   sec.innerHTML='<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><span class="sl-kicker">حلقات التلقين</span><h3 style="margin:5px 0">دروس اليوم · نور البيان</h3><p class="sl-help">يظهر لكل طالب درسه الحالي مباشرة، وبعد التقييم ينتقل تلقائيًا إلى الدرس التالي عند الاجتياز.</p></div>'+button('عرض منهج 50 أسبوعًا','talaqqin-curriculum')+'</div>'+
+   '<div class="sl-quick-grid">'+talaqqinRows.map((r,i)=>{
+      const l=r.lesson||{},pages=l.pageFrom?('صفحة '+l.pageFrom+(l.pageTo&&l.pageTo!==l.pageFrom?'–'+l.pageTo:'')):'القراءة من المصحف';
+      return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>'+esc(r.circleName||'')+'</span><strong style="display:block;margin:8px 0;color:#073c34">'+esc(r.completed?'أتم المنهج':(l.title||'—'))+'</strong><span>'+esc(l.unitName||'')+(l.weekStart?' · الأسابيع '+esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd)):'')+' · '+esc(pages)+'</span><span>المنجز: '+esc(r.completedLessons||0)+' / 34</span><div class="sl-toolbar" style="margin-top:8px">'+(!r.completed&&l.pageFrom?button('فتح الدرس','tl-open-'+i):'')+(!r.completed&&l.mediaUrl?button('استماع / مشاهدة','tl-media-'+i):'')+(!r.completed?button('تقييم الدرس','tl-rate-'+i):'')+'</div></article>'
+   }).join('')+'</div>';
+   const head=root.querySelector('.sl-session-head');if(head)head.insertAdjacentElement('afterend',sec);else root.prepend(sec);
+   action(sec,sec.querySelector('[data-action="talaqqin-curriculum"]'),showTalaqqinCurriculum);
+   talaqqinRows.forEach((r,i)=>{
+     const l=r.lesson||{};
+     const op=sec.querySelector('[data-action="tl-open-'+i+'"]');if(op)action(sec,op,()=>openTalaqqinLesson(l));
+     const md=sec.querySelector('[data-action="tl-media-'+i+'"]');if(md)action(sec,md,()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
+     const rt=sec.querySelector('[data-action="tl-rate-'+i+'"]');if(rt)action(sec,rt,()=>assessTalaqqinStudent(root,r));
+   });
+ }
+
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
