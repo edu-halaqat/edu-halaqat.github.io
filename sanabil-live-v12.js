@@ -465,6 +465,14 @@ async function outcomesPage(root){
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
+  const circleMeta=l.circles.find(x=>x.id===circle);
+  if(circleMeta?.circle_type==='حلقات التلقين'){
+    if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
+    const all=await rpc('get_talaqqin_dashboard',{}),items=(all||[]).filter(x=>x.circleId===circle),box=root.querySelector('.sl-data');
+    box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>نور البيان · دروس اليوم</h3><p>قيّم إتقان الدرس الحالي؛ عند «ممتاز/جيد جدًا/جيد» ينتقل الطالب مباشرة إلى الدرس التالي، وإلا يبقى على الدرس نفسه.</p></div></section>'+(items.length?'<div class="sl-quick-grid">'+items.map((r,i)=>{const ll=r.lesson||{},pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):'القراءة من المصحف';return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>'+esc(ll.unitName||'')+' · '+esc(pg)+'</span><strong style="display:block;margin:8px 0">'+esc(r.completed?'أتم المنهج':(ll.title||'—'))+'</strong><span>المنجز: '+esc(r.completedLessons||0)+' / 34'+(ll.weekStart?' · الخطة: الأسبوع '+esc(ll.weekStart===ll.weekEnd?ll.weekStart:(ll.weekStart+'–'+ll.weekEnd)):'')+'</span><div class="sl-toolbar">'+(!r.completed&&ll.pageFrom?button('فتح الدرس','to-open-'+i):'')+(!r.completed&&ll.mediaUrl?button('استماع / مشاهدة','to-media-'+i):'')+(!r.completed?button('تقييم','to-rate-'+i):'')+'</div></article>'}).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+    items.forEach((r,i)=>{const ll=r.lesson||{},op=box.querySelector('[data-action="to-open-'+i+'"]'),md=box.querySelector('[data-action="to-media-'+i+'"]'),rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll));if(md)action(box,md,()=>window.open(ll.mediaUrl,'_blank','noopener,noreferrer'));if(rt)action(box,rt,()=>assessTalaqqinStudent(root,r))});
+    return;
+  }
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
   const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'];
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
