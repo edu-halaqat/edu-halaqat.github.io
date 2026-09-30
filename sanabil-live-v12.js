@@ -227,7 +227,7 @@ async function parseEntityDatabaseNative(file){
      guardianPhone:row[11]||null,
      studentPhone:row[12]||null,
      socialStatus:row[9]||null,
-     evaluation:row[14]||null,
+     evaluation:(row[14]||'').replace(/^أجيال\s*/,'التلقين ')||null,
      registrationStatus:'منتظم',
      complex,circle,teacher,active:true,
      __row:n
