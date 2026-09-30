@@ -468,9 +468,36 @@ async function outcomesPage(root){
   const circleMeta=l.circles.find(x=>x.id===circle);
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
-    const all=await rpc('get_talaqqin_dashboard',{}),items=(all||[]).filter(x=>x.circleId===circle),box=root.querySelector('.sl-data');
-    box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>نور البيان · دروس اليوم</h3><p>قيّم إتقان الدرس الحالي؛ عند «ممتاز/جيد جدًا/جيد» ينتقل الطالب مباشرة إلى الدرس التالي، وإلا يبقى على الدرس نفسه.</p></div></section>'+(items.length?'<div class="sl-quick-grid">'+items.map((r,i)=>{const ll=r.lesson||{},pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):'القراءة من المصحف';return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>'+esc(ll.unitName||'')+' · '+esc(pg)+'</span><strong style="display:block;margin:8px 0">'+esc(r.completed?'أتم المنهج':(ll.title||'—'))+'</strong><span>المنجز: '+esc(r.completedLessons||0)+' / 34'+(ll.weekStart?' · الخطة: الأسبوع '+esc(ll.weekStart===ll.weekEnd?ll.weekStart:(ll.weekStart+'–'+ll.weekEnd)):'')+'</span><div class="sl-toolbar">'+(!r.completed&&ll.pageFrom?button('فتح الدرس','to-open-'+i):'')+(!r.completed&&ll.mediaUrl?button('استماع / مشاهدة','to-media-'+i):'')+(!r.completed?button('تقييم','to-rate-'+i):'')+'</div></article>'}).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
-    items.forEach((r,i)=>{const ll=r.lesson||{},op=box.querySelector('[data-action="to-open-'+i+'"]'),md=box.querySelector('[data-action="to-media-'+i+'"]'),rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll));if(md)action(box,md,()=>window.open(ll.mediaUrl,'_blank','noopener,noreferrer'));if(rt)action(box,rt,()=>assessTalaqqinStudent(root,r))});
+    const box=root.querySelector('.sl-data');
+    const renderTalaqqin=async()=>{
+      const all=await rpc('get_talaqqin_dashboard',{}),items=(all||[]).filter(x=>x.circleId===circle);
+      box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>نور البيان · متابعة فردية</h3><p>ليس جميع الطلاب على الموضع أو المدة نفسها؛ حدد موضع كل طالب وخطته الشخصية، ثم قيّم الدرس الحالي.</p></div></section>'+
+       (items.length?'<div class="sl-quick-grid">'+items.map((r,i)=>{
+        const ll=r.lesson||{},placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),weeks=r.pacing?.totalWeeks||50,isCustom=r.lessonSource==='custom';
+        return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>الخطة الشخصية: '+esc(weeks)+' أسبوعًا</span><strong style="display:block;margin:8px 0">'+(isCustom?'<span class="status">درس خاص</span> ':'')+esc(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—')))+'</strong>'+
+         '<span>'+(placed?(esc(ll.unitName||'')+' · '+esc(pg)+(ll.weekStart?' · المرجعي: الأسابيع '+esc(ll.weekStart===ll.weekEnd?ll.weekStart:(ll.weekStart+'–'+ll.weekEnd)):'')):'حدد الدرس الذي وصل إليه الطالب فعليًا قبل بدء التقييم.')+'</span>'+
+         '<div class="sl-toolbar">'+
+          (placed&&!r.completed&&ll.pageFrom?button('فتح الدرس','to-open-'+i):'')+
+          (placed&&!r.completed&&ll.mediaUrl?button('استماع / مشاهدة','to-media-'+i):'')+
+          (placed&&!r.completed?button('تقييم','to-rate-'+i):'')+
+          button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+
+          button('الخطة الشخصية','to-pace-'+i)+
+          (placed&&!r.completed&&!r.activeCustomLesson?button('درس خاص','to-custom-'+i):'')+
+          (r.activeCustomLesson?button('إلغاء الدرس الخاص','to-cancel-'+i):'')+
+         '</div></article>'
+       }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      items.forEach((r,i)=>{
+        const ll=r.lesson||{};
+        const op=box.querySelector('[data-action="to-open-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll));
+        const md=box.querySelector('[data-action="to-media-'+i+'"]');if(md)action(box,md,()=>window.open(ll.mediaUrl,'_blank','noopener,noreferrer'));
+        const rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(rt)action(box,rt,()=>assessTalaqqinStudent(root,r,renderTalaqqin));
+        const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
+        const pc=box.querySelector('[data-action="to-pace-'+i+'"]');if(pc)action(box,pc,()=>paceTalaqqinStudent(root,r,renderTalaqqin));
+        const cu=box.querySelector('[data-action="to-custom-'+i+'"]');if(cu)action(box,cu,()=>addCustomTalaqqinLesson(root,r,renderTalaqqin));
+        const cc=box.querySelector('[data-action="to-cancel-'+i+'"]');if(cc)action(box,cc,()=>cancelCustomTalaqqinLesson(root,r,renderTalaqqin));
+      });
+    };
+    await renderTalaqqin();
     return;
   }
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
@@ -894,18 +921,34 @@ async function dashboard(root){
  try{talaqqinRows=await rpc('get_talaqqin_dashboard',{})}catch(e){talaqqinRows=[]}
  if(Array.isArray(talaqqinRows)&&talaqqinRows.length){
    const sec=document.createElement('section');sec.className='sl-tasks sl-talaqqin-dashboard';
-   sec.innerHTML='<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><span class="sl-kicker">حلقات التلقين</span><h3 style="margin:5px 0">دروس اليوم · نور البيان</h3><p class="sl-help">يظهر لكل طالب درسه الحالي مباشرة، وبعد التقييم ينتقل تلقائيًا إلى الدرس التالي عند الاجتياز.</p></div>'+button('عرض منهج 50 أسبوعًا','talaqqin-curriculum')+'</div>'+
+   sec.innerHTML='<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><span class="sl-kicker">حلقات التلقين</span><h3 style="margin:5px 0">المسارات الفردية · نور البيان</h3><p class="sl-help">يحدد المعلم موضع البداية والمدة المناسبة لكل طالب، والخطة ذات 50 أسبوعًا مرجع قابل للتخصيص.</p></div>'+button('عرض المنهج المرجعي','talaqqin-curriculum')+'</div>'+
    '<div class="sl-quick-grid">'+talaqqinRows.map((r,i)=>{
-      const l=r.lesson||{},pages=l.pageFrom?('صفحة '+l.pageFrom+(l.pageTo&&l.pageTo!==l.pageFrom?'–'+l.pageTo:'')):'القراءة من المصحف';
-      return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>'+esc(r.circleName||'')+'</span><strong style="display:block;margin:8px 0;color:#073c34">'+esc(r.completed?'أتم المنهج':(l.title||'—'))+'</strong><span>'+esc(l.unitName||'')+(l.weekStart?' · الأسابيع '+esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd)):'')+' · '+esc(pages)+'</span><span>المنجز: '+esc(r.completedLessons||0)+' / 34</span><div class="sl-toolbar" style="margin-top:8px">'+(!r.completed&&l.pageFrom?button('فتح الدرس','tl-open-'+i):'')+(!r.completed&&l.mediaUrl?button('استماع / مشاهدة','tl-media-'+i):'')+(!r.completed?button('تقييم الدرس','tl-rate-'+i):'')+'</div></article>'
+      const l=r.lesson||{},placed=!!r.placementSet,pages=l.pageFrom?('صفحة '+l.pageFrom+(l.pageTo&&l.pageTo!==l.pageFrom?'–'+l.pageTo:'')):(placed?'القراءة من المصحف':'—'),weeks=r.pacing?.totalWeeks||50,isCustom=r.lessonSource==='custom';
+      const title=r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية بعد':(l.title||'—'));
+      const sub=!placed?'يلزم أن يحدد المعلم الدرس الذي وصل إليه الطالب.':(esc(l.unitName||'')+(l.weekStart?' · المرجعي: الأسابيع '+esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd)):'')+' · '+esc(pages));
+      return '<article class="sl-quick-action" style="text-align:right;cursor:default"><b>'+esc(r.fullName)+'</b><span>'+esc(r.circleName||'')+'</span><strong style="display:block;margin:8px 0;color:#073c34">'+(isCustom?'<span class="status">درس خاص</span> ':'')+esc(title)+'</strong><span>'+sub+'</span><span>الخطة الشخصية: '+esc(weeks)+' أسبوعًا · المنجز من المنهج المرجعي: '+esc(r.completedLessons||0)+' / 34</span>'+
+       (r.planNote?'<span>ملاحظة الخطة: '+esc(r.planNote)+'</span>':'')+
+       '<div class="sl-toolbar" style="margin-top:8px">'+
+       (placed&&!r.completed&&l.pageFrom?button('فتح الدرس','tl-open-'+i):'')+
+       (placed&&!r.completed&&l.mediaUrl?button('استماع / مشاهدة','tl-media-'+i):'')+
+       (placed&&!r.completed?button('تقييم الدرس','tl-rate-'+i):'')+
+       button(placed?'تعديل موضع الطالب':'تحديد موضع البداية','tl-place-'+i)+
+       button('الخطة الشخصية','tl-pace-'+i)+
+       (placed&&!r.completed&&!r.activeCustomLesson?button('إضافة درس خاص','tl-custom-'+i):'')+
+       (r.activeCustomLesson?button('إلغاء الدرس الخاص','tl-cancel-'+i):'')+
+       '</div></article>'
    }).join('')+'</div>';
    const head=root.querySelector('.sl-session-head');if(head)head.insertAdjacentElement('afterend',sec);else root.prepend(sec);
    action(sec,sec.querySelector('[data-action="talaqqin-curriculum"]'),showTalaqqinCurriculum);
    talaqqinRows.forEach((r,i)=>{
-     const l=r.lesson||{};
+     const l=r.lesson||{},refresh=()=>dashboard(root);
      const op=sec.querySelector('[data-action="tl-open-'+i+'"]');if(op)action(sec,op,()=>openTalaqqinLesson(l));
      const md=sec.querySelector('[data-action="tl-media-'+i+'"]');if(md)action(sec,md,()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
-     const rt=sec.querySelector('[data-action="tl-rate-'+i+'"]');if(rt)action(sec,rt,()=>assessTalaqqinStudent(root,r));
+     const rt=sec.querySelector('[data-action="tl-rate-'+i+'"]');if(rt)action(sec,rt,()=>assessTalaqqinStudent(root,r,refresh));
+     const pl=sec.querySelector('[data-action="tl-place-'+i+'"]');if(pl)action(sec,pl,()=>placeTalaqqinStudent(root,r,refresh));
+     const pc=sec.querySelector('[data-action="tl-pace-'+i+'"]');if(pc)action(sec,pc,()=>paceTalaqqinStudent(root,r,refresh));
+     const cu=sec.querySelector('[data-action="tl-custom-'+i+'"]');if(cu)action(sec,cu,()=>addCustomTalaqqinLesson(root,r,refresh));
+     const cc=sec.querySelector('[data-action="tl-cancel-'+i+'"]');if(cc)action(sec,cc,()=>cancelCustomTalaqqinLesson(root,r,refresh));
    });
  }
 
