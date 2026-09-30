@@ -86,6 +86,60 @@ function validate(payload){
  for(const r of payload.mosques||[]){if(!Number.isFinite(r.latitude)||r.latitude<-90||r.latitude>90)errors.push(`المساجد الصف ${r.__row}: خط العرض غير صحيح`);if(!Number.isFinite(r.longitude)||r.longitude<-180||r.longitude>180)errors.push(`المساجد الصف ${r.__row}: خط الطول غير صحيح`);if(r.weekdays&&r.weekdays.length===0)warnings.push(`المساجد الصف ${r.__row}: أيام الدوام فارغة وسيستخدم الخادم الإعداد الافتراضي`)}
  return{errors,warnings,counts:Object.fromEntries(Object.entries(payload).map(([k,v])=>[k,Array.isArray(v)?v.length:0]))}
 }
+
+const sourceDate=v=>{
+ const s=clean(v);if(!s)return '';
+ if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+ if(/^\d+(?:\.0+)?$/.test(s)){const n=Number(s);if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.round(n*86400000));return d.toISOString().slice(0,10)}}
+ return s.replace(/\//g,'-');
+};
+const sourceCell=(row,col)=>clean(row.getCell(col).value);
+async function parseEntityDatabase(file){
+ const ExcelJS=excel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
+ const studentsWs=wb.getWorksheet('بيانات طلاب الجهة'),circlesWs=wb.getWorksheet('بيانات الحلقات داخل الجهة'),entityWs=wb.getWorksheet('بيانات الجهة التعليمية');
+ if(!studentsWs||!circlesWs)throw Error('الملف لا يطابق قاعدة بيانات الجهة: يلزم وجود ورقتي «بيانات طلاب الجهة» و«بيانات الحلقات داخل الجهة».');
+ const entityName=entityWs?sourceCell(entityWs.getRow(2),2):'';
+ const complex=(entityName||'').replace(/\s+بمسجد.*$/,'').trim()||'حلقات بر الوالدين';
+ const circleRows=[];
+ circlesWs.eachRow((row,n)=>{if(n<3)return;const name=sourceCell(row,2),teacher=sourceCell(row,6),count=sourceCell(row,5),period=sourceCell(row,4);if(!name||!teacher)return;circleRows.push({name,teacher,count,period})});
+ const primaryByTeacher=new Map();
+ for(const x of circleRows){
+   const numeric=/^\d+(?:\.0+)?$/.test(String(x.count||''))?Number(x.count):NaN;
+   if(Number.isFinite(numeric)&&numeric>0&&!primaryByTeacher.has(x.teacher))primaryByTeacher.set(x.teacher,x.name);
+ }
+ for(const x of circleRows)if(!primaryByTeacher.has(x.teacher))primaryByTeacher.set(x.teacher,x.name);
+ const students=[];
+ const errors=[];
+ studentsWs.eachRow((row,n)=>{
+   if(n<3)return;
+   const fullName=sourceCell(row,2);if(!fullName)return;
+   const teacher=sourceCell(row,13),circle=primaryByTeacher.get(teacher)||'';
+   if(!teacher||!circle){errors.push('الطلاب الصف '+n+': تعذر تحديد الحلقة من اسم المعلم «'+(teacher||'غير موجود')+'».');return}
+   students.push({
+     fullName,
+     nationality:sourceCell(row,5)||null,
+     birthDate:sourceDate(row.getCell(6).value)||null,
+     identityNumber:sourceCell(row,3)||null,
+     stage:sourceCell(row,10)||null,
+     guardianPhone:sourceCell(row,11)||null,
+     studentPhone:sourceCell(row,12)||null,
+     evaluation:sourceCell(row,14)||null,
+     registrationStatus:'منتظم',
+     complex,circle,teacher,active:true,
+     __row:n
+   });
+ });
+ const expected=studentsWs.actualRowCount?Math.max(0,studentsWs.actualRowCount-2):students.length;
+ const warnings=[];
+ if(expected!==students.length)warnings.push('تمت قراءة '+students.length+' طالبًا من أصل '+expected+' صفًا مستخدمًا؛ راجع الصفوف الفارغة أو غير المكتملة.');
+ if(!students.length)errors.push('لم يتم العثور على أي طالب في ورقة بيانات الطلاب.');
+ return{
+   payload:{complexes:[],mosques:[],circles:[],teachers:[],students},
+   validation:{errors,warnings,counts:{complexes:0,mosques:0,circles:0,teachers:0,students:students.length}},
+   source:{entityName,complex,circleRows:circleRows.length}
+ };
+}
+
 async function parse(file){
  const ExcelJS=excel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
  const payload={complexes:[],mosques:[],circles:[],teachers:[],students:[]};
@@ -175,5 +229,5 @@ function printTable(title,headers,rows,meta=[]){
  w.document.close();
 }
 
-window.SanabilExcel={template,parse,validate,exportMaster,exportTests,printTests,exportTable,printTable};
+window.SanabilExcel={template,parse,parseEntityDatabase,validate,exportMaster,exportTests,printTests,exportTable,printTable};
 })();
