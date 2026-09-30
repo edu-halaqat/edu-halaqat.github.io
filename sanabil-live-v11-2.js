@@ -231,7 +231,7 @@ async function outcomesPage(root){
     if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${esc(title)}</b><span>لا يوجد مقرر</span></div></section>`;
     return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+actionId)}</div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div></section>`
   };
-  const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>counts[x.attendance]?counts[x.attendance]++:counts.unset++);const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
+  const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>Object.prototype.hasOwnProperty.call(counts,x.attendance)&&x.attendance!=='unset'?counts[x.attendance]++:counts.unset++);const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
   const syncCard=i=>{
     const st=states[i],card=box.querySelector(`[data-student-card="${i}"]`),blocked=['absent','excused'].includes(st.attendance);if(!card)return;
     card.dataset.attendance=st.attendance||'unset';
