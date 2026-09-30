@@ -107,7 +107,13 @@ async function studentCardBlob(student,lookups){
  const rows=[['المجمع',complex?.name||'—'],['الحلقة',circle?.name||student.circle_name||'—'],['المعلم',teacher?.full_name||student.teacher_name||'—'],['المرحلة',student.stage||'—']];
  let y=425;for(const [k,v] of rows){drawRound(ctx,80,y,920,92,20,'#ffffff','#e4dccf');ctx.fillStyle='#0e5848';ctx.font='700 25px Alyamama, sans-serif';ctx.fillText(k,950,y+35);ctx.fillStyle='#263c36';ctx.font='400 28px Alyamama, sans-serif';ctx.fillText(String(v),950,y+70,820);y+=110}
  drawRound(ctx,80,860,920,420,28,'#ffffff','#d8bd88');
- const qblob=new Blob([data.qrSvg],{type:'image/svg+xml'}),qu=URL.createObjectURL(qblob),qr=await canvasImage(qu);ctx.drawImage(qr,375,895,330,330);URL.revokeObjectURL(qu);
+ if(Array.isArray(data.qrRows)&&data.qrRows.length){
+   const n=Number(data.qrSize||data.qrRows.length),box=330,quiet=4,total=n+quiet*2,cell=box/total,left=375,top=895;
+   ctx.fillStyle='#ffffff';ctx.fillRect(left,top,box,box);ctx.fillStyle='#004a3a';
+   for(let y=0;y<n;y++){const row=String(data.qrRows[y]||'');for(let x=0;x<n;x++)if(row[x]==='1')ctx.fillRect(left+(x+quiet)*cell,top+(y+quiet)*cell,Math.ceil(cell+.25),Math.ceil(cell+.25))}
+ }else if(data.qrSvg){
+   const qblob=new Blob([data.qrSvg],{type:'image/svg+xml'}),qu=URL.createObjectURL(qblob),qr=await canvasImage(qu);ctx.drawImage(qr,375,895,330,330);URL.revokeObjectURL(qu);
+ }else throw Error('تعذر توليد رمز بطاقة الطالب.');
  ctx.textAlign='center';ctx.fillStyle='#004a3a';ctx.font='700 27px Alyamama, sans-serif';ctx.fillText('امسح الرمز لفتح بوابة ولي الأمر',540,1260);
  ctx.fillStyle='#66736f';ctx.font='400 22px Alyamama, sans-serif';ctx.fillText('متابعة الحصيلة والحضور والخطط والاختبارات يوميًا',540,1300);
  ctx.fillStyle='#004a3a';ctx.fillRect(0,1365,1080,55);ctx.fillStyle='#fff';ctx.font='400 20px Alyamama, sans-serif';ctx.fillText('سنابل الوحي · متابعة تعليمية موثوقة بين الحلقة والأسرة',540,1400);
