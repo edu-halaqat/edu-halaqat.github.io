@@ -138,7 +138,7 @@ async function shareOutcomeImage(student,date,lesson,recent,review,ratings,atten
 }
 const ageFromBirth=d=>{if(!d)return'—';const b=new Date(d+'T00:00:00'),n=new Date;if(Number.isNaN(b.getTime()))return'—';let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;return a>=0?a:'—'};
 const excelApi=()=>{if(!window.SanabilExcel)throw Error('مكوّن Excel لم يكتمل تحميله؛ حدّث الصفحة ثم أعد المحاولة.');return window.SanabilExcel};
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-v12'};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-v12.2'};
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
@@ -374,7 +374,7 @@ async function plansPage(root){
 
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
- <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات، مع إمكان إنشاء أكثر من مراجعة متزامنة من اتجاهات مختلفة.</div>
+ <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-toolbar">${button('خطة طالب متكاملة','bundle')}${button('إضافة مسار منفرد','new')}</div><div class="sl-data"></div>`;
 
  const planCard=(p,i)=>{
