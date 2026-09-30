@@ -38,7 +38,7 @@ Deno.serve(async(req:Request)=>{
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     const since=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
     const [
-      circleRes,teacherRes,outcomesRes,attendanceRes,testsRes,plansRes,planDaysRes,awardsRes,announcementsRes
+      circleRes,teacherRes,outcomesRes,attendanceRes,testsRes,plansRes,planDaysRes,prepPlanDaysRes,awardsRes,announcementsRes
     ]=await Promise.all([
       db.from("circles").select("name,circle_type").eq("id",s.circle_id).maybeSingle(),
       s.teacher_id?db.from("teachers").select("full_name").eq("id",s.teacher_id).maybeSingle():Promise.resolve({data:null,error:null}),
@@ -52,12 +52,14 @@ Deno.serve(async(req:Request)=>{
         .eq("student_id",s.id).eq("status","active").order("updated_at",{ascending:false}).limit(20),
       db.from("plan_days").select("plan_id,date_key,target_from,target_to,carry_from,carry_in,target_amount,segments,cycle_no,display_label")
         .eq("student_id",s.id).gte("date_key",today).order("date_key",{ascending:true}).limit(60),
+      db.from("plan_days").select("plan_id,date_key,target_from,target_to,carry_from,carry_in,target_amount,segments,cycle_no,display_label")
+        .eq("student_id",s.id).gt("date_key",today).order("date_key",{ascending:true}).limit(60),
       db.from("student_awards").select("title,category,awarded_on,note")
         .eq("student_id",s.id).order("awarded_on",{ascending:false}).limit(20),
       db.from("announcements").select("title,body,starts_on,ends_on,complex_id,circle_id,active")
         .eq("org_id",g.org_id).eq("active",true).lte("starts_on",today).order("starts_on",{ascending:false}).limit(30)
     ]);
-    for(const r of [circleRes,teacherRes,outcomesRes,attendanceRes,testsRes,plansRes,planDaysRes,awardsRes,announcementsRes]){
+    for(const r of [circleRes,teacherRes,outcomesRes,attendanceRes,testsRes,plansRes,planDaysRes,prepPlanDaysRes,awardsRes,announcementsRes]){
       if(r.error) throw r.error;
     }
     const announcements=(announcementsRes.data||[]).filter((a:any)=>
@@ -95,11 +97,18 @@ Deno.serve(async(req:Request)=>{
       }
     }
     const activePlans=new Map((plansRes.data||[]).map((p:any)=>[p.id,p]));
+    const assignment=(d:any,p:any)=>({planId:p.id,planName:p.name||null,type:p.type,date:d.date_key,from:d.carry_from||d.target_from,to:d.target_to,amount:Number(d.target_amount||0)+Number(d.carry_in||0),unit:p.unit,direction:p.direction,segments:d.segments||[],cycleNo:d.cycle_no||1,displayLabel:d.display_label||null});
     const nextAssignments:any[]=[];
     for(const d of (planDaysRes.data||[])){
       const p:any=activePlans.get(d.plan_id);if(!p)continue;
       if(nextAssignments.some(x=>x.planId===p.id))continue;
-      nextAssignments.push({planId:p.id,planName:p.name||null,type:p.type,date:d.date_key,from:d.carry_from||d.target_from,to:d.target_to,amount:Number(d.target_amount||0)+Number(d.carry_in||0),unit:p.unit,direction:p.direction,segments:d.segments||[],cycleNo:d.cycle_no||1,displayLabel:d.display_label||null});
+      nextAssignments.push(assignment(d,p));
+    }
+    const prepAssignments:any[]=[];
+    for(const d of (prepPlanDaysRes.data||[])){
+      const p:any=activePlans.get(d.plan_id);if(!p)continue;
+      if(prepAssignments.some(x=>x.planId===p.id))continue;
+      prepAssignments.push(assignment(d,p));
     }
 
     return out({
@@ -115,6 +124,7 @@ Deno.serve(async(req:Request)=>{
       tests:testsRes.data||[],
       plans:plansRes.data||[],
       nextAssignments,
+      prepAssignments,
       talaqqin,
       awards:awardsRes.data||[],
       announcements,
