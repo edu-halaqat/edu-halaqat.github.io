@@ -48,9 +48,9 @@ Deno.serve(async(req:Request)=>{
         .eq("student_id",s.id).gte("date_key",since).order("date_key",{ascending:false}).limit(60),
       db.from("tests").select("performed_at,type,syllabus_snapshot,scores,public_code,notes")
         .eq("student_id",s.id).order("performed_at",{ascending:false}).limit(10),
-      db.from("plans").select("id,name,type,unit,daily_amount,direction,start_date,end_date,status,cycle_enabled,range_end_surah")
+      db.from("plans").select("id,name,type,unit,daily_amount,direction,start_date,end_date,status,cycle_enabled,range_end_surah,range_end_rub,linked_plan_id")
         .eq("student_id",s.id).eq("status","active").order("updated_at",{ascending:false}).limit(20),
-      db.from("plan_days").select("plan_id,date_key,target_from,target_to,carry_from,carry_in,target_amount,segments,cycle_no")
+      db.from("plan_days").select("plan_id,date_key,target_from,target_to,carry_from,carry_in,target_amount,segments,cycle_no,display_label")
         .eq("student_id",s.id).gte("date_key",today).order("date_key",{ascending:true}).limit(60),
       db.from("student_awards").select("title,category,awarded_on,note")
         .eq("student_id",s.id).order("awarded_on",{ascending:false}).limit(20),
@@ -68,7 +68,7 @@ Deno.serve(async(req:Request)=>{
     for(const d of (planDaysRes.data||[])){
       const p:any=activePlans.get(d.plan_id);if(!p)continue;
       if(nextAssignments.some(x=>x.planId===p.id))continue;
-      nextAssignments.push({planId:p.id,planName:p.name||null,type:p.type,date:d.date_key,from:d.carry_from||d.target_from,to:d.target_to,amount:Number(d.target_amount||0)+Number(d.carry_in||0),unit:p.unit,direction:p.direction,segments:d.segments||[],cycleNo:d.cycle_no||1});
+      nextAssignments.push({planId:p.id,planName:p.name||null,type:p.type,date:d.date_key,from:d.carry_from||d.target_from,to:d.target_to,amount:Number(d.target_amount||0)+Number(d.carry_in||0),unit:p.unit,direction:p.direction,segments:d.segments||[],cycleNo:d.cycle_no||1,displayLabel:d.display_label||null});
     }
 
     return out({
