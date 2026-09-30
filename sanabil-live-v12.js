@@ -138,6 +138,107 @@ async function shareOutcomeImage(student,date,lesson,recent,review,ratings,atten
 }
 const ageFromBirth=d=>{if(!d)return'—';const b=new Date(d+'T00:00:00'),n=new Date;if(Number.isNaN(b.getTime()))return'—';let a=n.getFullYear()-b.getFullYear();const m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))a--;return a>=0?a:'—'};
 const excelApi=()=>{if(!window.SanabilExcel)throw Error('مكوّن Excel لم يكتمل تحميله؛ حدّث الصفحة ثم أعد المحاولة.');return window.SanabilExcel};
+
+const _xlsxU16=(v,o)=>v.getUint16(o,true),_xlsxU32=(v,o)=>v.getUint32(o,true),_xlsxDec=new TextDecoder('utf-8');
+const _xlsxPath=(base,target)=>{
+ if(String(target||'').startsWith('/'))return String(target).replace(/^\/+/,'');
+ const a=base.split('/');a.pop();
+ for(const p of String(target||'').split('/')){if(!p||p==='.')continue;if(p==='..')a.pop();else a.push(p)}
+ return a.join('/');
+};
+async function _xlsxZip(buffer){
+ const view=new DataView(buffer);let eocd=-1;
+ for(let i=buffer.byteLength-22,stop=Math.max(0,buffer.byteLength-70000);i>=stop;i--){if(view.getUint32(i,true)===0x06054b50){eocd=i;break}}
+ if(eocd<0)throw Error('ملف Excel غير صالح أو تالف.');
+ const total=_xlsxU16(view,eocd+10),cdOffset=_xlsxU32(view,eocd+16),entries=new Map;let off=cdOffset;
+ for(let n=0;n<total;n++){
+   if(_xlsxU32(view,off)!==0x02014b50)throw Error('تعذر قراءة فهرس ملف Excel.');
+   const method=_xlsxU16(view,off+10),csize=_xlsxU32(view,off+20),usize=_xlsxU32(view,off+24),flen=_xlsxU16(view,off+28),xlen=_xlsxU16(view,off+30),clen=_xlsxU16(view,off+32),local=_xlsxU32(view,off+42);
+   const name=_xlsxDec.decode(new Uint8Array(buffer,off+46,flen));
+   if(_xlsxU32(view,local)!==0x04034b50)throw Error('تعذر قراءة محتوى ملف Excel.');
+   const lfn=_xlsxU16(view,local+26),lex=_xlsxU16(view,local+28),start=local+30+lfn+lex;
+   entries.set(name,{method,csize,usize,start});off+=46+flen+xlen+clen;
+ }
+ const bytes=async name=>{
+   const e=entries.get(name);if(!e)throw Error('جزء مفقود من ملف Excel: '+name);
+   const raw=new Uint8Array(buffer,e.start,e.csize);
+   if(e.method===0)return new Uint8Array(raw);
+   if(e.method===8){
+     if(typeof DecompressionStream!=='function')throw Error('متصفحك لا يدعم فك ضغط Excel. استخدم Chrome أو Edge محدثًا.');
+     const ds=new DecompressionStream('deflate-raw'),ab=await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer();
+     return new Uint8Array(ab);
+   }
+   throw Error('طريقة ضغط غير مدعومة في ملف Excel.');
+ };
+ return{has:n=>entries.has(n),text:async n=>_xlsxDec.decode(await bytes(n))};
+}
+const _xlsxXml=s=>{const d=new DOMParser().parseFromString(s,'application/xml');if(d.getElementsByTagName('parsererror').length)throw Error('تعذر تحليل ملف Excel.');return d};
+const _xlsxNodes=(d,n)=>Array.from(d.getElementsByTagNameNS('*',n));
+const _xlsxCol=ref=>{let n=0;for(const ch of String(ref||'').match(/^[A-Z]+/)?.[0]||''){n=n*26+(ch.charCodeAt(0)-64)}return n};
+async function _xlsxWorkbook(file){
+ const zip=await _xlsxZip(await file.arrayBuffer()),wdoc=_xlsxXml(await zip.text('xl/workbook.xml')),rdoc=_xlsxXml(await zip.text('xl/_rels/workbook.xml.rels')),rels=new Map;
+ _xlsxNodes(rdoc,'Relationship').forEach(x=>rels.set(x.getAttribute('Id'),x.getAttribute('Target')));
+ const sheets=new Map;
+ _xlsxNodes(wdoc,'sheet').forEach(x=>{const rid=x.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||x.getAttribute('r:id');const t=rels.get(rid);if(t)sheets.set(x.getAttribute('name'),_xlsxPath('xl/workbook.xml',t))});
+ let shared=[];
+ if(zip.has('xl/sharedStrings.xml')){const sdoc=_xlsxXml(await zip.text('xl/sharedStrings.xml'));shared=_xlsxNodes(sdoc,'si').map(si=>_xlsxNodes(si,'t').map(t=>t.textContent||'').join(''))}
+ const readSheet=async name=>{
+   const path=sheets.get(name);if(!path)throw Error('الملف لا يحتوي ورقة «'+name+'».');
+   const doc=_xlsxXml(await zip.text(path)),rows=new Map;
+   for(const row of _xlsxNodes(doc,'row')){
+     const rn=Number(row.getAttribute('r')||0),obj={};
+     for(const cell of Array.from(row.childNodes).filter(x=>x.nodeType===1&&x.localName==='c')){
+       const col=_xlsxCol(cell.getAttribute('r')),type=cell.getAttribute('t')||'',v=Array.from(cell.childNodes).find(x=>x.nodeType===1&&x.localName==='v'),is=Array.from(cell.childNodes).find(x=>x.nodeType===1&&x.localName==='is');let value='';
+       if(type==='s'&&v)value=shared[Number(v.textContent)]??'';
+       else if(type==='inlineStr'&&is)value=_xlsxNodes(is,'t').map(t=>t.textContent||'').join('');
+       else if(v)value=v.textContent||'';
+       obj[col]=String(value??'').trim();
+     }
+     rows.set(rn,obj);
+   }
+   return rows;
+ };
+ return{readSheet};
+}
+const _sourceDate=v=>{
+ const s=String(v??'').trim();if(!s)return null;
+ if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+ if(/^\d+(?:\.0+)?$/.test(s)){const n=Number(s);if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.round(n*86400000));return d.toISOString().slice(0,10)}}
+ return s.replace(/\//g,'-');
+};
+async function parseEntityDatabaseNative(file){
+ const book=await _xlsxWorkbook(file),studentsRows=await book.readSheet('بيانات طلاب الجهة'),circlesRows=await book.readSheet('بيانات الحلقات داخل الجهة'),entityRows=await book.readSheet('بيانات الجهة التعليمية');
+ const entityName=entityRows.get(2)?.[2]||'',complex=(entityName||'').replace(/\s+بمسجد.*$/,'').trim()||'حلقات بر الوالدين',circleRows=[];
+ for(const [n,row] of [...circlesRows.entries()].sort((a,b)=>a[0]-b[0])){if(n<3)continue;const name=row[2]||'',period=row[4]||'',count=row[5]||'',teacher=row[6]||'';if(name&&teacher)circleRows.push({name,period,count,teacher})}
+ const primaryByTeacher=new Map;
+ for(const x of circleRows){const numeric=/^\d+(?:\.0+)?$/.test(x.count)?Number(x.count):NaN;if(Number.isFinite(numeric)&&numeric>0&&!primaryByTeacher.has(x.teacher))primaryByTeacher.set(x.teacher,x.name)}
+ for(const x of circleRows)if(!primaryByTeacher.has(x.teacher))primaryByTeacher.set(x.teacher,x.name);
+ const students=[],errors=[];
+ for(const [n,row] of [...studentsRows.entries()].sort((a,b)=>a[0]-b[0])){
+   if(n<3)continue;const fullName=row[2]||'';if(!fullName)continue;
+   const teacher=row[13]||'',circle=primaryByTeacher.get(teacher)||'';
+   if(!teacher||!circle){errors.push('الطلاب الصف '+n+': تعذر تحديد الحلقة من اسم المعلم «'+(teacher||'غير موجود')+'».');continue}
+   students.push({
+     fullName,
+     nationality:row[5]||null,
+     birthDate:_sourceDate(row[6]),
+     identityNumber:row[3]||null,
+     stage:row[10]||null,
+     guardianPhone:row[11]||null,
+     studentPhone:row[12]||null,
+     socialStatus:row[9]||null,
+     evaluation:row[14]||null,
+     registrationStatus:'منتظم',
+     complex,circle,teacher,active:true,
+     __row:n
+   });
+ }
+ const expected=Math.max(0,[...studentsRows.keys()].filter(n=>n>=3&&studentsRows.get(n)?.[2]).length),warnings=[];
+ if(expected!==students.length)warnings.push('تمت قراءة '+students.length+' طالبًا من أصل '+expected+' سجل طالب؛ راجع الصفوف غير المكتملة.');
+ if(!students.length)errors.push('لم يتم العثور على أي طالب في ورقة بيانات الطلاب.');
+ return{payload:{complexes:[],mosques:[],circles:[],teachers:[],students},validation:{errors,warnings,counts:{complexes:0,mosques:0,circles:0,teachers:0,students:students.length}},source:{entityName,complex,circleRows:circleRows.length}};
+}
+
 const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20260930-v12.2'};
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
@@ -279,7 +380,7 @@ async function studentsPage(root){
    const input=b.querySelector('[name="entity_file"]'),preview=b.querySelector('.sl-import-preview'),go=b.querySelector('[data-action="run-import"]');let parsed=null;
    input.addEventListener('change',async()=>{go.disabled=true;parsed=null;try{
      const file=input.files?.[0];if(!file)throw Error('اختر ملف Excel.');
-     parsed=await excelApi().parseEntityDatabase(file);
+     parsed=await parseEntityDatabaseNative(file);
      const v=parsed.validation;
      preview.innerHTML=`<div class="stats-grid"><article class="stat-card"><span>الطلاب الجاهزون للاستيراد</span><b>${esc(v.counts.students)}</b></article><article class="stat-card"><span>الجهة</span><b>${esc(parsed.source.complex||'—')}</b></article></div>${v.errors.length?'<h3>أخطاء تمنع الاستيراد</h3><ul>'+v.errors.slice(0,30).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${v.warnings.length?'<h3>تنبيهات</h3><ul>'+v.warnings.slice(0,30).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}${!v.errors.length?'<p>تمت قراءة الملف بنجاح. سيُحدّث الطالب الموجود إذا تطابقت هويته، ويُضاف الطالب الجديد إلى حلقته.</p>':''}`;
      go.disabled=!!v.errors.length||!v.counts.students;
