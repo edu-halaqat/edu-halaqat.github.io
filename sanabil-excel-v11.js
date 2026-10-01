@@ -205,7 +205,7 @@ async function activePrintTemplate(type='report'){
  }catch{}
  return null;
 }
-function printBackgroundCss(url){return url?'body:before{content:"";position:fixed;inset:0;background:url("'+html(url)+'") center/100% 100% no-repeat;z-index:-2}body:after{content:"";position:fixed;inset:0;background:#ffffffdc;z-index:-1}':''}
+function printBackgroundCss(url){return url?'body:before{content:"";position:fixed;inset:0;background:url("'+html(url)+'") center/100% 100% no-repeat;z-index:-2}':''}
 async function printTests(tests,title='تقرير نتائج الاختبارات'){
  const rows=tests.map(t=>`<tr><td>${html(t.performed_at?new Date(t.performed_at).toLocaleDateString('ar-SA'):'')}</td><td>${html(t.student_name_snapshot||t.student_name||'')}</td><td>${html(t.circle_name_snapshot||'')}</td><td>${html(t.syllabus_snapshot?.label||t.syllabus_label||'')}</td><td>${html(t.scores?.memorization??'—')}</td><td>${html(t.scores?.tajweed??'—')}</td><td><b>${html(t.scores?.total??'—')}</b></td><td>${scoreGrade(t.scores?.total)}</td></tr>`).join('');
  const scores=tests.map(t=>Number(t.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100:0;
