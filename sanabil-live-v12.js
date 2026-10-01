@@ -7,6 +7,36 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
 const rpc=(name,args)=>result(sb().rpc(name,args));
+const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
+const offlineRead=()=>{try{const x=JSON.parse(localStorage.getItem(OFFLINE_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return[]}};
+const offlineWrite=x=>{localStorage.setItem(OFFLINE_KEY,JSON.stringify(x));window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail:{count:x.length}}))};
+const queueOfflineRpc=(name,args,label)=>{const q=offlineRead();q.push({id:crypto.randomUUID(),name,args,label:label||name,queuedAt:new Date().toISOString()});offlineWrite(q);return{queued:true,saved:Array.isArray(args?.p_rows)?args.p_rows.length:0}};
+const networkFailure=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request/i.test(String(e?.message||e||''));
+const rpcOffline=async(name,args,label)=>{if(!navigator.onLine)return queueOfflineRpc(name,args,label);try{return await rpc(name,args)}catch(e){if(networkFailure(e))return queueOfflineRpc(name,args,label);throw e}};
+let offlineFlushing=false;
+const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{await rpc(item.name,item.args)}catch(e){left.push(item);if(networkFailure(e))left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
+window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
+const sessionCache=()=>{try{return JSON.parse(localStorage.getItem(SESSION_RULE_KEY)||'{}')||{}}catch{return{}}};
+const cacheSessionRule=(circle,data)=>{const c=sessionCache();c[circle]={...data,cachedAt:new Date().toISOString()};localStorage.setItem(SESSION_RULE_KEY,JSON.stringify(c))};
+const localSessionAllowed=(data,date)=>{
+ if(!data?.rule)return{allowed:false,reason:'لا توجد ضوابط جلسة محفوظة على الجهاز؛ اتصل بالإنترنت أولًا.'};
+ if(data.managerOverride)return{allowed:true};
+ const r=data.rule,now=new Date(),parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}).formatToParts(now),get=t=>parts.find(x=>x.type===t)?.value||'';
+ const todayKey=get('year')+'-'+get('month')+'-'+get('day'),dow={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[get('weekday')],days=(r.weekdays||[]).map(Number);
+ if(days.length&&!days.includes(dow))return{allowed:false,reason:'هذا اليوم ليس من أيام دوام الحلقة.'};
+ if(date>todayKey)return{allowed:false,reason:'لا يمكن فتح حصيلة تاريخ مستقبلي.'};
+ if(date<todayKey){const d=Math.round((new Date(todayKey+'T12:00:00+03:00')-new Date(date+'T12:00:00+03:00'))/86400000);if(!r.allow_previous_day_edit)return{allowed:false,reason:'المشرف لم يُتح تعديل حصيلة يوم سابق.'};if(d>Number(r.previous_edit_days||1))return{allowed:false,reason:'انتهت مدة السماح بتعديل الحصيلة السابقة.'}}
+ if(!r.allow_outside_hours){const n=Number(get('hour'))*60+Number(get('minute')),tm=x=>{const [h,m]=String(x||'00:00').split(':');return Number(h)*60+Number(m)},a=tm(r.start_time),b=tm(r.end_time),inside=a<=b?(n>=a&&n<=b):(n>=a||n<=b);if(!inside)return{allowed:false,reason:'جلسة الحصيلة متاحة من '+String(r.start_time).slice(0,5)+' إلى '+String(r.end_time).slice(0,5)+' فقط.'}}
+ return{allowed:true};
+};
+const ensureCircleSession=async(circle,date,refresh=false)=>{
+ let data;
+ if(navigator.onLine){try{data=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});cacheSessionRule(circle,data)}catch(e){if(!networkFailure(e))throw e}}
+ if(!data)data=sessionCache()[circle];
+ const check=navigator.onLine&&data?.allowed!==undefined?data:localSessionAllowed(data,date);
+ if(!check?.allowed)throw Error(check?.reason||'جلسة الحصيلة غير متاحة في هذا الوقت.');
+ return data;
+};
 const rows=async(table,select='*',filters={})=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select(select).order('id').range(offset,offset+499);for(const [k,v] of Object.entries(filters))q=q.eq(k,v);const data=await result(q);all.push(...data);if(data.length<500)return all;}};
 const access=async()=>{const a=await rpc('my_access',{});if(!a?.active)throw Error('الحساب غير نشط؛ راجع مدير النظام.');window.SanabilAccessSync?.(a);return a};
 const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
