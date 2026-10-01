@@ -21,7 +21,7 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 <div class="progress"><span id="bar"></span></div>
 <div class="prompt" id="prompt"></div>
 <p class="hint" id="hint"></p>
-<div class="actions"><button class="btn primary" id="speak">استمع</button><button class="btn" id="again">كرر</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="actions"><button class="btn primary" id="speak">استمع</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
 <div class="choices" id="choices"></div>
 <p class="small">الصوت يستخدم قارئ العربية المتاح في جهازك، ولا يحتوي التدريب على موسيقى أو مؤثرات.</p>
 </section>
@@ -40,9 +40,10 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   26:['أَبْ','أَتْ','مِنْ','لَمْ','هَلْ'],27:['كِتَابًا','عِلْمًا','نُورًا'],28:['كِتَابٍ','عِلْمٍ','نُورٍ'],29:['كِتَابٌ','عِلْمٌ','نُورٌ'],
   30:['رَبَّ','إِنَّ','ثُمَّ'],31:['حَقًّا','رَبًّا'],32:['حَقٍّ','رَبٍّ'],33:['حَقٌّ','رَبٌّ'],34:['اقْرَأْ بِتَأَنٍّ','رَاعِ الحَرَكَاتِ وَالمَدَّ وَالسُّكُونَ']
  };
- const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0;
- const render=()=>{prompt.textContent=items[i];hint.textContent='استمع إلى النموذج، ثم كرره بصوت واضح ثلاث مرات.';bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML=''};
- const speak=()=>{if(!('speechSynthesis' in window))return alert('ميزة النطق غير متاحة في هذا الجهاز.');speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(items[i]);u.lang='ar-SA';u.rate=.65;u.pitch=1;speechSynthesis.speak(u)};
- document.getElementById('speak').onclick=speak;document.getElementById('again').onclick=speak;document.getElementById('next').onclick=()=>{i=(i+1)%items.length;render();speak()};render();
+ const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0,voices=[];
+ const loadVoices=()=>{voices=speechSynthesis?.getVoices?.()||[]};if('speechSynthesis' in window){loadVoices();speechSynthesis.addEventListener?.('voiceschanged',loadVoices)}
+ const render=()=>{prompt.textContent=items[i];hint.textContent='استمع إلى النموذج، ثم كرره بصوت واضح ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.';bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
+ const speak=()=>{if(!('speechSynthesis' in window))return alert('ميزة النطق غير متاحة في هذا الجهاز.');speechSynthesis.cancel();loadVoices();const raw=String(items[i]||'').trim(),u=new SpeechSynthesisUtterance(raw);u.lang='ar-SA';u.rate=.58;u.pitch=1;u.volume=1;const ar=voices.filter(v=>/^ar(?:-|$)/i.test(v.lang||''));u.voice=ar.find(v=>String(v.lang).toLowerCase()==='ar-sa')||ar.find(v=>/google|microsoft/i.test(v.name||''))||ar[0]||null;let started=false;u.onstart=()=>{started=true};u.onerror=()=>{if(!started)alert('تعذر تشغيل قارئ العربية في الجهاز. تأكد من تثبيت صوت عربي ثم أعد المحاولة.')};speechSynthesis.speak(u);setTimeout(()=>{if(!speechSynthesis.speaking&&!speechSynthesis.pending){loadVoices();speechSynthesis.speak(u)}},250)};
+ document.getElementById('speak').onclick=speak;document.getElementById('again').onclick=speak;document.getElementById('prev').onclick=()=>{if(i>0){i--;render();speak()}};document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render();speak()}};render();
 })();
 </script></body></html>
