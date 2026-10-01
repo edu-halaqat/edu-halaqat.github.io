@@ -119,7 +119,8 @@ const openHusary=async x=>{
 };
 const openTalaqqinMedia=l=>{
  const u=String(l?.mediaUrl||'');if(!u)return;
- const id=(u.match(/[?&]v=([\w-]{6,})/)||[])[1];
+ if(u.startsWith('/talaqqin-practice.html')||u.startsWith(location.origin+'/talaqqin-practice.html')){window.open(u,'_blank','noopener,noreferrer');return}
+ let id='';try{const z=new URL(u,location.origin);if(/(^|\.)youtube\.com$/.test(z.hostname))id=z.searchParams.get('v')||'';else if(z.hostname==='youtu.be')id=z.pathname.replace(/^\//,'')}catch{}
  if(!id){window.open(u,'_blank','noopener,noreferrer');return}
  const m=mediaOverlay(l.mediaLabel||'شرح درس نور البيان');
  m.body.innerHTML='<iframe class="media-video" src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?rel=0" title="'+esc(l.title||'شرح الدرس')+'" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe><p style="color:#667a72;font-size:12px">هذا شرح مساعد خارجي للتحضير، والمرجع المعتمد للدرس هو صفحة نور البيان داخل المنصة.</p>';
