@@ -5,6 +5,7 @@
     supabaseUrl: "https://fvzoogbdezueswyihxiz.supabase.co",
     anonKey: "sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ",
     endpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/admin-teacher-applications",
+    revisionEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision-admin",
     firstAdminEmail: "Mad3@tallam.sa"
   });
 
@@ -53,6 +54,7 @@
   let searchTimer = null;
   let magicLinkBtn;
   let deleteApplicationBtn;
+  let whatsappRevisionBtn;
 
   function installEnhancements() {
     loginEmail.value = CONFIG.firstAdminEmail;
@@ -76,6 +78,14 @@
     deleteApplicationBtn.type = "button";
     deleteApplicationBtn.textContent = "حذف الطلب نهائيًا";
     document.querySelector(".admin-actions")?.append(deleteApplicationBtn);
+
+    whatsappRevisionBtn = document.createElement("button");
+    whatsappRevisionBtn.className = "btn btn-primary";
+    whatsappRevisionBtn.type = "button";
+    whatsappRevisionBtn.textContent = "إعادة للمعلم عبر واتساب";
+    whatsappRevisionBtn.style.background = "#25D366";
+    whatsappRevisionBtn.style.borderColor = "#25D366";
+    document.querySelector(".admin-actions")?.prepend(whatsappRevisionBtn);
   }
 
   function message(element, text, type = "error") {
@@ -245,6 +255,7 @@
     detailGrid.innerHTML = `<div class="empty" style="grid-column:1/-1">يرجى الانتظار…</div>`;
     attachmentsGrid.innerHTML = "";
     deleteApplicationBtn.disabled = true;
+    if (whatsappRevisionBtn) whatsappRevisionBtn.disabled = true;
     currentId = id;
     currentReference = "";
 
@@ -260,6 +271,7 @@
     const app = { ...localRow, ...serverApp };
     currentReference = app.reference_number || localRow.reference_number || "";
     deleteApplicationBtn.disabled = !currentId;
+    if (whatsappRevisionBtn) whatsappRevisionBtn.disabled = !currentId;
 
     document.getElementById("detailTitle").textContent = `${app.full_name || localRow.full_name || "الطلب"} ـ ${currentReference}`;
     detailStatus.value = app.status || localRow.status || "new";
@@ -310,6 +322,39 @@
     } finally {
       saveApplication.disabled = false;
       saveApplication.textContent = "حفظ التحديث";
+    }
+  }
+
+  async function sendRevisionByWhatsapp() {
+    if (!currentId) return;
+    const notes = internalNotes.value.trim();
+    if (!notes) {
+      alert("اكتب ملاحظات التعديل أولًا، ثم اضغط «إعادة للمعلم عبر واتساب».");
+      internalNotes.focus();
+      return;
+    }
+    const whatsappWindow = window.open("about:blank", "_blank");
+    whatsappRevisionBtn.disabled = true;
+    whatsappRevisionBtn.textContent = "جارٍ تجهيز رسالة واتساب…";
+    try {
+      const result = await authorizedFetch(CONFIG.revisionEndpoint, {
+        method: "POST",
+        body: JSON.stringify({ id: currentId, notes })
+      });
+      if (whatsappWindow) {
+        whatsappWindow.location.href = result.whatsapp_url;
+      } else {
+        window.location.href = result.whatsapp_url;
+      }
+      detailStatus.value = "needs_completion";
+      message(dashboardMessage, "تمت إعادة الطلب للمعلم وفتح رسالة واتساب الجاهزة للإرسال.", "success");
+      await loadApplications();
+    } catch (error) {
+      try { whatsappWindow?.close(); } catch {}
+      alert(error?.message || "تعذر إعادة الطلب عبر واتساب.");
+    } finally {
+      whatsappRevisionBtn.disabled = false;
+      whatsappRevisionBtn.textContent = "إعادة للمعلم عبر واتساب";
     }
   }
 
@@ -394,5 +439,6 @@
   init().then(() => {
     magicLinkBtn?.addEventListener("click", sendMagicLink);
     deleteApplicationBtn?.addEventListener("click", deleteCurrent);
+    whatsappRevisionBtn?.addEventListener("click", sendRevisionByWhatsapp);
   });
 })();
