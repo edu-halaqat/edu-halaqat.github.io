@@ -193,11 +193,24 @@ async function exportTests(tests,questions=[]){
  top.autoFilter={from:'A1',to:'G1'};
  save(await workbookBlob(wb),'نتائج_اختبارات_سنابل_الوحي_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-function printTests(tests,title='تقرير نتائج الاختبارات'){
+async function activePrintTemplate(type='report'){
+ try{
+  if(!window.supabaseClient)return null;
+  const a=await window.supabaseClient.rpc('my_access');if(a.error||!a.data)return null;
+  const x=a.data,org=x.org_id,complex=(x.complexIds||[])[0]||null;
+  let q=window.supabaseClient.from('document_templates').select('public_url').eq('org_id',org).eq('template_type',type).eq('active',true).order('created_at',{ascending:false});
+  q=complex?q.eq('complex_id',complex):q.is('complex_id',null);
+  let r=await q.limit(1);if(!r.error&&r.data?.[0])return r.data[0].public_url;
+  if(complex){r=await window.supabaseClient.from('document_templates').select('public_url').eq('org_id',org).is('complex_id',null).eq('template_type',type).eq('active',true).order('created_at',{ascending:false}).limit(1);if(!r.error&&r.data?.[0])return r.data[0].public_url}
+ }catch{}
+ return null;
+}
+function printBackgroundCss(url){return url?'body:before{content:"";position:fixed;inset:0;background:url("'+html(url)+'") center/100% 100% no-repeat;z-index:-2}body:after{content:"";position:fixed;inset:0;background:#ffffffdc;z-index:-1}':''}
+async function printTests(tests,title='تقرير نتائج الاختبارات'){
  const rows=tests.map(t=>`<tr><td>${html(t.performed_at?new Date(t.performed_at).toLocaleDateString('ar-SA'):'')}</td><td>${html(t.student_name_snapshot||t.student_name||'')}</td><td>${html(t.circle_name_snapshot||'')}</td><td>${html(t.syllabus_snapshot?.label||t.syllabus_label||'')}</td><td>${html(t.scores?.memorization??'—')}</td><td>${html(t.scores?.tajweed??'—')}</td><td><b>${html(t.scores?.total??'—')}</b></td><td>${scoreGrade(t.scores?.total)}</td></tr>`).join('');
  const scores=tests.map(t=>Number(t.scores?.total)).filter(Number.isFinite),avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*100)/100:0;
- const w=window.open('','_blank');if(!w)throw Error('اسمح بالنوافذ المنبثقة لإخراج التقرير.');
- w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${html(title)}</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#183c33}header{display:flex;align-items:center;gap:20px;border-bottom:4px solid #00808A;padding-bottom:12px}header img{width:120px}h1{margin:0;color:#00808A}.meta{display:flex;gap:12px;margin:16px 0}.box{border:1px solid #d8e3de;border-radius:12px;padding:10px 16px}.box b{color:#00808A;font-size:22px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#00808A;color:white}th,td{padding:8px;border:1px solid #dde6e1;text-align:right}tr:nth-child(even){background:#f6f9f7}footer{margin-top:16px;color:#65766f;font-size:11px}@media print{button{display:none}}</style></head><body><header><img src="/assets/logo-sanabil-v6.png"><div><h1>${html(title)}</h1><p>منصة سنابل الوحي</p></div></header><div class="meta"><div class="box">عدد الاختبارات<br><b>${tests.length}</b></div><div class="box">متوسط النتائج<br><b>${avg}</b></div><div class="box">90 فأعلى<br><b>${scores.filter(x=>x>=90).length}</b></div></div><table><thead><tr><th>التاريخ</th><th>الطالب</th><th>الحلقة</th><th>المقرر</th><th>الحفظ</th><th>التجويد</th><th>المجموع</th><th>التقدير</th></tr></thead><tbody>${rows}</tbody></table><footer>صدر من منصة سنابل الوحي — ${new Date().toLocaleString('ar-SA')}</footer><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);w.document.close();
+ const w=window.open('','_blank');if(!w)throw Error('اسمح بالنوافذ المنبثقة لإخراج التقرير.');const bg=await activePrintTemplate('report');
+ w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${html(title)}</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#183c33;position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}${printBackgroundCss(bg)}header{display:flex;align-items:center;gap:20px;border-bottom:4px solid #00808A;padding-bottom:12px}header img{width:120px}h1{margin:0;color:#00808A}.meta{display:flex;gap:12px;margin:16px 0}.box{border:1px solid #d8e3de;border-radius:12px;padding:10px 16px}.box b{color:#00808A;font-size:22px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#00808A;color:white}th,td{padding:8px;border:1px solid #dde6e1;text-align:right}tr:nth-child(even){background:#f6f9f7}footer{margin-top:16px;color:#65766f;font-size:11px}@media print{button{display:none}}</style></head><body><header><img src="/assets/logo-sanabil-v6.png"><div><h1>${html(title)}</h1><p>منصة سنابل الوحي</p></div></header><div class="meta"><div class="box">عدد الاختبارات<br><b>${tests.length}</b></div><div class="box">متوسط النتائج<br><b>${avg}</b></div><div class="box">90 فأعلى<br><b>${scores.filter(x=>x>=90).length}</b></div></div><table><thead><tr><th>التاريخ</th><th>الطالب</th><th>الحلقة</th><th>المقرر</th><th>الحفظ</th><th>التجويد</th><th>المجموع</th><th>التقدير</th></tr></thead><tbody>${rows}</tbody></table><footer>صدر من منصة سنابل الوحي — ${new Date().toLocaleString('ar-SA')}</footer><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);w.document.close();
 }
 
 async function exportTable(title,headers,rows,meta=[]){
@@ -215,12 +228,12 @@ async function exportTable(title,headers,rows,meta=[]){
  if(meta.length){const ms=wb.addWorksheet('بيانات التقرير',{views:[{rightToLeft:true}]});ms.columns=[{width:30},{width:55}];ms.addRow(['البيان','القيمة']);meta.forEach(r=>ms.addRow(r));styleSheet(ms)}
  save(await workbookBlob(wb),String(title||'تقرير_سنابل_الوحي').replace(/[\\/:*?"<>|]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-function printTable(title,headers,rows,meta=[]){
- const w=window.open('','_blank');if(!w)throw Error('اسمح بالنوافذ المنبثقة لإخراج التقرير.');
+async function printTable(title,headers,rows,meta=[]){
+ const w=window.open('','_blank');if(!w)throw Error('اسمح بالنوافذ المنبثقة لإخراج التقرير.');const bg=await activePrintTemplate('report');
  const metaHtml=meta.length?'<div class="meta">'+meta.map(r=>'<div class="box"><span>'+html(r[0])+'</span><b>'+html(r[1])+'</b></div>').join('')+'</div>':'';
  const body=rows.map(r=>'<tr>'+r.map(v=>'<td>'+html(v??'')+'</td>').join('')+'</tr>').join('');
  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${html(title)}</title><style>
- @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;color:#183c33;margin:0}
+ @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;color:#183c33;margin:0;position:relative;-webkit-print-color-adjust:exact;print-color-adjust:exact}${printBackgroundCss(bg)}
  header{display:flex;align-items:center;gap:18px;border-bottom:4px solid #00808A;padding:0 0 12px;margin-bottom:12px}header img{width:110px;max-height:80px;object-fit:contain}h1{margin:0;color:#00808A;font-size:24px}
  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}.box{border:1px solid #d8e3de;border-radius:10px;padding:7px 12px;min-width:140px}.box span{display:block;color:#65766f;font-size:11px}.box b{display:block;color:#00808A;font-size:16px;margin-top:3px}
  table{width:100%;border-collapse:collapse;font-size:10px}th{background:#00808A;color:white;font-weight:700}th,td{padding:6px;border:1px solid #dfe8e3;text-align:right;vertical-align:top}tr:nth-child(even){background:#f5f9f7}
