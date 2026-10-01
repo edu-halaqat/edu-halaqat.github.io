@@ -1,7 +1,7 @@
 "use strict";
 (async () => {
   const CACHE_COMPAT_BUILD = "20260831-mobile-provider-v4";
-  const RELEASE = "20260921-ministry-download-direct-v2";
+  const RELEASE = "20261001-educational-entities-v1";
   const appMount = document.getElementById("appMount");
   window.__TALLAM_BUILD__ = RELEASE;
   document.body.dataset.portalReady = "loading";
