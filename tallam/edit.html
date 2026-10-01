@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تعديل طلب التقديم | جمعية تعلّم</title>
+<style>
+:root{--primary:#00808A;--gold:#D8BD88;--bg:#f6f8f8;--text:#173235;--muted:#66777a;--danger:#a33}
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:980px;margin:auto;padding:20px}.card{background:#fff;border-radius:18px;box-shadow:0 8px 30px #00000012;padding:22px;margin:18px 0}
+h1{font-size:1.7rem;margin:0 0 8px;color:var(--primary)}h2{font-size:1.15rem;margin:0 0 14px}.lead{color:var(--muted);line-height:1.8}
+.notice{border-right:5px solid var(--gold);background:#fff9ed;padding:14px 16px;border-radius:12px;white-space:pre-wrap;line-height:1.9}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}
+label{font-weight:700;font-size:.92rem}input,select,textarea{width:100%;border:1px solid #ccd6d7;border-radius:10px;padding:11px 12px;font:inherit;background:#fff}textarea{min-height:100px}
+input:focus,select:focus,textarea:focus{outline:2px solid #00808a22;border-color:var(--primary)}
+.attach{border:1px solid #dfe6e7;border-radius:12px;padding:12px}.attach small{display:block;color:var(--muted);margin:5px 0}.attach a{color:var(--primary)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start}.btn{border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;cursor:pointer}.btn-primary{background:var(--primary);color:#fff}.btn:disabled{opacity:.6;cursor:not-allowed}
+.msg{display:none;margin:14px 0;padding:13px 15px;border-radius:10px}.msg.show{display:block}.msg.error{background:#fff0f0;color:#8a1f1f}.msg.success{background:#eaf9f1;color:#17623a}
+.meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:.9rem}.pill{background:#eef5f5;border-radius:999px;padding:6px 10px}
+.loading{text-align:center;padding:50px;color:var(--muted)}
+@media(max-width:700px){.wrap{padding:10px}.card{padding:16px;border-radius:14px}.grid{grid-template-columns:1fr}.field.full{grid-column:auto}h1{font-size:1.35rem}.btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="card">
+    <h1>تعديل طلب التقديم</h1>
+    <p class="lead">يمكنك تعديل نفس الطلب وفق ملاحظات الجمعية ثم إعادة إرساله للاعتماد. لن يُنشأ طلب جديد، وسيبقى رقم الطلب كما هو.</p>
+    <div id="meta" class="meta"></div>
+  </section>
+  <div id="message" class="msg"></div>
+  <div id="loading" class="card loading">جارٍ تحميل بيانات الطلب…</div>
+  <form id="editForm" hidden>
+    <section class="card">
+      <h2>ملاحظات المراجعة</h2>
+      <div id="notes" class="notice"></div>
+    </section>
+    <section class="card">
+      <h2>بيانات الطلب</h2>
+      <div id="fields" class="grid"></div>
+    </section>
+    <section class="card">
+      <h2>المرفقات</h2>
+      <p class="lead">لا يلزم إعادة رفع المرفقات الصحيحة. ارفع ملفًا جديدًا فقط إذا كانت الملاحظة تتطلب استبداله.</p>
+      <div id="attachments" class="grid"></div>
+    </section>
+    <section class="card">
+      <div class="actions"><button id="submitBtn" class="btn btn-primary" type="submit">إعادة إرسال الطلب للاعتماد</button></div>
+    </section>
+  </form>
+</main>
+<script>
+(() => {
+"use strict";
+const ENDPOINT="https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision";
+const token=new URLSearchParams(location.search).get("t")||"";
+const form=document.getElementById("editForm"), loading=document.getElementById("loading"), msg=document.getElementById("message");
+const fieldsEl=document.getElementById("fields"), attachEl=document.getElementById("attachments"), notesEl=document.getElementById("notes"), metaEl=document.getElementById("meta");
+const textFields=[
+ ["registration_type","نوع التسجيل"],["branch","الفرع"],["full_name","الاسم الرباعي"],["identity_number","رقم الهوية أو الإقامة"],["identity_type","نوع الهوية"],
+ ["identity_expiry","تاريخ انتهاء الهوية","date"],["nationality","الجنسية"],["gender","الجنس","select:ذكر|أنثى"],["birth_place_date","مكان وتاريخ الميلاد"],
+ ["qualification","المؤهل"],["specialization","التخصص"],["workplace","مكان العمل"],["job_title","المسمى الوظيفي"],["mosque","المسجد"],
+ ["period","الفترة"],["circle_type","نوع الحلقة"],["phone","الهاتف"],["mobile","الجوال"],["email","البريد الإلكتروني","email"],
+ ["city","المدينة"],["region","المنطقة"],["district","الحي"],["street","الشارع"],["building_number","رقم المبنى"],["apartment_number","رقم الشقة"],
+ ["twitter","حساب X / تويتر"],["facebook","فيسبوك"],["iban","الآيبان"],["bank","البنك"],["account_holder","صاحب الحساب"],
+ ["quran_memorization","مقدار الحفظ"],["reading_narration","الرواية"],["experience_years","سنوات الخبرة","number"],["previous_entities","جهات سابقة","textarea"]
+];
+const boolFields=[["has_sanad","لديه سند"],["has_madaniyah","حاصل على القاعدة المدنية"],["has_nooraniyah","حاصل على القاعدة النورانية"]];
+const fileLabels={
+ personal_photo:"الصورة الشخصية",ministry_form_filled:"استمارة وزارة الشؤون الإسلامية",educational_certificate:"الشهادة الدراسية",cv:"السيرة الذاتية",
+ recommendation_1:"التزكية الأولى",recommendation_2:"التزكية الثانية",quran_certificates:"شهادات حفظ القرآن",identity_document:"الهوية أو الإقامة",
+ other_certificates:"الشهادات الأخرى",iban_document:"شهادة الآيبان"
+};
+function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
+function show(text,type="error"){msg.textContent=text;msg.className="msg show "+type;window.scrollTo({top:0,behavior:"smooth"});}
+function fieldHtml(name,label,type){
+ const id="f_"+name;
+ if(type==="textarea") return '<div class="field full"><label for="'+id+'">'+esc(label)+'</label><textarea id="'+id+'" name="'+name+'"></textarea></div>';
+ if(type&&type.startsWith("select:")){const opts=type.slice(7).split("|").map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><select id="'+id+'" name="'+name+'">'+opts+'</select></div>';}
+ return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><input id="'+id+'" name="'+name+'" type="'+esc(type||"text")+'"></div>';
+}
+async function load(){
+ try{
+  if(!/^[a-f0-9]{64}$/i.test(token)) throw new Error("رابط التعديل غير صحيح.");
+  const r=await fetch(ENDPOINT+"?t="+encodeURIComponent(token),{headers:{accept:"application/json"}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.message||"تعذر تحميل الطلب.");
+  const a=j.application||{};
+  metaEl.innerHTML='<span class="pill">رقم الطلب: <b dir="ltr">'+esc(a.reference_number)+'</b></span><span class="pill">التعديل المطلوب من الجمعية</span>';
+  notesEl.textContent=a.revision_notes||"يرجى مراجعة الطلب وتحديث البيانات المطلوبة.";
+  fieldsEl.innerHTML=textFields.map(x=>fieldHtml(...x)).join("")+boolFields.map(([n,l])=>'<div class="field"><label>'+esc(l)+'</label><select name="'+n+'" id="f_'+n+'"><option value="true">نعم</option><option value="false">لا</option></select></div>').join("");
+  for(const [n] of textFields){const el=document.getElementById("f_"+n);if(el)el.value=a[n]??"";}
+  for(const [n] of boolFields){const el=document.getElementById("f_"+n);if(el)el.value=a[n]===true?"true":"false";}
+  const existing=Object.fromEntries((a.attachments||[]).map(x=>[x.field,x]));
+  attachEl.innerHTML=Object.entries(fileLabels).map(([n,l])=>{
+    const x=existing[n];
+    return '<div class="attach"><label for="file_'+n+'">'+esc(l)+'</label><small>'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</small>'+(x&&x.signed_url?'<a href="'+esc(x.signed_url)+'" target="_blank" rel="noopener">عرض المرفق الحالي</a>':'')+'<input id="file_'+n+'" name="'+n+'" type="file"></div>';
+  }).join("");
+  loading.hidden=true;form.hidden=false;
+ }catch(e){loading.hidden=true;show(e.message||"تعذر تحميل الطلب.");}
+}
+form.addEventListener("submit",async e=>{
+ e.preventDefault();msg.className="msg";
+ const btn=document.getElementById("submitBtn");btn.disabled=true;btn.textContent="جارٍ إعادة الإرسال…";
+ try{
+  const fd=new FormData(form);fd.set("revision_token",token);
+  const r=await fetch(ENDPOINT,{method:"POST",body:fd});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.message||"تعذر إعادة إرسال الطلب.");
+  form.hidden=true;
+  show("تم إعادة إرسال الطلب رقم "+(j.reference_number||"")+" للاعتماد بنجاح. لا حاجة إلى تقديم طلب جديد.","success");
+ }catch(e){show(e.message||"تعذر إعادة إرسال الطلب.");}
+ finally{btn.disabled=false;btn.textContent="إعادة إرسال الطلب للاعتماد";}
+});
+load();
+})();
+</script>
+</body>
+</html>
