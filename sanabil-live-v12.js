@@ -494,7 +494,7 @@ async function outcomesPage(root){
  const l=await lookups();
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
-  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
+  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');await ensureCircleSession(circle,date);
   const circleMeta=l.circles.find(x=>x.id===circle);
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
@@ -535,8 +535,8 @@ async function outcomesPage(root){
       action(box,box.querySelector('[data-action="tl-save-attendance"]'),async()=>{
         const miss=states.findIndex(x=>!x.status);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+items[miss].fullName);
         const payload=items.map((r,i)=>({studentId:r.studentId,status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value.trim()||null}));
-        const rr=await rpc('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload});
-        msg(box,'تم حفظ تحضير '+rr.saved+' طالبًا.');await renderTalaqqin();
+        await ensureCircleSession(circle,date,true);const rr=await rpcOffline('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير حلقة التلقين');
+        msg(box,rr.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':'تم حفظ تحضير '+rr.saved+' طالبًا.');if(!rr.queued)await renderTalaqqin();
       });
       action(box,box.querySelector('[data-action="tl-curriculum"]'),showTalaqqinCurriculum);
       items.forEach((r,i)=>{
@@ -596,7 +596,7 @@ async function outcomesPage(root){
   box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i)});
   box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent);setGrade(states[i],b.dataset.gradeKey,b.dataset.gradeValue);syncCard(i)});
   action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
-  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpc('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload});msg(box,`تم حفظ تحضير ${r.saved} طالبًا.`)});
+  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpcOffline('save_student_attendance_bulk',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   students.forEach((s,i)=>{
     syncCard(i);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
@@ -606,7 +606,7 @@ async function outcomesPage(root){
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
-  submit(form,async()=>{validateAttendance();const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});const r=await rpc('save_daily_outcomes_v2',{p_date:date,p_rows:payload});msg(root,`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا؛ وكل مراجعة كبرى عولجت بصورة مستقلة.`)})
+  submit(form,async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});const r=await rpcOffline('save_daily_outcomes_v2',{p_date:date,p_rows:payload},'الحصيلة اليومية');msg(root,r.queued?'حُفظت الحصيلة محليًا على هذا الجهاز، وستتم مزامنتها تلقائيًا عند عودة الإنترنت حتى لو انتقلت إلى صفحة أخرى.':`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا؛ وكل مراجعة كبرى عولجت بصورة مستقلة.`)})
  })
 }
 
