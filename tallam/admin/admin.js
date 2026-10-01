@@ -7,7 +7,8 @@
     endpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/admin-teacher-applications",
     revisionEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision-admin",
     exportEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-applications-export",
-    firstAdminEmail: "Mad3@tallam.sa"
+    firstAdminEmail: "Mad3@tallam.sa",
+    authStorageKey: "tallam-admin-auth-v1"
   });
 
   const statusLabels = {
@@ -154,6 +155,45 @@
     dashboardView.hidden = false;
   }
 
+  async function verifyAdminSession(candidateSession = session) {
+    const accessToken = candidateSession?.access_token;
+    if (!accessToken) throw new Error("يلزم تسجيل الدخول.");
+    const response = await fetch(`${CONFIG.endpoint}?page=1&limit=1`, {
+      headers: {
+        apikey: CONFIG.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      cache: "no-store"
+    });
+    let result = {};
+    try { result = await response.json(); } catch { result = {}; }
+    if (response.status === 403) throw new Error("هذا الحساب غير مخوّل لإدارة طلبات المعلمين.");
+    if (response.status === 401) throw new Error("انتهت جلسة الدخول أو لم تعد صالحة.");
+    if (!response.ok) throw new Error(result.message || `تعذر التحقق من الصلاحية (رمز ${response.status}).`);
+    return result;
+  }
+
+  async function activateAuthorizedSession(candidateSession) {
+    session = candidateSession;
+    if (!session) {
+      showLogin();
+      return false;
+    }
+    try {
+      await verifyAdminSession(session);
+      showDashboard();
+      await loadApplications();
+      return true;
+    } catch (error) {
+      session = null;
+      showLogin();
+      message(loginMessage, error?.message || "هذا الحساب غير مخوّل لإدارة الطلبات.");
+      try { await client.auth.signOut({ scope: "local" }); } catch {}
+      return false;
+    }
+  }
+
   async function handleLogin(event) {
     event.preventDefault();
     clearMessage(loginMessage);
@@ -164,9 +204,8 @@
       const password = document.getElementById("loginPassword").value;
       const { data, error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      session = data.session;
-      showDashboard();
-      await loadApplications();
+      const ok = await activateAuthorizedSession(data.session);
+      if (!ok) return;
     } catch (error) {
       message(loginMessage, error?.message || "تعذر تسجيل الدخول.");
     } finally {
@@ -189,7 +228,7 @@
       const redirectTo = `${window.location.origin}${window.location.pathname}`;
       const { error } = await client.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: redirectTo, shouldCreateUser: true }
+        options: { emailRedirectTo: redirectTo, shouldCreateUser: false }
       });
       if (error) throw error;
       message(loginMessage, `أُرسل رابط دخول آمن إلى ${email}. افتح الرسالة واضغط الرابط لإتمام التفعيل.`, "success");
@@ -501,20 +540,29 @@
       return;
     }
     client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: CONFIG.authStorageKey
+      }
     });
     const { data } = await client.auth.getSession();
-    session = data.session;
-    if (session) {
-      showDashboard();
-      await loadApplications();
+    if (data.session) {
+      await activateAuthorizedSession(data.session);
     } else {
       showLogin();
     }
 
-    client.auth.onAuthStateChange((_event, nextSession) => {
-      session = nextSession;
-      if (!session) showLogin();
+    client.auth.onAuthStateChange((event, nextSession) => {
+      if (!nextSession) {
+        session = null;
+        showLogin();
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+        activateAuthorizedSession(nextSession);
+      }
     });
   }
 
