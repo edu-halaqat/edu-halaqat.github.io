@@ -181,7 +181,7 @@ async function showVisitResult(v,sc){
 
 async function templatesPanel(root,sc,a){
  const b=modal('قوالب التقارير والشهادات');
- const allowedComplexes=sc.complexes.filter(x=>!a.complexIds?.length||a.complexIds.includes(x.id)||a.roles.includes('admin')||a.roles.includes('manager'));
+ const allowedComplexes=sc.complexes.filter(x=>a.roles.includes('admin')||!a.complexIds?.length||a.complexIds.includes(x.id));
  const load=async()=>{
    const data=await res(sb().from('document_templates').select('*').eq('org_id',a.org_id).eq('active',true).order('created_at',{ascending:false}));
    b.innerHTML='<p class="sl-help">ارفع صورة PNG/JPG/WEBP للكليشة. سيستخدمها النظام خلفية للتقارير أو الزيارات أو الشهادات ضمن المجمع المحدد.</p><form><div class="form-grid"><label>المجمع'+selectHtml('complex',allowedComplexes,'','قالب عام للمؤسسة')+'</label><label>نوع القالب<select name="type"><option value="report">التقارير العامة</option><option value="supervision">الزيارات الإشرافية</option><option value="certificate">الشهادات</option></select></label><label>اسم القالب<input name="name" required placeholder="كليشة المجمع"></label><label>ملف القالب<input name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label></div><button class="button button-primary" type="submit">رفع واعتماد القالب</button></form><h3>القوالب النشطة</h3><div class="sv-template-grid">'+(data.length?data.map((x,i)=>'<article><img src="'+esc(x.public_url)+'"><b>'+esc(x.name)+'</b><span>'+esc(x.template_type)+' · '+esc(sc.complexes.find(c=>c.id===x.complex_id)?.name||'عام')+'</span>'+btn('إيقاف','disable-'+i)+'</article>').join(''):'<p>لا توجد قوالب مرفوعة بعد.</p>')+'</div><div class="sl-toolbar">'+btn('إصدار شهادة','certificate')+'</div>';
