@@ -74,10 +74,11 @@ async function circleAnalytics(circleId){
  const stats=new Map;
  for(const s of students)stats.set(s.id,{student:s,points:0,days:0,latest:null});
  for(const o of out){const x=stats.get(o.student_id);if(!x)continue;if(!x.latest)x.latest=o;x.days++;x.points+=o.memorization_rating==='ممتاز'?4:o.memorization_rating==='جيد جدًا'?3:o.memorization_rating==='جيد'?2:o.memorization_rating?0:0}
- const rank=arr=>arr.sort((a,b)=>b.points-a.points||b.days-a.days||a.student.full_name.localeCompare(b.student.full_name,'ar'));
- const saudis=rank([...stats.values()].filter(x=>String(x.student.nationality||'').includes('سعود'))),others=rank([...stats.values()].filter(x=>!String(x.student.nationality||'').includes('سعود')));
+ const rank=arr=>arr.sort((a,b)=>b.days-a.days||b.points-a.points||a.student.full_name.localeCompare(b.student.full_name,'ar'));
+ const all=[...stats.values()],saudiAll=all.filter(x=>String(x.student.nationality||'').includes('سعود')),otherAll=all.filter(x=>!String(x.student.nationality||'').includes('سعود'));
+ const saudis=rank(saudiAll.filter(x=>x.days>0)),others=rank(otherAll.filter(x=>x.days>0));
  const describe=x=>x?{id:x.student.id,name:x.student.full_name,points:x.points,days:x.days,latestLesson:x.latest?.new_lesson||'—',latestDate:x.latest?.date_key||null}:null;
- return{studentCount:students.length,saudiCount:saudis.length,nonSaudiCount:others.length,saudiHigh:describe(saudis[0]),saudiLow:describe(saudis[saudis.length-1]),nonSaudiHigh:describe(others[0]),nonSaudiLow:describe(others[others.length-1]),students,stats:Object.fromEntries([...stats].map(([k,v])=>[k,{points:v.points,days:v.days,latest:v.latest}]))};
+ return{studentCount:students.length,saudiCount:saudiAll.length,nonSaudiCount:otherAll.length,saudiHigh:describe(saudis[0]),saudiLow:describe(saudis[saudis.length-1]),nonSaudiHigh:describe(others[0]),nonSaudiLow:describe(others[others.length-1]),students,stats:Object.fromEntries([...stats].map(([k,v])=>[k,{points:v.points,days:v.days,latest:v.latest}]))};
 }
 function analyticsCard(a){
  const person=x=>x?esc(x.name)+' <small>('+esc(x.latestLesson)+' · '+esc(x.days)+' حصيلة)</small>':'لا توجد بيانات كافية';
