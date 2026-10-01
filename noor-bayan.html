@@ -45,7 +45,7 @@ nav{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0
  };
  const render=async()=>{
   chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;lt.textContent=(title||'معاينة صفحة الدرس المقرر في حلقات التلقين.')+' — ابدأ من الصفحة '+page+'.';direct.href=PROXY+'#page='+page+'&zoom=page-width';fallback.href=DRIVE;err.hidden=true;status.hidden=false;status.textContent='جارٍ تحميل صفحة '+page+'…';
-  history.replaceState(null,'','?v=20261001-v12.7.2&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
+  history.replaceState(null,'','?v=20261001-v12.7.3&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
   try{
    const pdf=await loadPdf(),pageno=Math.min(pdf.numPages,page),pg=await pdf.getPage(pageno),base=pg.getViewport({scale:1}),max=Math.min(980,Math.max(320,document.querySelector('.viewer').clientWidth-24)),scale=max/base.width,viewport=pg.getViewport({scale:Math.max(1.15,scale)*window.devicePixelRatio});
    canvas.width=viewport.width;canvas.height=viewport.height;canvas.style.width=(viewport.width/window.devicePixelRatio)+'px';canvas.style.height=(viewport.height/window.devicePixelRatio)+'px';
