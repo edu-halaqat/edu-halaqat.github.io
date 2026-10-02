@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تدريب نور البيان | سنابل الوحي</title>
+<title>تدريب نور البيان | سنابل الوحي</title><meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="icon" href="/assets/logo-sanabil-icon-v6.png">
 <style>
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Regular.ttf') format('truetype');font-display:swap}
@@ -21,9 +21,16 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 <div class="progress"><span id="bar"></span></div>
 <div class="prompt" id="prompt"></div>
 <p class="hint" id="hint"></p>
-<div class="actions"><button class="btn primary" id="speak">استمع</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="actions"><button class="btn primary" id="speak">استمع للدرس</button><button class="btn" id="again">إعادة التشغيل</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div id="humanAudio" hidden style="margin-top:18px;text-align:right">
+  <div class="small" id="audioNote" style="margin-bottom:8px"></div>
+  <div style="position:relative;padding-top:56.25%;border-radius:16px;overflow:hidden;background:#0b1715">
+    <iframe id="lessonPlayer" title="المصدر الصوتي للدرس" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
+  </div>
+  <div class="actions" style="justify-content:flex-start"><a class="btn" id="sourceLink" target="_blank" rel="noopener noreferrer">فتح المصدر الأصلي</a></div>
+</div>
 <div class="choices" id="choices"></div>
-<p class="small">الصوت يستخدم قارئ العربية المتاح في جهازك، ولا يحتوي التدريب على موسيقى أو مؤثرات.</p>
+<p class="small">الصوت في الدروس المعتمدة مصدره تسجيل بشري منشور من جهة تعليمية، وليس قراءة آلية أو صوتًا مولدًا. تبقى البطاقات للتدرج البصري والتكرار.</p>
 </section>
 </main>
 <script>
@@ -40,10 +47,32 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   26:['أَبْ','أَتْ','مِنْ','لَمْ','هَلْ'],27:['كِتَابًا','عِلْمًا','نُورًا'],28:['كِتَابٍ','عِلْمٍ','نُورٍ'],29:['كِتَابٌ','عِلْمٌ','نُورٌ'],
   30:['رَبَّ','إِنَّ','ثُمَّ'],31:['حَقًّا','رَبًّا'],32:['حَقٍّ','رَبٍّ'],33:['حَقٌّ','رَبٌّ'],34:['اقْرَأْ بِتَأَنٍّ','رَاعِ الحَرَكَاتِ وَالمَدَّ وَالسُّكُونَ']
  };
- const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0,voices=[];
- const loadVoices=()=>{voices=speechSynthesis?.getVoices?.()||[]};if('speechSynthesis' in window){loadVoices();speechSynthesis.addEventListener?.('voiceschanged',loadVoices)}
- const render=()=>{prompt.textContent=items[i];hint.textContent='استمع إلى النموذج، ثم كرره بصوت واضح ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.';bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
- const speak=()=>{if(!('speechSynthesis' in window))return alert('ميزة النطق غير متاحة في هذا الجهاز.');speechSynthesis.cancel();speechSynthesis.resume();loadVoices();const raw=String(items[i]||'').trim(),u=new SpeechSynthesisUtterance(raw);u.lang='ar-SA';u.rate=.58;u.pitch=1;u.volume=1;const ar=voices.filter(v=>/^ar(?:-|$)/i.test(v.lang||''));u.voice=ar.find(v=>String(v.lang).toLowerCase()==='ar-sa')||ar.find(v=>/google|microsoft/i.test(v.name||''))||ar[0]||null;let started=false;u.onstart=()=>{started=true};u.onerror=()=>{if(!started)alert('تعذر تشغيل قارئ العربية في الجهاز. تأكد من تثبيت صوت عربي ثم أعد المحاولة.')};speechSynthesis.speak(u);setTimeout(()=>{if(!speechSynthesis.speaking&&!speechSynthesis.pending){loadVoices();speechSynthesis.speak(u)}},250)};
- document.getElementById('speak').onclick=speak;document.getElementById('again').onclick=speak;document.getElementById('prev').onclick=()=>{if(i>0){i--;render();speak()}};document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render();speak()}};render();
+ const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0;
+ const sources=[
+  {match:()=>unit===2&&lesson>=8&&lesson<=11,video:'aWwYLqPmoKs',label:'دورة نور البيان — الحروف مع حركة الفتح — أكاديمية أسماء للقرآن'},
+  {match:()=>unit===2&&lesson>=12&&lesson<=14,video:'Ylkyb2QsecE',label:'دورة نور البيان — قراءة كلمات مع حركة الفتح — أكاديمية أسماء للقرآن'},
+  {match:()=>/ضم/.test(title)&&/كلمات|قراءة/.test(title),video:'eaEnxx0Aes4',label:'نور البيان — كلمات مع حركة الضم — قناة القراءة والكتابة من الصفر'}
+ ];
+ const source=sources.find(x=>x.match())||null;
+ const humanAudio=document.getElementById('humanAudio'),player=document.getElementById('lessonPlayer'),audioNote=document.getElementById('audioNote'),sourceLink=document.getElementById('sourceLink');
+ const render=()=>{prompt.textContent=items[i];hint.textContent='استمع إلى الدرس المسجل من المصدر التعليمي، ثم كرر البطاقة الحالية بصوت واضح ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.';bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
+ const playHuman=restart=>{
+   humanAudio.hidden=false;
+   if(!source){
+     audioNote.textContent='لم يُعتمد لهذا الدرس تسجيل بشري محدد بعد. استخدم صفحة نور البيان مؤقتًا حتى يُربط التسجيل الموثوق.';
+     player.removeAttribute('src');sourceLink.hidden=true;return;
+   }
+   sourceLink.hidden=false;
+   audioNote.textContent='المصدر الصوتي: '+source.label+'. التسجيل يشرح موضوع الدرس كاملًا، بينما تستخدم البطاقات للتدرج والتكرار.';
+   sourceLink.href='https://www.youtube.com/watch?v='+source.video;
+   const url='https://www.youtube-nocookie.com/embed/'+source.video+'?autoplay=1&playsinline=1&rel=0&modestbranding=1';
+   if(restart||!player.src.includes(source.video)){player.src='about:blank';setTimeout(()=>{player.src=url},40)}
+   humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
+ };
+ document.getElementById('speak').onclick=()=>playHuman(false);
+ document.getElementById('again').onclick=()=>playHuman(true);
+ document.getElementById('prev').onclick=()=>{if(i>0){i--;render()}};
+ document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render()}};
+ render();
 })();
 </script></body></html>
