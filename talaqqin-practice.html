@@ -21,20 +21,18 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 <div class="progress"><span id="bar"></span></div>
 <div class="prompt" id="prompt"></div>
 <p class="hint" id="hint"></p>
-<div class="actions"><button class="btn primary" id="speak">استمع للحرف</button><button class="btn" id="lessonExplain">استمع للدرس كاملاً</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="actions"><button class="btn primary" id="speak">🔊 تلقين المعلم</button><button class="btn" id="lessonExplain">▶ الدرس كاملاً</button><button class="btn" id="again">↻ كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
 <div id="humanAudio" hidden style="margin-top:18px;text-align:right">
   <div class="small" id="audioNote" style="margin-bottom:8px"></div>
   <div id="directAudioBox" hidden style="border:1px solid #d9e5e0;border-radius:16px;background:#f7fbf9;padding:16px;text-align:center">
     <div style="font-size:42px;line-height:1;margin-bottom:10px">🔊</div>
     <audio id="directAudio" preload="none"></audio>
   </div>
-  <div id="lessonVideoBox" style="position:relative;padding-top:56.25%;border-radius:16px;overflow:hidden;background:#0b1715">
-    <iframe id="lessonPlayer" title="المصدر الصوتي للدرس" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
-  </div>
+  <div id="lessonVideoBox" hidden></div>
   <div class="actions" style="justify-content:flex-start"><a class="btn" id="sourceLink" target="_blank" rel="noopener noreferrer">فتح المصدر الأصلي</a></div>
 </div>
 <div class="choices" id="choices"></div>
-<p class="small" id="audioStatus"></p>
+<p class="small" id="audioStatus" aria-live="polite"></p>
 </section>
 </main>
 <script>
@@ -51,92 +49,208 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   26:['أَبْ','أَتْ','مِنْ','لَمْ','هَلْ'],27:['كِتَابًا','عِلْمًا','نُورًا'],28:['كِتَابٍ','عِلْمٍ','نُورٍ'],29:['كِتَابٌ','عِلْمٌ','نُورٌ'],
   30:['رَبَّ','إِنَّ','ثُمَّ'],31:['حَقًّا','رَبًّا'],32:['حَقٍّ','رَبٍّ'],33:['حَقٌّ','رَبٌّ'],34:['اقْرَأْ بِتَأَنٍّ','رَاعِ الحَرَكَاتِ وَالمَدَّ وَالسُّكُونَ']
  };
- const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0;
- const isFathaLesson=unit===2&&lesson>=8&&lesson<=11;
- const letterNames={'أَ':'همزة','بَ':'باء','تَ':'تاء','ثَ':'ثاء','جَ':'جيم','حَ':'حاء','خَ':'خاء','دَ':'دال','ذَ':'ذال','رَ':'راء','زَ':'زاي','سَ':'سين','شَ':'شين','صَ':'صاد','ضَ':'ضاد','طَ':'طاء','ظَ':'ظاء','عَ':'عين','غَ':'غين','فَ':'فاء','قَ':'قاف','كَ':'كاف','لَ':'لام','مَ':'ميم','نَ':'نون','هَ':'هاء','وَ':'واو','يَ':'ياء'};
- const fathaFileIndex={'أَ':'06','بَ':'05','تَ':'04','ثَ':'03','جَ':'02','حَ':'01','خَ':'12','دَ':'11','ذَ':'10','رَ':'09','زَ':'08','سَ':'07','شَ':'18','صَ':'17','ضَ':'16','طَ':'15','ظَ':'14','عَ':'13','غَ':'24','فَ':'23','قَ':'22','كَ':'21','لَ':'20','مَ':'19','نَ':'30','هَ':'29','وَ':'28','يَ':'27'};
- const fathaAudioOf=x=>fathaFileIndex[x]?'https://eduquran.com/wp-content/uploads/erol/voices/S0801_'+fathaFileIndex[x]+'.mp3':'';
+ const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),
+   prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');
+ let i=0,playbackToken=0;
 
- const sources=[  {match:()=>unit===2&&lesson>=12&&lesson<=14,video:'Ylkyb2QsecE',label:'دورة نور البيان — قراءة كلمات مع حركة الفتح — أكاديمية أسماء للقرآن',segmentMode:'ordered',intro:14,step:11,clip:10},
-  {match:()=>unit===2&&lesson>=15&&lesson<=17,video:'DByJNWqq0uc',label:'منهج نور البيان — حركة الكسر — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson>=18&&lesson<=20,video:'wQSz4wE5-mM',label:'منهج نور البيان — حركة الضم — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson===21,video:'V0gxPwiMjgQ',label:'منهج نور البيان — المد بالألف — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&(lesson===22||lesson===23),video:'9YhIJqMyPjs',label:'منهج نور البيان — المد بالياء — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&(lesson===24||lesson===25),video:'6CD_BbO7kFE',label:'منهج نور البيان — المد بالواو — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson===26,video:'MkyE_7EY6IU',label:'منهج نور البيان — حروف الهجاء مع السكون — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson===27,video:'octVnyKWA_E',label:'منهج نور البيان — تنوين الفتح — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson===28,video:'k7qEGJay5zs',label:'منهج نور البيان — تنوين الكسر — نور البيان Nour Al-bayan'},
-  {match:()=>unit===2&&lesson>=30&&lesson<=34,video:'YNTTVo-IUqY',label:'منهج نور البيان — الشدة — نور البيان Nour Al-bayan'},
-  {match:()=>/ضم/.test(title)&&/كلمات|قراءة/.test(title),video:'eaEnxx0Aes4',label:'نور البيان — كلمات مع حركة الضم — قناة القراءة والكتابة من الصفر'}
- ];
- const source=sources.find(x=>x.match())||null;
- const humanAudio=document.getElementById('humanAudio'),player=document.getElementById('lessonPlayer'),audioNote=document.getElementById('audioNote'),sourceLink=document.getElementById('sourceLink'),directAudio=document.getElementById('directAudio'),directAudioBox=document.getElementById('directAudioBox'),lessonVideoBox=document.getElementById('lessonVideoBox'),audioStatus=document.getElementById('audioStatus');
- const render=()=>{prompt.textContent=items[i];hint.textContent=isFathaLesson?('🔊  × 3   •   '+(i+1)+' / '+items.length):('استمع ثم كرر ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.');bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
- const playDirectFatha=async()=>{
-   lessonPlayToken++;
-   const target=items[i],src=fathaAudioOf(target);
-   if(!src)throw Error('لم يُعتمد ملف صوت لهذا الحرف بعد.');
-   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=false;
-   audioNote.textContent='';audioStatus.textContent='';
-   sourceLink.href='https://eduquran.com/ar/%D8%A7%D9%84%D9%81%D8%AA%D8%AD%D8%A9/';
-   player.src='about:blank';
-   directAudio.pause();directAudio.currentTime=0;directAudio.onerror=null;directAudio.src=src;
-   await directAudio.play();
-   humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
+ const directAudio=document.getElementById('directAudio'),
+   humanAudio=document.getElementById('humanAudio'),
+   directAudioBox=document.getElementById('directAudioBox'),
+   lessonVideoBox=document.getElementById('lessonVideoBox'),
+   audioNote=document.getElementById('audioNote'),
+   audioStatus=document.getElementById('audioStatus'),
+   sourceLink=document.getElementById('sourceLink');
+
+ lessonVideoBox.hidden=true;
+ audioNote.textContent='';
+
+ const letterIndex={
+  'أ':'01','ء':'01','إ':'01','آ':'01','ؤ':'01','ئ':'01',
+  'ب':'02','ت':'03','ث':'04','ج':'05','ح':'06','خ':'07','د':'08','ذ':'09',
+  'ر':'10','ز':'11','س':'12','ش':'13','ص':'14','ض':'15','ط':'16','ظ':'17',
+  'ع':'18','غ':'19','ف':'20','ق':'21','ك':'22','ل':'23','م':'24','ن':'25',
+  'ه':'26','و':'27','ي':'28','ى':'28','ة':'03'
  };
- let lessonPlayToken=0;
+ const letterNameFile={
+  'أ':'Alif.mp3','ء':'HAMZA.mp3','ب':'Ba.mp3','ت':'TAA.mp3','ث':'THAA.mp3',
+  'ج':'JEEM.mp3','ح':'HAA.mp3','خ':'KHAA.mp3','د':'DAAL.mp3','ذ':'THAAL.mp3',
+  'ر':'RAA.mp3','ز':'ZAY.mp3','س':'SEEN.mp3','ش':'SHEEN.mp3','ص':'SAD.mp3',
+  'ض':'DAD.mp3','ط':'TAA-1.mp3','ظ':'DHAA.mp3','ع':'AIN.mp3','غ':'GHAIN.mp3',
+  'ف':'FAA.mp3','ق':'QAF.mp3','ك':'KAF.mp3','ل':'LAAM.mp3','م':'MEEM.mp3',
+  'ن':'NOON.mp3','ه':'HAA-1.mp3','و':'WAW.mp3','ي':'YAA.mp3'
+ };
+ const softBase='https://softarabic.com/wp-content/uploads/2012/05/alphabets/';
+ const arabicOmBase='https://arabic-om.com/wp-content/uploads/2026/06/';
+ const sourcePages={
+   fathah:'https://softarabic.com/arabic-pronunciation-of-the-letters-with-the-short-vowel-fathah/',
+   dammah:'https://softarabic.com/arabic-letters-with-short-vowel-dammah/',
+   kasrah:'https://softarabic.com/arabic-letters-with-short-vowel-kasrah/',
+   alif:'https://softarabic.com/arabic-letters-with-the-long-vowel-alif/',
+   yaa:'https://softarabic.com/arabic-letters-with-long-vowel-yaa/',
+   waw:'https://softarabic.com/the-arabic-letters-ba/',
+   sukun:'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-fathah':'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-dammah':'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-kasrah':'https://softarabic.com/the-arabic-letters-ba/',
+   'shadda-fathah':'https://softarabic.com/the-arabic-letters-ba/',
+   'shadda-dammah':'https://softarabic.com/the-arabic-letters-ba/',
+   'shadda-kasrah':'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-shadda-fathah':'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-shadda-dammah':'https://softarabic.com/the-arabic-letters-ba/',
+   'tanwin-shadda-kasrah':'https://softarabic.com/the-arabic-letters-ba/'
+ };
+
+ const normalizeBase=x=>{
+   const raw=String(x||'').normalize('NFC').replace(/[\u064b-\u065f\u0670\u06d6-\u06edـ]/g,'');
+   let ch=[...raw].find(z=>/[ء-يىة]/.test(z))||'';
+   if(['إ','آ','ؤ','ئ'].includes(ch))ch='أ';
+   if(ch==='ى')ch='ي';
+   if(ch==='ة')ch='ت';
+   return ch;
+ };
+ const graphemes=text=>{
+   try{return [...new Intl.Segmenter('ar',{granularity:'grapheme'}).segment(String(text||''))].map(x=>x.segment)}
+   catch{return Array.from(String(text||''))}
+ };
+ const hasMark=(g,m)=>String(g).includes(m);
+ const isBareLong=(g,ch)=>normalizeBase(g)===ch&&!/[\u064b-\u0652\u0670]/.test(g);
+ const kindFor=(g)=>{
+   const sh=hasMark(g,'ّ');
+   if(hasMark(g,'ً'))return sh?'tanwin-shadda-fathah':'tanwin-fathah';
+   if(hasMark(g,'ٌ'))return sh?'tanwin-shadda-dammah':'tanwin-dammah';
+   if(hasMark(g,'ٍ'))return sh?'tanwin-shadda-kasrah':'tanwin-kasrah';
+   if(sh&&hasMark(g,'َ'))return 'shadda-fathah';
+   if(sh&&hasMark(g,'ُ'))return 'shadda-dammah';
+   if(sh&&hasMark(g,'ِ'))return 'shadda-kasrah';
+   if(hasMark(g,'ْ'))return 'sukun';
+   if(hasMark(g,'َ'))return 'fathah';
+   if(hasMark(g,'ُ'))return 'dammah';
+   if(hasMark(g,'ِ'))return 'kasrah';
+   return null;
+ };
+ const shortKindForLong=k=>k==='alif'?'fathah':k==='yaa'?'kasrah':k==='waw'?'dammah':null;
+ const soundUrl=(base,kind)=>{
+   const idx=letterIndex[base];return idx&&kind?softBase+kind+'/letter-'+idx+'.mp3':'';
+ };
+ const nameUrl=base=>{
+   const b=base==='ء'?'ء':base,file=letterNameFile[b]||letterNameFile[normalizeBase(base)];
+   return file?arabicOmBase+file:'';
+ };
+
+ const tokenize=text=>{
+   const gs=graphemes(text),out=[];
+   for(let n=0;n<gs.length;n++){
+     const g=gs[n];
+     if(/^\s+$/.test(g)||/^[،؛,.!?؟:()\-–—]+$/.test(g))continue;
+     const base=normalizeBase(g);if(!base)continue;
+     let kind=kindFor(g),display=g;
+     if(hasMark(g,'ٰ'))kind='alif';
+     const next=gs[n+1];
+     if(kind==='fathah'&&next&&(isBareLong(next,'ا')||isBareLong(next,'ى'))){kind='alif';display+=next;n++}
+     else if(kind==='kasrah'&&next&&isBareLong(next,'ي')){kind='yaa';display+=next;n++}
+     else if(kind==='dammah'&&next&&isBareLong(next,'و')){kind='waw';display+=next;n++}
+     out.push({display,base,kind});
+   }
+   return out;
+ };
+
+ const urlsForToken=t=>{
+   if(!t?.base)return[];
+   const nm=nameUrl(t.base);
+   if(!t.kind)return nm?[nm]:[];
+   const snd=soundUrl(t.base,t.kind);
+   const short=shortKindForLong(t.kind);
+   if(short){
+     const shortSound=soundUrl(t.base,short);
+     // Teacher-like contrast: letter name -> short sound, then name -> short -> long.
+     return [nm,shortSound,nm,shortSound,snd,snd].filter(Boolean);
+   }
+   // Movement, sukun, tanween, and shadda: name -> exact sound -> repeat exact sound.
+   return [nm,snd,snd].filter(Boolean);
+ };
+
+ const urlsForTarget=text=>{
+   const tokens=tokenize(text);
+   if(!tokens.length)return[];
+   const slow=tokens.flatMap(urlsForToken);
+   // For words/phrases, finish by reading the component sounds once more with shorter pauses.
+   const direct=tokens.map(t=>t.kind?soundUrl(t.base,t.kind):nameUrl(t.base)).filter(Boolean);
+   return tokens.length>1?[...slow,{gap:420},...direct]:slow;
+ };
+
  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
- const playUrl=src=>new Promise((resolve,reject)=>{
-   directAudio.onended=()=>resolve();
-   directAudio.onerror=()=>reject(Error('تعذر تشغيل أحد المقاطع الصوتية.'));
+ const stopAudio=()=>{playbackToken++;directAudio.pause();directAudio.removeAttribute('src');directAudio.load();audioStatus.textContent=''};
+ const playUrl=(src,token)=>new Promise(resolve=>{
+   if(!src||token!==playbackToken)return resolve(false);
+   let settled=false;
+   const done=ok=>{if(settled)return;settled=true;clearTimeout(timer);directAudio.onended=null;directAudio.onerror=null;resolve(ok)};
+   const timer=setTimeout(()=>done(false),7000);
+   directAudio.onended=()=>done(true);
+   directAudio.onerror=()=>done(false);
    directAudio.src=src;directAudio.currentTime=0;
-   directAudio.play().catch(reject);
+   const p=directAudio.play();if(p?.catch)p.catch(()=>done(false));
  });
- const playFathaLesson=async()=>{
-   const token=++lessonPlayToken;
-   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=true;
-   audioNote.textContent='';audioStatus.textContent='';player.src='about:blank';
-   directAudio.pause();
-   const original=i;
+ const playSequence=async(seq,token,fast=false)=>{
+   for(const part of seq){
+     if(token!==playbackToken)return false;
+     if(part&&typeof part==='object'&&part.gap){await sleep(part.gap);continue}
+     const ok=await playUrl(part,token);
+     if(token!==playbackToken)return false;
+     await sleep(fast?100:(ok?190:40));
+   }
+   return true;
+ };
+ const sourceForTarget=text=>{
+   const k=tokenize(text).map(x=>x.kind).find(Boolean);
+   return sourcePages[k]||'https://softarabic.com/the-arabic-letters-ba/';
+ };
+
+ const render=()=>{
+   prompt.textContent=items[i];
+   hint.textContent='🔊   '+(i+1)+' / '+items.length;
+   bar.style.width=((i+1)/items.length*100)+'%';
+   document.getElementById('choices').innerHTML='';
+   document.getElementById('prev').disabled=i===0;
+   document.getElementById('next').disabled=i===items.length-1;
+   sourceLink.href=sourceForTarget(items[i]);
+ };
+
+ const prepareAudio=()=>{
+   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=false;
+   audioNote.textContent='';sourceLink.textContent='مصدر التسجيلات البشرية';
+ };
+
+ const playTeacherCard=async()=>{
+   stopAudio();const token=playbackToken;prepareAudio();
+   const seq=urlsForTarget(items[i]);
+   if(!seq.length){audioStatus.textContent='لا يتوفر تسجيل مطابق لهذه البطاقة حتى الآن.';return}
+   audioStatus.textContent='🔊';
+   await playSequence(seq,token,false);
+   if(token===playbackToken)audioStatus.textContent='';
+ };
+
+ const playWholeLesson=async()=>{
+   stopAudio();const token=playbackToken;prepareAudio();
+   const original=i;audioStatus.textContent='▶';
    try{
      for(let n=0;n<items.length;n++){
-       if(token!==lessonPlayToken)return;
+       if(token!==playbackToken)return;
        i=n;render();
-       for(let rep=0;rep<3;rep++){
-         if(token!==lessonPlayToken)return;
-         const src=fathaAudioOf(items[n]);if(!src)continue;
-         await playUrl(src);
-         await sleep(280);
-       }
-       await sleep(520);
+       const seq=urlsForTarget(items[n]);
+       await playSequence(seq,token,false);
+       if(token!==playbackToken)return;
+       await sleep(450);
      }
    }finally{
-     if(token===lessonPlayToken){i=original;render();directAudio.onended=null;directAudio.onerror=null;}
+     if(token===playbackToken){i=original;render();audioStatus.textContent=''}
    }
  };
- const playNoorExplanation=()=>{
-   if(isFathaLesson)return playFathaLesson();
-   return playHuman(true);
- };
- const playHuman=restart=>{
-   directAudio.pause();directAudioBox.hidden=true;lessonVideoBox.hidden=false;humanAudio.hidden=false;
-   if(!source){
-     audioNote.textContent='لم يُعتمد لهذا الدرس تسجيل بشري محدد بعد. استخدم صفحة نور البيان مؤقتًا حتى يُربط التسجيل الموثوق.';
-     player.removeAttribute('src');sourceLink.hidden=true;return;
-   }
-   sourceLink.hidden=false;
-   audioNote.textContent='المصدر الصوتي: '+source.label+' — تشغيل شرح الدرس.';
-   sourceLink.href='https://www.youtube.com/watch?v='+source.video;
-   const url='https://www.youtube-nocookie.com/embed/'+source.video+'?autoplay=1&playsinline=1&rel=0&modestbranding=1';
-   if(restart||!player.src.includes(source.video)){player.src='about:blank';setTimeout(()=>{player.src=url},40)}
-   humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
- };
- if(isFathaLesson){document.getElementById('speak').textContent='استمع للحرف';document.getElementById('again').textContent='كرر الحرف';document.getElementById('lessonExplain').textContent='استمع للدرس كاملاً';lessonVideoBox.hidden=true;sourceLink.hidden=true}
- document.getElementById('speak').onclick=()=>isFathaLesson?playDirectFatha():playHuman(false);
- document.getElementById('lessonExplain').onclick=()=>playNoorExplanation();
- document.getElementById('again').onclick=()=>isFathaLesson?playDirectFatha():playHuman(true);
- document.getElementById('prev').onclick=()=>{lessonPlayToken++;directAudio.pause();if(i>0){i--;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
- document.getElementById('next').onclick=()=>{lessonPlayToken++;directAudio.pause();if(i<items.length-1){i++;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
+
+ document.getElementById('speak').onclick=()=>playTeacherCard().catch(()=>{audioStatus.textContent='تعذر تشغيل التسجيل؛ أعد المحاولة.'});
+ document.getElementById('again').onclick=()=>playTeacherCard().catch(()=>{audioStatus.textContent='تعذر تشغيل التسجيل؛ أعد المحاولة.'});
+ document.getElementById('lessonExplain').onclick=()=>playWholeLesson().catch(()=>{audioStatus.textContent='تعذر تشغيل الدرس؛ أعد المحاولة.'});
+ document.getElementById('prev').onclick=()=>{stopAudio();if(i>0){i--;render()}};
+ document.getElementById('next').onclick=()=>{stopAudio();if(i<items.length-1){i++;render()}};
  render();
 })();
 </script></body></html>
