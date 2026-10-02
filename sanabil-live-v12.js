@@ -866,19 +866,22 @@ async function statisticsPage(root){
  await load()
 }
 
+const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'CACHE_NOOR_BAYAN'})).catch(()=>{})}catch{}};
 const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.7&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
 const openTalaqqinLesson=l=>{
  if(!l)return;
+ warmNoorBook();
  if(l.pageFrom)window.open(noorLessonUrl(l),'_blank','noopener,noreferrer');
  else window.open('https://quran.ksu.edu.sa/','_blank','noopener,noreferrer');
 };
 const openTalaqqinPractice=row=>{
+ warmNoorBook();
  const l=row?.lesson||{};
  const u='/talaqqin-practice.html?v=20261002-v13.0.7&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
  window.open(u,'_blank','noopener,noreferrer');
 };
 const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
-const showTalaqqinCurriculum=async()=>{
+const showTalaqqinCurriculum=async()=>{warmNoorBook();
  const lessons=await talaqqinLessons(),b=modal('منهج حلقات التلقين · نور البيان');
  b.innerHTML='<p>الخطة ذات 50 أسبوعًا هي المسار المرجعي، وليست قيدًا على جميع الطلاب. يحدد المعلم موضع البداية والمدة الشخصية، ويمكنه إضافة درس خاص عند الحاجة.</p>'+
  table(['#','الوحدة','الأسابيع المرجعية','الدرس','صفحات نور البيان'],lessons.map(x=>[
