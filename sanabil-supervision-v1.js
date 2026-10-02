@@ -56,8 +56,8 @@ const cycleCapacityInfo=form=>{
 const capacityMessage=x=>{
  if(!x.teachers)return 'اختر معلمًا واحدًا على الأقل لحساب السعة.';
  if(!x.days)return 'لا توجد أيام زيارة متاحة ضمن الفترة الحالية. أضف يومًا من أيام الأسبوع أو وسّع تاريخ الدورة.';
- if(x.shortage>0)return 'السعة الحالية '+x.capacity+' موعدًا، بينما المطلوب '+x.required+' زيارة. ينقص '+x.shortage+' موعدًا. ارفع عدد الزيارات في اليوم إلى '+x.suggestedPerDay+' تقريبًا، أو أضف أيام زيارة، أو وسّع مدة الدورة.';
- return 'السعة متاحة: '+x.capacity+' موعدًا مقابل '+x.required+' زيارة مطلوبة خلال '+x.days+' يوم زيارة.';
+ if(x.shortage>0)return 'السعة المتاحة '+x.capacity+' موعدًا، بينما المطلوب '+x.required+' زيارة. ينقص '+x.shortage+' موعدًا. ارفع عدد الزيارات في اليوم إلى '+x.suggestedPerDay+' تقريبًا، أو أضف أيام زيارة، أو وسّع مدة الدورة.';
+ return 'السعة المتاحة: '+x.capacity+' موعدًا مقابل '+x.required+' زيارة مطلوبة خلال '+x.days+' يوم زيارة.';
 };
 const refreshCapacity=form=>{
  const el=form.querySelector('[data-capacity-note]');if(!el)return cycleCapacityInfo(form);
