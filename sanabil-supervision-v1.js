@@ -88,6 +88,54 @@ async function scopes(){
 function gradeRate(n){n=Number(n||0);return n>=90?'ممتاز':n>=80?'جيد جدًا':n>=70?'جيد':n>=60?'مقبول':'يحتاج تحسين'}
 function scoreColor(n){n=Number(n||0);return n>=90?'#0b7b57':n>=80?'#00808a':n>=70?'#8b6b1f':n>=60?'#b7791f':'#a33d34'}
 
+const ANALYSIS_FOCUS={
+ t01:'ضبط الحركات والأحرف المدية وتصويب القراءة',
+ t02:'تطبيق أحكام الميم والنون الساكنتين والتنوين',
+ t03:'ضبط أزمنة المدود وتعريف أنواعها',
+ t04:'التمييز بين همزتي الوصل والقطع عند الابتداء والوصل',
+ t05:'اختيار مواضع الوقف والابتداء المناسبة أثناء القراءة',
+ t06:'إدارة زمن التسميع بعدل واستيفاء جميع الدارسين',
+ t07:'تنظيم وقت المراجعة بما يناسب مستويات الدارسين',
+ t08:'تفعيل السجلات التعليمية والاستفادة منها في المتابعة',
+ t09:'الموازنة بين القراءة الجماعية والفردية في التلقين',
+ t10:'تصحيح الأخطاء بأسلوب إيجابي وإشراك الدارسين في التصويب',
+ t11:'تنويع أساليب التعزيز بما يحفز الدارسين',
+ t12:'تنظيم جلوس الطلاب وضبط الحلقة',
+ t13:'تهيئة الدارس للحفظ بالاستماع المتكرر إلى المقرئ',
+ t14:'المحافظة على سمت معلم القرآن والمظهر اللائق',
+ t15:'حسن التعامل مع الإدارة والزملاء والدارسين',
+ t16:'تقبّل التوجيهات وتحويل التوصيات إلى ممارسات عملية',
+ t17:'تحمل المسؤولية والقيام بالواجبات المهنية',
+ t18:'رعاية الموهوبين وترشيح المتميزين للمسابقات'
+};
+const analysisFocus=x=>ANALYSIS_FOCUS[x.id]||x.skill||x.indicator||'هذا الجانب';
+const analysisLevel=s=>Number(s)===5?'مستوى متميز':Number(s)===4?'مستوى متحقق':Number(s)===3?'مستوى مقبول':Number(s)===2?'تحقق جزئي':Number(s)===1?'مستوى يحتاج إلى تحسين واضح':'لم يظهر تطبيق كافٍ';
+const strengthSentence=x=>{
+ const f=analysisFocus(x);
+ return Number(x.score)===5
+   ?'أظهر المعلم تميزًا واضحًا في «'+x.skill+'»، واتسم أداؤه بتمكن راسخ في '+f+'.'
+   :'حقق المعلم مستوى متحققًا في «'+x.skill+'»، وظهر لديه ثبات جيد في '+f+'.';
+};
+const improvementSentence=x=>{
+ const f=analysisFocus(x),s=Number(x.score);
+ if(s===3)return 'جاء مستوى المعلم في «'+x.skill+'» مقبولًا، ويحتاج إلى مزيد من الثبات والاتساق في '+f+'.';
+ if(s===2)return 'تحقق جانب «'+x.skill+'» بصورة جزئية، ويحتاج إلى تدريب منتظم يرفع جودة '+f+'.';
+ if(s===1)return 'يحتاج جانب «'+x.skill+'» إلى تطوير واضح، مع تركيز مباشر على '+f+'.';
+ return 'لم يظهر أثناء الزيارة تطبيق كافٍ في «'+x.skill+'»، ويُعد تفعيل '+f+' أولوية مباشرة في المرحلة القادمة.';
+};
+const recommendationSentence=(x,i)=>{
+ const f=analysisFocus(x),s=Number(x.score),lead=(i+1)+'. ';
+ if(s===3)return lead+'تثبيت ممارسة '+f+' بصورة منتظمة، ومتابعة اتساقها وأثرها في الزيارة القادمة.';
+ if(s===2)return lead+'تخصيص تدريب عملي قصير على '+f+'، ثم تطبيقه بصورة يومية وقياس التحسن في الزيارة القادمة.';
+ if(s===1)return lead+'وضع إجراء تطويري واضح لـ'+f+'، مع متابعة أسبوعية وتوثيق التطبيق حتى يصبح جزءًا ثابتًا من أداء الحلقة.';
+ return lead+'البدء بخطة علاجية مباشرة لتفعيل '+f+'، مع متابعة قريبة من المشرف والتأكد من ظهور الممارسة في الزيارة التالية.';
+};
+const cleanGeneratedAnalysis=s=>String(s||'')
+ .replace(/\s*\(\s*الدرجة\s*\d+\s*\/\s*5\s*\)/g,'')
+ .replace(/(^|\n)\s*•\s*/g,'$1• ')
+ .replace(/[ \t]+\n/g,'\n')
+ .trim();
+
 async function getTemplate(orgId,complexId,type){
  let q=sb().from('document_templates').select('*').eq('org_id',orgId).eq('template_type',type).eq('active',true).order('created_at',{ascending:false});
  if(complexId)q=q.eq('complex_id',complexId);else q=q.is('complex_id',null);
@@ -282,15 +330,23 @@ async function openVisit(root,visit,sc){
    const high=[...evaluated].filter(x=>x.score>=4).sort((a,b)=>b.score-a.score).slice(0,5);
    const low=[...evaluated].filter(x=>x.score<4).sort((a,b)=>a.score-b.score).slice(0,5);
    const weakest=low.length?low:[...evaluated].sort((a,b)=>a.score-b.score).slice(0,3);
-   const bullet=arr=>arr.map(x=>'• '+x.skill+': '+x.indicator+' (الدرجة '+x.score+'/5)').join('\n');
-   form.elements.strengths.value=high.length?bullet(high):'لم يظهر في الدرجات المسجلة مؤشر بلغ مستوى «متحقق» فأعلى؛ يُستحسن توثيق جوانب القوة بالملاحظة المباشرة.';
-   form.elements.improvements.value=weakest.length?bullet(weakest):'لا توجد أولويات تحسين بارزة وفق الدرجات المدخلة.';
-   form.elements.recommendations.value=weakest.map((x,i)=>(i+1)+'. رفع مستوى «'+x.skill+'» من خلال تطبيق المؤشر التالي بصورة عملية ومتابعة أثره في الزيارة القادمة: '+x.indicator).join('\n');
-   const bySection={};weakest.forEach(x=>(bySection[x.section]||(bySection[x.section]=[])).push(x.skill));
-   form.elements.proposals.value=Object.entries(bySection).map(([section,skills],i)=>(i+1)+'. تنفيذ متابعة مركزة في مجال «'+section+'» حول: '+[...new Set(skills)].join('، ')+'، مع قياس التحسن في الزيارة التالية.').join('\n');
+   form.elements.strengths.value=high.length
+     ?high.map(x=>'• '+strengthSentence(x)).join('\n')
+     :'لم تتضح بعد نقاط قوة بدرجة كافية من البنود المقيمة؛ يُستحسن استكمال الملاحظة المباشرة قبل اعتماد التحليل.';
+   form.elements.improvements.value=weakest.length
+     ?weakest.map(x=>'• '+improvementSentence(x)).join('\n')
+     :'أظهر الأداء استقرارًا عامًا، ولا توجد أولوية تحسين بارزة تستدعي إجراءً عاجلًا في الوقت الحالي.';
+   form.elements.recommendations.value=weakest.length
+     ?weakest.map(recommendationSentence).join('\n')
+     :'الاستمرار على الممارسات الحالية، مع المحافظة على المتابعة الدورية وتوثيق جوانب التميز.';
+   const bySection={};weakest.forEach(x=>(bySection[x.section]||(bySection[x.section]=[])).push(analysisFocus(x)));
+   form.elements.proposals.value=Object.entries(bySection).map(([section,focuses],i)=>(i+1)+'. تخصيص متابعة مركزة في مجال «'+section+'» لتعزيز '+[...new Set(focuses)].join('، ')+'، ثم مقارنة أثر التحسين في الزيارة التالية.').join('\n');
    treat.innerHTML='';
    const dueDate=(()=>{const d=new Date(Date.now()+14*86400000);return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)})();
-   weakest.slice(0,3).forEach(x=>addTreatment({action:'تحسين «'+x.skill+'»: '+x.indicator,owner:'المعلم',dueDate,priority:x.score<=2?'عالية':'متوسطة',status:'مفتوحة'}));
+   weakest.slice(0,3).forEach(x=>addTreatment({
+     action:(Number(x.score)<=1?'تطبيق خطة علاجية مباشرة لتطوير ':'تدريب عملي ومتابعة تحسين ')+analysisFocus(x),
+     owner:'المعلم',dueDate,priority:x.score<=2?'عالية':'متوسطة',status:'مفتوحة'
+   }));
  };
  action(b,'[data-sv-action="auto-analysis"]',autoAnalysis);
  const collect=async(final)=>{
@@ -313,7 +369,7 @@ async function showVisitResult(v,sc){
  const students=(v.student_checks||[]).map(x=>[x.studentName||'—',x.latestOutcome?.new_lesson||'—',x.score??'—',x.note||'—']);
  b.innerHTML='<div class="sv-result-hero"><div><h2>'+esc(teacher?.full_name||v.teacher_profile_snapshot?.fullName||'المعلم')+'</h2><p>'+esc(circle?.name||v.circle_snapshot?.name||'')+' · '+esc(arDate(v.scheduled_at))+'</p></div><div><b style="color:'+scoreColor(v.score)+'">'+esc(v.score??0)+'/100</b><span>'+esc(v.rating||'—')+'</span></div></div>'+
  '<div class="stats-grid"><article class="stat-card"><span>نوع الزيارة</span><b>'+esc(v.visit_type)+'</b></article><article class="stat-card"><span>رقم الزيارة</span><b>'+esc(v.visit_number)+'</b></article><article class="stat-card"><span>الحالة</span><b>'+esc(v.status)+'</b></article></div>'+
- '<h3>نقاط القوة</h3><div class="sv-readbox">'+esc(v.strengths||'—')+'</div><h3>أولويات التحسين</h3><div class="sv-readbox">'+esc(v.improvements||'—')+'</div><h3>التوصيات</h3><div class="sv-readbox">'+esc(v.recommendations||'—')+'</div><h3>المقترحات</h3><div class="sv-readbox">'+esc(v.proposals||'—')+'</div>'+
+ '<h3>نقاط القوة</h3><div class="sv-readbox">'+esc(cleanGeneratedAnalysis(v.strengths)||'—')+'</div><h3>أولويات التحسين</h3><div class="sv-readbox">'+esc(cleanGeneratedAnalysis(v.improvements)||'—')+'</div><h3>التوصيات</h3><div class="sv-readbox">'+esc(cleanGeneratedAnalysis(v.recommendations)||'—')+'</div><h3>المقترحات</h3><div class="sv-readbox">'+esc(cleanGeneratedAnalysis(v.proposals)||'—')+'</div>'+
  '<h3>تقييم البنود</h3><div class="table-wrap"><table><thead><tr><th>الرمز</th><th>المهارة</th><th>المؤشر</th><th>الدرجة</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
  '<h3>الطالبان المختبران</h3><div class="table-wrap"><table><thead><tr><th>الطالب</th><th>آخر درس</th><th>الدرجة</th><th>الملاحظات</th></tr></thead><tbody>'+students.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+
  '<h3>الخطة العلاجية</h3><div class="table-wrap"><table><thead><tr><th>الإجراء</th><th>المسؤول</th><th>الموعد</th><th>الأولوية</th><th>الحالة</th></tr></thead><tbody>'+(v.treatment_plan||[]).map(x=>'<tr><td>'+esc(x.action)+'</td><td>'+esc(x.owner)+'</td><td>'+esc(x.dueDate)+'</td><td>'+esc(x.priority)+'</td><td>'+esc(x.status)+'</td></tr>').join('')+'</tbody></table></div>'+
@@ -322,7 +378,7 @@ async function showVisitResult(v,sc){
    const tpl=await getTemplate(v.org_id,v.complex_id,'supervision')||await getTemplate(v.org_id,v.complex_id,'report');
    const meta='<div class="sv-grid"><div class="sv-box"><span>المعلم</span><b>'+esc(teacher?.full_name||v.teacher_profile_snapshot?.fullName||'')+'</b></div><div class="sv-box"><span>الحلقة</span><b>'+esc(circle?.name||v.circle_snapshot?.name||'')+'</b></div><div class="sv-box"><span>موعد الزيارة</span><b>'+esc(arDate(v.scheduled_at))+'</b></div><div class="sv-box"><span>نوع الزيارة</span><b>'+esc(v.visit_type)+'</b></div><div class="sv-box"><span>النتيجة</span><b class="sv-score">'+esc(v.score)+'/100</b></div><div class="sv-box"><span>التقدير</span><b>'+esc(v.rating)+'</b></div></div>';
    const shtml='<section class="sv-section"><h2>نتيجة بنود التقييم</h2><table class="sv-table"><thead><tr><th>#</th><th>المهارة</th><th>المؤشر</th><th>الدرجة</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table></section>';
-   const note='<section class="sv-section"><h2>نقاط القوة</h2><div class="sv-note">'+esc(v.strengths||'—')+'</div><h2>أولويات التحسين</h2><div class="sv-note">'+esc(v.improvements||'—')+'</div><h2>التوصيات</h2><div class="sv-note">'+esc(v.recommendations||'—')+'</div><h2>المقترحات</h2><div class="sv-note">'+esc(v.proposals||'—')+'</div></section><div class="sv-signatures"><div>المعلم/ـة</div><div>مدير الجهة</div><div>المشرف المقيِّم</div></div>';
+   const note='<section class="sv-section"><h2>نقاط القوة</h2><div class="sv-note">'+esc(cleanGeneratedAnalysis(v.strengths)||'—')+'</div><h2>أولويات التحسين</h2><div class="sv-note">'+esc(cleanGeneratedAnalysis(v.improvements)||'—')+'</div><h2>التوصيات</h2><div class="sv-note">'+esc(cleanGeneratedAnalysis(v.recommendations)||'—')+'</div><h2>المقترحات</h2><div class="sv-note">'+esc(cleanGeneratedAnalysis(v.proposals)||'—')+'</div></section><div class="sv-signatures"><div>المعلم/ـة</div><div>مدير الجهة</div><div>المشرف المقيِّم</div></div>';
    printShell('استمارة قياس أداء معلم القرآن',meta+shtml+note,tpl?.public_url||'',true)
  });
 }
