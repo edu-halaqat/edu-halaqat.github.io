@@ -778,9 +778,11 @@ async function requestPanel(root,options={}){
  const form=root.querySelector('form');
  submit(form,async()=>{
   const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
+  const syllabusData=typeof form.__v13GetSyllabus==='function'?form.__v13GetSyllabus():{label:val(form,'syllabus')};
+  if(!syllabusData?.label)throw Error('حدد مقرر الاختبار بدقة.');
   await result(sb().from('exam_requests').insert({
    id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
-   type:val(form,'type'),syllabus:{label:val(form,'syllabus')},question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
+   type:val(form,'type'),syllabus:syllabusData,question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
   }).select('id').single());
   form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
  });
