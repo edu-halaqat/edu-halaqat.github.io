@@ -42,6 +42,37 @@ body.embed>header{display:none}body.embed main{max-width:none;padding:4px}body.e
 <script>
 (()=>{'use strict';
  const REMOTE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
+ const LESSON_RANGES=[
+  {from:3,to:3,title:'الحروف الهجائية'},
+  {from:4,to:4,title:'الحروف مع الفتح: أ – خ'},
+  {from:5,to:5,title:'الحروف مع الفتح: د – ص'},
+  {from:6,to:6,title:'الحروف مع الفتح: ض – ق'},
+  {from:7,to:7,title:'الحروف مع الفتح: ك – ي'},
+  {from:8,to:10,title:'الفتح في كلمة واحدة'},
+  {from:11,to:12,title:'الفتح في كلمتين'},
+  {from:13,to:13,title:'الفتح في ثلاث كلمات'},
+  {from:14,to:15,title:'الكسر في كلمة واحدة'},
+  {from:16,to:17,title:'الكسر في كلمتين'},
+  {from:18,to:18,title:'الكسر في ثلاث كلمات'},
+  {from:19,to:20,title:'الضم في كلمة واحدة'},
+  {from:21,to:22,title:'الضم في كلمتين'},
+  {from:23,to:24,title:'الضم في ثلاث كلمات'},
+  {from:25,to:28,title:'مد الألف'},
+  {from:29,to:31,title:'مد الياء'},
+  {from:32,to:32,title:'مد الياء الصغيرة'},
+  {from:33,to:35,title:'مد الواو'},
+  {from:36,to:39,title:'مد الواو الصغيرة'},
+  {from:40,to:50,title:'السكون'},
+  {from:51,to:53,title:'تنوين الفتح'},
+  {from:54,to:56,title:'تنوين الكسر'},
+  {from:57,to:62,title:'تنوين الضم'},
+  {from:63,to:66,title:'الشدة'},
+  {from:67,to:70,title:'الشدة مع تنوين الفتح'},
+  {from:71,to:74,title:'الشدة مع تنوين الكسر'},
+  {from:75,to:77,title:'الشدة مع تنوين الضم'}
+ ];
+ const lessonForPage=n=>LESSON_RANGES.find(x=>n>=x.from&&n<=x.to)||null;
+
  const p=new URLSearchParams(location.search),embedded=p.get('embed')==='1';if(embedded)document.body.classList.add('embed');let page=Math.min(98,Math.max(1,Number(p.get('page')||3)||3));
  const to=Math.min(98,Math.max(page,Number(p.get('to')||page)||page)),title=(p.get('title')||'').slice(0,140);
  const canvas=document.getElementById('pageCanvas'),viewer=document.getElementById('viewer'),loading=document.getElementById('loading'),err=document.getElementById('error'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle');
@@ -82,9 +113,12 @@ body.embed>header{display:none}body.embed main{max-width:none;padding:4px}body.e
    try{const pg=await pdf.getPage(n);await pg.getOperatorList()}catch{}
  };
  const render=async(force=false)=>{
-   chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;
-   lt.textContent=title||'معاينة الدرس';
-   history.replaceState(null,'','?v=20261002-v13.0.11&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
+   const currentLesson=lessonForPage(page),currentTitle=currentLesson?.title||title||'معاينة الدرس';
+   chip.textContent=currentLesson?(currentLesson.from===currentLesson.to?'صفحة '+currentLesson.from:'صفحات '+currentLesson.from+'–'+currentLesson.to):('صفحة '+page);
+   lt.textContent=currentTitle;
+   document.title=currentTitle+' | نور البيان | سنابل الوحي';
+   try{if(window.parent!==window)window.parent.postMessage({type:'sanabil-noor-page',title:currentTitle,page,from:currentLesson?.from||page,to:currentLesson?.to||page},location.origin)}catch{}
+   history.replaceState(null,'','?v=20261002-v13.0.14&page='+page+(currentLesson&&currentLesson.to!==page?'&to='+currentLesson.to:'')+'&title='+encodeURIComponent(currentTitle));
    loading.classList.remove('hidden');err.hidden=true;canvas.hidden=false;
    try{
      const pdf=await loadPdf(force),pageno=Math.min(pdf.numPages,page),pg=await pdf.getPage(pageno);
