@@ -29,7 +29,7 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
     <audio id="directAudio" preload="none"></audio>
   </div>
   <div id="lessonVideoBox" hidden></div>
-  <div class="actions" style="justify-content:flex-start"><a class="btn" id="sourceLink" target="_blank" rel="noopener noreferrer">فتح المصدر الأصلي</a></div>
+  <a id="sourceLink" hidden aria-hidden="true" tabindex="-1"></a>
 </div>
 <div class="choices" id="choices"></div>
 <p class="small" id="audioStatus" aria-live="polite"></p>
@@ -216,8 +216,8 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
  };
 
  const prepareAudio=()=>{
-   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=false;
-   audioNote.textContent='';sourceLink.textContent='مصدر التسجيلات البشرية';
+   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=true;
+   audioNote.textContent='';
  };
 
  const playTeacherCard=async()=>{
