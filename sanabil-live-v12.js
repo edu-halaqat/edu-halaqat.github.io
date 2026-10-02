@@ -550,14 +550,26 @@ async function outcomesPage(root){
           if(!savedStatus)throw Error('حضّر الطالب واحفظ التحضير أولًا.');
           if(['absent','excused'].includes(savedStatus))throw Error('لا يسجل تقييم درس لطالب غائب أو مستأذن.');
         };
-        const op=box.querySelector('[data-action="to-open-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll,r,i));
-        const md=box.querySelector('[data-action="to-media-'+i+'"]');if(md)action(box,md,()=>openTalaqqinPractice(r,i));
+        const op=box.querySelector('[data-action="to-open-'+i+'"]');
+        if(op){op.dataset.tlHandled='1';op.onclick=e=>{e.preventDefault();e.stopPropagation();try{openTalaqqinLesson(ll,r,i)}catch(err){alert(err?.message||'تعذر فتح معاينة الدرس.')}}}
+        const md=box.querySelector('[data-action="to-media-'+i+'"]');
+        if(md){md.dataset.tlHandled='1';md.onclick=e=>{e.preventDefault();e.stopPropagation();try{openTalaqqinPractice(r,i)}catch(err){alert(err?.message||'تعذر فتح التدريب التفاعلي.')}}}
         const rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(rt)action(box,rt,()=>{ensureReady();assessTalaqqinStudent(root,r,renderTalaqqin)});
         const ex=box.querySelector('[data-action="to-extend-'+i+'"]');if(ex)action(box,ex,()=>extendTalaqqinLesson(root,r,renderTalaqqin));
         const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
         const pc=box.querySelector('[data-action="to-pace-'+i+'"]');if(pc)action(box,pc,()=>paceTalaqqinStudent(root,r,renderTalaqqin));
         const cu=box.querySelector('[data-action="to-custom-'+i+'"]');if(cu)action(box,cu,()=>addCustomTalaqqinLesson(root,r,renderTalaqqin));
         const cc=box.querySelector('[data-action="to-cancel-'+i+'"]');if(cc)action(box,cc,()=>cancelCustomTalaqqinLesson(root,r,renderTalaqqin));
+      // Fallback delegation for mobile browsers that may recycle rendered button nodes.
+      box.onclick=e=>{
+        const btn=e.target.closest?.('button[data-action^="to-open-"],button[data-action^="to-media-"]');
+        if(!btn||btn.dataset.tlHandled==='1')return;
+        const m=btn.dataset.action.match(/to-(open|media)-(\d+)/);if(!m)return;
+        const idx=Number(m[2]),row=items[idx];if(!row)return;
+        e.preventDefault();e.stopPropagation();
+        try{m[1]==='open'?openTalaqqinLesson(row.lesson||{},row,idx):openTalaqqinPractice(row,idx)}
+        catch(err){alert(err?.message||'تعذر فتح الدرس.')}
+      };
       });
     };
     await renderTalaqqin();
