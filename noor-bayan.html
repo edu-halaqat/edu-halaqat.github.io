@@ -20,7 +20,8 @@ nav{display:flex;gap:7px;align-items:center;justify-content:center;margin:7px 0;
 .viewer canvas{display:block;max-width:100%;height:auto;background:#fff}
 .loading{position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#687a73;font-weight:700;z-index:2;transition:opacity .15s}.loading.hidden{opacity:0;pointer-events:none}
 .error{padding:22px;text-align:center}.error[hidden]{display:none}
-@media(max-width:700px){header img{width:98px}main{padding:5px}.intro{padding:9px 11px}.viewer{min-height:calc(100vh - 190px);padding:2px}.chip,.btn{padding:8px 10px}}
+body.embed>header{display:none}body.embed main{max-width:none;padding:4px}body.embed .viewer{min-height:calc(100dvh - 104px);border-radius:12px}body.embed .intro{margin-top:0}
+@media(max-width:700px){header img{width:98px}main{padding:5px}.intro{padding:9px 11px}.viewer{min-height:calc(100vh - 190px);padding:2px}.chip,.btn{padding:8px 10px}body.embed main{padding:2px}body.embed .viewer{min-height:calc(100dvh - 96px)}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
 </head>
@@ -41,7 +42,7 @@ nav{display:flex;gap:7px;align-items:center;justify-content:center;margin:7px 0;
 <script>
 (()=>{'use strict';
  const REMOTE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
- const p=new URLSearchParams(location.search);let page=Math.min(98,Math.max(1,Number(p.get('page')||3)||3));
+ const p=new URLSearchParams(location.search),embedded=p.get('embed')==='1';if(embedded)document.body.classList.add('embed');let page=Math.min(98,Math.max(1,Number(p.get('page')||3)||3));
  const to=Math.min(98,Math.max(page,Number(p.get('to')||page)||page)),title=(p.get('title')||'').slice(0,140);
  const canvas=document.getElementById('pageCanvas'),viewer=document.getElementById('viewer'),loading=document.getElementById('loading'),err=document.getElementById('error'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle');
  let pdfDoc=null,renderTask=null,sourceUrl=REMOTE,sourceChecked=false;
@@ -83,7 +84,7 @@ nav{display:flex;gap:7px;align-items:center;justify-content:center;margin:7px 0;
  const render=async(force=false)=>{
    chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;
    lt.textContent=title||'معاينة الدرس';
-   history.replaceState(null,'','?v=20261002-v13.0.9&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
+   history.replaceState(null,'','?v=20261002-v13.0.10&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
    loading.classList.remove('hidden');err.hidden=true;canvas.hidden=false;
    try{
      const pdf=await loadPdf(force),pageno=Math.min(pdf.numPages,page),pg=await pdf.getPage(pageno);
