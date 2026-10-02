@@ -12,6 +12,7 @@
 header{background:#fff;border-bottom:1px solid #eadfc9;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}header img{width:135px}
 main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(135deg,#073c34,#0b6a56);color:#fff;border-radius:22px;padding:20px}.hero b{color:var(--gold)}
 .card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:14px;text-align:center}.prompt{font-size:clamp(48px,10vw,88px);font-weight:700;line-height:1.5;min-height:150px;display:grid;place-items:center}.hint{color:#64776f;line-height:1.8}.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}.btn{border:1px solid #cfe0d9;border-radius:13px;background:#eaf5f2;color:var(--deep);padding:11px 16px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}.btn.primary{background:var(--deep);color:#fff}.progress{height:10px;background:#edf2ef;border-radius:99px;overflow:hidden;margin:18px 0}.progress span{display:block;height:100%;background:var(--gold);width:0}.small{font-size:13px;color:#687a73}.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:16px}.choice{border:1px solid #d9e5e0;background:#fff;border-radius:14px;padding:14px;font:inherit;font-size:25px;cursor:pointer}.choice.ok{background:#e7f6ef;border-color:#9bcbb9}.choice.bad{background:#fff0ed;border-color:#e2b0a8}
+body.embed>header{display:none}body.embed main{max-width:none;padding:6px}body.embed .hero{margin-top:0}body.embed .card{margin-top:8px}@media(max-width:700px){body.embed main{padding:4px}}
 </style></head>
 <body>
 <header><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><a class="btn" href="/" rel="noopener">العودة للمنصة</a></header>
@@ -37,8 +38,9 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 </main>
 <script>
 (()=>{'use strict';
- const p=new URLSearchParams(location.search),lesson=Number(p.get('lesson')||1),unit=Number(p.get('unit')||1),title=p.get('title')||'تدريب نور البيان',page=Number(p.get('page')||3);
- document.getElementById('title').textContent=title;document.getElementById('book').href='/noor-bayan.html?page='+page+'&title='+encodeURIComponent(title);
+ const p=new URLSearchParams(location.search),embedded=p.get('embed')==='1',lesson=Number(p.get('lesson')||1),unit=Number(p.get('unit')||1),title=p.get('title')||'تدريب نور البيان',page=Number(p.get('page')||3);
+ if(embedded)document.body.classList.add('embed');
+ document.getElementById('title').textContent=title;document.getElementById('book').href='/noor-bayan.html?v=20261002-v13.0.10&page='+page+'&title='+encodeURIComponent(title)+(embedded?'&embed=1':'');
  const letters={1:['أ','ب','ت','ث'],2:['ج','ح','خ','د'],3:['ذ','ر','ز','س'],4:['ش','ص','ض','ط'],5:['ظ','ع','غ','ف'],6:['ق','ك','ل','م'],7:['ن','هـ','و','ي']};
  const lessonMap={
   8:['أَ','بَ','تَ','ثَ','جَ','حَ','خَ'],9:['دَ','ذَ','رَ','زَ','سَ','شَ','صَ'],10:['ضَ','طَ','ظَ','عَ','غَ','فَ','قَ'],11:['كَ','لَ','مَ','نَ','هَ','وَ','يَ'],
