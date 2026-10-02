@@ -11,7 +11,7 @@ const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_sessio
 const offlineRead=()=>{try{const x=JSON.parse(localStorage.getItem(OFFLINE_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return[]}};
 const offlineWrite=x=>{localStorage.setItem(OFFLINE_KEY,JSON.stringify(x));window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail:{count:x.length}}))};
 let offlineSwPromise=null;
-const offlineSw=()=>{if(!('serviceWorker' in navigator))return Promise.resolve(null);if(!offlineSwPromise)offlineSwPromise=navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261002-v13.0.0',{scope:'/'}).then(()=>navigator.serviceWorker.ready).catch(()=>null);return offlineSwPromise};
+const offlineSw=()=>{if(!('serviceWorker' in navigator))return Promise.resolve(null);if(!offlineSwPromise)offlineSwPromise=navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261002-v13.0.9',{scope:'/'}).then(()=>navigator.serviceWorker.ready).catch(()=>null);return offlineSwPromise};
 offlineSw();
 const queueOfflineRpc=async(name,args,label)=>{const item={id:crypto.randomUUID(),name,args,label:label||name,queuedAt:new Date().toISOString()},q=offlineRead();q.push(item);offlineWrite(q);try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[name]||name;if(!['save_student_attendance_guarded','save_daily_outcomes_guarded'].includes(guardedName))return{queued:true,saved:Array.isArray(args?.p_rows)?args.p_rows.length:0};const reg=await offlineSw(),session=(await sb().auth.getSession()).data?.session;if(reg?.active&&session?.access_token){reg.active.postMessage({type:'queue',item:{id:item.id,url:'https://fvzoogbdezueswyihxiz.supabase.co/rest/v1/rpc/'+encodeURIComponent(guardedName),headers:{'Content-Type':'application/json','apikey':'sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ','Authorization':'Bearer '+session.access_token,'Prefer':'return=representation'},body:args}})}}catch{}return{queued:true,saved:Array.isArray(args?.p_rows)?args.p_rows.length:0}};
 const networkFailure=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request/i.test(String(e?.message||e||''));
@@ -867,7 +867,7 @@ async function statisticsPage(root){
 }
 
 const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'CACHE_NOOR_BAYAN'})).catch(()=>{})}catch{}};
-const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.7&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.9&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
 const openTalaqqinLesson=l=>{
  if(!l)return;
  warmNoorBook();
