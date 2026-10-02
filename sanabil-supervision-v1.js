@@ -34,14 +34,15 @@ const btn=(t,a,cls='')=>'<button type="button" class="button button-soft '+cls+'
 const selectHtml=(name,rows,value='',empty='اختر')=>'<select name="'+esc(name)+'"><option value="">'+esc(empty)+'</option>'+rows.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===String(value)?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
 const ratingSelect=(id,value='')=>'<select name="score_'+id+'" data-score-item="'+id+'"><option value="">—</option>'+SCALE.map(x=>'<option value="'+x[0]+'" '+(String(value)===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
 const NON_EXEC_REASONS=[
- ['teacher','لم ينفذ المعلم'],
- ['not_required','غير مطلوبة'],
- ['not_suitable','غير مناسبة']
+ ['teacher','لم ينفذها المعلم'],
+ ['not_required','مهارة غير مطلوبة'],
+ ['not_suitable_group','غير مناسبة للفئة التعليمية'],
+ ['not_needed_lesson','مهارة لا حاجة لتنفيذها لعدم مناسبتها للدرس']
 ];
 const nonExecReasonSelect=(id,value='')=>'<select name="reason_'+id+'" data-nonexec-reason="'+id+'"><option value="">— اختر سبب عدم التنفيذ —</option>'+NON_EXEC_REASONS.map(x=>'<option value="'+x[0]+'" '+(String(value)===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
-const isExemptReason=r=>r==='not_required'||r==='not_suitable';
+const isExemptReason=r=>['not_required','not_suitable_group','not_suitable','not_needed_lesson'].includes(r);
 const effectiveScore=(raw,reason)=>raw===''||raw===null||raw===undefined?null:(Number(raw)===0&&isExemptReason(reason)?5:Number(raw));
-const reasonLabel=r=>r==='teacher'?'لم ينفذ المعلم':r==='not_required'?'غير مطلوبة':r==='not_suitable'?'غير مناسبة':'';
+const reasonLabel=r=>r==='teacher'?'لم ينفذها المعلم':r==='not_required'?'مهارة غير مطلوبة':(r==='not_suitable_group'||r==='not_suitable')?'غير مناسبة للفئة التعليمية':r==='not_needed_lesson'?'مهارة لا حاجة لتنفيذها لعدم مناسبتها للدرس':'';
 const modal=title=>{const d=document.createElement('dialog');d.className='sl-dialog sv-dialog';d.innerHTML='<header><h2>'+esc(title)+'</h2><button type="button" class="button button-soft" data-close>إغلاق</button></header><div class="sl-body"></div>';document.body.append(d);d.querySelector('[data-close]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')};
 const action=(root,sel,fn)=>{const b=typeof sel==='string'?root.querySelector(sel):sel;if(!b)return;b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){alert(e?.message||'تعذر تنفيذ العملية')}finally{b.disabled=false}}};
 const isoLocal=(date,time)=>new Date(date+'T'+time+':00+03:00').toISOString();
