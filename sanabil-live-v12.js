@@ -872,8 +872,8 @@ const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practi
 const openTalaqqinFrame=(title,url,row,index)=>{
  const d=document.createElement('dialog');
  d.className='sl-dialog sl-lesson-frame';
- const student=row?.fullName||'',cardIndex=Number.isInteger(index)?index:null;
- d.innerHTML='<header class="sl-lesson-frame-head"><div><b>'+esc(title||'درس نور البيان')+'</b>'+(student?'<small>الطالب: '+esc(student)+'</small>':'')+'</div><button type="button" class="button button-primary" data-close-lesson>العودة للطالب</button></header><iframe title="'+esc(title||'درس نور البيان')+'" src="'+esc(url+(url.includes('?')?'&':'?')+'embed=1')+'" loading="eager"></iframe>';
+ const student=row?.fullName||'',cardIndex=Number.isInteger(index)?index:null,frameUrl=url+(url.includes('?')?'&':'?')+'embed=1';
+ d.innerHTML='<header class="sl-lesson-frame-head"><div><b>'+esc(title||'درس نور البيان')+'</b>'+(student?'<small>الطالب: '+esc(student)+'</small>':'')+'</div><button type="button" class="button button-primary" data-close-lesson>العودة للطالب</button></header><div class="sl-lesson-frame-body"><iframe title="'+esc(title||'درس نور البيان')+'" loading="eager"></iframe></div>';
  document.body.append(d);
  const returnToCard=()=>{
    const card=cardIndex!==null?document.querySelector('[data-tl-card="'+cardIndex+'"]'):null;
@@ -882,6 +882,8 @@ const openTalaqqinFrame=(title,url,row,index)=>{
  d.querySelector('[data-close-lesson]').onclick=()=>d.close();
  d.addEventListener('close',()=>{returnToCard();d.remove()},{once:true});
  d.showModal();
+ const frame=d.querySelector('iframe');
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{frame.src=frameUrl}));
  return d;
 };
 const openTalaqqinLesson=(l,row,index)=>{
