@@ -21,13 +21,12 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 <div class="progress"><span id="bar"></span></div>
 <div class="prompt" id="prompt"></div>
 <p class="hint" id="hint"></p>
-<div class="actions"><button class="btn primary" id="speak">استمع للدرس</button><button class="btn" id="again">إعادة التشغيل</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="actions"><button class="btn primary" id="speak">استمع للحرف</button><button class="btn" id="lessonExplain">استمع لشرح الدرس</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
 <div id="humanAudio" hidden style="margin-top:18px;text-align:right">
   <div class="small" id="audioNote" style="margin-bottom:8px"></div>
   <div id="directAudioBox" hidden style="border:1px solid #d9e5e0;border-radius:16px;background:#f7fbf9;padding:16px;text-align:center">
-    <div id="audioFormula" style="font-size:22px;font-weight:700;color:#06483d;margin-bottom:10px"></div>
+    <div style="font-size:42px;line-height:1;margin-bottom:10px">🔊</div>
     <audio id="directAudio" preload="none"></audio>
-    <p class="small" style="margin:0">الصوت المسجّل هو صوت الحرف مع الفتحة فقط، دون كلمة أو جملة.</p>
   </div>
   <div id="lessonVideoBox" style="position:relative;padding-top:56.25%;border-radius:16px;overflow:hidden;background:#0b1715">
     <iframe id="lessonPlayer" title="المصدر الصوتي للدرس" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
@@ -35,7 +34,7 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   <div class="actions" style="justify-content:flex-start"><a class="btn" id="sourceLink" target="_blank" rel="noopener noreferrer">فتح المصدر الأصلي</a></div>
 </div>
 <div class="choices" id="choices"></div>
-<p class="small">في دروس الحروف مع الفتحة يُستدعى تسجيل مستقل للحرف المفتوح نفسه فقط؛ أما الدروس اللاحقة فتستخدم تسجيل الدرس المناسب. لا يعتمد التدريب على قارئ النصوص في الجهاز.</p>
+<p class="small" id="audioStatus"></p>
 </section>
 </main>
 <script>
@@ -55,11 +54,10 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
  const items=unit===1?(letters[lesson]||letters[1]):(lessonMap[lesson]||[title]),prompt=document.getElementById('prompt'),hint=document.getElementById('hint'),bar=document.getElementById('bar');let i=0;
  const isFathaLesson=unit===2&&lesson>=8&&lesson<=11;
  const letterNames={'أَ':'همزة','بَ':'باء','تَ':'تاء','ثَ':'ثاء','جَ':'جيم','حَ':'حاء','خَ':'خاء','دَ':'دال','ذَ':'ذال','رَ':'راء','زَ':'زاي','سَ':'سين','شَ':'شين','صَ':'صاد','ضَ':'ضاد','طَ':'طاء','ظَ':'ظاء','عَ':'عين','غَ':'غين','فَ':'فاء','قَ':'قاف','كَ':'كاف','لَ':'لام','مَ':'ميم','نَ':'نون','هَ':'هاء','وَ':'واو','يَ':'ياء'};
- const fathaFileIndex={'أَ':'01','بَ':'02','تَ':'03','ثَ':'04','جَ':'05','حَ':'06','خَ':'07','دَ':'08','ذَ':'09','رَ':'10','زَ':'11','سَ':'12','شَ':'13','صَ':'14','ضَ':'15','طَ':'16','ظَ':'17','عَ':'18','غَ':'19','فَ':'20','قَ':'21','كَ':'22','لَ':'23','مَ':'24','نَ':'27','هَ':'28','وَ':'29','يَ':'30'};
+ const fathaFileIndex={'أَ':'06','بَ':'05','تَ':'04','ثَ':'03','جَ':'02','حَ':'01','خَ':'12','دَ':'11','ذَ':'10','رَ':'09','زَ':'08','سَ':'07','شَ':'18','صَ':'17','ضَ':'16','طَ':'15','ظَ':'14','عَ':'13','غَ':'24','فَ':'23','قَ':'22','كَ':'21','لَ':'20','مَ':'19','نَ':'30','هَ':'29','وَ':'28','يَ':'27'};
  const fathaAudioOf=x=>fathaFileIndex[x]?'https://eduquran.com/wp-content/uploads/erol/voices/S0801_'+fathaFileIndex[x]+'.mp3':'';
- const fathaFallback={'أَ':'https://arabic-om.com/wp-content/uploads/2026/06/AA.mp3','بَ':'https://arabic-om.com/wp-content/uploads/2026/06/BA.mp3','تَ':'https://arabic-om.com/wp-content/uploads/2026/06/TA.mp3','ثَ':'https://arabic-om.com/wp-content/uploads/2026/06/THA-1.mp3','جَ':'https://arabic-om.com/wp-content/uploads/2026/06/JA.mp3','حَ':'https://arabic-om.com/wp-content/uploads/2026/06/HA-1.mp3','خَ':'https://arabic-om.com/wp-content/uploads/2026/06/KHA.mp3','دَ':'https://arabic-om.com/wp-content/uploads/2026/06/DA.mp3','ذَ':'https://arabic-om.com/wp-content/uploads/2026/06/THA.mp3','رَ':'https://arabic-om.com/wp-content/uploads/2026/06/RA.mp3','زَ':'https://arabic-om.com/wp-content/uploads/2026/06/ZA.mp3','سَ':'https://arabic-om.com/wp-content/uploads/2026/06/SA.mp3','شَ':'https://arabic-om.com/wp-content/uploads/2026/06/SHA.mp3','صَ':'https://arabic-om.com/wp-content/uploads/2026/06/SA-1.mp3','ضَ':'https://arabic-om.com/wp-content/uploads/2026/06/DA-1.mp3','طَ':'https://arabic-om.com/wp-content/uploads/2026/06/TA-1.mp3','ظَ':'https://arabic-om.com/wp-content/uploads/2026/06/DHA.mp3','عَ':'https://arabic-om.com/wp-content/uploads/2026/06/AA-1.mp3','غَ':'https://arabic-om.com/wp-content/uploads/2026/06/GHA.mp3','فَ':'https://arabic-om.com/wp-content/uploads/2026/06/FA.mp3','قَ':'https://arabic-om.com/wp-content/uploads/2026/06/QA.mp3','كَ':'https://arabic-om.com/wp-content/uploads/2026/06/KA.mp3','لَ':'https://arabic-om.com/wp-content/uploads/2026/06/LA.mp3','مَ':'https://arabic-om.com/wp-content/uploads/2026/06/MA.mp3','نَ':'https://arabic-om.com/wp-content/uploads/2026/06/NA.mp3','هَ':'https://arabic-om.com/wp-content/uploads/2026/06/HA.mp3','وَ':'https://arabic-om.com/wp-content/uploads/2026/06/WA.mp3','يَ':'https://arabic-om.com/wp-content/uploads/2026/06/YA.mp3'};
- const sources=[
-  {match:()=>unit===2&&lesson>=12&&lesson<=14,video:'Ylkyb2QsecE',label:'دورة نور البيان — قراءة كلمات مع حركة الفتح — أكاديمية أسماء للقرآن',segmentMode:'ordered',intro:14,step:11,clip:10},
+
+ const sources=[  {match:()=>unit===2&&lesson>=12&&lesson<=14,video:'Ylkyb2QsecE',label:'دورة نور البيان — قراءة كلمات مع حركة الفتح — أكاديمية أسماء للقرآن',segmentMode:'ordered',intro:14,step:11,clip:10},
   {match:()=>unit===2&&lesson>=15&&lesson<=17,video:'DByJNWqq0uc',label:'منهج نور البيان — حركة الكسر — نور البيان Nour Al-bayan'},
   {match:()=>unit===2&&lesson>=18&&lesson<=20,video:'wQSz4wE5-mM',label:'منهج نور البيان — حركة الضم — نور البيان Nour Al-bayan'},
   {match:()=>unit===2&&lesson===21,video:'V0gxPwiMjgQ',label:'منهج نور البيان — المد بالألف — نور البيان Nour Al-bayan'},
@@ -71,24 +69,38 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   {match:()=>unit===2&&lesson>=30&&lesson<=34,video:'YNTTVo-IUqY',label:'منهج نور البيان — الشدة — نور البيان Nour Al-bayan'},
   {match:()=>/ضم/.test(title)&&/كلمات|قراءة/.test(title),video:'eaEnxx0Aes4',label:'نور البيان — كلمات مع حركة الضم — قناة القراءة والكتابة من الصفر'}
  ];
+ const noorFathaLesson={video:'aWwYLqPmoKs',label:'دورة نور البيان — الحروف مع حركة الفتح — أكاديمية أسماء للقرآن'};
+ const noorFathaGroups={
+   8:{start:44,end:82},
+   9:{start:82,end:116},
+   10:{start:116,end:146},
+   11:{start:146,end:173}
+ };
  const source=sources.find(x=>x.match())||null;
- const humanAudio=document.getElementById('humanAudio'),player=document.getElementById('lessonPlayer'),audioNote=document.getElementById('audioNote'),sourceLink=document.getElementById('sourceLink'),directAudio=document.getElementById('directAudio'),directAudioBox=document.getElementById('directAudioBox'),lessonVideoBox=document.getElementById('lessonVideoBox'),audioFormula=document.getElementById('audioFormula');
- const render=()=>{prompt.textContent=items[i];hint.textContent=isFathaLesson?(letterNames[items[i]]+' + فتحة = '+items[i]+' — استمع إلى صوت الحرف المفتوح فقط ثم كرره ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.'):('استمع إلى الدرس المسجل من المصدر التعليمي، ثم كرر البطاقة الحالية بصوت واضح ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.');bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
+ const humanAudio=document.getElementById('humanAudio'),player=document.getElementById('lessonPlayer'),audioNote=document.getElementById('audioNote'),sourceLink=document.getElementById('sourceLink'),directAudio=document.getElementById('directAudio'),directAudioBox=document.getElementById('directAudioBox'),lessonVideoBox=document.getElementById('lessonVideoBox'),audioStatus=document.getElementById('audioStatus');
+ const render=()=>{prompt.textContent=items[i];hint.textContent=isFathaLesson?('🔊  × 3   •   '+(i+1)+' / '+items.length):('استمع ثم كرر ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.');bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
  const playDirectFatha=async()=>{
-   const target=items[i],src=fathaAudioOf(target),fallback=fathaFallback[target];
+   const target=items[i],src=fathaAudioOf(target);
+   if(!src)throw Error('لم يُعتمد ملف صوت لهذا الحرف بعد.');
    humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=false;
-   audioFormula.textContent=(letterNames[target]||'الحرف')+' + فتحة = '+target;
-   audioNote.textContent='تسجيل تعليمي ثابت للحرف مع الفتحة؛ لا توجد كلمة أو جملة ولا يعتمد التشغيل على قارئ آلي.';
+   audioNote.textContent='';audioStatus.textContent='';
    sourceLink.href='https://eduquran.com/ar/%D8%A7%D9%84%D9%81%D8%AA%D8%AD%D8%A9/';
    player.src='about:blank';
-   directAudio.pause();directAudio.currentTime=0;directAudio.src=src;
-   let usedFallback=false;
-   directAudio.onerror=()=>{if(!usedFallback&&fallback){usedFallback=true;directAudio.src=fallback;directAudio.play().catch(()=>{})}};
-   try{await directAudio.play()}catch(e){if(fallback){usedFallback=true;directAudio.src=fallback;await directAudio.play()}else throw e}
+   directAudio.pause();directAudio.currentTime=0;directAudio.onerror=null;directAudio.src=src;
+   await directAudio.play();
+   humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
+ };
+ const playNoorExplanation=()=>{
+   if(!isFathaLesson)return playHuman(true);
+   const clip=noorFathaGroups[lesson]||noorFathaGroups[8];
+   directAudio.pause();directAudioBox.hidden=true;lessonVideoBox.hidden=false;humanAudio.hidden=false;sourceLink.hidden=false;
+   audioNote.textContent='';audioStatus.textContent='';
+   sourceLink.href='https://www.youtube.com/watch?v='+noorFathaLesson.video+'&t='+clip.start+'s';
+   const url='https://www.youtube-nocookie.com/embed/'+noorFathaLesson.video+'?autoplay=1&playsinline=1&rel=0&modestbranding=1&start='+clip.start+'&end='+clip.end;
+   player.src='about:blank';setTimeout(()=>{player.src=url},40);
    humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
  };
  const playHuman=restart=>{
-   if(isFathaLesson)return playDirectFatha();
    directAudio.pause();directAudioBox.hidden=true;lessonVideoBox.hidden=false;humanAudio.hidden=false;
    if(!source){
      audioNote.textContent='لم يُعتمد لهذا الدرس تسجيل بشري محدد بعد. استخدم صفحة نور البيان مؤقتًا حتى يُربط التسجيل الموثوق.';
@@ -101,11 +113,12 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
    if(restart||!player.src.includes(source.video)){player.src='about:blank';setTimeout(()=>{player.src=url},40)}
    humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
  };
- if(isFathaLesson){document.getElementById('speak').textContent='استمع إلى '+items[0];document.getElementById('again').textContent='إعادة صوت الحرف'}
- document.getElementById('speak').onclick=()=>playHuman(false);
- document.getElementById('again').onclick=()=>playHuman(true);
- document.getElementById('prev').onclick=()=>{if(i>0){i--;render();if(isFathaLesson)document.getElementById('speak').textContent='استمع إلى '+items[i];if(!humanAudio.hidden)playHuman(true)}};
- document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render();if(isFathaLesson)document.getElementById('speak').textContent='استمع إلى '+items[i];if(!humanAudio.hidden)playHuman(true)}};
+ if(isFathaLesson){document.getElementById('speak').textContent='استمع للحرف';document.getElementById('again').textContent='كرر الحرف'}
+ document.getElementById('speak').onclick=()=>isFathaLesson?playDirectFatha():playHuman(false);
+ document.getElementById('lessonExplain').onclick=()=>playNoorExplanation();
+ document.getElementById('again').onclick=()=>isFathaLesson?playDirectFatha():playHuman(true);
+ document.getElementById('prev').onclick=()=>{if(i>0){i--;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
+ document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
  render();
 })();
 </script></body></html>
