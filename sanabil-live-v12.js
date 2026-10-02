@@ -866,7 +866,7 @@ async function statisticsPage(root){
  await load()
 }
 
-const noorLessonUrl=l=>'/noor-bayan.html?v=20261001-v12.7.4&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.7&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
 const openTalaqqinLesson=l=>{
  if(!l)return;
  if(l.pageFrom)window.open(noorLessonUrl(l),'_blank','noopener,noreferrer');
@@ -874,7 +874,7 @@ const openTalaqqinLesson=l=>{
 };
 const openTalaqqinPractice=row=>{
  const l=row?.lesson||{};
- const u='/talaqqin-practice.html?v=20261002-v13.0.6&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
+ const u='/talaqqin-practice.html?v=20261002-v13.0.7&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
  window.open(u,'_blank','noopener,noreferrer');
 };
 const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
