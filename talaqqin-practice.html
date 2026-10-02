@@ -51,6 +51,15 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
  const sources=[
   {match:()=>unit===2&&lesson>=8&&lesson<=11,video:'aWwYLqPmoKs',label:'دورة نور البيان — الحروف مع حركة الفتح — أكاديمية أسماء للقرآن'},
   {match:()=>unit===2&&lesson>=12&&lesson<=14,video:'Ylkyb2QsecE',label:'دورة نور البيان — قراءة كلمات مع حركة الفتح — أكاديمية أسماء للقرآن'},
+  {match:()=>unit===2&&lesson>=15&&lesson<=17,video:'DByJNWqq0uc',label:'منهج نور البيان — حركة الكسر — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson>=18&&lesson<=20,video:'wQSz4wE5-mM',label:'منهج نور البيان — حركة الضم — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson===21,video:'V0gxPwiMjgQ',label:'منهج نور البيان — المد بالألف — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&(lesson===22||lesson===23),video:'9YhIJqMyPjs',label:'منهج نور البيان — المد بالياء — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&(lesson===24||lesson===25),video:'6CD_BbO7kFE',label:'منهج نور البيان — المد بالواو — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson===26,video:'MkyE_7EY6IU',label:'منهج نور البيان — حروف الهجاء مع السكون — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson===27,video:'octVnyKWA_E',label:'منهج نور البيان — تنوين الفتح — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson===28,video:'k7qEGJay5zs',label:'منهج نور البيان — تنوين الكسر — نور البيان Nour Al-bayan'},
+  {match:()=>unit===2&&lesson>=30&&lesson<=34,video:'YNTTVo-IUqY',label:'منهج نور البيان — الشدة — نور البيان Nour Al-bayan'},
   {match:()=>/ضم/.test(title)&&/كلمات|قراءة/.test(title),video:'eaEnxx0Aes4',label:'نور البيان — كلمات مع حركة الضم — قناة القراءة والكتابة من الصفر'}
  ];
  const source=sources.find(x=>x.match())||null;
