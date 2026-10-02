@@ -874,7 +874,7 @@ const openTalaqqinLesson=l=>{
 };
 const openTalaqqinPractice=row=>{
  const l=row?.lesson||{};
- const u='/talaqqin-practice.html?v=20261002-v13.0.1&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
+ const u='/talaqqin-practice.html?v=20261002-v13.0.2&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
  window.open(u,'_blank','noopener,noreferrer');
 };
 const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
