@@ -14,7 +14,7 @@ const queueOfflineRpc=(name,args,label)=>{const q=offlineRead();q.push({id:crypt
 const networkFailure=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request/i.test(String(e?.message||e||''));
 const rpcOffline=async(name,args,label)=>{if(!navigator.onLine)return queueOfflineRpc(name,args,label);try{return await rpc(name,args)}catch(e){if(networkFailure(e))return queueOfflineRpc(name,args,label);throw e}};
 let offlineFlushing=false;
-const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{await rpc(item.name,item.args)}catch(e){left.push(item);if(networkFailure(e))left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
+const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[item.name]||item.name;await rpc(guardedName,item.args)}catch(e){left.push(item);if(networkFailure(e))left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
 window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
 const sessionCache=()=>{try{return JSON.parse(localStorage.getItem(SESSION_RULE_KEY)||'{}')||{}}catch{return{}}};
 const cacheSessionRule=(circle,data)=>{const c=sessionCache();c[circle]={...data,cachedAt:new Date().toISOString()};localStorage.setItem(SESSION_RULE_KEY,JSON.stringify(c))};
@@ -867,7 +867,7 @@ const openTalaqqinLesson=l=>{
 };
 const openTalaqqinPractice=row=>{
  const l=row?.lesson||{};
- const u='/talaqqin-practice.html?v=20261001-v12.7.4&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
+ const u='/talaqqin-practice.html?v=20261002-v13.0.0&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
  window.open(u,'_blank','noopener,noreferrer');
 };
 const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
