@@ -5,55 +5,55 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>نور البيان | سنابل الوحي</title>
 <link rel="icon" href="/assets/logo-sanabil-icon-v6.png">
-<link rel="stylesheet" href="/sanabil-identity.css?v=4">
+<link rel="preconnect" href="https://fvzoogbdezueswyihxiz.supabase.co" crossorigin>
 <style>
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Regular.ttf') format('truetype');font-display:swap}
 @font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-:root{--deep:#073c34;--teal:#00808a;--gold:#d8bd88;--cream:#f8f5ee;--line:#dce7e2}
+:root{--deep:#073c34;--gold:#d8bd88;--cream:#f8f5ee;--line:#dce7e2}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);font-family:Alyamama,Tahoma,sans-serif;color:var(--deep)}
-header{height:74px;background:#fff;border-bottom:1px solid #eadfc9;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;position:sticky;top:0;z-index:5}
-header img{width:135px;height:auto}.meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.chip,.btn{border:1px solid #d6e4de;border-radius:12px;background:#eef7f4;color:var(--deep);padding:9px 13px;font:inherit;font-weight:700;text-decoration:none}.btn{cursor:pointer;background:#fff}.btn.primary{background:var(--deep);color:#fff;border-color:var(--deep)}
-main{max-width:1100px;margin:auto;padding:14px}.intro{background:linear-gradient(135deg,#073c34,#0c6754);color:white;border-radius:20px;padding:15px 18px;margin-bottom:12px}.intro b{color:var(--gold)}.viewer{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;min-height:76vh;box-shadow:0 8px 28px #183c3310}.viewer{display:grid;place-items:center;padding:10px}.viewer canvas{display:block;max-width:100%;height:auto;background:white;box-shadow:0 4px 18px #0001}.fallback{padding:18px;text-align:center}.pdf-status{padding:12px;text-align:center;color:#687a73}
-nav{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0;flex-wrap:wrap}
-@media(max-width:700px){header{height:auto;padding:9px 10px}header img{width:105px}.viewer iframe{height:72vh}main{padding:8px}}
+header{background:#fff;border-bottom:1px solid #eadfc9;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;position:sticky;top:0;z-index:5}
+header img{width:124px;height:auto}.meta{display:flex;align-items:center;gap:8px}.chip,.btn{border:1px solid #d6e4de;border-radius:12px;background:#eef7f4;color:var(--deep);padding:8px 12px;font:inherit;font-weight:700;text-decoration:none}.btn{cursor:pointer;background:#fff}
+main{max-width:1100px;margin:auto;padding:10px}.intro{background:linear-gradient(135deg,#073c34,#0c6754);color:white;border-radius:18px;padding:12px 16px;margin-bottom:9px}.intro b{color:var(--gold)}
+nav{display:flex;gap:8px;align-items:center;justify-content:center;margin:8px 0;flex-wrap:wrap}
+.viewer{position:relative;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;height:calc(100vh - 225px);min-height:560px;box-shadow:0 8px 28px #183c3310}
+.viewer iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+.loading{position:absolute;inset:0;display:grid;place-items:center;background:#fff;color:#687a73;pointer-events:none;transition:opacity .18s}.loading.hidden{opacity:0}
+@media(max-width:700px){header img{width:105px}main{padding:6px}.intro{padding:10px 12px}.viewer{height:calc(100vh - 205px);min-height:510px}}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script></head>
+</head>
 <body>
 <header>
 <img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي">
 <div class="meta"><span class="chip" id="pageChip">نور البيان</span><a class="btn" href="/" rel="noopener">العودة للمنصة</a></div>
 </header>
 <main>
-<section class="intro"><b>كتاب نور البيان</b><div id="lessonTitle">معاينة صفحة الدرس المقرر في حلقات التلقين.</div></section>
-<nav><button class="btn" id="prev">الصفحة السابقة</button><button class="btn primary" id="reload">إعادة تحميل الصفحة</button><button class="btn" id="next">الصفحة التالية</button><a class="btn" id="directLink" target="_blank" rel="noopener noreferrer">فتح PDF مباشرة</a><a class="btn" id="fallbackLink" target="_blank" rel="noopener noreferrer">فتح نسخة Google Drive</a></nav>
-<section class="viewer"><div class="pdf-status" id="status">جارٍ تحميل صفحة الدرس…</div><canvas id="pageCanvas" aria-label="صفحة من كتاب نور البيان"></canvas><div class="fallback" id="err" hidden>إذا تعذر العرض، استخدم «فتح PDF مباشرة» أو «فتح نسخة Google Drive». رقم الصفحة المطلوب ظاهر أعلى الشاشة.</div></section>
+<section class="intro"><b>كتاب نور البيان</b><div id="lessonTitle">معاينة صفحة الدرس.</div></section>
+<nav><button class="btn" id="prev">الصفحة السابقة</button><button class="btn" id="next">الصفحة التالية</button></nav>
+<section class="viewer">
+  <div class="loading" id="loading">جارٍ فتح الصفحة…</div>
+  <iframe id="pdfFrame" title="صفحة الدرس من كتاب نور البيان" loading="eager"></iframe>
+</section>
 </main>
 <script>
 (()=>{'use strict';
  const PROXY='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
- const DRIVE='https://drive.google.com/file/d/1MDXoqUOHw5O7QGJo7upcIYIRTMOK4Tzo/preview';
  const p=new URLSearchParams(location.search);let page=Math.min(98,Math.max(1,Number(p.get('page')||3)||3));
- const title=(p.get('title')||'').slice(0,140),to=Math.min(98,Math.max(page,Number(p.get('to')||page)||page));
- const canvas=document.getElementById('pageCanvas'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle'),fallback=document.getElementById('fallbackLink'),direct=document.getElementById('directLink'),err=document.getElementById('err'),status=document.getElementById('status');
- let pdfDoc=null,renderTask=null;
- const loadPdf=async()=>{
-  if(pdfDoc)return pdfDoc;
-  if(!window.pdfjsLib)throw Error('تعذر تحميل عارض PDF.');
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  pdfDoc=await pdfjsLib.getDocument({url:PROXY,withCredentials:false,disableAutoFetch:false,disableStream:false}).promise;
-  return pdfDoc;
+ const to=Math.min(98,Math.max(page,Number(p.get('to')||page)||page)),title=(p.get('title')||'').slice(0,140);
+ const frame=document.getElementById('pdfFrame'),loading=document.getElementById('loading'),chip=document.getElementById('pageChip'),lt=document.getElementById('lessonTitle');
+ let loadTimer=0;
+ const src=()=>PROXY+'?cache=20261002-v13.0.7#page='+page+'&zoom=page-width&view=FitH';
+ const openPage=()=>{
+   chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;
+   lt.textContent=title||'معاينة صفحة الدرس.';
+   loading.classList.remove('hidden');clearTimeout(loadTimer);
+   frame.src=src();
+   loadTimer=setTimeout(()=>loading.classList.add('hidden'),1100);
+   history.replaceState(null,'','?v=20261002-v13.0.7&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
  };
- const render=async()=>{
-  chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;lt.textContent=(title||'معاينة صفحة الدرس المقرر في حلقات التلقين.')+' — ابدأ من الصفحة '+page+'.';direct.href=PROXY+'#page='+page+'&zoom=page-width';fallback.href=DRIVE;err.hidden=true;status.hidden=false;status.textContent='جارٍ تحميل صفحة '+page+'…';
-  history.replaceState(null,'','?v=20261001-v12.7.3&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
-  try{
-   const pdf=await loadPdf(),pageno=Math.min(pdf.numPages,page),pg=await pdf.getPage(pageno),base=pg.getViewport({scale:1}),max=Math.min(980,Math.max(320,document.querySelector('.viewer').clientWidth-24)),scale=max/base.width,viewport=pg.getViewport({scale:Math.max(1.15,scale)*window.devicePixelRatio});
-   canvas.width=viewport.width;canvas.height=viewport.height;canvas.style.width=(viewport.width/window.devicePixelRatio)+'px';canvas.style.height=(viewport.height/window.devicePixelRatio)+'px';
-   if(renderTask)try{renderTask.cancel()}catch{}
-   renderTask=pg.render({canvasContext:canvas.getContext('2d'),viewport});await renderTask.promise;status.hidden=true;
-  }catch(ex){status.textContent='تعذر عرض الصفحة داخل المنصة.';err.hidden=false}
- };
- document.getElementById('prev').onclick=()=>{page=Math.max(1,page-1);render()};document.getElementById('next').onclick=()=>{page=Math.min(98,page+1);render()};document.getElementById('reload').onclick=()=>{pdfDoc=null;render()};render();
+ frame.addEventListener('load',()=>setTimeout(()=>loading.classList.add('hidden'),120));
+ document.getElementById('prev').onclick=()=>{page=Math.max(1,page-1);openPage()};
+ document.getElementById('next').onclick=()=>{page=Math.min(98,page+1);openPage()};
+ openPage();
 })();
 </script>
 </body></html>
