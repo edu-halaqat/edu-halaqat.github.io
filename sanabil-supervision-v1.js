@@ -34,14 +34,14 @@ const btn=(t,a,cls='')=>'<button type="button" class="button button-soft '+cls+'
 const selectHtml=(name,rows,value='',empty='اختر')=>'<select name="'+esc(name)+'"><option value="">'+esc(empty)+'</option>'+rows.map(x=>'<option value="'+esc(x.id)+'" '+(String(x.id)===String(value)?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
 const ratingSelect=(id,value='')=>'<select name="score_'+id+'" data-score-item="'+id+'"><option value="">—</option>'+SCALE.map(x=>'<option value="'+x[0]+'" '+(String(value)===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
 const NON_EXEC_REASONS=[
- ['teacher','لم ينفذها المعلم — تحتسب صفرًا'],
- ['not_required','غير مطلوبة — تحتسب الدرجة كاملة'],
- ['not_suitable','غير مناسبة للحلقة — تحتسب الدرجة كاملة']
+ ['teacher','لم ينفذ المعلم'],
+ ['not_required','غير مطلوبة'],
+ ['not_suitable','غير مناسبة']
 ];
 const nonExecReasonSelect=(id,value='')=>'<select name="reason_'+id+'" data-nonexec-reason="'+id+'"><option value="">— اختر سبب عدم التنفيذ —</option>'+NON_EXEC_REASONS.map(x=>'<option value="'+x[0]+'" '+(String(value)===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select>';
 const isExemptReason=r=>r==='not_required'||r==='not_suitable';
 const effectiveScore=(raw,reason)=>raw===''||raw===null||raw===undefined?null:(Number(raw)===0&&isExemptReason(reason)?5:Number(raw));
-const reasonLabel=r=>r==='teacher'?'لم ينفذها المعلم':r==='not_required'?'غير مطلوبة':r==='not_suitable'?'غير مناسبة للحلقة':'';
+const reasonLabel=r=>r==='teacher'?'لم ينفذ المعلم':r==='not_required'?'غير مطلوبة':r==='not_suitable'?'غير مناسبة':'';
 const modal=title=>{const d=document.createElement('dialog');d.className='sl-dialog sv-dialog';d.innerHTML='<header><h2>'+esc(title)+'</h2><button type="button" class="button button-soft" data-close>إغلاق</button></header><div class="sl-body"></div>';document.body.append(d);d.querySelector('[data-close]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')};
 const action=(root,sel,fn)=>{const b=typeof sel==='string'?root.querySelector(sel):sel;if(!b)return;b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){alert(e?.message||'تعذر تنفيذ العملية')}finally{b.disabled=false}}};
 const isoLocal=(date,time)=>new Date(date+'T'+time+':00+03:00').toISOString();
@@ -316,7 +316,7 @@ async function openVisit(root,visit,sc){
  '<h3>بيانات الحلقة المستدعاة من المنصة</h3>'+analyticsCard(analytics)+'<p class="sl-help">تصنيف الأعلى والأقل حفظًا هنا مبني على الحصائل اليومية المسجلة للطالب داخل الحلقة، ويظهر «لا توجد بيانات كافية» إذا لم تبدأ الحصيلة الفعلية بعد.</p>'+
  '<h3>بنود تقويم المعلم</h3><div class="sv-rating-note"><b>سلم التقدير:</b> 5 متميز، 4 متحقق، 3 مقبول، 2 جزئي، 1 ضعيف، 0 لم ينفذ.</div>'+
  '<div class="table-wrap"><table class="sv-eval-table"><thead><tr><th>#</th><th>المجال</th><th>المهارة</th><th>المؤشر</th><th>الدرجة</th><th>سبب عدم التنفيذ</th></tr></thead><tbody>'+first18.map((x,i)=>'<tr><td>'+esc(i+1)+'</td><td>'+esc(x.section)+'</td><td>'+esc(x.skill)+'</td><td>'+esc(x.indicator)+'</td><td>'+ratingSelect(x.id,previousScores[x.id])+'</td><td>'+nonExecReasonSelect(x.id,previousReasons[x.id])+'</td></tr>').join('')+'</tbody></table></div>'+
- '<p class="sl-help">إذا اخترت «لم ينفذ»: حدّد السبب. «غير مطلوبة» و«غير مناسبة للحلقة» لا تخصمان من المعلم وتحتسبان الدرجة كاملة، أما «لم ينفذها المعلم» فتحتسب صفرًا.</p>'+
+ '<p class="sl-help">إذا اخترت «لم ينفذ» فحدّد سبب عدم التنفيذ.</p>'+
  '<h3>قياس مستوى طالبين من الحلقة</h3><p class="sl-help">اختر الطالب؛ سيظهر آخر موضع وصل إليه في الحصيلة اليومية قبل وضع درجة القياس.</p>'+
  '<div class="sv-student-checks">'+[0,1].map((slot)=>{
    const old=previousStudents[slot]||{};return '<article class="sv-student-check"><h4>النموذج '+(slot+1)+'</h4><label>الطالب'+selectHtml('student_'+slot,studentOpts,old.studentId)+'</label><div class="sv-student-progress" data-student-progress="'+slot+'">اختر الطالب لعرض آخر حصيلة.</div><label>درجة قياس الحفظ والتجويد'+ratingSelect(slot===0?'t19':'t20',previousScores[slot===0?'t19':'t20']||old.score)+'</label><label>ملاحظات المستوى<textarea name="student_note_'+slot+'" rows="3">'+esc(old.note||'')+'</textarea></label></article>'
