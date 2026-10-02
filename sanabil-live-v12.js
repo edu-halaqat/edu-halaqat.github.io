@@ -870,21 +870,31 @@ const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWor
 const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.11&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
 const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.11&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
 const openTalaqqinFrame=(title,url,row,index)=>{
- const d=document.createElement('dialog');
- d.className='sl-dialog sl-lesson-frame';
+ const overlay=document.createElement('div');
+ overlay.className='sl-lesson-overlay';
+ overlay.setAttribute('role','dialog');
+ overlay.setAttribute('aria-modal','true');
  const student=row?.fullName||'',cardIndex=Number.isInteger(index)?index:null,frameUrl=url+(url.includes('?')?'&':'?')+'embed=1';
- d.innerHTML='<header class="sl-lesson-frame-head"><div><b>'+esc(title||'درس نور البيان')+'</b>'+(student?'<small>الطالب: '+esc(student)+'</small>':'')+'</div><button type="button" class="button button-primary" data-close-lesson>العودة للطالب</button></header><div class="sl-lesson-frame-body"><iframe title="'+esc(title||'درس نور البيان')+'" loading="eager"></iframe></div>';
- document.body.append(d);
+ overlay.innerHTML='<section class="sl-lesson-panel"><header class="sl-lesson-toolbar"><div class="sl-lesson-title"><b>'+esc(title||'درس نور البيان')+'</b>'+(student?'<small>الطالب: '+esc(student)+'</small>':'')+'</div><div class="sl-lesson-actions"><button type="button" class="button button-soft" data-fullscreen-lesson>عرض بكامل الصفحة</button><button type="button" class="button button-primary" data-close-lesson>إنهاء المعاينة</button></div></header><div class="sl-lesson-frame-body"><iframe title="'+esc(title||'درس نور البيان')+'" loading="eager"></iframe></div></section>';
+ const prevOverflow=document.documentElement.style.overflow;
+ document.documentElement.style.overflow='hidden';
+ document.body.append(overlay);
  const returnToCard=()=>{
+   document.documentElement.style.overflow=prevOverflow;
    const card=cardIndex!==null?document.querySelector('[data-tl-card="'+cardIndex+'"]'):null;
    if(card)setTimeout(()=>card.scrollIntoView({block:'center',behavior:'smooth'}),60);
  };
- d.querySelector('[data-close-lesson]').onclick=()=>d.close();
- d.addEventListener('close',()=>{returnToCard();d.remove()},{once:true});
- d.showModal();
- const frame=d.querySelector('iframe');
+ const close=()=>{if(!overlay.isConnected)return;overlay.remove();returnToCard()};
+ const fullBtn=overlay.querySelector('[data-fullscreen-lesson]');
+ const setFullscreen=on=>{overlay.classList.toggle('is-fullscreen',on);fullBtn.textContent=on?'تصغير المعاينة':'عرض بكامل الصفحة'};
+ fullBtn.onclick=()=>setFullscreen(!overlay.classList.contains('is-fullscreen'));
+ overlay.querySelector('[data-close-lesson]').onclick=close;
+ overlay.addEventListener('click',e=>{if(e.target===overlay&&!overlay.classList.contains('is-fullscreen'))close()});
+ const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();document.removeEventListener('keydown',onKey)}};
+ document.addEventListener('keydown',onKey);
+ const frame=overlay.querySelector('iframe');
  requestAnimationFrame(()=>requestAnimationFrame(()=>{frame.src=frameUrl}));
- return d;
+ return overlay;
 };
 const openTalaqqinLesson=(l,row,index)=>{
  if(!l)return;
