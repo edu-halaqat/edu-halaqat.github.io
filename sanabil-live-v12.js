@@ -550,8 +550,8 @@ async function outcomesPage(root){
           if(!savedStatus)throw Error('حضّر الطالب واحفظ التحضير أولًا.');
           if(['absent','excused'].includes(savedStatus))throw Error('لا يسجل تقييم درس لطالب غائب أو مستأذن.');
         };
-        const op=box.querySelector('[data-action="to-open-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll));
-        const md=box.querySelector('[data-action="to-media-'+i+'"]');if(md)action(box,md,()=>openTalaqqinPractice(r));
+        const op=box.querySelector('[data-action="to-open-'+i+'"]');if(op)action(box,op,()=>openTalaqqinLesson(ll,r,i));
+        const md=box.querySelector('[data-action="to-media-'+i+'"]');if(md)action(box,md,()=>openTalaqqinPractice(r,i));
         const rt=box.querySelector('[data-action="to-rate-'+i+'"]');if(rt)action(box,rt,()=>{ensureReady();assessTalaqqinStudent(root,r,renderTalaqqin)});
         const ex=box.querySelector('[data-action="to-extend-'+i+'"]');if(ex)action(box,ex,()=>extendTalaqqinLesson(root,r,renderTalaqqin));
         const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
@@ -867,18 +867,33 @@ async function statisticsPage(root){
 }
 
 const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'CACHE_NOOR_BAYAN'})).catch(()=>{})}catch{}};
-const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.9&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
-const openTalaqqinLesson=l=>{
+const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.10&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.10&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
+const openTalaqqinFrame=(title,url,row,index)=>{
+ const d=document.createElement('dialog');
+ d.className='sl-dialog sl-lesson-frame';
+ const student=row?.fullName||'',cardIndex=Number.isInteger(index)?index:null;
+ d.innerHTML='<header class="sl-lesson-frame-head"><div><b>'+esc(title||'درس نور البيان')+'</b>'+(student?'<small>الطالب: '+esc(student)+'</small>':'')+'</div><button type="button" class="button button-primary" data-close-lesson>العودة للطالب</button></header><iframe title="'+esc(title||'درس نور البيان')+'" src="'+esc(url+(url.includes('?')?'&':'?')+'embed=1')+'" loading="eager"></iframe>';
+ document.body.append(d);
+ const returnToCard=()=>{
+   const card=cardIndex!==null?document.querySelector('[data-tl-card="'+cardIndex+'"]'):null;
+   if(card)setTimeout(()=>card.scrollIntoView({block:'center',behavior:'smooth'}),60);
+ };
+ d.querySelector('[data-close-lesson]').onclick=()=>d.close();
+ d.addEventListener('close',()=>{returnToCard();d.remove()},{once:true});
+ d.showModal();
+ return d;
+};
+const openTalaqqinLesson=(l,row,index)=>{
  if(!l)return;
  warmNoorBook();
- if(l.pageFrom)window.open(noorLessonUrl(l),'_blank','noopener,noreferrer');
- else window.open('https://quran.ksu.edu.sa/','_blank','noopener,noreferrer');
+ if(l.pageFrom)return openTalaqqinFrame('معاينة الدرس · '+(l.title||'نور البيان'),noorLessonUrl(l),row,index);
+ window.open('https://quran.ksu.edu.sa/','_blank','noopener,noreferrer');
 };
-const openTalaqqinPractice=row=>{
+const openTalaqqinPractice=(row,index)=>{
  warmNoorBook();
  const l=row?.lesson||{};
- const u='/talaqqin-practice.html?v=20261002-v13.0.7&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'');
- window.open(u,'_blank','noopener,noreferrer');
+ return openTalaqqinFrame('التدريب التفاعلي · '+(l.title||'نور البيان'),talaqqinPracticeUrl(row),row,index);
 };
 const talaqqinLessons=()=>result(sb().from('talaqqin_lessons').select('*').eq('active',true).order('lesson_no'));
 const showTalaqqinCurriculum=async()=>{warmNoorBook();
@@ -976,7 +991,7 @@ const assessTalaqqinStudent=(root,row,refresh)=>{
    '<label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>'+
    '<p class="sl-help">'+(isCustom?(l.afterPassAction==='advance'?'عند الاجتياز سيُعتمد الدرس الخاص بديلًا عن الدرس الحالي وينتقل الطالب إلى التالي.':'عند الاجتياز سيعود الطالب إلى الدرس الأصلي نفسه.'):'ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى على الدرس نفسه دون أن تتغير خطة بقية الطلاب.')+'</p>'+
    '<button type="submit" class="button button-primary">حفظ التقييم</button></form>';
- if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l));
+ if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l,row));
  if(l.mediaUrl)action(b,b.querySelector('[data-action="media"]'),()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
  submit(b.querySelector('form'),async()=>{
    const r=await rpc('save_talaqqin_assessment_guarded',{p_student_id:row.studentId,p_rating:val(b,'rating'),p_notes:b.querySelector('[name="notes"]').value.trim()||null});
