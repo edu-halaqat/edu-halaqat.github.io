@@ -88,7 +88,7 @@ async function enhanceExamForm(form){
   };
   host.onchange=e=>{if(mode==='ayah_range'&&(e.target.name==='fromSurah'||e.target.name==='toSurah')){const ss=e.target,aa=host.querySelector('[name="'+(e.target.name==='fromSurah'?'fromAyah':'toAyah')+'"]'),r=catalog.find(x=>String(x.surahNo)===ss.value);aa.innerHTML=Array.from({length:Number(r?.ayahCount||1)},(_,i)=>opt(i+1,i+1,1)).join('')}update()};host.oninput=update;update();
  };
- type.onchange=render;await render();
+ type.onchange=render;form.addEventListener('reset',()=>setTimeout(()=>render().catch(()=>{}),0));await render();
 }
 function enhance(){
  const root=Q('.sl-live');if(!root)return;
