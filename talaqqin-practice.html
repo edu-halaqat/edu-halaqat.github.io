@@ -21,7 +21,7 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
 <div class="progress"><span id="bar"></span></div>
 <div class="prompt" id="prompt"></div>
 <p class="hint" id="hint"></p>
-<div class="actions"><button class="btn primary" id="speak">استمع للحرف</button><button class="btn" id="lessonExplain">استمع لشرح الدرس</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
+<div class="actions"><button class="btn primary" id="speak">استمع للحرف</button><button class="btn" id="lessonExplain">استمع للدرس كاملاً</button><button class="btn" id="again">كرر</button><button class="btn" id="prev">السابق</button><button class="btn" id="next">التالي</button><a class="btn" id="book">صفحة نور البيان</a></div>
 <div id="humanAudio" hidden style="margin-top:18px;text-align:right">
   <div class="small" id="audioNote" style="margin-bottom:8px"></div>
   <div id="directAudioBox" hidden style="border:1px solid #d9e5e0;border-radius:16px;background:#f7fbf9;padding:16px;text-align:center">
@@ -69,17 +69,11 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
   {match:()=>unit===2&&lesson>=30&&lesson<=34,video:'YNTTVo-IUqY',label:'منهج نور البيان — الشدة — نور البيان Nour Al-bayan'},
   {match:()=>/ضم/.test(title)&&/كلمات|قراءة/.test(title),video:'eaEnxx0Aes4',label:'نور البيان — كلمات مع حركة الضم — قناة القراءة والكتابة من الصفر'}
  ];
- const noorFathaLesson={video:'aWwYLqPmoKs',label:'دورة نور البيان — الحروف مع حركة الفتح — أكاديمية أسماء للقرآن'};
- const noorFathaGroups={
-   8:{start:44,end:82},
-   9:{start:82,end:116},
-   10:{start:116,end:146},
-   11:{start:146,end:173}
- };
  const source=sources.find(x=>x.match())||null;
  const humanAudio=document.getElementById('humanAudio'),player=document.getElementById('lessonPlayer'),audioNote=document.getElementById('audioNote'),sourceLink=document.getElementById('sourceLink'),directAudio=document.getElementById('directAudio'),directAudioBox=document.getElementById('directAudioBox'),lessonVideoBox=document.getElementById('lessonVideoBox'),audioStatus=document.getElementById('audioStatus');
  const render=()=>{prompt.textContent=items[i];hint.textContent=isFathaLesson?('🔊  × 3   •   '+(i+1)+' / '+items.length):('استمع ثم كرر ثلاث مرات. البطاقة '+(i+1)+' من '+items.length+'.');bar.style.width=((i+1)/items.length*100)+'%';document.getElementById('choices').innerHTML='';document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===items.length-1};
  const playDirectFatha=async()=>{
+   lessonPlayToken++;
    const target=items[i],src=fathaAudioOf(target);
    if(!src)throw Error('لم يُعتمد ملف صوت لهذا الحرف بعد.');
    humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=false;
@@ -90,15 +84,39 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
    await directAudio.play();
    humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
  };
+ let lessonPlayToken=0;
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ const playUrl=src=>new Promise((resolve,reject)=>{
+   directAudio.onended=()=>resolve();
+   directAudio.onerror=()=>reject(Error('تعذر تشغيل أحد المقاطع الصوتية.'));
+   directAudio.src=src;directAudio.currentTime=0;
+   directAudio.play().catch(reject);
+ });
+ const playFathaLesson=async()=>{
+   const token=++lessonPlayToken;
+   humanAudio.hidden=false;directAudioBox.hidden=false;lessonVideoBox.hidden=true;sourceLink.hidden=true;
+   audioNote.textContent='';audioStatus.textContent='';player.src='about:blank';
+   directAudio.pause();
+   const original=i;
+   try{
+     for(let n=0;n<items.length;n++){
+       if(token!==lessonPlayToken)return;
+       i=n;render();
+       for(let rep=0;rep<3;rep++){
+         if(token!==lessonPlayToken)return;
+         const src=fathaAudioOf(items[n]);if(!src)continue;
+         await playUrl(src);
+         await sleep(280);
+       }
+       await sleep(520);
+     }
+   }finally{
+     if(token===lessonPlayToken){i=original;render();directAudio.onended=null;directAudio.onerror=null;}
+   }
+ };
  const playNoorExplanation=()=>{
-   if(!isFathaLesson)return playHuman(true);
-   const clip=noorFathaGroups[lesson]||noorFathaGroups[8];
-   directAudio.pause();directAudioBox.hidden=true;lessonVideoBox.hidden=false;humanAudio.hidden=false;sourceLink.hidden=false;
-   audioNote.textContent='';audioStatus.textContent='';
-   sourceLink.href='https://www.youtube.com/watch?v='+noorFathaLesson.video+'&t='+clip.start+'s';
-   const url='https://www.youtube-nocookie.com/embed/'+noorFathaLesson.video+'?autoplay=1&playsinline=1&rel=0&modestbranding=1&start='+clip.start+'&end='+clip.end;
-   player.src='about:blank';setTimeout(()=>{player.src=url},40);
-   humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
+   if(isFathaLesson)return playFathaLesson();
+   return playHuman(true);
  };
  const playHuman=restart=>{
    directAudio.pause();directAudioBox.hidden=true;lessonVideoBox.hidden=false;humanAudio.hidden=false;
@@ -113,12 +131,12 @@ main{max-width:850px;margin:auto;padding:16px}.hero{background:linear-gradient(1
    if(restart||!player.src.includes(source.video)){player.src='about:blank';setTimeout(()=>{player.src=url},40)}
    humanAudio.scrollIntoView({behavior:'smooth',block:'nearest'});
  };
- if(isFathaLesson){document.getElementById('speak').textContent='استمع للحرف';document.getElementById('again').textContent='كرر الحرف'}
+ if(isFathaLesson){document.getElementById('speak').textContent='استمع للحرف';document.getElementById('again').textContent='كرر الحرف';document.getElementById('lessonExplain').textContent='استمع للدرس كاملاً';lessonVideoBox.hidden=true;sourceLink.hidden=true}
  document.getElementById('speak').onclick=()=>isFathaLesson?playDirectFatha():playHuman(false);
  document.getElementById('lessonExplain').onclick=()=>playNoorExplanation();
  document.getElementById('again').onclick=()=>isFathaLesson?playDirectFatha():playHuman(true);
- document.getElementById('prev').onclick=()=>{if(i>0){i--;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
- document.getElementById('next').onclick=()=>{if(i<items.length-1){i++;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
+ document.getElementById('prev').onclick=()=>{lessonPlayToken++;directAudio.pause();if(i>0){i--;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
+ document.getElementById('next').onclick=()=>{lessonPlayToken++;directAudio.pause();if(i<items.length-1){i++;render();if(isFathaLesson&&!directAudioBox.hidden)playDirectFatha();else if(!isFathaLesson&&!humanAudio.hidden)playHuman(true)}};
  render();
 })();
 </script></body></html>
