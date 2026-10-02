@@ -84,7 +84,7 @@ body.embed>header{display:none}body.embed main{max-width:none;padding:4px}body.e
  const render=async(force=false)=>{
    chip.textContent=page===to?'صفحة '+page:'صفحات '+page+'–'+to;
    lt.textContent=title||'معاينة الدرس';
-   history.replaceState(null,'','?v=20261002-v13.0.10&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
+   history.replaceState(null,'','?v=20261002-v13.0.11&page='+page+(to!==page?'&to='+to:'')+(title?'&title='+encodeURIComponent(title):''));
    loading.classList.remove('hidden');err.hidden=true;canvas.hidden=false;
    try{
      const pdf=await loadPdf(force),pageno=Math.min(pdf.numPages,page),pg=await pdf.getPage(pageno);
@@ -104,6 +104,16 @@ body.embed>header{display:none}body.embed main{max-width:none;padding:4px}body.e
  document.getElementById('prev').onclick=()=>{if(page>1){page--;render()}};
  document.getElementById('next').onclick=()=>{if(page<98){page++;render()}};
  document.getElementById('retry').onclick=()=>render(true);
+ let resizeTimer=0,lastWidth=0;
+ if('ResizeObserver' in window){
+   new ResizeObserver(entries=>{
+     const w=Math.round(entries[0]?.contentRect?.width||viewer.clientWidth||0);
+     if(!w||Math.abs(w-lastWidth)<12)return;
+     lastWidth=w;clearTimeout(resizeTimer);
+     resizeTimer=setTimeout(()=>{if(pdfDoc)render(false)},120);
+   }).observe(viewer);
+ }
+ window.addEventListener('orientationchange',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>render(false),180)});
  warmBook();render();
 })();
 </script>
