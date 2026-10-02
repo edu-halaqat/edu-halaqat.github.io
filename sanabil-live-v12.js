@@ -879,8 +879,8 @@ async function statisticsPage(root){
 }
 
 const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'CACHE_NOOR_BAYAN'})).catch(()=>{})}catch{}};
-const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.13&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
-const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.13&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
+const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.14&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.14&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
 const openTalaqqinFrame=(title,url,row,index)=>{
  const overlay=document.createElement('div');
  overlay.className='sl-lesson-overlay';
@@ -896,8 +896,8 @@ const openTalaqqinFrame=(title,url,row,index)=>{
    const card=cardIndex!==null?document.querySelector('[data-tl-card="'+cardIndex+'"]'):null;
    if(card)setTimeout(()=>card.scrollIntoView({block:'center',behavior:'smooth'}),60);
  };
- let onKey=null;
- const close=()=>{if(!overlay.isConnected)return;if(onKey)document.removeEventListener('keydown',onKey);overlay.remove();returnToCard()};
+ let onKey=null,onFrameMessage=null;
+ const close=()=>{if(!overlay.isConnected)return;if(onKey)document.removeEventListener('keydown',onKey);if(onFrameMessage)window.removeEventListener('message',onFrameMessage);overlay.remove();returnToCard()};
  const fullBtn=overlay.querySelector('[data-fullscreen-lesson]');
  const setFullscreen=on=>{overlay.classList.toggle('is-fullscreen',on);fullBtn.textContent=on?'تصغير المعاينة':'عرض بكامل الصفحة'};
  fullBtn.onclick=()=>setFullscreen(!overlay.classList.contains('is-fullscreen'));
@@ -906,6 +906,12 @@ const openTalaqqinFrame=(title,url,row,index)=>{
  onKey=e=>{if(e.key==='Escape'){e.preventDefault();close()}};
  document.addEventListener('keydown',onKey);
  const frame=overlay.querySelector('iframe');
+ onFrameMessage=e=>{
+   if(e.origin!==location.origin||e.source!==frame.contentWindow||e.data?.type!=='sanabil-noor-page')return;
+   const b=overlay.querySelector('.sl-lesson-title b');
+   if(b)b.textContent='معاينة الدرس · '+(e.data.title||'نور البيان');
+ };
+ window.addEventListener('message',onFrameMessage);
  requestAnimationFrame(()=>requestAnimationFrame(()=>{frame.src=frameUrl}));
  return overlay;
 };
