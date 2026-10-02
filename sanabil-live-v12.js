@@ -867,8 +867,8 @@ async function statisticsPage(root){
 }
 
 const warmNoorBook=()=>{try{if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'CACHE_NOOR_BAYAN'})).catch(()=>{})}catch{}};
-const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.11&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
-const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.11&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
+const noorLessonUrl=l=>'/noor-bayan.html?v=20261002-v13.0.12&page='+encodeURIComponent(l?.pageFrom||3)+(l?.pageTo&&l.pageTo!==l.pageFrom?'&to='+encodeURIComponent(l.pageTo):'')+'&title='+encodeURIComponent(l?.title||'درس نور البيان');
+const talaqqinPracticeUrl=row=>{const l=row?.lesson||{};return '/talaqqin-practice.html?v=20261002-v13.0.12&lesson='+encodeURIComponent(l.lessonNo||row?.currentLessonNo||1)+'&unit='+encodeURIComponent(l.unitNo||'')+'&title='+encodeURIComponent(l.title||'درس نور البيان')+(l.pageFrom?'&page='+encodeURIComponent(l.pageFrom):'')};
 const openTalaqqinFrame=(title,url,row,index)=>{
  const overlay=document.createElement('div');
  overlay.className='sl-lesson-overlay';
@@ -884,13 +884,14 @@ const openTalaqqinFrame=(title,url,row,index)=>{
    const card=cardIndex!==null?document.querySelector('[data-tl-card="'+cardIndex+'"]'):null;
    if(card)setTimeout(()=>card.scrollIntoView({block:'center',behavior:'smooth'}),60);
  };
- const close=()=>{if(!overlay.isConnected)return;overlay.remove();returnToCard()};
+ let onKey=null;
+ const close=()=>{if(!overlay.isConnected)return;if(onKey)document.removeEventListener('keydown',onKey);overlay.remove();returnToCard()};
  const fullBtn=overlay.querySelector('[data-fullscreen-lesson]');
  const setFullscreen=on=>{overlay.classList.toggle('is-fullscreen',on);fullBtn.textContent=on?'تصغير المعاينة':'عرض بكامل الصفحة'};
  fullBtn.onclick=()=>setFullscreen(!overlay.classList.contains('is-fullscreen'));
  overlay.querySelector('[data-close-lesson]').onclick=close;
  overlay.addEventListener('click',e=>{if(e.target===overlay&&!overlay.classList.contains('is-fullscreen'))close()});
- const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();document.removeEventListener('keydown',onKey)}};
+ onKey=e=>{if(e.key==='Escape'){e.preventDefault();close()}};
  document.addEventListener('keydown',onKey);
  const frame=overlay.querySelector('iframe');
  requestAnimationFrame(()=>requestAnimationFrame(()=>{frame.src=frameUrl}));
