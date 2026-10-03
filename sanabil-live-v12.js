@@ -845,7 +845,10 @@ async function plansPage(root){
      try{
        bundleForecast.innerHTML='<b>جارٍ حساب موعد الختم المتوقع…</b>';
        const startDate=await resolvePlanStart(form);
-       const r=await rpc('preview_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_unit:val(form,'memUnit'),p_daily_amount:Number(val(form,'memAmount')),p_direction:val(form,'memDirection'),p_start_date:startDate,p_excluded_weekdays:bundleExcluded()});
+       const methodCode=val(form,'methodology')||'manual';
+       const r=methodCode!=='manual'
+         ?await rpc('preview_methodology_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_methodology_code:methodCode,p_path:methodCode==='aqom'?val(form,'aqomPath'):null,p_profile:methodCode==='aqom'?val(form,'aqomProfile'):null,p_start_date:startDate,p_excluded_weekdays:bundleExcluded()})
+         :await rpc('preview_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_unit:val(form,'memUnit'),p_daily_amount:Number(val(form,'memAmount')),p_direction:val(form,'memDirection'),p_start_date:startDate,p_excluded_weekdays:bundleExcluded()});
        if(token!==bundleForecastToken)return;
        const first=r.firstDayActualLines?(' · أول يوم فعليًا '+esc(r.firstDayActualLines)+' أسطر حتى '+esc(r.firstDayTo?.surahName||'')+' '+esc(r.firstDayTo?.ayahNo||'')):'';
        bundleForecast.innerHTML='<b>الختم المتوقع:</b> '+esc(r.projectedEndDate||'—')+' · '+esc(r.teachingDays||0)+' يومًا تعليميًا · إجمالي '+esc(r.totalUnits||0)+' '+esc(unitName[val(form,'memUnit')]||val(form,'memUnit'))+first+'.';
@@ -874,9 +877,30 @@ async function plansPage(root){
      if(recentBox.style.display!=='none'&&form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});
      if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){const i=box.dataset.idx;tracks.push({id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),direction:val(box,'review'+i+'Direction'),startSurah:Number(val(box,'review'+i+'Surah')),startAyah:Number(val(box,'review'+i+'Ayah'))})}
      if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');
-     const r=hasMem
-       ?await rpc('save_plan_bundle_whole_ayah',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks})
-       :await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
+     let r;
+     if(hasMem&&code!=='manual'){
+       const memTrack=tracks.find(x=>x.type==='memorization');
+       const memResult=await rpc('save_methodology_memorization_plan',{
+         p_plan_id:memTrack.id,p_student_id:student.id,p_teacher_id:student.teacher_id,
+         p_start_surah:memTrack.startSurah,p_start_ayah:memTrack.startAyah,p_start_date:startDate,
+         p_excluded_weekdays:excluded,p_methodology_code:code,
+         p_path:code==='aqom'?currentMethod.path:null,p_profile:code==='aqom'?currentMethod.profile:null,
+         p_status:'active',p_replace_existing:false
+       });
+       const otherTracks=tracks.filter(x=>x.type!=='memorization');
+       let reviewBundle=null;
+       if(otherTracks.length){
+         reviewBundle=await rpc('save_plan_bundle',{
+           p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,
+           p_end_date:memResult.projectedCompletionDate,p_excluded_weekdays:excluded,p_tracks:otherTracks
+         });
+       }
+       r={...memResult,reviewBundle};
+     }else if(hasMem){
+       r=await rpc('save_plan_bundle_whole_ayah',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks});
+     }else{
+       r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
+     }
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
      msg(root,'تم إنشاء '+(code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':'الخطة')+(finish?' · الختم المتوقع: '+finish+'.':''));
