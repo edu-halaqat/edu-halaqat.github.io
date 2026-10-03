@@ -805,8 +805,15 @@ async function plansPage(root){
      if(code==='bir_alwalidayn'){
        const lv=methodologyLevel(code,null,pos.surah,pos.ayah);if(!lv){methodSummary.innerHTML='<b>خطة حلقات بر الوالدين:</b> موضع البداية الحالي خارج مستويات الخطة المحددة؛ عدّل موضع البداية.';currentMethod={code,level:null,profile:null,path:null,meta:{}};return}
        form.elements.memUnit.value='lines';form.elements.memAmount.value=String(lv.targetLines);form.elements.memDirection.value='toward_fatiha';
-       form.elements.userecent.checked=true;
-       if(Number(lv.id)<=2){form.elements.recentUnit.value='surahs';form.elements.recentAmount.value='3'}else{form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5'}
+       if(Number(lv.id)<=2){
+         form.elements.userecent.checked=false;
+         form.elements.recentUnit.value='surahs';form.elements.recentAmount.value='3';
+         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>مراجعة المستويين 1–2:</b> يختلف توزيعها عند الوصول إلى المرسلات ثم الإنسان، والباقي يوزع حسب حفظ الطالب؛ لذلك لا يفرض النظام مقدارًا ثابتًا تلقائيًا.';
+       }else{
+         form.elements.userecent.checked=true;
+         form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5';
+         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>الافتراضي:</b> خمس صفحات مما يلي الدرس الجديد، ويمكن للمعلم ضبط المراجعة الكبرى حسب تعليمات المستوى.';
+       }
        clearReviews();
        currentMethod={code,level:String(lv.id),profile:null,path:null,meta:{displayAmount:lv.displayAmount,officialDays:lv.officialDays,review:lv.review||{},source:'خطة حلقات بر الوالدين'}};
        const reviewText=Object.values(lv.review||{}).filter(Boolean).join(' ');
