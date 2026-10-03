@@ -629,7 +629,10 @@ async function outcomesPage(root){
 }
 
 async function plansPage(root){
- const students=await rows('students','id,full_name,teacher_id,circle_id',{active:true});
+ const [students,methodologies]=await Promise.all([
+   rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
+   rpc('list_plan_methodologies',{}).catch(()=>[])
+ ]);
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -651,6 +654,28 @@ async function plansPage(root){
    if(!list.length)throw Error('لا يوجد للطالب موعد اختبار قادم؛ اختر البدء من تاريخ الخطة أو قم بجدولة الاختبار أولًا.');
    return riyadhDate(list[0].scheduled_at);
  };
+ const methodItems=[{id:'manual',name:'خطة يدوية'},...(methodologies||[]).filter(m=>m.active&&m.configured).map(m=>({id:m.code,name:m.name}))];
+ const profileName={excellent:'ممتاز',average:'متوسط',weak:'ضعيف'};
+ const normSurahName=s=>String(s||'').normalize('NFD').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ء/g,'').replace(/ـ/g,'').trim();
+ const studentStart=async student=>{
+   if(!student?.current_surah)return null;
+   const cat=await quranCatalog(),n=normSurahName(student.current_surah),row=(cat||[]).find(x=>normSurahName(x.name)===n);
+   return row?{surahNo:Number(row.surahNo),ayahNo:Math.max(1,Number(student.current_ayah)||1)}:null;
+ };
+ const levelMatches=(lv,s,a)=>{
+   const fs=Number(lv.fromSurahNo),ts=Number(lv.toSurahNo),fa=Number(lv.fromAyah||1),ta=Number(lv.toAyah||999);
+   if(fs===ts)return s===fs&&a>=fa&&a<=ta;
+   if(s===fs)return a>=fa;
+   if(s===ts)return a<=ta;
+   return s<fs&&s>ts;
+ };
+ const methodologyLevel=(code,path,s,a)=>{
+   const m=(methodologies||[]).find(x=>x.code===code);if(!m)return null;
+   const levels=code==='aqom'?(m.config?.paths?.[path]?.levels||[]):(m.config?.levels||[]);
+   return levels.find(lv=>levelMatches(lv,Number(s),Number(a)||1))||null;
+ };
+ const methodologyByCode=code=>(methodologies||[]).find(x=>x.code===code);
+ const methodLabel=p=>p?.methodology_code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':p?.methodology_code==='aqom'?'برنامج أقوم':'خطة يدوية';
 
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
@@ -660,7 +685,7 @@ async function plansPage(root){
  const planCard=(p,i)=>{
    const recent=p.type==='recent_review',qpc=p.type==='review'&&qpcUnits.has(p.unit),mem=p.type==='memorization';
    const timeFacts=mem
-     ?`<span><b>بدء الخطة</b>${esc(p.start_date)}</span><span><b>الختم المتوقع</b>${esc(p.projected_completion_date||p.end_date||'—')}</span><span><b>أيام التعليم المتوقعة</b>${esc(p.projected_teaching_days??'—')}</span>`
+     ?`<span><b>بدء الخطة</b>${esc(p.start_date)}</span><span><b>الختم المتوقع</b>${esc(p.projected_completion_date||p.end_date||'—')}</span><span><b>أيام التعليم المتوقعة</b>${esc(p.projected_teaching_days??'—')}</span><span><b>المنهج</b>${esc(methodLabel(p))}${p.methodology_level?' · المستوى '+esc(p.methodology_level):''}${p.methodology_profile?' · '+esc(profileName[p.methodology_profile]||p.methodology_profile):''}</span>`
      :`<span><b>المدة</b>${esc(p.start_date+' — '+p.end_date)}</span>`;
    const facts=recent
     ?`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>المنهج</b>نافذة متحركة تبدأ من نهاية الدرس وتتجه نحو الناس</span><span><b>الارتباط</b>تتبع خطة الحفظ تلقائيًا</span>${timeFacts}`
@@ -706,7 +731,9 @@ async function plansPage(root){
        const units=p.type==='review'?majorUnits:memUnits,mem=p.type==='memorization';
        b.innerHTML=`<form>${p.type==='review'?field('اسم المراجعة','planName','text',p.name||''):''}<div class="form-grid two">${select('الوحدة','unit',units,p.unit)}${field('المقدار اليومي','amount','number',p.daily_amount,'min="1" max="45" required')}${select('الاتجاه','direction',dirs,p.direction)}${select('سورة البداية','surah',[])}${select('آية البداية','ayah',[])}${field('بداية الخطة','start','date',p.start_date,'required')}${mem?'':field('نهاية الخطة','end','date',p.end_date,'required')}</div>${commonDays(excluded.map(String))}${mem?`<p class="sl-rule-note"><b>الختم المتوقع الحالي:</b> ${esc(p.projected_completion_date||p.end_date||'—')} · ${esc(p.projected_teaching_days??'—')} يومًا تعليميًا. سيعاد حسابه تلقائيًا بعد الحفظ.</p>`:''}<p class="sl-help">إذا سبق تنفيذ الخطة فلن يسمح النظام بإعادة توليد تاريخها؛ أنهِها وأنشئ خطة جديدة عند الحاجة إلى تغيير جوهري.</p><button type="submit" class="button button-primary">حفظ وإعادة التوزيع</button></form>`;
        const form=b.querySelector('form');await quranPair(form,'surah','ayah',{surah:sr.surahNo||sr.surah_no,ayah:sr.ayahNo||sr.ayah});
-       submit(form,async()=>{if(!mem&&val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');const ex=week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));const r=await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:mem?null:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(p.type==='review'&&val(form,'planName').trim())await result(sb().from('plans').update({name:val(form,'planName').trim()}).eq('id',p.id).select('id').single());b.closest('dialog').close();await load();msg(root,mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
+       submit(form,async()=>{if(!mem&&val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');const ex=week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));const r=mem
+         ?await rpc('save_memorization_plan_whole_ayah',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true,p_methodology_code:p.methodology_code||null,p_methodology_level:p.methodology_level||null,p_methodology_profile:p.methodology_profile||null,p_methodology_meta:p.methodology_meta||{}})
+         :await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(p.type==='review'&&val(form,'planName').trim())await result(sb().from('plans').update({name:val(form,'planName').trim()}).eq('id',p.id).select('id').single());b.closest('dialog').close();await load();msg(root,mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
      });
    });
  };
@@ -741,7 +768,7 @@ async function plansPage(root){
      if(t!=='recent_review'){track.direction=val(form,'direction');track.startSurah=Number(val(form,'surah'));track.startAyah=Number(val(form,'ayah'));if(t==='review')track.name=val(form,'planName').trim()}
      let r;
      if(t==='memorization'){
-       r=await rpc('save_memorization_plan_auto',{p_plan_id:track.id,p_student_id:student.id,p_teacher_id:student.teacher_id,p_program_id:null,p_unit:track.unit,p_daily_amount:track.dailyAmount,p_direction:track.direction,p_start_surah:track.startSurah,p_start_ayah:track.startAyah,p_start_date:startDate,p_excluded_weekdays:excluded,p_status:'active',p_replace_existing:false});
+       r=await rpc('save_memorization_plan_whole_ayah',{p_plan_id:track.id,p_student_id:student.id,p_teacher_id:student.teacher_id,p_program_id:null,p_unit:track.unit,p_daily_amount:track.dailyAmount,p_direction:track.direction,p_start_surah:track.startSurah,p_start_ayah:track.startAyah,p_start_date:startDate,p_excluded_weekdays:excluded,p_status:'active',p_replace_existing:false,p_methodology_code:null,p_methodology_level:null,p_methodology_profile:null,p_methodology_meta:{}});
      }else{
        if(!val(form,'end')||val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
@@ -752,36 +779,108 @@ async function plansPage(root){
  };
  const createBundle=async()=>{
    const b=modal('خطة طالب متكاملة');
-   const memBuilder=`<fieldset class="sl-plan-builder"><legend><label><input type="checkbox" name="usemem" checked> الحفظ الجديد</label></legend><div class="form-grid two">${select('الوحدة','memUnit',memUnits,'lines')}${field('المقدار اليومي','memAmount','number',5,'min="1" max="45" required')}${select('الاتجاه','memDirection',dirs,'toward_nas')}${select('سورة البداية','memSurah',[])}${select('آية البداية','memAyah',[])}</div></fieldset>`;
-   const recentBuilder=`<fieldset class="sl-plan-builder"><legend><label><input type="checkbox" name="userecent" checked> المراجعة الصغرى</label></legend><div class="form-grid two">${select('المقدار بوحدة','recentUnit',recentUnits,'pages')}${field('المقدار','recentAmount','number',2,'min="1" max="45" required')}</div><p class="sl-help"><b>لا بداية ولا اتجاه للمراجعة الصغرى.</b> إذا انتهى درس اليوم في الصفحة 4 وكان المقدار صفحتين، فتبدأ المراجعة من موضع نهاية الدرس في الصفحة 4 وتمتد نحو الناس حتى نهاية الصفحة 5؛ وعندما يتحرك الدرس تتحرك النافذة معه.</p></fieldset>`;
-   b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<div data-bundle-end-wrap style="display:none">${field('نهاية المسارات (عند عدم اختيار الحفظ)','end','date','')}</div></div><p class="sl-help">عند وجود مسار حفظ لا يُطلب تاريخ نهاية؛ يحسب النظام تاريخ الختم ويجعل المراجعات المصاحبة ممتدة معه تلقائيًا.</p><p class="sl-rule-note" data-bundle-forecast><b>جارٍ حساب موعد الختم المتوقع…</b></p>${commonDays(['5','6'])}<div class="sl-plan-builders">${memBuilder}${recentBuilder}<section><div class="sl-builder-head"><div><h3>المراجعات الكبرى</h3><p>يمكن إضافة عدة مراجعات؛ وتدعم الجزء والحزب ونصف الحزب وربع الحزب وفق تحزيب مصحف المدينة – مجمع الملك فهد.</p></div>${button('إضافة مراجعة كبرى','add-review')}</div><div class="sl-review-builders"></div></section></div><button type="submit" class="button button-primary button-wide">إنشاء المسارات المختارة</button></form>`;
-   const form=b.querySelector('form'),container=form.querySelector('.sl-review-builders'),bundleForecast=form.querySelector('[data-bundle-forecast]'),bundleEndWrap=form.querySelector('[data-bundle-end-wrap]');let reviewIndex=0;
+   const memBuilder=`<fieldset class="sl-plan-builder"><legend><label><input type="checkbox" name="usemem" checked> الحفظ الجديد</label></legend><div class="form-grid two">${select('الوحدة','memUnit',memUnits,'lines')}${field('المقدار اليومي','memAmount','number',5,'min="1" max="45" required')}${select('الاتجاه','memDirection',dirs,'toward_nas')}${select('سورة البداية','memSurah',[])}${select('آية البداية','memAyah',[])}</div><p class="sl-help" data-method-guide>في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.</p></fieldset>`;
+   const recentBuilder=`<fieldset class="sl-plan-builder" data-recent-box><legend><label><input type="checkbox" name="userecent" checked> المراجعة الصغرى</label></legend><div class="form-grid two">${select('المقدار بوحدة','recentUnit',recentUnits,'pages')}${field('المقدار','recentAmount','number',2,'min="1" max="45" required')}</div><p class="sl-help"><b>نافذة مرتبطة بالدرس:</b> تتحرك تلقائيًا مع موضع الحفظ الجديد نحو المحفوظ السابق.</p></fieldset>`;
+   b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المنهج','methodology',methodItems,'manual')}${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<label data-aqom-path style="display:none">مسار برنامج أقوم<select name="aqomPath"><option value="preliminary">المرحلة التمهيدية</option><option value="path1">المسار الأول · 10 مستويات</option><option value="path2">المسار الثاني · 20 مستوى</option></select></label><label data-aqom-profile style="display:none">مستوى الطالب<select name="aqomProfile"><option value="excellent">ممتاز</option><option value="average">متوسط</option><option value="weak">ضعيف</option></select></label><div data-bundle-end-wrap style="display:none">${field('نهاية المسارات (عند عدم اختيار الحفظ)','end','date','')}</div></div><p class="sl-rule-note" data-method-summary><b>الخطة اليدوية:</b> اضبط الحفظ والمراجعات يدويًا.</p><p class="sl-rule-note" data-bundle-forecast><b>جارٍ حساب موعد الختم المتوقع…</b></p>${commonDays(['5','6'])}<div class="sl-plan-builders">${memBuilder}${recentBuilder}<section data-major-section><div class="sl-builder-head"><div><h3>المراجعات الكبرى</h3><p>في الخطة اليدوية يمكن إضافة مراجعات كبرى متعددة. في خطة بر الوالدين تظهر تعليمات المراجعة المعتمدة بحسب المستوى.</p></div>${button('إضافة مراجعة كبرى','add-review')}</div><div class="sl-review-builders"></div></section></div><button type="submit" class="button button-primary button-wide">إنشاء المسارات المختارة</button></form>`;
+   const form=b.querySelector('form'),container=form.querySelector('.sl-review-builders'),bundleForecast=form.querySelector('[data-bundle-forecast]'),bundleEndWrap=form.querySelector('[data-bundle-end-wrap]'),methodSummary=form.querySelector('[data-method-summary]'),methodGuide=form.querySelector('[data-method-guide]'),recentBox=form.querySelector('[data-recent-box]'),majorSection=form.querySelector('[data-major-section]');let reviewIndex=0,currentMethod={code:'manual',level:null,profile:null,path:null,meta:{}};
    const bundleExcluded=()=>week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
+   const setStart=(s,a)=>{const se=form.elements.memSurah,ae=form.elements.memAyah;if(!se||!ae)return;se.value=String(s);se.dispatchEvent(new Event('change'));ae.value=String(a||1)};
+   const methodPosition=()=>({surah:Number(val(form,'memSurah')),ayah:Number(val(form,'memAyah'))||1});
+   const clearReviews=()=>{container.innerHTML='';reviewIndex=0};
+   const addReview=async(defaults={})=>{if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');const i=reviewIndex++,box=document.createElement('fieldset');box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend><div class="form-grid two">${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'')}${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'hizb')}${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('الاتجاه','review'+i+'Direction',dirs,defaults.direction||'toward_fatiha')}${select('سورة البداية','review'+i+'Surah',[])}${select('آية البداية','review'+i+'Ayah',[])}</div><small class="sl-cycle-note">تحزيب مصحف المدينة للوحدات: جزء / حزب / نصف حزب / ربع حزب</small><button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;container.append(box);await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',defaults);box.querySelector('[data-remove-review]').onclick=()=>box.remove()};
+   const applyMethodology=async(useStudentStart=false)=>{
+     const code=val(form,'methodology')||'manual',student=students.find(s=>s.id===val(form,'student'));
+     const pathWrap=form.querySelector('[data-aqom-path]'),profileWrap=form.querySelector('[data-aqom-profile]');
+     pathWrap.style.display=code==='aqom'?'':'none';profileWrap.style.display=code==='aqom'&&val(form,'aqomPath')!=='preliminary'?'':'none';
+     form.elements.memUnit.disabled=false;form.elements.memAmount.disabled=false;form.elements.memDirection.disabled=false;
+     recentBox.style.display='';majorSection.style.display='';
+     if(useStudentStart&&student){const st=await studentStart(student);if(st)setStart(st.surahNo,st.ayahNo)}
+     const pos=methodPosition();
+     if(code==='manual'){
+       currentMethod={code:'manual',level:null,profile:null,path:null,meta:{}};
+       methodSummary.innerHTML='<b>الخطة اليدوية:</b> اضبط مقدار الحفظ والمراجعات كما تريد.';
+       methodGuide.textContent='في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.';
+       return;
+     }
+     if(code==='bir_alwalidayn'){
+       const lv=methodologyLevel(code,null,pos.surah,pos.ayah);if(!lv){methodSummary.innerHTML='<b>خطة حلقات بر الوالدين:</b> موضع البداية الحالي خارج مستويات الخطة المحددة؛ عدّل موضع البداية.';currentMethod={code,level:null,profile:null,path:null,meta:{}};return}
+       form.elements.memUnit.value='lines';form.elements.memAmount.value=String(lv.targetLines);form.elements.memDirection.value='toward_fatiha';
+       form.elements.userecent.checked=true;
+       if(Number(lv.id)<=2){form.elements.recentUnit.value='surahs';form.elements.recentAmount.value='3'}else{form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5'}
+       clearReviews();
+       currentMethod={code,level:String(lv.id),profile:null,path:null,meta:{displayAmount:lv.displayAmount,officialDays:lv.officialDays,review:lv.review||{},source:'خطة حلقات بر الوالدين'}};
+       const reviewText=Object.values(lv.review||{}).filter(Boolean).join(' ');
+       methodSummary.innerHTML='<b>خطة حلقات بر الوالدين · المستوى '+esc(lv.id)+':</b> مقدار الدرس '+esc(lv.displayAmount)+'؛ المدة المرجعية '+esc(lv.officialDays)+' يومًا. <b>المراجعة:</b> '+esc(reviewText);
+       methodGuide.textContent='المقدار المرجعي '+lv.displayAmount+'، لكن نهاية كل يوم تكون عند نهاية آية كاملة وفق أقرب عدد أسطر فعلي في مصحف المدينة.';
+       return;
+     }
+     if(code==='aqom'){
+       const path=val(form,'aqomPath')||'preliminary';
+       if(path==='preliminary'){
+         currentMethod={code,level:'preliminary',profile:null,path,meta:{source:'برنامج أقوم',fixedSequence:true}};
+         recentBox.style.display='none';majorSection.style.display='none';form.elements.userecent.checked=false;clearReviews();
+         methodSummary.innerHTML='<b>برنامج أقوم · المرحلة التمهيدية:</b> 48 يومًا تأسيسيًا في ثلاث مراحل من سورة الناس حتى سورة الشمس وفق الجدول المعتمد.';
+         bundleForecast.innerHTML='<b>المرحلة التمهيدية:</b> يحدد النظام تاريخ انتهائها تلقائيًا بحسب أيام الدوام.';
+         return;
+       }
+       let profile=val(form,'aqomProfile')||'excellent';if(path==='path1'&&profile==='weak'){profile='average';form.elements.aqomProfile.value='average'}
+       const lv=methodologyLevel(code,path,pos.surah,pos.ayah);if(!lv){methodSummary.innerHTML='<b>برنامج أقوم:</b> موضع البداية لا يقع داخل المستوى المحدد في هذا المسار.';currentMethod={code,level:null,profile,path,meta:{}};return}
+       const amount=Number(lv.profiles?.[profile]);if(!amount)throw Error('هذا المستوى غير متاح في المسار المختار.');
+       form.elements.memUnit.value='lines';form.elements.memAmount.value=String(amount);form.elements.memDirection.value='toward_fatiha';
+       recentBox.style.display='none';majorSection.style.display='none';form.elements.userecent.checked=false;clearReviews();
+       currentMethod={code,level:String(lv.id),profile,path,meta:{source:'برنامج أقوم',path,officialDays:lv.officialDays?.[profile]||null}};
+       methodSummary.innerHTML='<b>برنامج أقوم · '+esc(path==='path1'?'المسار الأول':'المسار الثاني')+' · المستوى '+esc(lv.id)+' · '+esc(profileName[profile]||profile)+':</b> '+esc(amount)+' أسطر يوميًا؛ المدة المرجعية '+esc(lv.officialDays?.[profile]||'—')+' يومًا.';
+       methodGuide.textContent='مقدار أقوم يطبّق بالأسطر الفعلية مع عدم تجزئة الآية؛ نهاية الدرس أقرب نهاية آية للمقدار.';
+     }
+   };
+   await quranPair(form,'memSurah','memAyah');
+   action(b,b.querySelector('[data-action="add-review"]'),()=>addReview({name:'مراجعة كبرى '+(container.children.length+1),unit:'hizb',amount:1,direction:'toward_nas',surah:1,ayah:1}));
    let bundleForecastToken=0;
    const refreshBundleForecast=async()=>{
-     const hasMem=form.querySelector('[name="usemem"]').checked;
-     bundleEndWrap.style.display=hasMem?'none':'';
-     form.querySelector('[name="end"]').required=!hasMem;
+     const hasMem=form.querySelector('[name="usemem"]').checked,prelim=val(form,'methodology')==='aqom'&&val(form,'aqomPath')==='preliminary';
+     bundleEndWrap.style.display=hasMem?'none':'';form.querySelector('[name="end"]').required=!hasMem;
      if(!hasMem){bundleForecast.innerHTML='<b>لا يوجد مسار حفظ.</b> حدد تاريخ نهاية للمسارات المختارة.';return}
+     if(prelim){bundleForecast.innerHTML='<b>برنامج أقوم · المرحلة التمهيدية:</b> 48 يومًا تعليميًا موزعة على ثلاث مراحل.';return}
      const token=++bundleForecastToken;
      try{
        bundleForecast.innerHTML='<b>جارٍ حساب موعد الختم المتوقع…</b>';
        const startDate=await resolvePlanStart(form);
        const r=await rpc('preview_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_unit:val(form,'memUnit'),p_daily_amount:Number(val(form,'memAmount')),p_direction:val(form,'memDirection'),p_start_date:startDate,p_excluded_weekdays:bundleExcluded()});
        if(token!==bundleForecastToken)return;
-       bundleForecast.innerHTML='<b>الختم المتوقع:</b> '+esc(r.projectedEndDate||'—')+' · '+esc(r.teachingDays||0)+' يومًا تعليميًا · إجمالي '+esc(r.totalUnits||0)+' '+esc(unitName[val(form,'memUnit')]||val(form,'memUnit'))+'.';
+       const first=r.firstDayActualLines?(' · أول يوم فعليًا '+esc(r.firstDayActualLines)+' أسطر حتى '+esc(r.firstDayTo?.surahName||'')+' '+esc(r.firstDayTo?.ayahNo||'')):'';
+       bundleForecast.innerHTML='<b>الختم المتوقع:</b> '+esc(r.projectedEndDate||'—')+' · '+esc(r.teachingDays||0)+' يومًا تعليميًا · إجمالي '+esc(r.totalUnits||0)+' '+esc(unitName[val(form,'memUnit')]||val(form,'memUnit'))+first+'.';
      }catch(e){if(token===bundleForecastToken)bundleForecast.innerHTML='<b>تعذر حساب التوقع:</b> '+esc(e.message)}
    };
-   const addReview=async(defaults={})=>{if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');const i=reviewIndex++,box=document.createElement('fieldset');box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend><div class="form-grid two">${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'')}${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'hizb')}${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('الاتجاه','review'+i+'Direction',dirs,defaults.direction||'toward_fatiha')}${select('سورة البداية','review'+i+'Surah',[])}${select('آية البداية','review'+i+'Ayah',[])}</div><small class="sl-cycle-note">تحزيب مصحف المدينة للوحدات: جزء / حزب / نصف حزب / ربع حزب</small><button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;container.append(box);await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',defaults);box.querySelector('[data-remove-review]').onclick=()=>box.remove()};
-   await quranPair(form,'memSurah','memAyah');await addReview({name:'مراجعة كبرى 1',unit:'hizb',amount:1,direction:'toward_fatiha',surah:114,ayah:1});
-   action(b,b.querySelector('[data-action="add-review"]'),()=>addReview({name:'مراجعة كبرى '+(container.children.length+1),unit:'hizb',amount:1,direction:'toward_nas',surah:1,ayah:1}));
+   form.elements.student.addEventListener('change',async()=>{await applyMethodology(true);await refreshBundleForecast()});
+   form.elements.methodology.addEventListener('change',async()=>{await applyMethodology(true);await refreshBundleForecast()});
+   form.elements.aqomPath.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
+   form.elements.aqomProfile.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
+   form.elements.memSurah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
+   form.elements.memAyah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
    form.querySelector('[name="usemem"]').addEventListener('change',refreshBundleForecast);
-   form.addEventListener('change',()=>{if(form.querySelector('[name="usemem"]').checked)setTimeout(refreshBundleForecast,0)});
    form.querySelector('[name="memAmount"]').addEventListener('input',()=>setTimeout(refreshBundleForecast,120));
-   setTimeout(refreshBundleForecast,0);
-   submit(form,async()=>{const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked;if(!hasMem&&(!val(form,'end')||val(form,'end')<startDate))throw Error('عند إنشاء مراجعات بلا حفظ يجب تحديد تاريخ نهاية صحيح.');const excluded=bundleExcluded(),tracks=[];if(hasMem)tracks.push({id:crypto.randomUUID(),type:'memorization',unit:val(form,'memUnit'),dailyAmount:Number(val(form,'memAmount')),direction:val(form,'memDirection'),startSurah:Number(val(form,'memSurah')),startAyah:Number(val(form,'memAyah'))});if(form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});for(const box of container.querySelectorAll('.sl-review-builder')){const i=box.dataset.idx;tracks.push({id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),direction:val(box,'review'+i+'Direction'),startSurah:Number(val(box,'review'+i+'Surah')),startAyah:Number(val(box,'review'+i+'Ayah'))})}if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');const r=hasMem
-     ?await rpc('save_plan_bundle_auto',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks})
-     :await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();const finish=r.projectedCompletionDate||r.bundleEndDate;msg(root,(r.pairedMajorReviews?'تم إنشاء الخطط وربط المراجعة الصغرى بالدرس، وتقسيم المراجعتين الكبريين المتعاكستين دون تداخل.':'تم إنشاء الخطط، والمراجعة الصغرى ستتحرك تلقائيًا مع الدرس.')+(finish?' الختم المتوقع: '+finish+'.':''))});
+   await applyMethodology(true);setTimeout(refreshBundleForecast,0);
+   submit(form,async()=>{
+     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'manual';
+     if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
+       const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
+       b.closest('dialog').close();await load();msg(root,'تم إنشاء برنامج أقوم · المرحلة التمهيدية. تاريخ الانتهاء المتوقع: '+(r.projectedEndDate||'—')+'.');return;
+     }
+     if(!hasMem&&(!val(form,'end')||val(form,'end')<startDate))throw Error('عند إنشاء مراجعات بلا حفظ يجب تحديد تاريخ نهاية صحيح.');
+     if(code!=='manual'&&!currentMethod.level)throw Error('تعذر تحديد مستوى المنهج من موضع بداية الطالب؛ راجع السورة والآية.');
+     const tracks=[];
+     if(hasMem)tracks.push({id:crypto.randomUUID(),type:'memorization',unit:val(form,'memUnit'),dailyAmount:Number(val(form,'memAmount')),direction:val(form,'memDirection'),startSurah:Number(val(form,'memSurah')),startAyah:Number(val(form,'memAyah')),methodologyCode:code==='manual'?null:code,methodologyLevel:currentMethod.level,methodologyProfile:currentMethod.profile,methodologyMeta:currentMethod.meta||{}});
+     if(recentBox.style.display!=='none'&&form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});
+     if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){const i=box.dataset.idx;tracks.push({id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),direction:val(box,'review'+i+'Direction'),startSurah:Number(val(box,'review'+i+'Surah')),startAyah:Number(val(box,'review'+i+'Ayah'))})}
+     if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');
+     const r=hasMem
+       ?await rpc('save_plan_bundle_whole_ayah',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks})
+       :await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
+     await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
+     const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
+     msg(root,'تم إنشاء '+(code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':'الخطة')+(finish?' · الختم المتوقع: '+finish+'.':''));
+   });
  };
  action(root,root.querySelector('[data-action="new"]'),createSingle);
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
