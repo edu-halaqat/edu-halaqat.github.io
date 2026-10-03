@@ -1,13 +1,16 @@
 {
-  "schemaVersion": "2026-10-04",
+  "schemaVersion": "2026-10-04-v2",
   "policy": "additive_only_no_delete",
+  "legacyQuestionCount": 1299,
+  "extractedQuestionOccurrences": 879,
+  "overlapWithLegacy": 243,
+  "pureNewStarts": 636,
   "maxLinesPerQuestion": 10,
-  "classification": "unclassified_source_questions",
-  "count": 636,
   "questions": [
     {
       "importId": "ADD-20261004-0001",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 19,
       "endSurahNo": 2,
       "endAyahNo": 23,
@@ -20,6 +23,7 @@
     {
       "importId": "ADD-20261004-0002",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 26,
       "endSurahNo": 2,
       "endAyahNo": 29,
@@ -32,6 +36,7 @@
     {
       "importId": "ADD-20261004-0003",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 60,
       "endSurahNo": 2,
       "endAyahNo": 61,
@@ -44,6 +49,7 @@
     {
       "importId": "ADD-20261004-0004",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 67,
       "endSurahNo": 2,
       "endAyahNo": 71,
@@ -56,6 +62,7 @@
     {
       "importId": "ADD-20261004-0005",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 80,
       "endSurahNo": 2,
       "endAyahNo": 83,
@@ -68,6 +75,7 @@
     {
       "importId": "ADD-20261004-0006",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 101,
       "endSurahNo": 2,
       "endAyahNo": 102,
@@ -80,6 +88,7 @@
     {
       "importId": "ADD-20261004-0007",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 158,
       "endSurahNo": 2,
       "endAyahNo": 163,
@@ -92,6 +101,7 @@
     {
       "importId": "ADD-20261004-0008",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 187,
       "endSurahNo": 2,
       "endAyahNo": 188,
@@ -104,6 +114,7 @@
     {
       "importId": "ADD-20261004-0009",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 203,
       "endSurahNo": 2,
       "endAyahNo": 208,
@@ -116,6 +127,7 @@
     {
       "importId": "ADD-20261004-0010",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 216,
       "endSurahNo": 2,
       "endAyahNo": 218,
@@ -128,6 +140,7 @@
     {
       "importId": "ADD-20261004-0011",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 229,
       "endSurahNo": 2,
       "endAyahNo": 231,
@@ -140,6 +153,7 @@
     {
       "importId": "ADD-20261004-0012",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 246,
       "endSurahNo": 2,
       "endAyahNo": 247,
@@ -152,6 +166,7 @@
     {
       "importId": "ADD-20261004-0013",
       "surahNo": 2,
+      "surahName": "البقرة",
       "ayahNo": 272,
       "endSurahNo": 2,
       "endAyahNo": 274,
@@ -164,6 +179,7 @@
     {
       "importId": "ADD-20261004-0014",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 14,
       "endSurahNo": 3,
       "endAyahNo": 18,
@@ -176,6 +192,7 @@
     {
       "importId": "ADD-20261004-0015",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 17,
       "endSurahNo": 3,
       "endAyahNo": 20,
@@ -188,6 +205,7 @@
     {
       "importId": "ADD-20261004-0016",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 19,
       "endSurahNo": 3,
       "endAyahNo": 22,
@@ -200,6 +218,7 @@
     {
       "importId": "ADD-20261004-0017",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 26,
       "endSurahNo": 3,
       "endAyahNo": 29,
@@ -212,6 +231,7 @@
     {
       "importId": "ADD-20261004-0018",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 28,
       "endSurahNo": 3,
       "endAyahNo": 32,
@@ -224,6 +244,7 @@
     {
       "importId": "ADD-20261004-0019",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 64,
       "endSurahNo": 3,
       "endAyahNo": 68,
@@ -236,6 +257,7 @@
     {
       "importId": "ADD-20261004-0020",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 68,
       "endSurahNo": 3,
       "endAyahNo": 73,
@@ -248,6 +270,7 @@
     {
       "importId": "ADD-20261004-0021",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 79,
       "endSurahNo": 3,
       "endAyahNo": 82,
@@ -260,6 +283,7 @@
     {
       "importId": "ADD-20261004-0022",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 111,
       "endSurahNo": 3,
       "endAyahNo": 115,
@@ -272,6 +296,7 @@
     {
       "importId": "ADD-20261004-0023",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 118,
       "endSurahNo": 3,
       "endAyahNo": 121,
@@ -284,6 +309,7 @@
     {
       "importId": "ADD-20261004-0024",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 121,
       "endSurahNo": 3,
       "endAyahNo": 127,
@@ -296,6 +322,7 @@
     {
       "importId": "ADD-20261004-0025",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 130,
       "endSurahNo": 3,
       "endAyahNo": 135,
@@ -308,6 +335,7 @@
     {
       "importId": "ADD-20261004-0026",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 153,
       "endSurahNo": 3,
       "endAyahNo": 154,
@@ -320,6 +348,7 @@
     {
       "importId": "ADD-20261004-0027",
       "surahNo": 3,
+      "surahName": "آل عمران",
       "ayahNo": 177,
       "endSurahNo": 3,
       "endAyahNo": 180,
@@ -332,6 +361,7 @@
     {
       "importId": "ADD-20261004-0028",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 4,
       "endSurahNo": 4,
       "endAyahNo": 8,
@@ -344,6 +374,7 @@
     {
       "importId": "ADD-20261004-0029",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 17,
       "endSurahNo": 4,
       "endAyahNo": 19,
@@ -356,6 +387,7 @@
     {
       "importId": "ADD-20261004-0030",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 25,
       "endSurahNo": 4,
       "endAyahNo": 26,
@@ -368,6 +400,7 @@
     {
       "importId": "ADD-20261004-0031",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 26,
       "endSurahNo": 4,
       "endAyahNo": 31,
@@ -380,6 +413,7 @@
     {
       "importId": "ADD-20261004-0032",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 40,
       "endSurahNo": 4,
       "endAyahNo": 43,
@@ -392,6 +426,7 @@
     {
       "importId": "ADD-20261004-0033",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 44,
       "endSurahNo": 4,
       "endAyahNo": 47,
@@ -404,6 +439,7 @@
     {
       "importId": "ADD-20261004-0034",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 59,
       "endSurahNo": 4,
       "endAyahNo": 62,
@@ -416,6 +452,7 @@
     {
       "importId": "ADD-20261004-0035",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 71,
       "endSurahNo": 4,
       "endAyahNo": 75,
@@ -428,6 +465,7 @@
     {
       "importId": "ADD-20261004-0036",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 75,
       "endSurahNo": 4,
       "endAyahNo": 78,
@@ -440,6 +478,7 @@
     {
       "importId": "ADD-20261004-0037",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 85,
       "endSurahNo": 4,
       "endAyahNo": 89,
@@ -452,6 +491,7 @@
     {
       "importId": "ADD-20261004-0038",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 88,
       "endSurahNo": 4,
       "endAyahNo": 90,
@@ -464,6 +504,7 @@
     {
       "importId": "ADD-20261004-0039",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 128,
       "endSurahNo": 4,
       "endAyahNo": 131,
@@ -476,6 +517,7 @@
     {
       "importId": "ADD-20261004-0040",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 163,
       "endSurahNo": 4,
       "endAyahNo": 168,
@@ -488,6 +530,7 @@
     {
       "importId": "ADD-20261004-0041",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 170,
       "endSurahNo": 4,
       "endAyahNo": 172,
@@ -500,6 +543,7 @@
     {
       "importId": "ADD-20261004-0042",
       "surahNo": 4,
+      "surahName": "النساء",
       "ayahNo": 171,
       "endSurahNo": 4,
       "endAyahNo": 173,
@@ -512,6 +556,7 @@
     {
       "importId": "ADD-20261004-0043",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 46,
       "endSurahNo": 5,
       "endAyahNo": 48,
@@ -524,6 +569,7 @@
     {
       "importId": "ADD-20261004-0044",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 51,
       "endSurahNo": 5,
       "endAyahNo": 54,
@@ -536,6 +582,7 @@
     {
       "importId": "ADD-20261004-0045",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 64,
       "endSurahNo": 5,
       "endAyahNo": 67,
@@ -548,6 +595,7 @@
     {
       "importId": "ADD-20261004-0046",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 70,
       "endSurahNo": 5,
       "endAyahNo": 73,
@@ -560,6 +608,7 @@
     {
       "importId": "ADD-20261004-0047",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 77,
       "endSurahNo": 5,
       "endAyahNo": 81,
@@ -572,6 +621,7 @@
     {
       "importId": "ADD-20261004-0048",
       "surahNo": 5,
+      "surahName": "المائدة",
       "ayahNo": 106,
       "endSurahNo": 5,
       "endAyahNo": 108,
@@ -584,6 +634,7 @@
     {
       "importId": "ADD-20261004-0049",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 10,
       "endSurahNo": 6,
       "endAyahNo": 15,
@@ -596,6 +647,7 @@
     {
       "importId": "ADD-20261004-0050",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 33,
       "endSurahNo": 6,
       "endAyahNo": 38,
@@ -608,6 +660,7 @@
     {
       "importId": "ADD-20261004-0051",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 95,
       "endSurahNo": 6,
       "endAyahNo": 99,
@@ -620,6 +673,7 @@
     {
       "importId": "ADD-20261004-0052",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 121,
       "endSurahNo": 6,
       "endAyahNo": 124,
@@ -632,6 +686,7 @@
     {
       "importId": "ADD-20261004-0053",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 128,
       "endSurahNo": 6,
       "endAyahNo": 130,
@@ -644,6 +699,7 @@
     {
       "importId": "ADD-20261004-0054",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 141,
       "endSurahNo": 6,
       "endAyahNo": 143,
@@ -656,6 +712,7 @@
     {
       "importId": "ADD-20261004-0055",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 146,
       "endSurahNo": 6,
       "endAyahNo": 149,
@@ -668,6 +725,7 @@
     {
       "importId": "ADD-20261004-0056",
       "surahNo": 6,
+      "surahName": "الأنعام",
       "ayahNo": 160,
       "endSurahNo": 6,
       "endAyahNo": 165,
@@ -680,6 +738,7 @@
     {
       "importId": "ADD-20261004-0057",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 33,
       "endSurahNo": 7,
       "endAyahNo": 37,
@@ -692,6 +751,7 @@
     {
       "importId": "ADD-20261004-0058",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 65,
       "endSurahNo": 7,
       "endAyahNo": 70,
@@ -704,6 +764,7 @@
     {
       "importId": "ADD-20261004-0059",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 102,
       "endSurahNo": 7,
       "endAyahNo": 109,
@@ -716,6 +777,7 @@
     {
       "importId": "ADD-20261004-0060",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 130,
       "endSurahNo": 7,
       "endAyahNo": 134,
@@ -728,6 +790,7 @@
     {
       "importId": "ADD-20261004-0061",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 161,
       "endSurahNo": 7,
       "endAyahNo": 164,
@@ -740,6 +803,7 @@
     {
       "importId": "ADD-20261004-0062",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 172,
       "endSurahNo": 7,
       "endAyahNo": 176,
@@ -752,6 +816,7 @@
     {
       "importId": "ADD-20261004-0063",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 179,
       "endSurahNo": 7,
       "endAyahNo": 185,
@@ -764,6 +829,7 @@
     {
       "importId": "ADD-20261004-0064",
       "surahNo": 7,
+      "surahName": "الأعراف",
       "ayahNo": 187,
       "endSurahNo": 7,
       "endAyahNo": 189,
@@ -776,6 +842,7 @@
     {
       "importId": "ADD-20261004-0065",
       "surahNo": 8,
+      "surahName": "الأنفال",
       "ayahNo": 36,
       "endSurahNo": 8,
       "endAyahNo": 40,
@@ -788,6 +855,7 @@
     {
       "importId": "ADD-20261004-0066",
       "surahNo": 8,
+      "surahName": "الأنفال",
       "ayahNo": 65,
       "endSurahNo": 8,
       "endAyahNo": 69,
@@ -800,6 +868,7 @@
     {
       "importId": "ADD-20261004-0067",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 19,
       "endSurahNo": 9,
       "endAyahNo": 24,
@@ -812,6 +881,7 @@
     {
       "importId": "ADD-20261004-0068",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 25,
       "endSurahNo": 9,
       "endAyahNo": 28,
@@ -824,6 +894,7 @@
     {
       "importId": "ADD-20261004-0069",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 40,
       "endSurahNo": 9,
       "endAyahNo": 42,
@@ -836,6 +907,7 @@
     {
       "importId": "ADD-20261004-0070",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 49,
       "endSurahNo": 9,
       "endAyahNo": 53,
@@ -848,6 +920,7 @@
     {
       "importId": "ADD-20261004-0071",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 67,
       "endSurahNo": 9,
       "endAyahNo": 69,
@@ -860,6 +933,7 @@
     {
       "importId": "ADD-20261004-0072",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 75,
       "endSurahNo": 9,
       "endAyahNo": 80,
@@ -872,6 +946,7 @@
     {
       "importId": "ADD-20261004-0073",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 94,
       "endSurahNo": 9,
       "endAyahNo": 98,
@@ -884,6 +959,7 @@
     {
       "importId": "ADD-20261004-0074",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 97,
       "endSurahNo": 9,
       "endAyahNo": 100,
@@ -896,6 +972,7 @@
     {
       "importId": "ADD-20261004-0075",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 115,
       "endSurahNo": 9,
       "endAyahNo": 118,
@@ -908,6 +985,7 @@
     {
       "importId": "ADD-20261004-0076",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 118,
       "endSurahNo": 9,
       "endAyahNo": 120,
@@ -920,6 +998,7 @@
     {
       "importId": "ADD-20261004-0077",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 120,
       "endSurahNo": 9,
       "endAyahNo": 122,
@@ -932,6 +1011,7 @@
     {
       "importId": "ADD-20261004-0078",
       "surahNo": 9,
+      "surahName": "التوبة",
       "ayahNo": 128,
       "endSurahNo": 10,
       "endAyahNo": 3,
@@ -944,6 +1024,7 @@
     {
       "importId": "ADD-20261004-0079",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 5,
       "endSurahNo": 10,
       "endAyahNo": 10,
@@ -956,6 +1037,7 @@
     {
       "importId": "ADD-20261004-0080",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 19,
       "endSurahNo": 10,
       "endAyahNo": 22,
@@ -968,6 +1050,7 @@
     {
       "importId": "ADD-20261004-0081",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 28,
       "endSurahNo": 10,
       "endAyahNo": 33,
@@ -980,6 +1063,7 @@
     {
       "importId": "ADD-20261004-0082",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 44,
       "endSurahNo": 10,
       "endAyahNo": 50,
@@ -992,6 +1076,7 @@
     {
       "importId": "ADD-20261004-0083",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 45,
       "endSurahNo": 10,
       "endAyahNo": 51,
@@ -1004,6 +1089,7 @@
     {
       "importId": "ADD-20261004-0084",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 57,
       "endSurahNo": 10,
       "endAyahNo": 61,
@@ -1016,6 +1102,7 @@
     {
       "importId": "ADD-20261004-0085",
       "surahNo": 10,
+      "surahName": "يونس",
       "ayahNo": 98,
       "endSurahNo": 10,
       "endAyahNo": 103,
@@ -1028,6 +1115,7 @@
     {
       "importId": "ADD-20261004-0086",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 13,
       "endSurahNo": 11,
       "endAyahNo": 17,
@@ -1040,6 +1128,7 @@
     {
       "importId": "ADD-20261004-0087",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 15,
       "endSurahNo": 11,
       "endAyahNo": 18,
@@ -1052,6 +1141,7 @@
     {
       "importId": "ADD-20261004-0088",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 24,
       "endSurahNo": 11,
       "endAyahNo": 29,
@@ -1064,6 +1154,7 @@
     {
       "importId": "ADD-20261004-0089",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 37,
       "endSurahNo": 11,
       "endAyahNo": 42,
@@ -1076,6 +1167,7 @@
     {
       "importId": "ADD-20261004-0090",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 41,
       "endSurahNo": 11,
       "endAyahNo": 45,
@@ -1088,6 +1180,7 @@
     {
       "importId": "ADD-20261004-0091",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 48,
       "endSurahNo": 11,
       "endAyahNo": 52,
@@ -1100,6 +1193,7 @@
     {
       "importId": "ADD-20261004-0092",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 108,
       "endSurahNo": 11,
       "endAyahNo": 113,
@@ -1112,6 +1206,7 @@
     {
       "importId": "ADD-20261004-0093",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 109,
       "endSurahNo": 11,
       "endAyahNo": 114,
@@ -1124,6 +1219,7 @@
     {
       "importId": "ADD-20261004-0094",
       "surahNo": 11,
+      "surahName": "هود",
       "ayahNo": 111,
       "endSurahNo": 11,
       "endAyahNo": 117,
@@ -1136,6 +1232,7 @@
     {
       "importId": "ADD-20261004-0095",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 7,
       "endSurahNo": 12,
       "endAyahNo": 14,
@@ -1148,6 +1245,7 @@
     {
       "importId": "ADD-20261004-0096",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 17,
       "endSurahNo": 12,
       "endAyahNo": 21,
@@ -1160,6 +1258,7 @@
     {
       "importId": "ADD-20261004-0097",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 25,
       "endSurahNo": 12,
       "endAyahNo": 30,
@@ -1172,6 +1271,7 @@
     {
       "importId": "ADD-20261004-0098",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 38,
       "endSurahNo": 12,
       "endAyahNo": 42,
@@ -1184,6 +1284,7 @@
     {
       "importId": "ADD-20261004-0099",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 45,
       "endSurahNo": 12,
       "endAyahNo": 50,
@@ -1196,6 +1297,7 @@
     {
       "importId": "ADD-20261004-0100",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 47,
       "endSurahNo": 12,
       "endAyahNo": 52,
@@ -1208,6 +1310,7 @@
     {
       "importId": "ADD-20261004-0101",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 56,
       "endSurahNo": 12,
       "endAyahNo": 62,
@@ -1220,6 +1323,7 @@
     {
       "importId": "ADD-20261004-0102",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 77,
       "endSurahNo": 12,
       "endAyahNo": 80,
@@ -1232,6 +1336,7 @@
     {
       "importId": "ADD-20261004-0103",
       "surahNo": 12,
+      "surahName": "يوسف",
       "ayahNo": 84,
       "endSurahNo": 12,
       "endAyahNo": 88,
@@ -1244,6 +1349,7 @@
     {
       "importId": "ADD-20261004-0104",
       "surahNo": 13,
+      "surahName": "الرعد",
       "ayahNo": 5,
       "endSurahNo": 13,
       "endAyahNo": 9,
@@ -1256,6 +1362,7 @@
     {
       "importId": "ADD-20261004-0105",
       "surahNo": 13,
+      "surahName": "الرعد",
       "ayahNo": 38,
       "endSurahNo": 13,
       "endAyahNo": 43,
@@ -1268,6 +1375,7 @@
     {
       "importId": "ADD-20261004-0106",
       "surahNo": 14,
+      "surahName": "ابراهيم",
       "ayahNo": 27,
       "endSurahNo": 14,
       "endAyahNo": 32,
@@ -1280,6 +1388,7 @@
     {
       "importId": "ADD-20261004-0107",
       "surahNo": 14,
+      "surahName": "ابراهيم",
       "ayahNo": 28,
       "endSurahNo": 14,
       "endAyahNo": 33,
@@ -1292,6 +1401,7 @@
     {
       "importId": "ADD-20261004-0108",
       "surahNo": 14,
+      "surahName": "ابراهيم",
       "ayahNo": 35,
       "endSurahNo": 14,
       "endAyahNo": 39,
@@ -1304,6 +1414,7 @@
     {
       "importId": "ADD-20261004-0109",
       "surahNo": 15,
+      "surahName": "الحجر",
       "ayahNo": 56,
       "endSurahNo": 15,
       "endAyahNo": 67,
@@ -1316,6 +1427,7 @@
     {
       "importId": "ADD-20261004-0110",
       "surahNo": 15,
+      "surahName": "الحجر",
       "ayahNo": 61,
       "endSurahNo": 15,
       "endAyahNo": 74,
@@ -1328,6 +1440,7 @@
     {
       "importId": "ADD-20261004-0111",
       "surahNo": 15,
+      "surahName": "الحجر",
       "ayahNo": 85,
       "endSurahNo": 15,
       "endAyahNo": 97,
@@ -1340,6 +1453,7 @@
     {
       "importId": "ADD-20261004-0112",
       "surahNo": 15,
+      "surahName": "الحجر",
       "ayahNo": 88,
       "endSurahNo": 16,
       "endAyahNo": 1,
@@ -1352,6 +1466,7 @@
     {
       "importId": "ADD-20261004-0113",
       "surahNo": 15,
+      "surahName": "الحجر",
       "ayahNo": 94,
       "endSurahNo": 16,
       "endAyahNo": 5,
@@ -1364,6 +1479,7 @@
     {
       "importId": "ADD-20261004-0114",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 17,
       "endSurahNo": 16,
       "endAyahNo": 25,
@@ -1376,6 +1492,7 @@
     {
       "importId": "ADD-20261004-0115",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 22,
       "endSurahNo": 16,
       "endAyahNo": 27,
@@ -1388,6 +1505,7 @@
     {
       "importId": "ADD-20261004-0116",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 36,
       "endSurahNo": 16,
       "endAyahNo": 41,
@@ -1400,6 +1518,7 @@
     {
       "importId": "ADD-20261004-0117",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 43,
       "endSurahNo": 16,
       "endAyahNo": 50,
@@ -1412,6 +1531,7 @@
     {
       "importId": "ADD-20261004-0118",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 60,
       "endSurahNo": 16,
       "endAyahNo": 64,
@@ -1424,6 +1544,7 @@
     {
       "importId": "ADD-20261004-0119",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 65,
       "endSurahNo": 16,
       "endAyahNo": 70,
@@ -1436,6 +1557,7 @@
     {
       "importId": "ADD-20261004-0120",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 76,
       "endSurahNo": 16,
       "endAyahNo": 79,
@@ -1448,6 +1570,7 @@
     {
       "importId": "ADD-20261004-0121",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 97,
       "endSurahNo": 16,
       "endAyahNo": 102,
@@ -1460,6 +1583,7 @@
     {
       "importId": "ADD-20261004-0122",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 106,
       "endSurahNo": 16,
       "endAyahNo": 110,
@@ -1472,6 +1596,7 @@
     {
       "importId": "ADD-20261004-0123",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 112,
       "endSurahNo": 16,
       "endAyahNo": 116,
@@ -1484,6 +1609,7 @@
     {
       "importId": "ADD-20261004-0124",
       "surahNo": 16,
+      "surahName": "النحل",
       "ayahNo": 120,
       "endSurahNo": 16,
       "endAyahNo": 125,
@@ -1496,6 +1622,7 @@
     {
       "importId": "ADD-20261004-0125",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 4,
       "endSurahNo": 17,
       "endAyahNo": 9,
@@ -1508,6 +1635,7 @@
     {
       "importId": "ADD-20261004-0126",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 11,
       "endSurahNo": 17,
       "endAyahNo": 17,
@@ -1520,6 +1648,7 @@
     {
       "importId": "ADD-20261004-0127",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 52,
       "endSurahNo": 17,
       "endAyahNo": 57,
@@ -1532,6 +1661,7 @@
     {
       "importId": "ADD-20261004-0128",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 53,
       "endSurahNo": 17,
       "endAyahNo": 58,
@@ -1544,6 +1674,7 @@
     {
       "importId": "ADD-20261004-0129",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 60,
       "endSurahNo": 17,
       "endAyahNo": 64,
@@ -1556,6 +1687,7 @@
     {
       "importId": "ADD-20261004-0130",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 85,
       "endSurahNo": 17,
       "endAyahNo": 92,
@@ -1568,6 +1700,7 @@
     {
       "importId": "ADD-20261004-0131",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 90,
       "endSurahNo": 17,
       "endAyahNo": 96,
@@ -1580,6 +1713,7 @@
     {
       "importId": "ADD-20261004-0132",
       "surahNo": 17,
+      "surahName": "الإسراء",
       "ayahNo": 99,
       "endSurahNo": 17,
       "endAyahNo": 104,
@@ -1592,6 +1726,7 @@
     {
       "importId": "ADD-20261004-0133",
       "surahNo": 18,
+      "surahName": "الكهف",
       "ayahNo": 17,
       "endSurahNo": 18,
       "endAyahNo": 19,
@@ -1604,6 +1739,7 @@
     {
       "importId": "ADD-20261004-0134",
       "surahNo": 18,
+      "surahName": "الكهف",
       "ayahNo": 19,
       "endSurahNo": 18,
       "endAyahNo": 21,
@@ -1616,6 +1752,7 @@
     {
       "importId": "ADD-20261004-0135",
       "surahNo": 18,
+      "surahName": "الكهف",
       "ayahNo": 37,
       "endSurahNo": 18,
       "endAyahNo": 44,
@@ -1628,6 +1765,7 @@
     {
       "importId": "ADD-20261004-0136",
       "surahNo": 18,
+      "surahName": "الكهف",
       "ayahNo": 51,
       "endSurahNo": 18,
       "endAyahNo": 56,
@@ -1640,6 +1778,7 @@
     {
       "importId": "ADD-20261004-0137",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 16,
       "endSurahNo": 19,
       "endAyahNo": 23,
@@ -1652,6 +1791,7 @@
     {
       "importId": "ADD-20261004-0138",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 29,
       "endSurahNo": 19,
       "endAyahNo": 38,
@@ -1664,6 +1804,7 @@
     {
       "importId": "ADD-20261004-0139",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 39,
       "endSurahNo": 19,
       "endAyahNo": 47,
@@ -1676,6 +1817,7 @@
     {
       "importId": "ADD-20261004-0140",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 51,
       "endSurahNo": 19,
       "endAyahNo": 59,
@@ -1688,6 +1830,7 @@
     {
       "importId": "ADD-20261004-0141",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 56,
       "endSurahNo": 19,
       "endAyahNo": 63,
@@ -1700,6 +1843,7 @@
     {
       "importId": "ADD-20261004-0142",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 59,
       "endSurahNo": 19,
       "endAyahNo": 66,
@@ -1712,6 +1856,7 @@
     {
       "importId": "ADD-20261004-0143",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 65,
       "endSurahNo": 19,
       "endAyahNo": 73,
@@ -1724,6 +1869,7 @@
     {
       "importId": "ADD-20261004-0144",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 83,
       "endSurahNo": 19,
       "endAyahNo": 95,
@@ -1736,6 +1882,7 @@
     {
       "importId": "ADD-20261004-0145",
       "surahNo": 19,
+      "surahName": "مريم",
       "ayahNo": 88,
       "endSurahNo": 19,
       "endAyahNo": 98,
@@ -1748,6 +1895,7 @@
     {
       "importId": "ADD-20261004-0146",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 18,
       "endSurahNo": 20,
       "endAyahNo": 36,
@@ -1760,6 +1908,7 @@
     {
       "importId": "ADD-20261004-0147",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 38,
       "endSurahNo": 20,
       "endAyahNo": 46,
@@ -1772,6 +1921,7 @@
     {
       "importId": "ADD-20261004-0148",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 55,
       "endSurahNo": 20,
       "endAyahNo": 63,
@@ -1784,6 +1934,7 @@
     {
       "importId": "ADD-20261004-0149",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 60,
       "endSurahNo": 20,
       "endAyahNo": 69,
@@ -1796,6 +1947,7 @@
     {
       "importId": "ADD-20261004-0150",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 80,
       "endSurahNo": 20,
       "endAyahNo": 86,
@@ -1808,6 +1960,7 @@
     {
       "importId": "ADD-20261004-0151",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 83,
       "endSurahNo": 20,
       "endAyahNo": 89,
@@ -1820,6 +1973,7 @@
     {
       "importId": "ADD-20261004-0152",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 98,
       "endSurahNo": 20,
       "endAyahNo": 108,
@@ -1832,6 +1986,7 @@
     {
       "importId": "ADD-20261004-0153",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 105,
       "endSurahNo": 20,
       "endAyahNo": 113,
@@ -1844,6 +1999,7 @@
     {
       "importId": "ADD-20261004-0154",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 111,
       "endSurahNo": 20,
       "endAyahNo": 118,
@@ -1856,6 +2012,7 @@
     {
       "importId": "ADD-20261004-0155",
       "surahNo": 20,
+      "surahName": "طه",
       "ayahNo": 130,
       "endSurahNo": 20,
       "endAyahNo": 135,
@@ -1868,6 +2025,7 @@
     {
       "importId": "ADD-20261004-0156",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 16,
       "endSurahNo": 21,
       "endAyahNo": 24,
@@ -1880,6 +2038,7 @@
     {
       "importId": "ADD-20261004-0157",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 29,
       "endSurahNo": 21,
       "endAyahNo": 35,
@@ -1892,6 +2051,7 @@
     {
       "importId": "ADD-20261004-0158",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 42,
       "endSurahNo": 21,
       "endAyahNo": 47,
@@ -1904,6 +2064,7 @@
     {
       "importId": "ADD-20261004-0159",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 48,
       "endSurahNo": 21,
       "endAyahNo": 57,
@@ -1916,6 +2077,7 @@
     {
       "importId": "ADD-20261004-0160",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 87,
       "endSurahNo": 21,
       "endAyahNo": 92,
@@ -1928,6 +2090,7 @@
     {
       "importId": "ADD-20261004-0161",
       "surahNo": 21,
+      "surahName": "الأنبياء",
       "ayahNo": 105,
       "endSurahNo": 21,
       "endAyahNo": 112,
@@ -1940,6 +2103,7 @@
     {
       "importId": "ADD-20261004-0162",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 11,
       "endSurahNo": 22,
       "endAyahNo": 15,
@@ -1952,6 +2116,7 @@
     {
       "importId": "ADD-20261004-0163",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 19,
       "endSurahNo": 22,
       "endAyahNo": 25,
@@ -1964,6 +2129,7 @@
     {
       "importId": "ADD-20261004-0164",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 38,
       "endSurahNo": 22,
       "endAyahNo": 42,
@@ -1976,6 +2142,7 @@
     {
       "importId": "ADD-20261004-0165",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 39,
       "endSurahNo": 22,
       "endAyahNo": 44,
@@ -1988,6 +2155,7 @@
     {
       "importId": "ADD-20261004-0166",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 42,
       "endSurahNo": 22,
       "endAyahNo": 48,
@@ -2000,6 +2168,7 @@
     {
       "importId": "ADD-20261004-0167",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 49,
       "endSurahNo": 22,
       "endAyahNo": 54,
@@ -2012,6 +2181,7 @@
     {
       "importId": "ADD-20261004-0168",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 56,
       "endSurahNo": 22,
       "endAyahNo": 61,
@@ -2024,6 +2194,7 @@
     {
       "importId": "ADD-20261004-0169",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 58,
       "endSurahNo": 22,
       "endAyahNo": 63,
@@ -2036,6 +2207,7 @@
     {
       "importId": "ADD-20261004-0170",
       "surahNo": 22,
+      "surahName": "الحج",
       "ayahNo": 75,
       "endSurahNo": 22,
       "endAyahNo": 78,
@@ -2048,6 +2220,7 @@
     {
       "importId": "ADD-20261004-0171",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 1,
       "endSurahNo": 23,
       "endAyahNo": 14,
@@ -2060,6 +2233,7 @@
     {
       "importId": "ADD-20261004-0172",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 12,
       "endSurahNo": 23,
       "endAyahNo": 20,
@@ -2072,6 +2246,7 @@
     {
       "importId": "ADD-20261004-0173",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 23,
       "endSurahNo": 23,
       "endAyahNo": 28,
@@ -2084,6 +2259,7 @@
     {
       "importId": "ADD-20261004-0174",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 31,
       "endSurahNo": 23,
       "endAyahNo": 39,
@@ -2096,6 +2272,7 @@
     {
       "importId": "ADD-20261004-0175",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 49,
       "endSurahNo": 23,
       "endAyahNo": 60,
@@ -2108,6 +2285,7 @@
     {
       "importId": "ADD-20261004-0176",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 69,
       "endSurahNo": 23,
       "endAyahNo": 77,
@@ -2120,6 +2298,7 @@
     {
       "importId": "ADD-20261004-0177",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 71,
       "endSurahNo": 23,
       "endAyahNo": 79,
@@ -2132,6 +2311,7 @@
     {
       "importId": "ADD-20261004-0178",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 84,
       "endSurahNo": 23,
       "endAyahNo": 93,
@@ -2144,6 +2324,7 @@
     {
       "importId": "ADD-20261004-0179",
       "surahNo": 23,
+      "surahName": "المؤمنون",
       "ayahNo": 115,
       "endSurahNo": 24,
       "endAyahNo": 4,
@@ -2156,6 +2337,7 @@
     {
       "importId": "ADD-20261004-0180",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 8,
       "endSurahNo": 24,
       "endAyahNo": 14,
@@ -2168,6 +2350,7 @@
     {
       "importId": "ADD-20261004-0181",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 11,
       "endSurahNo": 24,
       "endAyahNo": 16,
@@ -2180,6 +2363,7 @@
     {
       "importId": "ADD-20261004-0182",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 19,
       "endSurahNo": 24,
       "endAyahNo": 22,
@@ -2192,6 +2376,7 @@
     {
       "importId": "ADD-20261004-0183",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 23,
       "endSurahNo": 24,
       "endAyahNo": 28,
@@ -2204,6 +2389,7 @@
     {
       "importId": "ADD-20261004-0184",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 32,
       "endSurahNo": 24,
       "endAyahNo": 35,
@@ -2216,6 +2402,7 @@
     {
       "importId": "ADD-20261004-0185",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 35,
       "endSurahNo": 24,
       "endAyahNo": 38,
@@ -2228,6 +2415,7 @@
     {
       "importId": "ADD-20261004-0186",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 37,
       "endSurahNo": 24,
       "endAyahNo": 41,
@@ -2240,6 +2428,7 @@
     {
       "importId": "ADD-20261004-0187",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 51,
       "endSurahNo": 24,
       "endAyahNo": 55,
@@ -2252,6 +2441,7 @@
     {
       "importId": "ADD-20261004-0188",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 56,
       "endSurahNo": 24,
       "endAyahNo": 59,
@@ -2264,6 +2454,7 @@
     {
       "importId": "ADD-20261004-0189",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 57,
       "endSurahNo": 24,
       "endAyahNo": 60,
@@ -2276,6 +2467,7 @@
     {
       "importId": "ADD-20261004-0190",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 59,
       "endSurahNo": 24,
       "endAyahNo": 61,
@@ -2288,6 +2480,7 @@
     {
       "importId": "ADD-20261004-0191",
       "surahNo": 24,
+      "surahName": "النور",
       "ayahNo": 62,
       "endSurahNo": 24,
       "endAyahNo": 64,
@@ -2300,6 +2493,7 @@
     {
       "importId": "ADD-20261004-0192",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 10,
       "endSurahNo": 25,
       "endAyahNo": 17,
@@ -2312,6 +2506,7 @@
     {
       "importId": "ADD-20261004-0193",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 17,
       "endSurahNo": 25,
       "endAyahNo": 20,
@@ -2324,6 +2519,7 @@
     {
       "importId": "ADD-20261004-0194",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 21,
       "endSurahNo": 25,
       "endAyahNo": 29,
@@ -2336,6 +2532,7 @@
     {
       "importId": "ADD-20261004-0195",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 27,
       "endSurahNo": 25,
       "endAyahNo": 34,
@@ -2348,6 +2545,7 @@
     {
       "importId": "ADD-20261004-0196",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 30,
       "endSurahNo": 25,
       "endAyahNo": 36,
@@ -2360,6 +2558,7 @@
     {
       "importId": "ADD-20261004-0197",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 45,
       "endSurahNo": 25,
       "endAyahNo": 53,
@@ -2372,6 +2571,7 @@
     {
       "importId": "ADD-20261004-0198",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 50,
       "endSurahNo": 25,
       "endAyahNo": 58,
@@ -2384,6 +2584,7 @@
     {
       "importId": "ADD-20261004-0199",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 62,
       "endSurahNo": 25,
       "endAyahNo": 69,
@@ -2396,6 +2597,7 @@
     {
       "importId": "ADD-20261004-0200",
       "surahNo": 25,
+      "surahName": "الفرقان",
       "ayahNo": 63,
       "endSurahNo": 25,
       "endAyahNo": 70,
@@ -2408,6 +2610,7 @@
     {
       "importId": "ADD-20261004-0201",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 20,
       "endSurahNo": 26,
       "endAyahNo": 32,
@@ -2420,6 +2623,7 @@
     {
       "importId": "ADD-20261004-0202",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 23,
       "endSurahNo": 26,
       "endAyahNo": 35,
@@ -2432,6 +2636,7 @@
     {
       "importId": "ADD-20261004-0203",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 29,
       "endSurahNo": 26,
       "endAyahNo": 42,
@@ -2444,6 +2649,7 @@
     {
       "importId": "ADD-20261004-0204",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 32,
       "endSurahNo": 26,
       "endAyahNo": 44,
@@ -2456,6 +2662,7 @@
     {
       "importId": "ADD-20261004-0205",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 53,
       "endSurahNo": 26,
       "endAyahNo": 68,
@@ -2468,6 +2675,7 @@
     {
       "importId": "ADD-20261004-0206",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 61,
       "endSurahNo": 26,
       "endAyahNo": 75,
@@ -2480,6 +2688,7 @@
     {
       "importId": "ADD-20261004-0207",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 123,
       "endSurahNo": 26,
       "endAyahNo": 139,
@@ -2492,6 +2701,7 @@
     {
       "importId": "ADD-20261004-0208",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 141,
       "endSurahNo": 26,
       "endAyahNo": 156,
@@ -2504,6 +2714,7 @@
     {
       "importId": "ADD-20261004-0209",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 160,
       "endSurahNo": 26,
       "endAyahNo": 176,
@@ -2516,6 +2727,7 @@
     {
       "importId": "ADD-20261004-0210",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 208,
       "endSurahNo": 26,
       "endAyahNo": 222,
@@ -2528,6 +2740,7 @@
     {
       "importId": "ADD-20261004-0211",
       "surahNo": 26,
+      "surahName": "الشعراء",
       "ayahNo": 213,
       "endSurahNo": 26,
       "endAyahNo": 227,
@@ -2540,6 +2753,7 @@
     {
       "importId": "ADD-20261004-0212",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 6,
       "endSurahNo": 27,
       "endAyahNo": 14,
@@ -2552,6 +2766,7 @@
     {
       "importId": "ADD-20261004-0213",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 20,
       "endSurahNo": 27,
       "endAyahNo": 27,
@@ -2564,6 +2779,7 @@
     {
       "importId": "ADD-20261004-0214",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 29,
       "endSurahNo": 27,
       "endAyahNo": 37,
@@ -2576,6 +2792,7 @@
     {
       "importId": "ADD-20261004-0215",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 48,
       "endSurahNo": 27,
       "endAyahNo": 55,
@@ -2588,6 +2805,7 @@
     {
       "importId": "ADD-20261004-0216",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 54,
       "endSurahNo": 27,
       "endAyahNo": 60,
@@ -2600,6 +2818,7 @@
     {
       "importId": "ADD-20261004-0217",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 59,
       "endSurahNo": 27,
       "endAyahNo": 63,
@@ -2612,6 +2831,7 @@
     {
       "importId": "ADD-20261004-0218",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 60,
       "endSurahNo": 27,
       "endAyahNo": 63,
@@ -2624,6 +2844,7 @@
     {
       "importId": "ADD-20261004-0219",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 65,
       "endSurahNo": 27,
       "endAyahNo": 73,
@@ -2636,6 +2857,7 @@
     {
       "importId": "ADD-20261004-0220",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 69,
       "endSurahNo": 27,
       "endAyahNo": 79,
@@ -2648,6 +2870,7 @@
     {
       "importId": "ADD-20261004-0221",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 82,
       "endSurahNo": 27,
       "endAyahNo": 88,
@@ -2660,6 +2883,7 @@
     {
       "importId": "ADD-20261004-0222",
       "surahNo": 27,
+      "surahName": "النمل",
       "ayahNo": 83,
       "endSurahNo": 27,
       "endAyahNo": 89,
@@ -2672,6 +2896,7 @@
     {
       "importId": "ADD-20261004-0223",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 7,
       "endSurahNo": 28,
       "endAyahNo": 11,
@@ -2684,6 +2909,7 @@
     {
       "importId": "ADD-20261004-0224",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 16,
       "endSurahNo": 28,
       "endAyahNo": 21,
@@ -2696,6 +2922,7 @@
     {
       "importId": "ADD-20261004-0225",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 20,
       "endSurahNo": 28,
       "endAyahNo": 25,
@@ -2708,6 +2935,7 @@
     {
       "importId": "ADD-20261004-0226",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 22,
       "endSurahNo": 28,
       "endAyahNo": 26,
@@ -2720,6 +2948,7 @@
     {
       "importId": "ADD-20261004-0227",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 38,
       "endSurahNo": 28,
       "endAyahNo": 43,
@@ -2732,6 +2961,7 @@
     {
       "importId": "ADD-20261004-0228",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 59,
       "endSurahNo": 28,
       "endAyahNo": 64,
@@ -2744,6 +2974,7 @@
     {
       "importId": "ADD-20261004-0229",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 68,
       "endSurahNo": 28,
       "endAyahNo": 73,
@@ -2756,6 +2987,7 @@
     {
       "importId": "ADD-20261004-0230",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 71,
       "endSurahNo": 28,
       "endAyahNo": 76,
@@ -2768,6 +3000,7 @@
     {
       "importId": "ADD-20261004-0231",
       "surahNo": 28,
+      "surahName": "القصص",
       "ayahNo": 85,
       "endSurahNo": 29,
       "endAyahNo": 4,
@@ -2780,6 +3013,7 @@
     {
       "importId": "ADD-20261004-0232",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 8,
       "endSurahNo": 29,
       "endAyahNo": 12,
@@ -2792,6 +3026,7 @@
     {
       "importId": "ADD-20261004-0233",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 10,
       "endSurahNo": 29,
       "endAyahNo": 14,
@@ -2804,6 +3039,7 @@
     {
       "importId": "ADD-20261004-0234",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 12,
       "endSurahNo": 29,
       "endAyahNo": 17,
@@ -2816,6 +3052,7 @@
     {
       "importId": "ADD-20261004-0235",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 13,
       "endSurahNo": 29,
       "endAyahNo": 18,
@@ -2828,6 +3065,7 @@
     {
       "importId": "ADD-20261004-0236",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 14,
       "endSurahNo": 29,
       "endAyahNo": 19,
@@ -2840,6 +3078,7 @@
     {
       "importId": "ADD-20261004-0237",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 26,
       "endSurahNo": 29,
       "endAyahNo": 30,
@@ -2852,6 +3091,7 @@
     {
       "importId": "ADD-20261004-0238",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 28,
       "endSurahNo": 29,
       "endAyahNo": 33,
@@ -2864,6 +3104,7 @@
     {
       "importId": "ADD-20261004-0239",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 41,
       "endSurahNo": 29,
       "endAyahNo": 45,
@@ -2876,6 +3117,7 @@
     {
       "importId": "ADD-20261004-0240",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 50,
       "endSurahNo": 29,
       "endAyahNo": 55,
@@ -2888,6 +3130,7 @@
     {
       "importId": "ADD-20261004-0241",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 51,
       "endSurahNo": 29,
       "endAyahNo": 56,
@@ -2900,6 +3143,7 @@
     {
       "importId": "ADD-20261004-0242",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 60,
       "endSurahNo": 29,
       "endAyahNo": 65,
@@ -2912,6 +3156,7 @@
     {
       "importId": "ADD-20261004-0243",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 62,
       "endSurahNo": 29,
       "endAyahNo": 67,
@@ -2924,6 +3169,7 @@
     {
       "importId": "ADD-20261004-0244",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 64,
       "endSurahNo": 30,
       "endAyahNo": 3,
@@ -2936,6 +3182,7 @@
     {
       "importId": "ADD-20261004-0245",
       "surahNo": 29,
+      "surahName": "العنكبوت",
       "ayahNo": 67,
       "endSurahNo": 30,
       "endAyahNo": 6,
@@ -2948,6 +3195,7 @@
     {
       "importId": "ADD-20261004-0246",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 8,
       "endSurahNo": 30,
       "endAyahNo": 13,
@@ -2960,6 +3208,7 @@
     {
       "importId": "ADD-20261004-0247",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 11,
       "endSurahNo": 30,
       "endAyahNo": 19,
@@ -2972,6 +3221,7 @@
     {
       "importId": "ADD-20261004-0248",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 19,
       "endSurahNo": 30,
       "endAyahNo": 24,
@@ -2984,6 +3234,7 @@
     {
       "importId": "ADD-20261004-0249",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 20,
       "endSurahNo": 30,
       "endAyahNo": 24,
@@ -2996,6 +3247,7 @@
     {
       "importId": "ADD-20261004-0250",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 22,
       "endSurahNo": 30,
       "endAyahNo": 27,
@@ -3008,6 +3260,7 @@
     {
       "importId": "ADD-20261004-0251",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 28,
       "endSurahNo": 30,
       "endAyahNo": 32,
@@ -3020,6 +3273,7 @@
     {
       "importId": "ADD-20261004-0252",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 30,
       "endSurahNo": 30,
       "endAyahNo": 36,
@@ -3032,6 +3286,7 @@
     {
       "importId": "ADD-20261004-0253",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 33,
       "endSurahNo": 30,
       "endAyahNo": 39,
@@ -3044,6 +3299,7 @@
     {
       "importId": "ADD-20261004-0254",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 38,
       "endSurahNo": 30,
       "endAyahNo": 42,
@@ -3056,6 +3312,7 @@
     {
       "importId": "ADD-20261004-0255",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 43,
       "endSurahNo": 30,
       "endAyahNo": 48,
@@ -3068,6 +3325,7 @@
     {
       "importId": "ADD-20261004-0256",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 46,
       "endSurahNo": 30,
       "endAyahNo": 50,
@@ -3080,6 +3338,7 @@
     {
       "importId": "ADD-20261004-0257",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 54,
       "endSurahNo": 30,
       "endAyahNo": 58,
@@ -3092,6 +3351,7 @@
     {
       "importId": "ADD-20261004-0258",
       "surahNo": 30,
+      "surahName": "الروم",
       "ayahNo": 58,
       "endSurahNo": 31,
       "endAyahNo": 7,
@@ -3104,6 +3364,7 @@
     {
       "importId": "ADD-20261004-0259",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 11,
       "endSurahNo": 31,
       "endAyahNo": 15,
@@ -3116,6 +3377,7 @@
     {
       "importId": "ADD-20261004-0260",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 12,
       "endSurahNo": 31,
       "endAyahNo": 16,
@@ -3128,6 +3390,7 @@
     {
       "importId": "ADD-20261004-0261",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 13,
       "endSurahNo": 31,
       "endAyahNo": 17,
@@ -3140,6 +3403,7 @@
     {
       "importId": "ADD-20261004-0262",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 22,
       "endSurahNo": 31,
       "endAyahNo": 28,
@@ -3152,6 +3416,7 @@
     {
       "importId": "ADD-20261004-0263",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 24,
       "endSurahNo": 31,
       "endAyahNo": 29,
@@ -3164,6 +3429,7 @@
     {
       "importId": "ADD-20261004-0264",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 29,
       "endSurahNo": 31,
       "endAyahNo": 33,
@@ -3176,6 +3442,7 @@
     {
       "importId": "ADD-20261004-0265",
       "surahNo": 31,
+      "surahName": "لقمان",
       "ayahNo": 33,
       "endSurahNo": 32,
       "endAyahNo": 4,
@@ -3188,6 +3455,7 @@
     {
       "importId": "ADD-20261004-0266",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 10,
       "endSurahNo": 32,
       "endAyahNo": 15,
@@ -3200,6 +3468,7 @@
     {
       "importId": "ADD-20261004-0267",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 11,
       "endSurahNo": 32,
       "endAyahNo": 16,
@@ -3212,6 +3481,7 @@
     {
       "importId": "ADD-20261004-0268",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 16,
       "endSurahNo": 32,
       "endAyahNo": 22,
@@ -3224,6 +3494,7 @@
     {
       "importId": "ADD-20261004-0269",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 18,
       "endSurahNo": 32,
       "endAyahNo": 23,
@@ -3236,6 +3507,7 @@
     {
       "importId": "ADD-20261004-0270",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 20,
       "endSurahNo": 32,
       "endAyahNo": 25,
@@ -3248,6 +3520,7 @@
     {
       "importId": "ADD-20261004-0271",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 23,
       "endSurahNo": 32,
       "endAyahNo": 28,
@@ -3260,6 +3533,7 @@
     {
       "importId": "ADD-20261004-0272",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 26,
       "endSurahNo": 33,
       "endAyahNo": 2,
@@ -3272,6 +3546,7 @@
     {
       "importId": "ADD-20261004-0273",
       "surahNo": 32,
+      "surahName": "السجدة",
       "ayahNo": 27,
       "endSurahNo": 33,
       "endAyahNo": 4,
@@ -3284,6 +3559,7 @@
     {
       "importId": "ADD-20261004-0274",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 6,
       "endSurahNo": 33,
       "endAyahNo": 10,
@@ -3296,6 +3572,7 @@
     {
       "importId": "ADD-20261004-0275",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 9,
       "endSurahNo": 33,
       "endAyahNo": 14,
@@ -3308,6 +3585,7 @@
     {
       "importId": "ADD-20261004-0276",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 12,
       "endSurahNo": 33,
       "endAyahNo": 17,
@@ -3320,6 +3598,7 @@
     {
       "importId": "ADD-20261004-0277",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 28,
       "endSurahNo": 33,
       "endAyahNo": 33,
@@ -3332,6 +3611,7 @@
     {
       "importId": "ADD-20261004-0278",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 41,
       "endSurahNo": 33,
       "endAyahNo": 49,
@@ -3344,6 +3624,7 @@
     {
       "importId": "ADD-20261004-0279",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 50,
       "endSurahNo": 33,
       "endAyahNo": 51,
@@ -3356,6 +3637,7 @@
     {
       "importId": "ADD-20261004-0280",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 56,
       "endSurahNo": 33,
       "endAyahNo": 61,
@@ -3368,6 +3650,7 @@
     {
       "importId": "ADD-20261004-0281",
       "surahNo": 33,
+      "surahName": "الأحزاب",
       "ayahNo": 67,
       "endSurahNo": 33,
       "endAyahNo": 73,
@@ -3380,6 +3663,7 @@
     {
       "importId": "ADD-20261004-0282",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 5,
       "endSurahNo": 34,
       "endAyahNo": 10,
@@ -3392,6 +3676,7 @@
     {
       "importId": "ADD-20261004-0283",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 10,
       "endSurahNo": 34,
       "endAyahNo": 14,
@@ -3404,6 +3689,7 @@
     {
       "importId": "ADD-20261004-0284",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 27,
       "endSurahNo": 34,
       "endAyahNo": 32,
@@ -3416,6 +3702,7 @@
     {
       "importId": "ADD-20261004-0285",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 44,
       "endSurahNo": 34,
       "endAyahNo": 50,
@@ -3428,6 +3715,7 @@
     {
       "importId": "ADD-20261004-0286",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 46,
       "endSurahNo": 34,
       "endAyahNo": 53,
@@ -3440,6 +3728,7 @@
     {
       "importId": "ADD-20261004-0287",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 49,
       "endSurahNo": 35,
       "endAyahNo": 2,
@@ -3452,6 +3741,7 @@
     {
       "importId": "ADD-20261004-0288",
       "surahNo": 34,
+      "surahName": "سبإ",
       "ayahNo": 51,
       "endSurahNo": 35,
       "endAyahNo": 3,
@@ -3464,6 +3754,7 @@
     {
       "importId": "ADD-20261004-0289",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 1,
       "endSurahNo": 35,
       "endAyahNo": 7,
@@ -3476,6 +3767,7 @@
     {
       "importId": "ADD-20261004-0290",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 3,
       "endSurahNo": 35,
       "endAyahNo": 9,
@@ -3488,6 +3780,7 @@
     {
       "importId": "ADD-20261004-0291",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 8,
       "endSurahNo": 35,
       "endAyahNo": 11,
@@ -3500,6 +3793,7 @@
     {
       "importId": "ADD-20261004-0292",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 9,
       "endSurahNo": 35,
       "endAyahNo": 12,
@@ -3512,6 +3806,7 @@
     {
       "importId": "ADD-20261004-0293",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 10,
       "endSurahNo": 35,
       "endAyahNo": 13,
@@ -3524,6 +3819,7 @@
     {
       "importId": "ADD-20261004-0294",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 12,
       "endSurahNo": 35,
       "endAyahNo": 15,
@@ -3536,6 +3832,7 @@
     {
       "importId": "ADD-20261004-0295",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 23,
       "endSurahNo": 35,
       "endAyahNo": 29,
@@ -3548,6 +3845,7 @@
     {
       "importId": "ADD-20261004-0296",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 38,
       "endSurahNo": 35,
       "endAyahNo": 42,
@@ -3560,6 +3858,7 @@
     {
       "importId": "ADD-20261004-0297",
       "surahNo": 35,
+      "surahName": "فاطر",
       "ayahNo": 41,
       "endSurahNo": 35,
       "endAyahNo": 44,
@@ -3572,6 +3871,7 @@
     {
       "importId": "ADD-20261004-0298",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 20,
       "endSurahNo": 36,
       "endAyahNo": 29,
@@ -3584,6 +3884,7 @@
     {
       "importId": "ADD-20261004-0299",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 36,
       "endSurahNo": 36,
       "endAyahNo": 45,
@@ -3596,6 +3897,7 @@
     {
       "importId": "ADD-20261004-0300",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 63,
       "endSurahNo": 36,
       "endAyahNo": 71,
@@ -3608,6 +3910,7 @@
     {
       "importId": "ADD-20261004-0301",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 74,
       "endSurahNo": 36,
       "endAyahNo": 81,
@@ -3620,6 +3923,7 @@
     {
       "importId": "ADD-20261004-0302",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 77,
       "endSurahNo": 37,
       "endAyahNo": 4,
@@ -3632,6 +3936,7 @@
     {
       "importId": "ADD-20261004-0303",
       "surahNo": 36,
+      "surahName": "يس",
       "ayahNo": 78,
       "endSurahNo": 37,
       "endAyahNo": 6,
@@ -3644,6 +3949,7 @@
     {
       "importId": "ADD-20261004-0304",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 11,
       "endSurahNo": 37,
       "endAyahNo": 28,
@@ -3656,6 +3962,7 @@
     {
       "importId": "ADD-20261004-0305",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 24,
       "endSurahNo": 37,
       "endAyahNo": 39,
@@ -3668,6 +3975,7 @@
     {
       "importId": "ADD-20261004-0306",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 36,
       "endSurahNo": 37,
       "endAyahNo": 53,
@@ -3680,6 +3988,7 @@
     {
       "importId": "ADD-20261004-0307",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 40,
       "endSurahNo": 37,
       "endAyahNo": 59,
@@ -3692,6 +4001,7 @@
     {
       "importId": "ADD-20261004-0308",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 58,
       "endSurahNo": 37,
       "endAyahNo": 73,
@@ -3704,6 +4014,7 @@
     {
       "importId": "ADD-20261004-0309",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 61,
       "endSurahNo": 37,
       "endAyahNo": 76,
@@ -3716,6 +4027,7 @@
     {
       "importId": "ADD-20261004-0310",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 83,
       "endSurahNo": 37,
       "endAyahNo": 100,
@@ -3728,6 +4040,7 @@
     {
       "importId": "ADD-20261004-0311",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 114,
       "endSurahNo": 37,
       "endAyahNo": 128,
@@ -3740,6 +4053,7 @@
     {
       "importId": "ADD-20261004-0312",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 133,
       "endSurahNo": 37,
       "endAyahNo": 150,
@@ -3752,6 +4066,7 @@
     {
       "importId": "ADD-20261004-0313",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 139,
       "endSurahNo": 37,
       "endAyahNo": 153,
@@ -3764,6 +4079,7 @@
     {
       "importId": "ADD-20261004-0314",
       "surahNo": 37,
+      "surahName": "الصافات",
       "ayahNo": 167,
       "endSurahNo": 38,
       "endAyahNo": 4,
@@ -3776,6 +4092,7 @@
     {
       "importId": "ADD-20261004-0315",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 9,
       "endSurahNo": 38,
       "endAyahNo": 20,
@@ -3788,6 +4105,7 @@
     {
       "importId": "ADD-20261004-0316",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 12,
       "endSurahNo": 38,
       "endAyahNo": 22,
@@ -3800,6 +4118,7 @@
     {
       "importId": "ADD-20261004-0317",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 27,
       "endSurahNo": 38,
       "endAyahNo": 35,
@@ -3812,6 +4131,7 @@
     {
       "importId": "ADD-20261004-0318",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 30,
       "endSurahNo": 38,
       "endAyahNo": 41,
@@ -3824,6 +4144,7 @@
     {
       "importId": "ADD-20261004-0319",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 41,
       "endSurahNo": 38,
       "endAyahNo": 52,
@@ -3836,6 +4157,7 @@
     {
       "importId": "ADD-20261004-0320",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 45,
       "endSurahNo": 38,
       "endAyahNo": 59,
@@ -3848,6 +4170,7 @@
     {
       "importId": "ADD-20261004-0321",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 48,
       "endSurahNo": 38,
       "endAyahNo": 60,
@@ -3860,6 +4183,7 @@
     {
       "importId": "ADD-20261004-0322",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 62,
       "endSurahNo": 38,
       "endAyahNo": 75,
@@ -3872,6 +4196,7 @@
     {
       "importId": "ADD-20261004-0323",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 71,
       "endSurahNo": 38,
       "endAyahNo": 83,
@@ -3884,6 +4209,7 @@
     {
       "importId": "ADD-20261004-0324",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 75,
       "endSurahNo": 38,
       "endAyahNo": 88,
@@ -3896,6 +4222,7 @@
     {
       "importId": "ADD-20261004-0325",
       "surahNo": 38,
+      "surahName": "ص",
       "ayahNo": 84,
       "endSurahNo": 39,
       "endAyahNo": 4,
@@ -3908,6 +4235,7 @@
     {
       "importId": "ADD-20261004-0326",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 1,
       "endSurahNo": 39,
       "endAyahNo": 5,
@@ -3920,6 +4248,7 @@
     {
       "importId": "ADD-20261004-0327",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 5,
       "endSurahNo": 39,
       "endAyahNo": 7,
@@ -3932,6 +4261,7 @@
     {
       "importId": "ADD-20261004-0328",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 6,
       "endSurahNo": 39,
       "endAyahNo": 8,
@@ -3944,6 +4274,7 @@
     {
       "importId": "ADD-20261004-0329",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 8,
       "endSurahNo": 39,
       "endAyahNo": 13,
@@ -3956,6 +4287,7 @@
     {
       "importId": "ADD-20261004-0330",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 22,
       "endSurahNo": 39,
       "endAyahNo": 27,
@@ -3968,6 +4300,7 @@
     {
       "importId": "ADD-20261004-0331",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 24,
       "endSurahNo": 39,
       "endAyahNo": 31,
@@ -3980,6 +4313,7 @@
     {
       "importId": "ADD-20261004-0332",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 27,
       "endSurahNo": 39,
       "endAyahNo": 34,
@@ -3992,6 +4326,7 @@
     {
       "importId": "ADD-20261004-0333",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 32,
       "endSurahNo": 39,
       "endAyahNo": 38,
@@ -4004,6 +4339,7 @@
     {
       "importId": "ADD-20261004-0334",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 36,
       "endSurahNo": 39,
       "endAyahNo": 40,
@@ -4016,6 +4352,7 @@
     {
       "importId": "ADD-20261004-0335",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 38,
       "endSurahNo": 39,
       "endAyahNo": 42,
@@ -4028,6 +4365,7 @@
     {
       "importId": "ADD-20261004-0336",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 42,
       "endSurahNo": 39,
       "endAyahNo": 46,
@@ -4040,6 +4378,7 @@
     {
       "importId": "ADD-20261004-0337",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 61,
       "endSurahNo": 39,
       "endAyahNo": 67,
@@ -4052,6 +4391,7 @@
     {
       "importId": "ADD-20261004-0338",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 62,
       "endSurahNo": 39,
       "endAyahNo": 68,
@@ -4064,6 +4404,7 @@
     {
       "importId": "ADD-20261004-0339",
       "surahNo": 39,
+      "surahName": "الزمر",
       "ayahNo": 71,
       "endSurahNo": 39,
       "endAyahNo": 74,
@@ -4076,6 +4417,7 @@
     {
       "importId": "ADD-20261004-0340",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 7,
       "endSurahNo": 40,
       "endAyahNo": 11,
@@ -4088,6 +4430,7 @@
     {
       "importId": "ADD-20261004-0341",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 14,
       "endSurahNo": 40,
       "endAyahNo": 20,
@@ -4100,6 +4443,7 @@
     {
       "importId": "ADD-20261004-0342",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 15,
       "endSurahNo": 40,
       "endAyahNo": 21,
@@ -4112,6 +4456,7 @@
     {
       "importId": "ADD-20261004-0343",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 21,
       "endSurahNo": 40,
       "endAyahNo": 25,
@@ -4124,6 +4469,7 @@
     {
       "importId": "ADD-20261004-0344",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 28,
       "endSurahNo": 40,
       "endAyahNo": 31,
@@ -4136,6 +4482,7 @@
     {
       "importId": "ADD-20261004-0345",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 34,
       "endSurahNo": 40,
       "endAyahNo": 38,
@@ -4148,6 +4495,7 @@
     {
       "importId": "ADD-20261004-0346",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 35,
       "endSurahNo": 40,
       "endAyahNo": 40,
@@ -4160,6 +4508,7 @@
     {
       "importId": "ADD-20261004-0347",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 38,
       "endSurahNo": 40,
       "endAyahNo": 43,
@@ -4172,6 +4521,7 @@
     {
       "importId": "ADD-20261004-0348",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 41,
       "endSurahNo": 40,
       "endAyahNo": 47,
@@ -4184,6 +4534,7 @@
     {
       "importId": "ADD-20261004-0349",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 51,
       "endSurahNo": 40,
       "endAyahNo": 57,
@@ -4196,6 +4547,7 @@
     {
       "importId": "ADD-20261004-0350",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 53,
       "endSurahNo": 40,
       "endAyahNo": 58,
@@ -4208,6 +4560,7 @@
     {
       "importId": "ADD-20261004-0351",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 57,
       "endSurahNo": 40,
       "endAyahNo": 62,
@@ -4220,6 +4573,7 @@
     {
       "importId": "ADD-20261004-0352",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 64,
       "endSurahNo": 40,
       "endAyahNo": 67,
@@ -4232,6 +4586,7 @@
     {
       "importId": "ADD-20261004-0353",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 69,
       "endSurahNo": 40,
       "endAyahNo": 77,
@@ -4244,6 +4599,7 @@
     {
       "importId": "ADD-20261004-0354",
       "surahNo": 40,
+      "surahName": "غافر",
       "ayahNo": 79,
       "endSurahNo": 40,
       "endAyahNo": 84,
@@ -4256,6 +4612,7 @@
     {
       "importId": "ADD-20261004-0355",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 9,
       "endSurahNo": 41,
       "endAyahNo": 14,
@@ -4268,6 +4625,7 @@
     {
       "importId": "ADD-20261004-0356",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 13,
       "endSurahNo": 41,
       "endAyahNo": 17,
@@ -4280,6 +4638,7 @@
     {
       "importId": "ADD-20261004-0357",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 15,
       "endSurahNo": 41,
       "endAyahNo": 20,
@@ -4292,6 +4651,7 @@
     {
       "importId": "ADD-20261004-0358",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 19,
       "endSurahNo": 41,
       "endAyahNo": 25,
@@ -4304,6 +4664,7 @@
     {
       "importId": "ADD-20261004-0359",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 22,
       "endSurahNo": 41,
       "endAyahNo": 28,
@@ -4316,6 +4677,7 @@
     {
       "importId": "ADD-20261004-0360",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 25,
       "endSurahNo": 41,
       "endAyahNo": 30,
@@ -4328,6 +4690,7 @@
     {
       "importId": "ADD-20261004-0361",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 30,
       "endSurahNo": 41,
       "endAyahNo": 36,
@@ -4340,6 +4703,7 @@
     {
       "importId": "ADD-20261004-0362",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 33,
       "endSurahNo": 41,
       "endAyahNo": 38,
@@ -4352,6 +4716,7 @@
     {
       "importId": "ADD-20261004-0363",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 40,
       "endSurahNo": 41,
       "endAyahNo": 45,
@@ -4364,6 +4729,7 @@
     {
       "importId": "ADD-20261004-0364",
       "surahNo": 41,
+      "surahName": "فصلت",
       "ayahNo": 47,
       "endSurahNo": 41,
       "endAyahNo": 51,
@@ -4376,6 +4742,7 @@
     {
       "importId": "ADD-20261004-0365",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 5,
       "endSurahNo": 42,
       "endAyahNo": 10,
@@ -4388,6 +4755,7 @@
     {
       "importId": "ADD-20261004-0366",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 17,
       "endSurahNo": 42,
       "endAyahNo": 22,
@@ -4400,6 +4768,7 @@
     {
       "importId": "ADD-20261004-0367",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 19,
       "endSurahNo": 42,
       "endAyahNo": 23,
@@ -4412,6 +4781,7 @@
     {
       "importId": "ADD-20261004-0368",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 25,
       "endSurahNo": 42,
       "endAyahNo": 31,
@@ -4424,6 +4794,7 @@
     {
       "importId": "ADD-20261004-0369",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 27,
       "endSurahNo": 42,
       "endAyahNo": 35,
@@ -4436,6 +4807,7 @@
     {
       "importId": "ADD-20261004-0370",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 47,
       "endSurahNo": 42,
       "endAyahNo": 51,
@@ -4448,6 +4820,7 @@
     {
       "importId": "ADD-20261004-0371",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 49,
       "endSurahNo": 42,
       "endAyahNo": 53,
@@ -4460,6 +4833,7 @@
     {
       "importId": "ADD-20261004-0372",
       "surahNo": 42,
+      "surahName": "الشورى",
       "ayahNo": 52,
       "endSurahNo": 43,
       "endAyahNo": 8,
@@ -4472,6 +4846,7 @@
     {
       "importId": "ADD-20261004-0373",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 9,
       "endSurahNo": 43,
       "endAyahNo": 16,
@@ -4484,6 +4859,7 @@
     {
       "importId": "ADD-20261004-0374",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 12,
       "endSurahNo": 43,
       "endAyahNo": 19,
@@ -4496,6 +4872,7 @@
     {
       "importId": "ADD-20261004-0375",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 17,
       "endSurahNo": 43,
       "endAyahNo": 23,
@@ -4508,6 +4885,7 @@
     {
       "importId": "ADD-20261004-0376",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 26,
       "endSurahNo": 43,
       "endAyahNo": 33,
@@ -4520,6 +4898,7 @@
     {
       "importId": "ADD-20261004-0377",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 31,
       "endSurahNo": 43,
       "endAyahNo": 36,
@@ -4532,6 +4911,7 @@
     {
       "importId": "ADD-20261004-0378",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 34,
       "endSurahNo": 43,
       "endAyahNo": 43,
@@ -4544,6 +4924,7 @@
     {
       "importId": "ADD-20261004-0379",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 36,
       "endSurahNo": 43,
       "endAyahNo": 45,
@@ -4556,6 +4937,7 @@
     {
       "importId": "ADD-20261004-0380",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 51,
       "endSurahNo": 43,
       "endAyahNo": 59,
@@ -4568,6 +4950,7 @@
     {
       "importId": "ADD-20261004-0381",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 57,
       "endSurahNo": 43,
       "endAyahNo": 64,
@@ -4580,6 +4963,7 @@
     {
       "importId": "ADD-20261004-0382",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 63,
       "endSurahNo": 43,
       "endAyahNo": 71,
@@ -4592,6 +4976,7 @@
     {
       "importId": "ADD-20261004-0383",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 67,
       "endSurahNo": 43,
       "endAyahNo": 76,
@@ -4604,6 +4989,7 @@
     {
       "importId": "ADD-20261004-0384",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 74,
       "endSurahNo": 43,
       "endAyahNo": 85,
@@ -4616,6 +5002,7 @@
     {
       "importId": "ADD-20261004-0385",
       "surahNo": 43,
+      "surahName": "الزخرف",
       "ayahNo": 81,
       "endSurahNo": 43,
       "endAyahNo": 89,
@@ -4628,6 +5015,7 @@
     {
       "importId": "ADD-20261004-0386",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 10,
       "endSurahNo": 44,
       "endAyahNo": 23,
@@ -4640,6 +5028,7 @@
     {
       "importId": "ADD-20261004-0387",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 12,
       "endSurahNo": 44,
       "endAyahNo": 25,
@@ -4652,6 +5041,7 @@
     {
       "importId": "ADD-20261004-0388",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 17,
       "endSurahNo": 44,
       "endAyahNo": 31,
@@ -4664,6 +5054,7 @@
     {
       "importId": "ADD-20261004-0389",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 23,
       "endSurahNo": 44,
       "endAyahNo": 37,
@@ -4676,6 +5067,7 @@
     {
       "importId": "ADD-20261004-0390",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 30,
       "endSurahNo": 44,
       "endAyahNo": 41,
@@ -4688,6 +5080,7 @@
     {
       "importId": "ADD-20261004-0391",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 38,
       "endSurahNo": 44,
       "endAyahNo": 51,
@@ -4700,6 +5093,7 @@
     {
       "importId": "ADD-20261004-0392",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 43,
       "endSurahNo": 44,
       "endAyahNo": 56,
@@ -4712,6 +5106,7 @@
     {
       "importId": "ADD-20261004-0393",
       "surahNo": 44,
+      "surahName": "الدخان",
       "ayahNo": 51,
       "endSurahNo": 45,
       "endAyahNo": 4,
@@ -4724,6 +5119,7 @@
     {
       "importId": "ADD-20261004-0394",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 7,
       "endSurahNo": 45,
       "endAyahNo": 15,
@@ -4736,6 +5132,7 @@
     {
       "importId": "ADD-20261004-0395",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 11,
       "endSurahNo": 45,
       "endAyahNo": 17,
@@ -4748,6 +5145,7 @@
     {
       "importId": "ADD-20261004-0396",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 12,
       "endSurahNo": 45,
       "endAyahNo": 17,
@@ -4760,6 +5158,7 @@
     {
       "importId": "ADD-20261004-0397",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 17,
       "endSurahNo": 45,
       "endAyahNo": 22,
@@ -4772,6 +5171,7 @@
     {
       "importId": "ADD-20261004-0398",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 20,
       "endSurahNo": 45,
       "endAyahNo": 25,
@@ -4784,6 +5184,7 @@
     {
       "importId": "ADD-20261004-0399",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 22,
       "endSurahNo": 45,
       "endAyahNo": 27,
@@ -4796,6 +5197,7 @@
     {
       "importId": "ADD-20261004-0400",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 23,
       "endSurahNo": 45,
       "endAyahNo": 29,
@@ -4808,6 +5210,7 @@
     {
       "importId": "ADD-20261004-0401",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 27,
       "endSurahNo": 45,
       "endAyahNo": 33,
@@ -4820,6 +5223,7 @@
     {
       "importId": "ADD-20261004-0402",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 29,
       "endSurahNo": 45,
       "endAyahNo": 35,
@@ -4832,6 +5236,7 @@
     {
       "importId": "ADD-20261004-0403",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 33,
       "endSurahNo": 46,
       "endAyahNo": 4,
@@ -4844,6 +5249,7 @@
     {
       "importId": "ADD-20261004-0404",
       "surahNo": 45,
+      "surahName": "الجاثية",
       "ayahNo": 34,
       "endSurahNo": 46,
       "endAyahNo": 4,
@@ -4856,6 +5262,7 @@
     {
       "importId": "ADD-20261004-0405",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 1,
       "endSurahNo": 46,
       "endAyahNo": 8,
@@ -4868,6 +5275,7 @@
     {
       "importId": "ADD-20261004-0406",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 6,
       "endSurahNo": 46,
       "endAyahNo": 11,
@@ -4880,6 +5288,7 @@
     {
       "importId": "ADD-20261004-0407",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 8,
       "endSurahNo": 46,
       "endAyahNo": 12,
@@ -4892,6 +5301,7 @@
     {
       "importId": "ADD-20261004-0408",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 9,
       "endSurahNo": 46,
       "endAyahNo": 13,
@@ -4904,6 +5314,7 @@
     {
       "importId": "ADD-20261004-0409",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 15,
       "endSurahNo": 46,
       "endAyahNo": 18,
@@ -4916,6 +5327,7 @@
     {
       "importId": "ADD-20261004-0410",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 18,
       "endSurahNo": 46,
       "endAyahNo": 23,
@@ -4928,6 +5340,7 @@
     {
       "importId": "ADD-20261004-0411",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 19,
       "endSurahNo": 46,
       "endAyahNo": 24,
@@ -4940,6 +5353,7 @@
     {
       "importId": "ADD-20261004-0412",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 24,
       "endSurahNo": 46,
       "endAyahNo": 28,
@@ -4952,6 +5366,7 @@
     {
       "importId": "ADD-20261004-0413",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 29,
       "endSurahNo": 46,
       "endAyahNo": 33,
@@ -4964,6 +5379,7 @@
     {
       "importId": "ADD-20261004-0414",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 31,
       "endSurahNo": 46,
       "endAyahNo": 35,
@@ -4976,6 +5392,7 @@
     {
       "importId": "ADD-20261004-0415",
       "surahNo": 46,
+      "surahName": "الأحقاف",
       "ayahNo": 34,
       "endSurahNo": 47,
       "endAyahNo": 4,
@@ -4988,6 +5405,7 @@
     {
       "importId": "ADD-20261004-0416",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 1,
       "endSurahNo": 47,
       "endAyahNo": 9,
@@ -5000,6 +5418,7 @@
     {
       "importId": "ADD-20261004-0417",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 5,
       "endSurahNo": 47,
       "endAyahNo": 14,
@@ -5012,6 +5431,7 @@
     {
       "importId": "ADD-20261004-0418",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 7,
       "endSurahNo": 47,
       "endAyahNo": 15,
@@ -5024,6 +5444,7 @@
     {
       "importId": "ADD-20261004-0419",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 10,
       "endSurahNo": 47,
       "endAyahNo": 15,
@@ -5036,6 +5457,7 @@
     {
       "importId": "ADD-20261004-0420",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 14,
       "endSurahNo": 47,
       "endAyahNo": 18,
@@ -5048,6 +5470,7 @@
     {
       "importId": "ADD-20261004-0421",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 15,
       "endSurahNo": 47,
       "endAyahNo": 19,
@@ -5060,6 +5483,7 @@
     {
       "importId": "ADD-20261004-0422",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 16,
       "endSurahNo": 47,
       "endAyahNo": 20,
@@ -5072,6 +5496,7 @@
     {
       "importId": "ADD-20261004-0423",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 20,
       "endSurahNo": 47,
       "endAyahNo": 26,
@@ -5084,6 +5509,7 @@
     {
       "importId": "ADD-20261004-0424",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 21,
       "endSurahNo": 47,
       "endAyahNo": 28,
@@ -5096,6 +5522,7 @@
     {
       "importId": "ADD-20261004-0425",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 22,
       "endSurahNo": 47,
       "endAyahNo": 29,
@@ -5108,6 +5535,7 @@
     {
       "importId": "ADD-20261004-0426",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 24,
       "endSurahNo": 47,
       "endAyahNo": 30,
@@ -5120,6 +5548,7 @@
     {
       "importId": "ADD-20261004-0427",
       "surahNo": 47,
+      "surahName": "محمد",
       "ayahNo": 33,
       "endSurahNo": 47,
       "endAyahNo": 38,
@@ -5132,6 +5561,7 @@
     {
       "importId": "ADD-20261004-0428",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 4,
       "endSurahNo": 48,
       "endAyahNo": 9,
@@ -5144,6 +5574,7 @@
     {
       "importId": "ADD-20261004-0429",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 5,
       "endSurahNo": 48,
       "endAyahNo": 10,
@@ -5156,6 +5587,7 @@
     {
       "importId": "ADD-20261004-0430",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 7,
       "endSurahNo": 48,
       "endAyahNo": 11,
@@ -5168,6 +5600,7 @@
     {
       "importId": "ADD-20261004-0431",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 8,
       "endSurahNo": 48,
       "endAyahNo": 12,
@@ -5180,6 +5613,7 @@
     {
       "importId": "ADD-20261004-0432",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 11,
       "endSurahNo": 48,
       "endAyahNo": 15,
@@ -5192,6 +5626,7 @@
     {
       "importId": "ADD-20261004-0433",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 14,
       "endSurahNo": 48,
       "endAyahNo": 17,
@@ -5204,6 +5639,7 @@
     {
       "importId": "ADD-20261004-0434",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 15,
       "endSurahNo": 48,
       "endAyahNo": 18,
@@ -5216,6 +5652,7 @@
     {
       "importId": "ADD-20261004-0435",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 16,
       "endSurahNo": 48,
       "endAyahNo": 20,
@@ -5228,6 +5665,7 @@
     {
       "importId": "ADD-20261004-0436",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 18,
       "endSurahNo": 48,
       "endAyahNo": 23,
@@ -5240,6 +5678,7 @@
     {
       "importId": "ADD-20261004-0437",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 21,
       "endSurahNo": 48,
       "endAyahNo": 25,
@@ -5252,6 +5691,7 @@
     {
       "importId": "ADD-20261004-0438",
       "surahNo": 48,
+      "surahName": "الفتح",
       "ayahNo": 29,
       "endSurahNo": 49,
       "endAyahNo": 3,
@@ -5264,6 +5704,7 @@
     {
       "importId": "ADD-20261004-0439",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 3,
       "endSurahNo": 49,
       "endAyahNo": 7,
@@ -5276,6 +5717,7 @@
     {
       "importId": "ADD-20261004-0440",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 4,
       "endSurahNo": 49,
       "endAyahNo": 9,
@@ -5288,6 +5730,7 @@
     {
       "importId": "ADD-20261004-0441",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 6,
       "endSurahNo": 49,
       "endAyahNo": 10,
@@ -5300,6 +5743,7 @@
     {
       "importId": "ADD-20261004-0442",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 9,
       "endSurahNo": 49,
       "endAyahNo": 12,
@@ -5312,6 +5756,7 @@
     {
       "importId": "ADD-20261004-0443",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 14,
       "endSurahNo": 49,
       "endAyahNo": 18,
@@ -5324,6 +5769,7 @@
     {
       "importId": "ADD-20261004-0444",
       "surahNo": 49,
+      "surahName": "الحجرات",
       "ayahNo": 17,
       "endSurahNo": 50,
       "endAyahNo": 7,
@@ -5336,6 +5782,7 @@
     {
       "importId": "ADD-20261004-0445",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 4,
       "endSurahNo": 50,
       "endAyahNo": 14,
@@ -5348,6 +5795,7 @@
     {
       "importId": "ADD-20261004-0446",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 9,
       "endSurahNo": 50,
       "endAyahNo": 20,
@@ -5360,6 +5808,7 @@
     {
       "importId": "ADD-20261004-0447",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 19,
       "endSurahNo": 50,
       "endAyahNo": 31,
@@ -5372,6 +5821,7 @@
     {
       "importId": "ADD-20261004-0448",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 20,
       "endSurahNo": 50,
       "endAyahNo": 32,
@@ -5384,6 +5834,7 @@
     {
       "importId": "ADD-20261004-0449",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 27,
       "endSurahNo": 50,
       "endAyahNo": 38,
@@ -5396,6 +5847,7 @@
     {
       "importId": "ADD-20261004-0450",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 31,
       "endSurahNo": 50,
       "endAyahNo": 40,
@@ -5408,6 +5860,7 @@
     {
       "importId": "ADD-20261004-0451",
       "surahNo": 50,
+      "surahName": "ق",
       "ayahNo": 40,
       "endSurahNo": 51,
       "endAyahNo": 12,
@@ -5420,6 +5873,7 @@
     {
       "importId": "ADD-20261004-0452",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 15,
       "endSurahNo": 51,
       "endAyahNo": 28,
@@ -5432,6 +5886,7 @@
     {
       "importId": "ADD-20261004-0453",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 16,
       "endSurahNo": 51,
       "endAyahNo": 29,
@@ -5444,6 +5899,7 @@
     {
       "importId": "ADD-20261004-0454",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 24,
       "endSurahNo": 51,
       "endAyahNo": 37,
@@ -5456,6 +5912,7 @@
     {
       "importId": "ADD-20261004-0455",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 34,
       "endSurahNo": 51,
       "endAyahNo": 46,
@@ -5468,6 +5925,7 @@
     {
       "importId": "ADD-20261004-0456",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 38,
       "endSurahNo": 51,
       "endAyahNo": 50,
@@ -5480,6 +5938,7 @@
     {
       "importId": "ADD-20261004-0457",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 41,
       "endSurahNo": 51,
       "endAyahNo": 52,
@@ -5492,6 +5951,7 @@
     {
       "importId": "ADD-20261004-0458",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 46,
       "endSurahNo": 51,
       "endAyahNo": 58,
@@ -5504,6 +5964,7 @@
     {
       "importId": "ADD-20261004-0459",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 49,
       "endSurahNo": 51,
       "endAyahNo": 60,
@@ -5516,6 +5977,7 @@
     {
       "importId": "ADD-20261004-0460",
       "surahNo": 51,
+      "surahName": "الذاريات",
       "ayahNo": 53,
       "endSurahNo": 52,
       "endAyahNo": 11,
@@ -5528,6 +5990,7 @@
     {
       "importId": "ADD-20261004-0461",
       "surahNo": 52,
+      "surahName": "الطور",
       "ayahNo": 17,
       "endSurahNo": 52,
       "endAyahNo": 28,
@@ -5540,6 +6003,7 @@
     {
       "importId": "ADD-20261004-0462",
       "surahNo": 52,
+      "surahName": "الطور",
       "ayahNo": 24,
       "endSurahNo": 52,
       "endAyahNo": 35,
@@ -5552,6 +6016,7 @@
     {
       "importId": "ADD-20261004-0463",
       "surahNo": 52,
+      "surahName": "الطور",
       "ayahNo": 32,
       "endSurahNo": 52,
       "endAyahNo": 44,
@@ -5564,6 +6029,7 @@
     {
       "importId": "ADD-20261004-0464",
       "surahNo": 52,
+      "surahName": "الطور",
       "ayahNo": 37,
       "endSurahNo": 52,
       "endAyahNo": 47,
@@ -5576,6 +6042,7 @@
     {
       "importId": "ADD-20261004-0465",
       "surahNo": 52,
+      "surahName": "الطور",
       "ayahNo": 38,
       "endSurahNo": 52,
       "endAyahNo": 48,
@@ -5588,6 +6055,7 @@
     {
       "importId": "ADD-20261004-0466",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 11,
       "endSurahNo": 53,
       "endAyahNo": 26,
@@ -5600,6 +6068,7 @@
     {
       "importId": "ADD-20261004-0467",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 13,
       "endSurahNo": 53,
       "endAyahNo": 27,
@@ -5612,6 +6081,7 @@
     {
       "importId": "ADD-20261004-0468",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 19,
       "endSurahNo": 53,
       "endAyahNo": 30,
@@ -5624,6 +6094,7 @@
     {
       "importId": "ADD-20261004-0469",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 26,
       "endSurahNo": 53,
       "endAyahNo": 32,
@@ -5636,6 +6107,7 @@
     {
       "importId": "ADD-20261004-0470",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 27,
       "endSurahNo": 53,
       "endAyahNo": 34,
@@ -5648,6 +6120,7 @@
     {
       "importId": "ADD-20261004-0471",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 29,
       "endSurahNo": 53,
       "endAyahNo": 38,
@@ -5660,6 +6133,7 @@
     {
       "importId": "ADD-20261004-0472",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 31,
       "endSurahNo": 53,
       "endAyahNo": 42,
@@ -5672,6 +6146,7 @@
     {
       "importId": "ADD-20261004-0473",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 41,
       "endSurahNo": 53,
       "endAyahNo": 61,
@@ -5684,6 +6159,7 @@
     {
       "importId": "ADD-20261004-0474",
       "surahNo": 53,
+      "surahName": "النجم",
       "ayahNo": 52,
       "endSurahNo": 54,
       "endAyahNo": 6,
@@ -5696,6 +6172,7 @@
     {
       "importId": "ADD-20261004-0475",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 7,
       "endSurahNo": 54,
       "endAyahNo": 20,
@@ -5708,6 +6185,7 @@
     {
       "importId": "ADD-20261004-0476",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 9,
       "endSurahNo": 54,
       "endAyahNo": 22,
@@ -5720,6 +6198,7 @@
     {
       "importId": "ADD-20261004-0477",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 10,
       "endSurahNo": 54,
       "endAyahNo": 24,
@@ -5732,6 +6211,7 @@
     {
       "importId": "ADD-20261004-0478",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 18,
       "endSurahNo": 54,
       "endAyahNo": 32,
@@ -5744,6 +6224,7 @@
     {
       "importId": "ADD-20261004-0479",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 23,
       "endSurahNo": 54,
       "endAyahNo": 36,
@@ -5756,6 +6237,7 @@
     {
       "importId": "ADD-20261004-0480",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 33,
       "endSurahNo": 54,
       "endAyahNo": 46,
@@ -5768,6 +6250,7 @@
     {
       "importId": "ADD-20261004-0481",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 41,
       "endSurahNo": 54,
       "endAyahNo": 55,
@@ -5780,6 +6263,7 @@
     {
       "importId": "ADD-20261004-0482",
       "surahNo": 54,
+      "surahName": "القمر",
       "ayahNo": 43,
       "endSurahNo": 55,
       "endAyahNo": 4,
@@ -5792,6 +6276,7 @@
     {
       "importId": "ADD-20261004-0483",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 14,
       "endSurahNo": 55,
       "endAyahNo": 32,
@@ -5804,6 +6289,7 @@
     {
       "importId": "ADD-20261004-0484",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 19,
       "endSurahNo": 55,
       "endAyahNo": 35,
@@ -5816,6 +6302,7 @@
     {
       "importId": "ADD-20261004-0485",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 26,
       "endSurahNo": 55,
       "endAyahNo": 39,
@@ -5828,6 +6315,7 @@
     {
       "importId": "ADD-20261004-0486",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 29,
       "endSurahNo": 55,
       "endAyahNo": 41,
@@ -5840,6 +6328,7 @@
     {
       "importId": "ADD-20261004-0487",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 31,
       "endSurahNo": 55,
       "endAyahNo": 43,
@@ -5852,6 +6341,7 @@
     {
       "importId": "ADD-20261004-0488",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 33,
       "endSurahNo": 55,
       "endAyahNo": 45,
@@ -5864,6 +6354,7 @@
     {
       "importId": "ADD-20261004-0489",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 46,
       "endSurahNo": 55,
       "endAyahNo": 63,
@@ -5876,6 +6367,7 @@
     {
       "importId": "ADD-20261004-0490",
       "surahNo": 55,
+      "surahName": "الرحمن",
       "ayahNo": 60,
       "endSurahNo": 55,
       "endAyahNo": 77,
@@ -5888,6 +6380,7 @@
     {
       "importId": "ADD-20261004-0491",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 8,
       "endSurahNo": 56,
       "endAyahNo": 27,
@@ -5900,6 +6393,7 @@
     {
       "importId": "ADD-20261004-0492",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 10,
       "endSurahNo": 56,
       "endAyahNo": 33,
@@ -5912,6 +6406,7 @@
     {
       "importId": "ADD-20261004-0493",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 27,
       "endSurahNo": 56,
       "endAyahNo": 49,
@@ -5924,6 +6419,7 @@
     {
       "importId": "ADD-20261004-0494",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 41,
       "endSurahNo": 56,
       "endAyahNo": 59,
@@ -5936,6 +6432,7 @@
     {
       "importId": "ADD-20261004-0495",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 63,
       "endSurahNo": 56,
       "endAyahNo": 79,
@@ -5948,6 +6445,7 @@
     {
       "importId": "ADD-20261004-0496",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 75,
       "endSurahNo": 56,
       "endAyahNo": 92,
@@ -5960,6 +6458,7 @@
     {
       "importId": "ADD-20261004-0497",
       "surahNo": 56,
+      "surahName": "الواقعة",
       "ayahNo": 89,
       "endSurahNo": 57,
       "endAyahNo": 4,
@@ -5972,6 +6471,7 @@
     {
       "importId": "ADD-20261004-0498",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 1,
       "endSurahNo": 57,
       "endAyahNo": 7,
@@ -5984,6 +6484,7 @@
     {
       "importId": "ADD-20261004-0499",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 7,
       "endSurahNo": 57,
       "endAyahNo": 11,
@@ -5996,6 +6497,7 @@
     {
       "importId": "ADD-20261004-0500",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 10,
       "endSurahNo": 57,
       "endAyahNo": 13,
@@ -6008,6 +6510,7 @@
     {
       "importId": "ADD-20261004-0501",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 12,
       "endSurahNo": 57,
       "endAyahNo": 16,
@@ -6020,6 +6523,7 @@
     {
       "importId": "ADD-20261004-0502",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 13,
       "endSurahNo": 57,
       "endAyahNo": 16,
@@ -6032,6 +6536,7 @@
     {
       "importId": "ADD-20261004-0503",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 18,
       "endSurahNo": 57,
       "endAyahNo": 21,
@@ -6044,6 +6549,7 @@
     {
       "importId": "ADD-20261004-0504",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 20,
       "endSurahNo": 57,
       "endAyahNo": 23,
@@ -6056,6 +6562,7 @@
     {
       "importId": "ADD-20261004-0505",
       "surahNo": 57,
+      "surahName": "الحديد",
       "ayahNo": 28,
       "endSurahNo": 58,
       "endAyahNo": 3,
@@ -6068,6 +6575,7 @@
     {
       "importId": "ADD-20261004-0506",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 1,
       "endSurahNo": 58,
       "endAyahNo": 5,
@@ -6080,6 +6588,7 @@
     {
       "importId": "ADD-20261004-0507",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 5,
       "endSurahNo": 58,
       "endAyahNo": 8,
@@ -6092,6 +6601,7 @@
     {
       "importId": "ADD-20261004-0508",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 9,
       "endSurahNo": 58,
       "endAyahNo": 12,
@@ -6104,6 +6614,7 @@
     {
       "importId": "ADD-20261004-0509",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 10,
       "endSurahNo": 58,
       "endAyahNo": 13,
@@ -6116,6 +6627,7 @@
     {
       "importId": "ADD-20261004-0510",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 12,
       "endSurahNo": 58,
       "endAyahNo": 18,
@@ -6128,6 +6640,7 @@
     {
       "importId": "ADD-20261004-0511",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 14,
       "endSurahNo": 58,
       "endAyahNo": 20,
@@ -6140,6 +6653,7 @@
     {
       "importId": "ADD-20261004-0512",
       "surahNo": 58,
+      "surahName": "المجادلة",
       "ayahNo": 22,
       "endSurahNo": 59,
       "endAyahNo": 2,
@@ -6152,6 +6666,7 @@
     {
       "importId": "ADD-20261004-0513",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 3,
       "endSurahNo": 59,
       "endAyahNo": 7,
@@ -6164,6 +6679,7 @@
     {
       "importId": "ADD-20261004-0514",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 5,
       "endSurahNo": 59,
       "endAyahNo": 8,
@@ -6176,6 +6692,7 @@
     {
       "importId": "ADD-20261004-0515",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 6,
       "endSurahNo": 59,
       "endAyahNo": 9,
@@ -6188,6 +6705,7 @@
     {
       "importId": "ADD-20261004-0516",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 8,
       "endSurahNo": 59,
       "endAyahNo": 11,
@@ -6200,6 +6718,7 @@
     {
       "importId": "ADD-20261004-0517",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 11,
       "endSurahNo": 59,
       "endAyahNo": 15,
@@ -6212,6 +6731,7 @@
     {
       "importId": "ADD-20261004-0518",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 12,
       "endSurahNo": 59,
       "endAyahNo": 17,
@@ -6224,6 +6744,7 @@
     {
       "importId": "ADD-20261004-0519",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 13,
       "endSurahNo": 59,
       "endAyahNo": 18,
@@ -6236,6 +6757,7 @@
     {
       "importId": "ADD-20261004-0520",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 18,
       "endSurahNo": 59,
       "endAyahNo": 23,
@@ -6248,6 +6770,7 @@
     {
       "importId": "ADD-20261004-0521",
       "surahNo": 59,
+      "surahName": "الحشر",
       "ayahNo": 21,
       "endSurahNo": 60,
       "endAyahNo": 1,
@@ -6260,6 +6783,7 @@
     {
       "importId": "ADD-20261004-0522",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 4,
       "endSurahNo": 60,
       "endAyahNo": 8,
@@ -6272,6 +6796,7 @@
     {
       "importId": "ADD-20261004-0523",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 6,
       "endSurahNo": 60,
       "endAyahNo": 10,
@@ -6284,6 +6809,7 @@
     {
       "importId": "ADD-20261004-0524",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 7,
       "endSurahNo": 60,
       "endAyahNo": 10,
@@ -6296,6 +6822,7 @@
     {
       "importId": "ADD-20261004-0525",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 8,
       "endSurahNo": 60,
       "endAyahNo": 11,
@@ -6308,6 +6835,7 @@
     {
       "importId": "ADD-20261004-0526",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 10,
       "endSurahNo": 60,
       "endAyahNo": 12,
@@ -6320,6 +6848,7 @@
     {
       "importId": "ADD-20261004-0527",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 11,
       "endSurahNo": 61,
       "endAyahNo": 1,
@@ -6332,6 +6861,7 @@
     {
       "importId": "ADD-20261004-0528",
       "surahNo": 60,
+      "surahName": "الممتحنة",
       "ayahNo": 12,
       "endSurahNo": 61,
       "endAyahNo": 4,
@@ -6344,6 +6874,7 @@
     {
       "importId": "ADD-20261004-0529",
       "surahNo": 61,
+      "surahName": "الصف",
       "ayahNo": 7,
       "endSurahNo": 61,
       "endAyahNo": 14,
@@ -6356,6 +6887,7 @@
     {
       "importId": "ADD-20261004-0530",
       "surahNo": 61,
+      "surahName": "الصف",
       "ayahNo": 8,
       "endSurahNo": 61,
       "endAyahNo": 14,
@@ -6368,6 +6900,7 @@
     {
       "importId": "ADD-20261004-0531",
       "surahNo": 61,
+      "surahName": "الصف",
       "ayahNo": 9,
       "endSurahNo": 61,
       "endAyahNo": 14,
@@ -6380,6 +6913,7 @@
     {
       "importId": "ADD-20261004-0532",
       "surahNo": 61,
+      "surahName": "الصف",
       "ayahNo": 10,
       "endSurahNo": 62,
       "endAyahNo": 1,
@@ -6392,6 +6926,7 @@
     {
       "importId": "ADD-20261004-0533",
       "surahNo": 62,
+      "surahName": "الجمعة",
       "ayahNo": 1,
       "endSurahNo": 62,
       "endAyahNo": 7,
@@ -6404,6 +6939,7 @@
     {
       "importId": "ADD-20261004-0534",
       "surahNo": 62,
+      "surahName": "الجمعة",
       "ayahNo": 4,
       "endSurahNo": 62,
       "endAyahNo": 9,
@@ -6416,6 +6952,7 @@
     {
       "importId": "ADD-20261004-0535",
       "surahNo": 62,
+      "surahName": "الجمعة",
       "ayahNo": 6,
       "endSurahNo": 62,
       "endAyahNo": 11,
@@ -6428,6 +6965,7 @@
     {
       "importId": "ADD-20261004-0536",
       "surahNo": 62,
+      "surahName": "الجمعة",
       "ayahNo": 10,
       "endSurahNo": 63,
       "endAyahNo": 4,
@@ -6440,6 +6978,7 @@
     {
       "importId": "ADD-20261004-0537",
       "surahNo": 63,
+      "surahName": "المنافقون",
       "ayahNo": 4,
       "endSurahNo": 63,
       "endAyahNo": 8,
@@ -6452,6 +6991,7 @@
     {
       "importId": "ADD-20261004-0538",
       "surahNo": 63,
+      "surahName": "المنافقون",
       "ayahNo": 7,
       "endSurahNo": 63,
       "endAyahNo": 11,
@@ -6464,6 +7004,7 @@
     {
       "importId": "ADD-20261004-0539",
       "surahNo": 63,
+      "surahName": "المنافقون",
       "ayahNo": 9,
       "endSurahNo": 64,
       "endAyahNo": 4,
@@ -6476,6 +7017,7 @@
     {
       "importId": "ADD-20261004-0540",
       "surahNo": 64,
+      "surahName": "التغابن",
       "ayahNo": 5,
       "endSurahNo": 64,
       "endAyahNo": 10,
@@ -6488,6 +7030,7 @@
     {
       "importId": "ADD-20261004-0541",
       "surahNo": 64,
+      "surahName": "التغابن",
       "ayahNo": 7,
       "endSurahNo": 64,
       "endAyahNo": 12,
@@ -6500,6 +7043,7 @@
     {
       "importId": "ADD-20261004-0542",
       "surahNo": 64,
+      "surahName": "التغابن",
       "ayahNo": 8,
       "endSurahNo": 64,
       "endAyahNo": 13,
@@ -6512,6 +7056,7 @@
     {
       "importId": "ADD-20261004-0543",
       "surahNo": 64,
+      "surahName": "التغابن",
       "ayahNo": 13,
       "endSurahNo": 64,
       "endAyahNo": 18,
@@ -6524,6 +7069,7 @@
     {
       "importId": "ADD-20261004-0544",
       "surahNo": 65,
+      "surahName": "الطلاق",
       "ayahNo": 1,
       "endSurahNo": 65,
       "endAyahNo": 4,
@@ -6536,6 +7082,7 @@
     {
       "importId": "ADD-20261004-0545",
       "surahNo": 65,
+      "surahName": "الطلاق",
       "ayahNo": 3,
       "endSurahNo": 65,
       "endAyahNo": 7,
@@ -6548,6 +7095,7 @@
     {
       "importId": "ADD-20261004-0546",
       "surahNo": 65,
+      "surahName": "الطلاق",
       "ayahNo": 8,
       "endSurahNo": 65,
       "endAyahNo": 12,
@@ -6560,6 +7108,7 @@
     {
       "importId": "ADD-20261004-0547",
       "surahNo": 66,
+      "surahName": "التحريم",
       "ayahNo": 1,
       "endSurahNo": 66,
       "endAyahNo": 6,
@@ -6572,6 +7121,7 @@
     {
       "importId": "ADD-20261004-0548",
       "surahNo": 66,
+      "surahName": "التحريم",
       "ayahNo": 4,
       "endSurahNo": 66,
       "endAyahNo": 8,
@@ -6584,6 +7134,7 @@
     {
       "importId": "ADD-20261004-0549",
       "surahNo": 66,
+      "surahName": "التحريم",
       "ayahNo": 9,
       "endSurahNo": 66,
       "endAyahNo": 12,
@@ -6596,6 +7147,7 @@
     {
       "importId": "ADD-20261004-0550",
       "surahNo": 66,
+      "surahName": "التحريم",
       "ayahNo": 11,
       "endSurahNo": 67,
       "endAyahNo": 5,
@@ -6608,6 +7160,7 @@
     {
       "importId": "ADD-20261004-0551",
       "surahNo": 67,
+      "surahName": "الملك",
       "ayahNo": 5,
       "endSurahNo": 67,
       "endAyahNo": 14,
@@ -6620,6 +7173,7 @@
     {
       "importId": "ADD-20261004-0552",
       "surahNo": 67,
+      "surahName": "الملك",
       "ayahNo": 12,
       "endSurahNo": 67,
       "endAyahNo": 20,
@@ -6632,6 +7186,7 @@
     {
       "importId": "ADD-20261004-0553",
       "surahNo": 67,
+      "surahName": "الملك",
       "ayahNo": 15,
       "endSurahNo": 67,
       "endAyahNo": 22,
@@ -6644,6 +7199,7 @@
     {
       "importId": "ADD-20261004-0554",
       "surahNo": 67,
+      "surahName": "الملك",
       "ayahNo": 19,
       "endSurahNo": 67,
       "endAyahNo": 27,
@@ -6656,6 +7212,7 @@
     {
       "importId": "ADD-20261004-0555",
       "surahNo": 67,
+      "surahName": "الملك",
       "ayahNo": 22,
       "endSurahNo": 67,
       "endAyahNo": 29,
@@ -6668,6 +7225,7 @@
     {
       "importId": "ADD-20261004-0556",
       "surahNo": 68,
+      "surahName": "القلم",
       "ayahNo": 17,
       "endSurahNo": 68,
       "endAyahNo": 34,
@@ -6680,6 +7238,7 @@
     {
       "importId": "ADD-20261004-0557",
       "surahNo": 68,
+      "surahName": "القلم",
       "ayahNo": 34,
       "endSurahNo": 68,
       "endAyahNo": 47,
@@ -6692,6 +7251,7 @@
     {
       "importId": "ADD-20261004-0558",
       "surahNo": 68,
+      "surahName": "القلم",
       "ayahNo": 35,
       "endSurahNo": 68,
       "endAyahNo": 48,
@@ -6704,6 +7264,7 @@
     {
       "importId": "ADD-20261004-0559",
       "surahNo": 69,
+      "surahName": "الحاقة",
       "ayahNo": 15,
       "endSurahNo": 69,
       "endAyahNo": 33,
@@ -6716,6 +7277,7 @@
     {
       "importId": "ADD-20261004-0560",
       "surahNo": 69,
+      "surahName": "الحاقة",
       "ayahNo": 18,
       "endSurahNo": 69,
       "endAyahNo": 38,
@@ -6728,6 +7290,7 @@
     {
       "importId": "ADD-20261004-0561",
       "surahNo": 70,
+      "surahName": "المعارج",
       "ayahNo": 1,
       "endSurahNo": 70,
       "endAyahNo": 23,
@@ -6740,6 +7303,7 @@
     {
       "importId": "ADD-20261004-0562",
       "surahNo": 70,
+      "surahName": "المعارج",
       "ayahNo": 11,
       "endSurahNo": 70,
       "endAyahNo": 32,
@@ -6752,6 +7316,7 @@
     {
       "importId": "ADD-20261004-0563",
       "surahNo": 70,
+      "surahName": "المعارج",
       "ayahNo": 19,
       "endSurahNo": 70,
       "endAyahNo": 37,
@@ -6764,6 +7329,7 @@
     {
       "importId": "ADD-20261004-0564",
       "surahNo": 70,
+      "surahName": "المعارج",
       "ayahNo": 22,
       "endSurahNo": 70,
       "endAyahNo": 39,
@@ -6776,6 +7342,7 @@
     {
       "importId": "ADD-20261004-0565",
       "surahNo": 71,
+      "surahName": "نوح",
       "ayahNo": 1,
       "endSurahNo": 71,
       "endAyahNo": 12,
@@ -6788,6 +7355,7 @@
     {
       "importId": "ADD-20261004-0566",
       "surahNo": 71,
+      "surahName": "نوح",
       "ayahNo": 15,
       "endSurahNo": 71,
       "endAyahNo": 26,
@@ -6800,6 +7368,7 @@
     {
       "importId": "ADD-20261004-0567",
       "surahNo": 71,
+      "surahName": "نوح",
       "ayahNo": 19,
       "endSurahNo": 71,
       "endAyahNo": 28,
@@ -6812,6 +7381,7 @@
     {
       "importId": "ADD-20261004-0568",
       "surahNo": 71,
+      "surahName": "نوح",
       "ayahNo": 21,
       "endSurahNo": 72,
       "endAyahNo": 1,
@@ -6824,6 +7394,7 @@
     {
       "importId": "ADD-20261004-0569",
       "surahNo": 72,
+      "surahName": "الجن",
       "ayahNo": 1,
       "endSurahNo": 72,
       "endAyahNo": 11,
@@ -6836,6 +7407,7 @@
     {
       "importId": "ADD-20261004-0570",
       "surahNo": 72,
+      "surahName": "الجن",
       "ayahNo": 8,
       "endSurahNo": 72,
       "endAyahNo": 17,
@@ -6848,6 +7420,7 @@
     {
       "importId": "ADD-20261004-0571",
       "surahNo": 72,
+      "surahName": "الجن",
       "ayahNo": 18,
       "endSurahNo": 72,
       "endAyahNo": 27,
@@ -6860,6 +7433,7 @@
     {
       "importId": "ADD-20261004-0572",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 9,
       "endSurahNo": 73,
       "endAyahNo": 20,
@@ -6872,6 +7446,7 @@
     {
       "importId": "ADD-20261004-0573",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 12,
       "endSurahNo": 73,
       "endAyahNo": 20,
@@ -6884,6 +7459,7 @@
     {
       "importId": "ADD-20261004-0574",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 14,
       "endSurahNo": 73,
       "endAyahNo": 20,
@@ -6896,6 +7472,7 @@
     {
       "importId": "ADD-20261004-0575",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 15,
       "endSurahNo": 73,
       "endAyahNo": 20,
@@ -6908,6 +7485,7 @@
     {
       "importId": "ADD-20261004-0576",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 17,
       "endSurahNo": 73,
       "endAyahNo": 20,
@@ -6920,6 +7498,7 @@
     {
       "importId": "ADD-20261004-0577",
       "surahNo": 73,
+      "surahName": "المزمل",
       "ayahNo": 20,
       "endSurahNo": 74,
       "endAyahNo": 10,
@@ -6932,6 +7511,7 @@
     {
       "importId": "ADD-20261004-0578",
       "surahNo": 74,
+      "surahName": "المدثر",
       "ayahNo": 11,
       "endSurahNo": 74,
       "endAyahNo": 31,
@@ -6944,6 +7524,7 @@
     {
       "importId": "ADD-20261004-0579",
       "surahNo": 74,
+      "surahName": "المدثر",
       "ayahNo": 18,
       "endSurahNo": 74,
       "endAyahNo": 31,
@@ -6956,6 +7537,7 @@
     {
       "importId": "ADD-20261004-0580",
       "surahNo": 75,
+      "surahName": "القيامة",
       "ayahNo": 14,
       "endSurahNo": 75,
       "endAyahNo": 37,
@@ -6968,6 +7550,7 @@
     {
       "importId": "ADD-20261004-0581",
       "surahNo": 75,
+      "surahName": "القيامة",
       "ayahNo": 20,
       "endSurahNo": 76,
       "endAyahNo": 2,
@@ -6980,6 +7563,7 @@
     {
       "importId": "ADD-20261004-0582",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 5,
       "endSurahNo": 76,
       "endAyahNo": 18,
@@ -6992,6 +7576,7 @@
     {
       "importId": "ADD-20261004-0583",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 6,
       "endSurahNo": 76,
       "endAyahNo": 19,
@@ -7004,6 +7589,7 @@
     {
       "importId": "ADD-20261004-0584",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 15,
       "endSurahNo": 76,
       "endAyahNo": 28,
@@ -7016,6 +7602,7 @@
     {
       "importId": "ADD-20261004-0585",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 19,
       "endSurahNo": 76,
       "endAyahNo": 30,
@@ -7028,6 +7615,7 @@
     {
       "importId": "ADD-20261004-0586",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 20,
       "endSurahNo": 76,
       "endAyahNo": 31,
@@ -7040,6 +7628,7 @@
     {
       "importId": "ADD-20261004-0587",
       "surahNo": 76,
+      "surahName": "الانسان",
       "ayahNo": 23,
       "endSurahNo": 77,
       "endAyahNo": 7,
@@ -7052,6 +7641,7 @@
     {
       "importId": "ADD-20261004-0588",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 16,
       "endSurahNo": 77,
       "endAyahNo": 37,
@@ -7064,6 +7654,7 @@
     {
       "importId": "ADD-20261004-0589",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 20,
       "endSurahNo": 77,
       "endAyahNo": 41,
@@ -7076,6 +7667,7 @@
     {
       "importId": "ADD-20261004-0590",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 25,
       "endSurahNo": 77,
       "endAyahNo": 45,
@@ -7088,6 +7680,7 @@
     {
       "importId": "ADD-20261004-0591",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 29,
       "endSurahNo": 77,
       "endAyahNo": 48,
@@ -7100,6 +7693,7 @@
     {
       "importId": "ADD-20261004-0592",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 30,
       "endSurahNo": 77,
       "endAyahNo": 48,
@@ -7112,6 +7706,7 @@
     {
       "importId": "ADD-20261004-0593",
       "surahNo": 77,
+      "surahName": "المرسلات",
       "ayahNo": 38,
       "endSurahNo": 78,
       "endAyahNo": 9,
@@ -7124,6 +7719,7 @@
     {
       "importId": "ADD-20261004-0594",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 1,
       "endSurahNo": 78,
       "endAyahNo": 24,
@@ -7136,6 +7732,7 @@
     {
       "importId": "ADD-20261004-0595",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 12,
       "endSurahNo": 78,
       "endAyahNo": 30,
@@ -7148,6 +7745,7 @@
     {
       "importId": "ADD-20261004-0596",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 14,
       "endSurahNo": 78,
       "endAyahNo": 34,
@@ -7160,6 +7758,7 @@
     {
       "importId": "ADD-20261004-0597",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 17,
       "endSurahNo": 78,
       "endAyahNo": 37,
@@ -7172,6 +7771,7 @@
     {
       "importId": "ADD-20261004-0598",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 21,
       "endSurahNo": 78,
       "endAyahNo": 39,
@@ -7184,6 +7784,7 @@
     {
       "importId": "ADD-20261004-0599",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 27,
       "endSurahNo": 78,
       "endAyahNo": 40,
@@ -7196,6 +7797,7 @@
     {
       "importId": "ADD-20261004-0600",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 36,
       "endSurahNo": 79,
       "endAyahNo": 12,
@@ -7208,6 +7810,7 @@
     {
       "importId": "ADD-20261004-0601",
       "surahNo": 78,
+      "surahName": "النبإ",
       "ayahNo": 37,
       "endSurahNo": 79,
       "endAyahNo": 14,
@@ -7220,6 +7823,7 @@
     {
       "importId": "ADD-20261004-0602",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 1,
       "endSurahNo": 79,
       "endAyahNo": 25,
@@ -7232,6 +7836,7 @@
     {
       "importId": "ADD-20261004-0603",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 8,
       "endSurahNo": 79,
       "endAyahNo": 29,
@@ -7244,6 +7849,7 @@
     {
       "importId": "ADD-20261004-0604",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 15,
       "endSurahNo": 79,
       "endAyahNo": 35,
@@ -7256,6 +7862,7 @@
     {
       "importId": "ADD-20261004-0605",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 26,
       "endSurahNo": 79,
       "endAyahNo": 45,
@@ -7268,6 +7875,7 @@
     {
       "importId": "ADD-20261004-0606",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 27,
       "endSurahNo": 79,
       "endAyahNo": 45,
@@ -7280,6 +7888,7 @@
     {
       "importId": "ADD-20261004-0607",
       "surahNo": 79,
+      "surahName": "النازعات",
       "ayahNo": 34,
       "endSurahNo": 80,
       "endAyahNo": 10,
@@ -7292,6 +7901,7 @@
     {
       "importId": "ADD-20261004-0608",
       "surahNo": 80,
+      "surahName": "عبس",
       "ayahNo": 8,
       "endSurahNo": 80,
       "endAyahNo": 38,
@@ -7304,6 +7914,7 @@
     {
       "importId": "ADD-20261004-0609",
       "surahNo": 80,
+      "surahName": "عبس",
       "ayahNo": 11,
       "endSurahNo": 80,
       "endAyahNo": 40,
@@ -7316,6 +7927,7 @@
     {
       "importId": "ADD-20261004-0610",
       "surahNo": 80,
+      "surahName": "عبس",
       "ayahNo": 17,
       "endSurahNo": 80,
       "endAyahNo": 42,
@@ -7328,6 +7940,7 @@
     {
       "importId": "ADD-20261004-0611",
       "surahNo": 80,
+      "surahName": "عبس",
       "ayahNo": 24,
       "endSurahNo": 81,
       "endAyahNo": 8,
@@ -7340,6 +7953,7 @@
     {
       "importId": "ADD-20261004-0612",
       "surahNo": 81,
+      "surahName": "التكوير",
       "ayahNo": 8,
       "endSurahNo": 81,
       "endAyahNo": 29,
@@ -7352,6 +7966,7 @@
     {
       "importId": "ADD-20261004-0613",
       "surahNo": 81,
+      "surahName": "التكوير",
       "ayahNo": 10,
       "endSurahNo": 82,
       "endAyahNo": 3,
@@ -7364,6 +7979,7 @@
     {
       "importId": "ADD-20261004-0614",
       "surahNo": 83,
+      "surahName": "المطففين",
       "ayahNo": 1,
       "endSurahNo": 83,
       "endAyahNo": 21,
@@ -7376,6 +7992,7 @@
     {
       "importId": "ADD-20261004-0615",
       "surahNo": 83,
+      "surahName": "المطففين",
       "ayahNo": 13,
       "endSurahNo": 83,
       "endAyahNo": 30,
@@ -7388,6 +8005,7 @@
     {
       "importId": "ADD-20261004-0616",
       "surahNo": 83,
+      "surahName": "المطففين",
       "ayahNo": 18,
       "endSurahNo": 83,
       "endAyahNo": 35,
@@ -7400,6 +8018,7 @@
     {
       "importId": "ADD-20261004-0617",
       "surahNo": 83,
+      "surahName": "المطففين",
       "ayahNo": 22,
       "endSurahNo": 84,
       "endAyahNo": 3,
@@ -7412,6 +8031,7 @@
     {
       "importId": "ADD-20261004-0618",
       "surahNo": 83,
+      "surahName": "المطففين",
       "ayahNo": 34,
       "endSurahNo": 84,
       "endAyahNo": 18,
@@ -7424,6 +8044,7 @@
     {
       "importId": "ADD-20261004-0619",
       "surahNo": 84,
+      "surahName": "الإنشقاق",
       "ayahNo": 1,
       "endSurahNo": 84,
       "endAyahNo": 22,
@@ -7436,6 +8057,7 @@
     {
       "importId": "ADD-20261004-0620",
       "surahNo": 84,
+      "surahName": "الإنشقاق",
       "ayahNo": 7,
       "endSurahNo": 84,
       "endAyahNo": 25,
@@ -7448,6 +8070,7 @@
     {
       "importId": "ADD-20261004-0621",
       "surahNo": 84,
+      "surahName": "الإنشقاق",
       "ayahNo": 10,
       "endSurahNo": 85,
       "endAyahNo": 6,
@@ -7460,6 +8083,7 @@
     {
       "importId": "ADD-20261004-0622",
       "surahNo": 86,
+      "surahName": "الطارق",
       "ayahNo": 1,
       "endSurahNo": 87,
       "endAyahNo": 7,
@@ -7472,6 +8096,7 @@
     {
       "importId": "ADD-20261004-0623",
       "surahNo": 86,
+      "surahName": "الطارق",
       "ayahNo": 9,
       "endSurahNo": 87,
       "endAyahNo": 15,
@@ -7484,6 +8109,7 @@
     {
       "importId": "ADD-20261004-0624",
       "surahNo": 88,
+      "surahName": "الغاشية",
       "ayahNo": 17,
       "endSurahNo": 89,
       "endAyahNo": 11,
@@ -7496,6 +8122,7 @@
     {
       "importId": "ADD-20261004-0625",
       "surahNo": 89,
+      "surahName": "الفجر",
       "ayahNo": 6,
       "endSurahNo": 89,
       "endAyahNo": 22,
@@ -7508,6 +8135,7 @@
     {
       "importId": "ADD-20261004-0626",
       "surahNo": 89,
+      "surahName": "الفجر",
       "ayahNo": 15,
       "endSurahNo": 89,
       "endAyahNo": 28,
@@ -7520,6 +8148,7 @@
     {
       "importId": "ADD-20261004-0627",
       "surahNo": 89,
+      "surahName": "الفجر",
       "ayahNo": 17,
       "endSurahNo": 90,
       "endAyahNo": 3,
@@ -7532,6 +8161,7 @@
     {
       "importId": "ADD-20261004-0628",
       "surahNo": 90,
+      "surahName": "البلد",
       "ayahNo": 11,
       "endSurahNo": 91,
       "endAyahNo": 13,
@@ -7544,6 +8174,7 @@
     {
       "importId": "ADD-20261004-0629",
       "surahNo": 91,
+      "surahName": "الشمس",
       "ayahNo": 1,
       "endSurahNo": 92,
       "endAyahNo": 9,
@@ -7556,6 +8187,7 @@
     {
       "importId": "ADD-20261004-0630",
       "surahNo": 91,
+      "surahName": "الشمس",
       "ayahNo": 9,
       "endSurahNo": 92,
       "endAyahNo": 17,
@@ -7568,6 +8200,7 @@
     {
       "importId": "ADD-20261004-0631",
       "surahNo": 92,
+      "surahName": "الليل",
       "ayahNo": 11,
       "endSurahNo": 93,
       "endAyahNo": 11,
@@ -7580,6 +8213,7 @@
     {
       "importId": "ADD-20261004-0632",
       "surahNo": 93,
+      "surahName": "الضحى",
       "ayahNo": 1,
       "endSurahNo": 95,
       "endAyahNo": 5,
@@ -7592,6 +8226,7 @@
     {
       "importId": "ADD-20261004-0633",
       "surahNo": 96,
+      "surahName": "العلق",
       "ayahNo": 1,
       "endSurahNo": 97,
       "endAyahNo": 4,
@@ -7604,6 +8239,7 @@
     {
       "importId": "ADD-20261004-0634",
       "surahNo": 98,
+      "surahName": "البينة",
       "ayahNo": 6,
       "endSurahNo": 100,
       "endAyahNo": 3,
@@ -7616,6 +8252,7 @@
     {
       "importId": "ADD-20261004-0635",
       "surahNo": 99,
+      "surahName": "الزلزلة",
       "ayahNo": 1,
       "endSurahNo": 101,
       "endAyahNo": 4,
@@ -7628,6 +8265,7 @@
     {
       "importId": "ADD-20261004-0636",
       "surahNo": 101,
+      "surahName": "القارعة",
       "ayahNo": 1,
       "endSurahNo": 103,
       "endAyahNo": 3,
