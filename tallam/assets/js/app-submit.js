@@ -12,12 +12,19 @@ function fileInputLabel(input) {
 
 function friendlySubmissionError(error, label = "أحد المرفقات") {
   const cache = window.TallamFileCache;
-  if (cache?.friendlyError) return cache.friendlyError(error, label);
   const name = String(error?.name || "");
-  const message = String(error?.message || error || "");
-  if (/NotReadableError|SecurityError/i.test(name)
-    || /requested file could not be read|permission problems|permission denied|file could not be read/i.test(message)) {
+  const message = String(error?.message || error || "").trim();
+  const fileReadFailure = /NotReadableError|SecurityError/i.test(name)
+    || /requested file could not be read|permission problems|permission denied|file could not be read|invalid state/i.test(message);
+
+  // لا نحول أخطاء الخادم والتحقق إلى رسالة مرفقات؛ استخدم معالج الملفات فقط
+  // عندما يكون الخطأ فعلاً متعلقًا بقراءة الملف من الجهاز.
+  if (fileReadFailure && cache?.friendlyError) return cache.friendlyError(error, label);
+  if (fileReadFailure) {
     return `انتهت صلاحية الوصول إلى ${label} في الهاتف. أعد اختيار الملف من تطبيق «ملفاتي» أو «الصور» ثم أرسل الطلب دون إغلاق الصفحة.`;
+  }
+  if (/failed to fetch|networkerror|network request failed|load failed/i.test(message)) {
+    return "تعذر الاتصال بخدمة حفظ الطلب. تحقق من الاتصال بالإنترنت ثم حاول مجددًا دون إعادة تعبئة البيانات.";
   }
   return message || "حدث خطأ غير متوقع أثناء إرسال الطلب.";
 }
@@ -46,7 +53,7 @@ async function buildPayload() {
   const data = new FormData();
   const textNames = [
     "registration_type", "branch", "full_name", "identity_type", "identity_expiry", "nationality", "gender", "birth_place_date",
-    "qualification", "specialization", "workplace", "job_title", "mosque", "period", "circle_type", "phone", "city", "region",
+    "qualification", "specialization", "workplace", "educational_entity", "job_title", "mosque", "period", "circle_type", "phone", "city", "region",
     "district", "street", "building_number", "apartment_number", "twitter", "facebook", "email", "bank", "account_holder",
     "quran_memorization", "has_sanad", "has_madaniyah", "has_nooraniyah", "experience_years", "reading_narration", "previous_entities"
   ];
@@ -59,7 +66,7 @@ async function buildPayload() {
   appendText(data, "declaration_accepted", "true");
   appendText(data, "privacy_accepted", "true");
   appendText(data, "started_at", startedAt);
-  appendText(data, "form_version", "5.0.0-final-review-consent");
+  appendText(data, "form_version", "5.0.1-educational-entity-submit-fix");
   appendText(data, "client_timezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Riyadh");
   appendText(data, "website", fieldValue("website"));
 
