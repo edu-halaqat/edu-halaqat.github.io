@@ -120,7 +120,7 @@
         </form>
       </div>
 
-      <div class="form-nav edit-actions" id="editActions">
+      <div class="form-nav edit-actions" id="editActions" hidden>
         <a class="btn btn-secondary" href="./">العودة إلى بوابة التسجيل</a>
         <button id="submitBtn" class="btn btn-primary" type="submit" form="editForm">إعادة إرسال الطلب للاعتماد</button>
       </div>
@@ -183,7 +183,7 @@ async function load(){
     const x=existing[n];
     return '<div class="field third file-card edit-file-card"><label for="file_'+n+'">'+esc(l)+'</label><div class="file-list edit-current-file">'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</div>'+(x&&x.signed_url?'<a class="edit-file-link" href="'+esc(x.signed_url)+'" target="_blank" rel="noopener">عرض المرفق الحالي</a>':'')+'<input id="file_'+n+'" name="'+n+'" type="file"></div>';
   }).join("");
-  loading.hidden=true;form.hidden=false;
+  loading.hidden=true;form.hidden=false;document.getElementById("editActions").hidden=false;
  }catch(e){loading.hidden=true;show(e.message||"تعذر تحميل الطلب.");}
 }
 form.addEventListener("submit",async e=>{
@@ -194,7 +194,7 @@ form.addEventListener("submit",async e=>{
   const r=await fetch(ENDPOINT,{method:"POST",body:fd});
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.message||"تعذر إعادة إرسال الطلب.");
-  form.hidden=true;
+  form.hidden=true;document.getElementById("editActions").hidden=true;
   show("تم إعادة إرسال الطلب رقم "+(j.reference_number||"")+" للاعتماد بنجاح. لا حاجة إلى تقديم طلب جديد.","success");
  }catch(e){show(e.message||"تعذر إعادة إرسال الطلب.");}
  finally{btn.disabled=false;btn.textContent="إعادة إرسال الطلب للاعتماد";}
