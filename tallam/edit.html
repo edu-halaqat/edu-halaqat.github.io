@@ -1,54 +1,139 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>تعديل طلب التقديم | جمعية تعلّم</title>
-<style>
-:root{--primary:#00808A;--gold:#D8BD88;--bg:#f6f8f8;--text:#173235;--muted:#66777a;--danger:#a33}
-*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
-.wrap{max-width:980px;margin:auto;padding:20px}.card{background:#fff;border-radius:18px;box-shadow:0 8px 30px #00000012;padding:22px;margin:18px 0}
-h1{font-size:1.7rem;margin:0 0 8px;color:var(--primary)}h2{font-size:1.15rem;margin:0 0 14px}.lead{color:var(--muted);line-height:1.8}
-.notice{border-right:5px solid var(--gold);background:#fff9ed;padding:14px 16px;border-radius:12px;white-space:pre-wrap;line-height:1.9}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}
-label{font-weight:700;font-size:.92rem}input,select,textarea{width:100%;border:1px solid #ccd6d7;border-radius:10px;padding:11px 12px;font:inherit;background:#fff}textarea{min-height:100px}
-input:focus,select:focus,textarea:focus{outline:2px solid #00808a22;border-color:var(--primary)}
-.attach{border:1px solid #dfe6e7;border-radius:12px;padding:12px}.attach small{display:block;color:var(--muted);margin:5px 0}.attach a{color:var(--primary)}
-.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start}.btn{border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;cursor:pointer}.btn-primary{background:var(--primary);color:#fff}.btn:disabled{opacity:.6;cursor:not-allowed}
-.msg{display:none;margin:14px 0;padding:13px 15px;border-radius:10px}.msg.show{display:block}.msg.error{background:#fff0f0;color:#8a1f1f}.msg.success{background:#eaf9f1;color:#17623a}
-.meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:.9rem}.pill{background:#eef5f5;border-radius:999px;padding:6px 10px}
-.loading{text-align:center;padding:50px;color:var(--muted)}
-@media(max-width:700px){.wrap{padding:10px}.card{padding:16px;border-radius:14px}.grid{grid-template-columns:1fr}.field.full{grid-column:auto}h1{font-size:1.35rem}.btn{width:100%}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#006b69">
+  <meta name="description" content="تعديل طلب تسجيل معلم لدى جمعية تعلّم للقرآن وعلومه.">
+  <title>تعديل طلب التقديم | جمعية تعلّم</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/tallam-logo-v5.svg?v=20260825-2341">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alyamama:wght@300;400;500;600;700;800;900&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261004-edit-identity-v1">
+  <style>
+    .edit-shell{padding-top:34px}
+    .edit-card{overflow:visible}
+    .edit-card .form-head{border-radius:26px 26px 0 0}
+    .edit-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
+    .edit-intro-copy{max-width:760px}
+    .edit-intro .form-head h2{font-size:clamp(1.7rem,3vw,2.35rem)}
+    .edit-meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+    .edit-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 12px;font-size:.88rem}
+    .edit-pill b{font-family:monospace;font-size:.92rem}
+    .edit-pill-gold{background:rgba(213,170,109,.18);border-color:rgba(243,231,211,.45)}
+    .edit-body{padding-top:28px}
+    .edit-section{padding:0 0 28px;margin:0 0 28px;border-bottom:1px solid var(--line)}
+    .edit-section:last-of-type{border-bottom:0;margin-bottom:0}
+    .edit-section .section-title{margin-bottom:20px}
+    .edit-review-note{margin-bottom:0;white-space:pre-wrap;font-size:1rem;line-height:1.9}
+    .edit-review-note strong{display:block;color:var(--primary-dark);margin-bottom:4px}
+    .edit-current-file{min-height:25px}
+    .edit-file-link{display:inline-flex;align-items:center;justify-content:center;margin:4px 0 9px;color:var(--primary);font-weight:700;text-decoration:none;font-size:.86rem}
+    .edit-file-link:hover{text-decoration:underline}
+    .edit-file-card input[type=file]{margin-top:4px}
+    .edit-help{margin-bottom:18px}
+    .edit-actions{justify-content:space-between;align-items:center}
+    .edit-actions .btn{min-width:210px}
+    .edit-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:180px;color:var(--muted);font-weight:700}
+    .edit-spinner{width:28px;height:28px;border:3px solid #d6e7e4;border-top-color:var(--primary);border-radius:50%;animation:editSpin .8s linear infinite}
+    @keyframes editSpin{to{transform:rotate(360deg)}}
+    .msg{display:none;margin:0 0 22px;padding:14px 16px;border-radius:12px;font-weight:700}
+    .msg.show{display:block}
+    .msg.error{background:#fff1f0;color:var(--danger);border:1px solid #f3c4c0}
+    .msg.success{background:#ebf8f2;color:var(--success);border:1px solid #bee5d5}
+    .field input,.field select,.field textarea{font-family:"Alyamama","Tahoma","Arial",sans-serif}
+    #fields .field.full{grid-column:1/-1}
+    @media(max-width:680px){
+      .edit-shell{padding-top:18px}
+      .edit-intro{gap:10px}
+      .edit-meta{margin-top:12px}
+      .edit-pill{font-size:.8rem}
+      .edit-body{padding-top:20px}
+      .edit-section{padding-bottom:22px;margin-bottom:22px}
+      .edit-actions{position:sticky;bottom:0;z-index:10;background:#fbfdfc}
+      .edit-actions .btn{width:100%;min-width:0}
+    }
+  </style>
 </head>
-<body>
-<main class="wrap">
-  <section class="card">
-    <h1>تعديل طلب التقديم</h1>
-    <p class="lead">يمكنك تعديل نفس الطلب وفق ملاحظات الجمعية ثم إعادة إرساله للاعتماد. لن يُنشأ طلب جديد، وسيبقى رقم الطلب كما هو.</p>
-    <div id="meta" class="meta"></div>
-  </section>
-  <div id="message" class="msg"></div>
-  <div id="loading" class="card loading">جارٍ تحميل بيانات الطلب…</div>
-  <form id="editForm" hidden>
-    <section class="card">
-      <h2>ملاحظات المراجعة</h2>
-      <div id="notes" class="notice"></div>
+<body data-build="20261004-edit-identity-v1">
+  <div class="topbar">جمعية تعلّم للقرآن وعلومه ـ فرع المدينة المنورة</div>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="الصفحة الرئيسية">
+        <img src="assets/img/tallam-logo-v5.svg?v=20260825-2341" alt="شعار جمعية تعلّم">
+        <span class="brand-copy">
+          <strong>بوابة تسجيل المعلمين</strong>
+          <span>استقبال بيانات المعلمين ومرفقاتهم إلكترونيًا</span>
+        </span>
+      </a>
+      <nav class="header-actions" aria-label="روابط مساندة">
+        <a class="pill-link" href="privacy.html">سياسة الخصوصية</a>
+        <a class="pill-link" href="admin/">لوحة الإدارة</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-shell edit-shell">
+    <section class="form-card edit-card" aria-labelledby="editTitle">
+      <div class="form-head">
+        <div class="edit-intro">
+          <div class="edit-intro-copy">
+            <h2 id="editTitle">تعديل طلب التقديم</h2>
+            <p>يمكنك تعديل نفس الطلب وفق ملاحظات الجمعية ثم إعادة إرساله للاعتماد. لن يُنشأ طلب جديد، وسيبقى رقم الطلب كما هو.</p>
+            <div id="meta" class="edit-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-body edit-body">
+        <div id="message" class="msg" role="alert" aria-live="polite"></div>
+
+        <div id="loading" class="edit-loading">
+          <span class="edit-spinner" aria-hidden="true"></span>
+          <span>جارٍ تحميل بيانات الطلب…</span>
+        </div>
+
+        <form id="editForm" hidden>
+          <section class="edit-section">
+            <h3 class="section-title"><span class="num">١</span> ملاحظات المراجعة</h3>
+            <div class="notice edit-review-note">
+              <strong>المطلوب استكماله قبل إعادة الإرسال</strong>
+              <span id="notes"></span>
+            </div>
+          </section>
+
+          <section class="edit-section">
+            <h3 class="section-title"><span class="num">٢</span> بيانات الطلب</h3>
+            <div id="fields" class="grid"></div>
+          </section>
+
+          <section class="edit-section">
+            <h3 class="section-title"><span class="num">٣</span> المرفقات</h3>
+            <div class="notice edit-help">
+              <strong style="display:block;color:var(--primary-dark);margin-bottom:5px">تحديث المرفقات عند الحاجة فقط</strong>
+              <span>لا يلزم إعادة رفع المرفقات الصحيحة. ارفع ملفًا جديدًا فقط إذا كانت ملاحظة الجمعية تتطلب استبداله.</span>
+            </div>
+            <div id="attachments" class="grid"></div>
+          </section>
+        </form>
+      </div>
+
+      <div class="form-nav edit-actions" id="editActions">
+        <a class="btn btn-secondary" href="./">العودة إلى بوابة التسجيل</a>
+        <button id="submitBtn" class="btn btn-primary" type="submit" form="editForm">إعادة إرسال الطلب للاعتماد</button>
+      </div>
     </section>
-    <section class="card">
-      <h2>بيانات الطلب</h2>
-      <div id="fields" class="grid"></div>
-    </section>
-    <section class="card">
-      <h2>المرفقات</h2>
-      <p class="lead">لا يلزم إعادة رفع المرفقات الصحيحة. ارفع ملفًا جديدًا فقط إذا كانت الملاحظة تتطلب استبداله.</p>
-      <div id="attachments" class="grid"></div>
-    </section>
-    <section class="card">
-      <div class="actions"><button id="submitBtn" class="btn btn-primary" type="submit">إعادة إرسال الطلب للاعتماد</button></div>
-    </section>
-  </form>
-</main>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div><strong>جمعية تعلّم للقرآن وعلومه</strong><br><span>فرع المدينة المنورة ـ بوابة تسجيل المعلمين</span></div>
+      <div><a href="privacy.html">سياسة الخصوصية</a> · <a href="admin/">لوحة الإدارة</a></div>
+    </div>
+  </footer>
+
 <script>
 (() => {
 "use strict";
@@ -88,7 +173,7 @@ async function load(){
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.message||"تعذر تحميل الطلب.");
   const a=j.application||{};
-  metaEl.innerHTML='<span class="pill">رقم الطلب: <b dir="ltr">'+esc(a.reference_number)+'</b></span><span class="pill">التعديل المطلوب من الجمعية</span>';
+  metaEl.innerHTML='<span class="edit-pill">رقم الطلب: <b dir="ltr">'+esc(a.reference_number)+'</b></span><span class="edit-pill edit-pill-gold">التعديل المطلوب من الجمعية</span>';
   notesEl.textContent=a.revision_notes||"يرجى مراجعة الطلب وتحديث البيانات المطلوبة.";
   fieldsEl.innerHTML=textFields.map(x=>fieldHtml(...x)).join("")+boolFields.map(([n,l])=>'<div class="field"><label>'+esc(l)+'</label><select name="'+n+'" id="f_'+n+'"><option value="true">نعم</option><option value="false">لا</option></select></div>').join("");
   for(const [n] of textFields){const el=document.getElementById("f_"+n);if(el)el.value=(n==="educational_entity" ? (a[n]||"لا توجد") : (a[n]??""));}
@@ -96,7 +181,7 @@ async function load(){
   const existing=Object.fromEntries((a.attachments||[]).map(x=>[x.field,x]));
   attachEl.innerHTML=Object.entries(fileLabels).map(([n,l])=>{
     const x=existing[n];
-    return '<div class="attach"><label for="file_'+n+'">'+esc(l)+'</label><small>'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</small>'+(x&&x.signed_url?'<a href="'+esc(x.signed_url)+'" target="_blank" rel="noopener">عرض المرفق الحالي</a>':'')+'<input id="file_'+n+'" name="'+n+'" type="file"></div>';
+    return '<div class="field third file-card edit-file-card"><label for="file_'+n+'">'+esc(l)+'</label><div class="file-list edit-current-file">'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</div>'+(x&&x.signed_url?'<a class="edit-file-link" href="'+esc(x.signed_url)+'" target="_blank" rel="noopener">عرض المرفق الحالي</a>':'')+'<input id="file_'+n+'" name="'+n+'" type="file"></div>';
   }).join("");
   loading.hidden=true;form.hidden=false;
  }catch(e){loading.hidden=true;show(e.message||"تعذر تحميل الطلب.");}
