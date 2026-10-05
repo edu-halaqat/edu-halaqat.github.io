@@ -15,13 +15,19 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      REQUEST_RELEASE: 20261005-requests-hardening-v2
+      EDIT_RELEASE: 20261005-edit-network-v3
+      REVISION_URL: https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision
+      SUBMIT_URL: https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/submit-teacher-application
+      TEMPLATE_URL: https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template
     steps:
       - uses: actions/checkout@v4
-      - name: Verify manual ministry form flow
+
+      - name: Validate portal JavaScript and release wiring
         shell: bash
         run: |
           set -euo pipefail
-          BUILD='20260902-manual-ministry-form-v1'
           node --check tallam/admin/admin.js
           node --check tallam/assets/js/bootstrap.js
           node --check tallam/assets/js/app-core.js
@@ -30,16 +36,26 @@ jobs:
           node --check tallam/assets/js/file-cache.js
           node --check tallam/assets/js/file-readiness-bridge.js
 
-          grep -Fq "$BUILD" tallam/index.html
-          grep -Fq "$BUILD" tallam/assets/js/bootstrap.js
-          grep -Fq "$BUILD" tallam/assets/js/form-readiness-v2.js
-          grep -Fq 'ministry_form_filled' tallam/assets/fragments/application-2.html
-          grep -Fq 'ministry-form-template' tallam/assets/fragments/application-2.html
-          grep -Fq 'ministry_form_filled' tallam/assets/js/app-submit.js
-          ! grep -Fq 'ministry_form_preview' tallam/assets/js/app-submit.js
-          ! grep -Fq 'TallamMinistryPreviewRenderer' tallam/assets/js/bootstrap.js
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('tallam/edit.html').read_text(encoding='utf-8')
+          start = html.rfind('<script>') + len('<script>')
+          end = html.rfind('</script>')
+          assert start >= len('<script>') and end > start
+          Path('/tmp/tallam-edit-inline.js').write_text(html[start:end], encoding='utf-8')
+          PY
+          node --check /tmp/tallam-edit-inline.js
 
-          python3 <<'PY'
+          grep -Fq "bootstrap.js?v=${REQUEST_RELEASE}" tallam/index.html
+          grep -Fq "const RELEASE = \"${REQUEST_RELEASE}\"" tallam/assets/js/bootstrap.js
+          grep -Fq "data-build=\"${EDIT_RELEASE}\"" tallam/edit.html
+          grep -Fq "file-cache.js?v=${EDIT_RELEASE}" tallam/edit.html
+          grep -Fq 'document.getElementById("teacherForm") || document.getElementById("editForm")' tallam/assets/js/file-cache.js
+          grep -Fq '"educational_entity"' tallam/assets/js/app-submit.js
+          grep -Fq 'attempts:4' tallam/edit.html
+          ! grep -Fq '>Failed to fetch<' tallam/edit.html
+
+          python3 - <<'PY'
           from pathlib import Path
           import re
           html = Path('tallam/assets/fragments/application-2.html').read_text(encoding='utf-8')
@@ -48,9 +64,36 @@ jobs:
               assert item and ' required' not in item.group(0)
           ministry = re.search(r'<input[^>]+name="ministry_form_filled"[^>]*>', html)
           assert ministry and ' required' in ministry.group(0)
+          edit = Path('tallam/edit.html').read_text(encoding='utf-8')
+          assert 'المرفق الحالي' in edit
+          assert 'إعادة المحاولة' in edit
+          assert 'تعذر الاتصال بخدمة' in edit
           PY
 
-          curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
-            'https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template' \
-            -o /tmp/ministry-template.docx
+      - name: Verify Edge Function HTTP contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(printf 'a%.0s' {1..64})"
+
+          status="$(curl --silent --show-error --location --max-time 20             -o /tmp/revision-invalid.json -w '%{http_code}'             "${REVISION_URL}?t=${TOKEN}")"
+          test "$status" = "401"
+          grep -Eq 'رابط التعديل غير صالح|رابط التعديل غير صالح أو تم استبداله' /tmp/revision-invalid.json
+
+          status="$(curl --silent --show-error --location --max-time 20             -o /tmp/submit-invalid.json -w '%{http_code}'             -X POST -F 'probe=1' "${SUBMIT_URL}")"
+          test "$status" = "422"
+          grep -Fq 'الحقل المطلوب غير مكتمل' /tmp/submit-invalid.json
+
+          curl --silent --show-error --location --max-time 20 -D /tmp/revision-options.headers -o /tmp/revision-options.body             -X OPTIONS -H 'Origin: https://teachers.tallam.sa' "${REVISION_URL}"
+          grep -Fiq 'access-control-allow-origin: https://teachers.tallam.sa' /tmp/revision-options.headers
+
+          curl --silent --show-error --location --max-time 20 -D /tmp/submit-options.headers -o /tmp/submit-options.body             -X OPTIONS -H 'Origin: https://teachers.tallam.sa' "${SUBMIT_URL}"
+          grep -Fiq 'access-control-allow-origin: https://teachers.tallam.sa' /tmp/submit-options.headers
+
+      - name: Verify ministry form template
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 --retry-all-errors             "${TEMPLATE_URL}" -o /tmp/ministry-template.docx
+          test "$(stat -c%s /tmp/ministry-template.docx)" -gt 10000
           unzip -t /tmp/ministry-template.docx >/dev/null
