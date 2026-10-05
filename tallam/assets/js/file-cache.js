@@ -4,7 +4,7 @@
   const CACHE_BUILD = "20260831-mobile-provider-v4";
   const CAPTURE_TIMEOUT_MS = 90000;
   const IMAGE_TIMEOUT_MS = 30000;
-  const form = document.getElementById("teacherForm");
+  const form = document.getElementById("teacherForm") || document.getElementById("editForm");
   const inputRecords = new WeakMap();
   const fileRecords = new WeakMap();
 
