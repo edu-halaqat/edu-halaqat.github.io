@@ -1039,8 +1039,25 @@ async function testsPage(root){
     if(mode==='ayah_range')return inLex(q,syllabus.fromSurahNo,syllabus.fromAyahNo,syllabus.toSurahNo||syllabus.fromSurahNo,syllabus.toAyahNo||syllabus.fromAyahNo);
     return false;
   });
-  pool=pool.map(x=>({x,k:Math.random()})).sort((a,b)=>a.k-b.k).map(o=>o.x);
-  const chosen=pool.slice(0,count);
+  const modelKey=q=>String(Number(q.surah_no)).padStart(3,'0')+':'+String(Number(q.ayah_no)).padStart(3,'0');
+  const parseModelKeys=keys=>(keys||[]).map(k=>{const [s,a]=String(k).split(':').map(Number);return bank.find(q=>Number(q.surah_no)===s&&Number(q.ayah_no)===a)}).filter(Boolean);
+  const reserveModel=qs=>rpc('reserve_exam_model_signature',{p_schedule_id:d.id,p_questions:qs.map(q=>({surahNo:Number(q.surah_no),ayahNo:Number(q.ayah_no)}))});
+  const shuffled=xs=>xs.map(x=>({x,k:crypto.getRandomValues(new Uint32Array(1))[0]})).sort((a,b)=>a.k-b.k).map(o=>o.x);
+  let chosen=[],modelReservation=null;
+  if(pool.length>=count){
+    for(let attempt=0;attempt<80;attempt++){
+      const candidate=shuffled(pool).slice(0,count),res=await reserveModel(candidate);
+      if(res?.reused){
+        const prior=parseModelKeys(res.questionKeys);
+        if(prior.length!==count)throw Error('تعذر استعادة نموذج الأسئلة المثبت لهذا الموعد.');
+        chosen=prior;modelReservation=res;break;
+      }
+      if(res?.reserved){chosen=candidate;modelReservation=res;break}
+    }
+    if(chosen.length!==count)throw Error('تعذر توليد نموذج جديد غير مكرر بعد محاولات متعددة؛ وسّع المقرر أو أضف أسئلة للبنك.');
+  }else{
+    chosen=shuffled(pool).slice(0,count);
+  }
   m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p>${chosen.length<count?'<p class="sl-rule-note">البنك أعطى '+chosen.length+' من '+count+' أسئلة ضمن هذا المقرر؛ أكمل المواضع الباقية يدويًا.</p>':''}<div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
   const form=m.querySelector('form'),boxes=[];
   for(let i=0;i<count;i++){
@@ -1053,7 +1070,17 @@ async function testsPage(root){
       try{const rg=await rpc('quran_question_range',{p_surah_no:Number(bankQ.surah_no),p_ayah_no:Number(bankQ.ayah_no),p_lines:Math.min(lines,Number(bankQ.max_lines||10))}),to=rg?.to||{};q.dataset.endSurah=String(to.surahNo||'');q.dataset.endAyah=String(to.ayahNo||'');q.querySelector('[data-question-range]').innerHTML='<b>النطاق المعتمد:</b> '+esc(bankQ.label||('سورة '+bankQ.surah_no+' آية '+bankQ.ayah_no))+' ← '+esc(to.surahName||to.surah||'')+' '+esc(to.ayahNo||'')+' · '+esc(rg.lineCount||lines)+' أسطر كحد أقصى.'}catch(e){q.querySelector('[data-question-range]').textContent='بداية السؤال من البنك؛ تعذر عرض النهاية الآن ويمكن متابعة الرصد.'}
     }
   }
-  submit(form,async()=>{const r=await rpc('complete_exam',{p_schedule_id:d.id,p_answers:boxes.map(q=>({surahNo:Number(val(q,'surah')),ayahNo:Number(val(q,'ayah')),endSurahNo:Number(q.dataset.endSurah||0)||null,endAyahNo:Number(q.dataset.endAyah||0)||null,bankId:q.dataset.bankId||null,errors:Number(val(q,'errors')),doubts:Number(val(q,'doubts')),tajweed:Number(val(q,'tajweed'))})),p_notes:val(form,'notes')});m.innerHTML=`<h3>حُفظت النتيجة</h3><p>الحفظ: ${esc(r.scores.memorization)} / 80 — التجويد: ${esc(r.scores.tajweed)} / 20 — المجموع: ${esc(r.scores.total)} / 100</p><p>رمز الاستعلام: ${esc(r.publicCode||'—')}</p>`;await load()})
+  submit(form,async()=>{
+    const answers=boxes.map(q=>({surahNo:Number(val(q,'surah')),ayahNo:Number(val(q,'ayah')),endSurahNo:Number(q.dataset.endSurah||0)||null,endAyahNo:Number(q.dataset.endAyah||0)||null,bankId:q.dataset.bankId||null,errors:Number(val(q,'errors')),doubts:Number(val(q,'doubts')),tajweed:Number(val(q,'tajweed'))}));
+    const submittedKeys=answers.map(q=>String(q.surahNo).padStart(3,'0')+':'+String(q.ayahNo).padStart(3,'0')).sort();
+    if(new Set(submittedKeys).size!==answers.length)throw Error('لا يمكن تكرار بداية السؤال داخل النموذج نفسه.');
+    const reservation=await rpc('reserve_exam_model_signature',{p_schedule_id:d.id,p_questions:answers.map(q=>({surahNo:q.surahNo,ayahNo:q.ayahNo}))});
+    if(!reservation?.reserved)throw Error('هذه التركيبة من الأسئلة استُخدمت سابقًا؛ غيّر سؤالًا واحدًا على الأقل.');
+    const lockedKeys=(reservation.questionKeys||[]).map(String).sort();
+    if(reservation.reused&&JSON.stringify(lockedKeys)!==JSON.stringify(submittedKeys))throw Error('تم تثبيت نموذج مختلف لهذا الموعد؛ أعد فتح الاختبار لاستعادة الأسئلة المعتمدة.');
+    const r=await rpc('complete_exam',{p_schedule_id:d.id,p_answers:answers,p_notes:val(form,'notes')});
+    m.innerHTML=`<h3>حُفظت النتيجة</h3><p>الحفظ: ${esc(r.scores.memorization)} / 80 — التجويد: ${esc(r.scores.tajweed)} / 20 — المجموع: ${esc(r.scores.total)} / 100</p><p>رمز الاستعلام: ${esc(r.publicCode||'—')}</p>`;await load()
+  })
  };
  if(canSchedule)action(root,root.querySelector('[data-action="new"]'),()=>{const m=modal('جدولة اختبار مباشرة');m.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المختبر (اختياري إذا سيجريه المشرف)','examiner',examiners.map(s=>({id:s.id,name:s.full_name})))}${field('الموعد بتوقيت السعودية','when','datetime-local','','required')}${select('نوع الاختبار','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="10" required')}</div><button type="submit" class="button button-primary">حفظ الموعد</button></form>`;const form=m.querySelector('form');submit(form,async()=>{const s=students.find(x=>x.id===val(form,'student')),ex=examiners.find(x=>x.id===val(form,'examiner'));if(!s)throw Error('اختر الطالب');if(ex&&ex.complex_id!==s.complex_id)throw Error('المختبر لا يتبع مجمع الطالب.');await result(sb().from('exam_schedules').insert({id:crypto.randomUUID(),student_id:s.id,student_name:s.full_name,teacher_id:s.teacher_id,teacher_name:s.teacher_name,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,assigned_examiner_id:ex?.id||null,type:val(form,'type'),syllabus_label:val(form,'syllabus'),syllabus:{questionCount:Number(val(form,'count'))},scheduled_at:new Date(val(form,'when')+':00+03:00').toISOString(),status:'scheduled'}).select('id').single());m.closest('dialog').close();await load();msg(root,'حُفظ موعد الاختبار، ويمكن للمشرف إجراء الاختبار مباشرة أو إسناده لمختبر.')})});
  action(root,root.querySelector('[data-action="reload"]'),load);
