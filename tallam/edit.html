@@ -5,12 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#006b69">
   <meta name="description" content="تعديل طلب تسجيل معلم لدى جمعية تعلّم للقرآن وعلومه.">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>تعديل طلب التقديم | جمعية تعلّم</title>
   <link rel="icon" type="image/svg+xml" href="assets/img/tallam-logo-v5.svg?v=20260825-2341">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alyamama:wght@300;400;500;600;700;800;900&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=20261004-edit-load-v2">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261005-edit-network-v3">
   <style>
     .edit-shell{padding-top:34px}
     .edit-card{overflow:visible}
@@ -43,6 +46,9 @@
     .msg.show{display:block}
     .msg.error{background:#fff1f0;color:var(--danger);border:1px solid #f3c4c0}
     .msg.success{background:#ebf8f2;color:var(--success);border:1px solid #bee5d5}
+    .msg .retry-btn{margin-top:10px;background:#fff;border:1px solid currentColor;border-radius:10px;padding:8px 15px;color:inherit;font:inherit;font-weight:800;cursor:pointer}
+    .edit-file-link{border:0;background:transparent;padding:0;cursor:pointer;font:inherit}
+    .edit-file-link:disabled{opacity:.55;cursor:wait}
     .field input,.field select,.field textarea{font-family:"Alyamama","Tahoma","Arial",sans-serif}
     #fields .field.full{grid-column:1/-1}
     @media(max-width:680px){
@@ -57,7 +63,7 @@
     }
   </style>
 </head>
-<body data-build="20261004-edit-load-v2">
+<body data-build="20261005-edit-network-v3">
   <div class="topbar">جمعية تعلّم للقرآن وعلومه ـ فرع المدينة المنورة</div>
 
   <header class="site-header">
@@ -93,7 +99,7 @@
 
         <div id="loading" class="edit-loading">
           <span class="edit-spinner" aria-hidden="true"></span>
-          <span>جارٍ تحميل بيانات الطلب…</span>
+          <span id="loadingText">جارٍ تحميل بيانات الطلب…</span>
         </div>
 
         <form id="editForm" hidden>
@@ -135,6 +141,7 @@
     </div>
   </footer>
 
+<script src="assets/js/file-cache.js?v=20261005-edit-network-v3"></script>
 <script>
 (() => {
 "use strict";
@@ -158,49 +165,207 @@ const fileLabels={
  recommendation_1:"التزكية الأولى",recommendation_2:"التزكية الثانية",quran_certificates:"شهادات حفظ القرآن",identity_document:"الهوية أو الإقامة",
  other_certificates:"الشهادات الأخرى",iban_document:"شهادة الآيبان"
 };
+const requiredText=new Set(["registration_type","branch","full_name","identity_number","identity_type","identity_expiry","nationality","gender","birth_place_date","qualification","specialization","workplace","educational_entity","job_title","mosque","period","circle_type","phone","mobile","city","region","district","street","building_number","apartment_number","twitter","facebook","email","iban","bank","account_holder","quran_memorization","experience_years"]);
+const fileAccepts={
+ personal_photo:"image/jpeg,image/png",
+ ministry_form_filled:".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf",
+ educational_certificate:"application/pdf,image/jpeg,image/png",
+ cv:"application/pdf",
+ recommendation_1:"application/pdf,image/jpeg,image/png",
+ recommendation_2:"application/pdf,image/jpeg,image/png",
+ quran_certificates:"application/pdf,image/jpeg,image/png",
+ identity_document:"application/pdf,image/jpeg,image/png",
+ other_certificates:"application/pdf,image/jpeg,image/png",
+ iban_document:"application/pdf,image/jpeg,image/png"
+};
+const loadingText=document.getElementById("loadingText");
+const editActions=document.getElementById("editActions");
+let loaded=false;
+let loadingNow=false;
+
 function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
-function show(text,type="error"){msg.textContent=text;msg.className="msg show "+type;window.scrollTo({top:0,behavior:"smooth"});}
+function clearMessage(){msg.textContent="";msg.className="msg";}
+function show(text,type="error"){msg.textContent=text;msg.className="msg show "+type;msg.scrollIntoView({behavior:"smooth",block:"center"});}
+function showRetry(text){
+ msg.innerHTML='<div>'+esc(text)+'</div><button type="button" class="retry-btn" id="retryLoadBtn">إعادة المحاولة</button>';
+ msg.className="msg show error";
+ document.getElementById("retryLoadBtn")?.addEventListener("click",()=>load(true),{once:true});
+ msg.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function isNetworkError(error){
+ const name=String(error?.name||"");
+ const message=String(error?.message||error||"");
+ return name==="AbortError"||/failed to fetch|networkerror|network request failed|load failed|timeout|timed out/i.test(message);
+}
+function friendlyNetwork(action){
+ return navigator.onLine===false
+   ? "لا يوجد اتصال بالإنترنت حاليًا. أعد الاتصال ثم حاول مرة أخرى."
+   : "تعذر الاتصال بخدمة "+action+" مؤقتًا. تم حفظ الصفحة كما هي؛ حاول مرة أخرى بعد لحظات.";
+}
+async function fetchJson(url,options={},settings={}){
+ const attempts=Math.max(1,Number(settings.attempts||1));
+ const timeoutMs=Math.max(1000,Number(settings.timeoutMs||12000));
+ let lastError=null;
+ for(let attempt=1;attempt<=attempts;attempt+=1){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+   const response=await fetch(url,{cache:"no-store",...options,signal:controller.signal});
+   const body=await response.json().catch(()=>({}));
+   return {response,body};
+  }catch(error){
+   lastError=error;
+   if(attempt<attempts&&isNetworkError(error)){
+    if(settings.loading&&loadingText) loadingText.textContent="تعذر الاتصال مؤقتًا؛ جارٍ إعادة المحاولة ("+(attempt+1)+" من "+attempts+")…";
+    await sleep(650*attempt);
+    continue;
+   }
+   throw error;
+  }finally{clearTimeout(timer);}
+ }
+ throw lastError||new Error("تعذر الاتصال بالخدمة.");
+}
 function fieldHtml(name,label,type){
  const id="f_"+name;
- if(type==="entity-select"){const opts=educationalEntities.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");return '<div class="field full"><label for="'+id+'">'+esc(label)+'</label><select id="'+id+'" name="'+name+'" required>'+opts+'</select></div>';}
- if(type==="textarea") return '<div class="field full"><label for="'+id+'">'+esc(label)+'</label><textarea id="'+id+'" name="'+name+'"></textarea></div>';
- if(type&&type.startsWith("select:")){const opts=type.slice(7).split("|").map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><select id="'+id+'" name="'+name+'">'+opts+'</select></div>';}
- return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><input id="'+id+'" name="'+name+'" type="'+esc(type||"text")+'"></div>';
+ const required=requiredText.has(name)?" required":"";
+ if(type==="entity-select"){
+  const opts=educationalEntities.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
+  return '<div class="field full"><label for="'+id+'">'+esc(label)+'</label><select id="'+id+'" name="'+name+'"'+required+'>'+opts+'</select></div>';
+ }
+ if(type==="textarea") return '<div class="field full"><label for="'+id+'">'+esc(label)+'</label><textarea id="'+id+'" name="'+name+'"'+required+'></textarea></div>';
+ if(type&&type.startsWith("select:")){
+  const opts=type.slice(7).split("|").map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
+  return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><select id="'+id+'" name="'+name+'"'+required+'>'+opts+'</select></div>';
+ }
+ const extra=name==="mobile"||name==="phone"?' inputmode="tel"':name==="iban"?' dir="ltr"':"";
+ return '<div class="field"><label for="'+id+'">'+esc(label)+'</label><input id="'+id+'" name="'+name+'" type="'+esc(type||"text")+'"'+required+extra+'></div>';
 }
-async function load(){
+function renderApplication(a){
+ metaEl.innerHTML='<span class="edit-pill">رقم الطلب: <b dir="ltr">'+esc(a.reference_number)+'</b></span><span class="edit-pill edit-pill-gold">التعديل المطلوب من الجمعية</span>';
+ notesEl.textContent=a.revision_notes||"يرجى مراجعة الطلب وتحديث البيانات المطلوبة.";
+ fieldsEl.innerHTML=textFields.map(x=>fieldHtml(...x)).join("")+boolFields.map(([n,l])=>'<div class="field"><label>'+esc(l)+'</label><select name="'+n+'" id="f_'+n+'" required><option value="true">نعم</option><option value="false">لا</option></select></div>').join("");
+ for(const [n] of textFields){
+  const el=document.getElementById("f_"+n);
+  if(el) el.value=(n==="educational_entity"?(a[n]||"لا توجد"):(a[n]??""));
+ }
+ for(const [n] of boolFields){
+  const el=document.getElementById("f_"+n);
+  if(el) el.value=a[n]===true?"true":"false";
+ }
+ const existing=Object.fromEntries((a.attachments||[]).map(x=>[x.field,x]));
+ attachEl.innerHTML=Object.entries(fileLabels).map(([n,l])=>{
+  const x=existing[n];
+  const view=x?'<button type="button" class="edit-file-link" data-attachment="'+esc(n)+'">عرض المرفق الحالي</button>':"";
+  const accept=fileAccepts[n]?' accept="'+esc(fileAccepts[n])+'"':"";
+  return '<div class="field third file-card edit-file-card"><label for="file_'+n+'">'+esc(l)+'</label><div class="file-list edit-current-file">'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</div>'+view+'<input id="file_'+n+'" name="'+n+'" type="file"'+accept+'></div>';
+ }).join("");
+}
+async function load(force=false){
+ if(loadingNow) return;
+ loadingNow=true;
+ loaded=false;
+ clearMessage();
+ form.hidden=true;
+ editActions.hidden=true;
+ loading.hidden=false;
+ if(loadingText) loadingText.textContent=force?"جارٍ إعادة الاتصال وتحميل بيانات الطلب…":"جارٍ تحميل بيانات الطلب…";
  try{
   if(!/^[a-f0-9]{64}$/i.test(token)) throw new Error("رابط التعديل غير صحيح.");
-  const r=await fetch(ENDPOINT+"?t="+encodeURIComponent(token),{headers:{accept:"application/json"}});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(j.message||"تعذر تحميل الطلب.");
-  const a=j.application||{};
-  metaEl.innerHTML='<span class="edit-pill">رقم الطلب: <b dir="ltr">'+esc(a.reference_number)+'</b></span><span class="edit-pill edit-pill-gold">التعديل المطلوب من الجمعية</span>';
-  notesEl.textContent=a.revision_notes||"يرجى مراجعة الطلب وتحديث البيانات المطلوبة.";
-  fieldsEl.innerHTML=textFields.map(x=>fieldHtml(...x)).join("")+boolFields.map(([n,l])=>'<div class="field"><label>'+esc(l)+'</label><select name="'+n+'" id="f_'+n+'"><option value="true">نعم</option><option value="false">لا</option></select></div>').join("");
-  for(const [n] of textFields){const el=document.getElementById("f_"+n);if(el)el.value=(n==="educational_entity" ? (a[n]||"لا توجد") : (a[n]??""));}
-  for(const [n] of boolFields){const el=document.getElementById("f_"+n);if(el)el.value=a[n]===true?"true":"false";}
-  const existing=Object.fromEntries((a.attachments||[]).map(x=>[x.field,x]));
-  attachEl.innerHTML=Object.entries(fileLabels).map(([n,l])=>{
-    const x=existing[n];
-    return '<div class="field third file-card edit-file-card"><label for="file_'+n+'">'+esc(l)+'</label><div class="file-list edit-current-file">'+(x?'المرفق الحالي: '+esc(x.original_name||"ملف"):'لا يوجد مرفق حالي')+'</div>'+(x&&x.signed_url?'<a class="edit-file-link" href="'+esc(x.signed_url)+'" target="_blank" rel="noopener">عرض المرفق الحالي</a>':'')+'<input id="file_'+n+'" name="'+n+'" type="file"></div>';
-  }).join("");
-  loading.hidden=true;form.hidden=false;document.getElementById("editActions").hidden=false;
- }catch(e){loading.hidden=true;show(e.message||"تعذر تحميل الطلب.");}
+  const {response,body}=await fetchJson(
+   ENDPOINT+"?t="+encodeURIComponent(token)+"&_="+Date.now(),
+   {headers:{accept:"application/json"}},
+   {attempts:4,timeoutMs:12000,loading:true}
+  );
+  if(!response.ok) throw new Error(body.message||"تعذر تحميل الطلب.");
+  renderApplication(body.application||{});
+  loading.hidden=true;
+  form.hidden=false;
+  editActions.hidden=false;
+  loaded=true;
+ }catch(error){
+  loading.hidden=true;
+  if(isNetworkError(error)) showRetry(friendlyNetwork("تحميل بيانات الطلب"));
+  else show(error?.message||"تعذر تحميل الطلب.");
+ }finally{
+  loadingNow=false;
+ }
 }
-form.addEventListener("submit",async e=>{
- e.preventDefault();msg.className="msg";
- const btn=document.getElementById("submitBtn");btn.disabled=true;btn.textContent="جارٍ إعادة الإرسال…";
+async function buildRevisionPayload(){
+ const cache=window.TallamFileCache;
+ if(cache?.captureAll) await cache.captureAll(form);
+ const data=new FormData(form);
+ if(cache?.getInputFile){
+  for(const input of form.querySelectorAll('input[type="file"]')){
+   const source=input.files?.[0];
+   if(!source) continue;
+   const stable=await cache.getInputFile(input);
+   if(stable) data.set(input.name,stable,stable.name||source.name||input.name+".bin");
+  }
+ }
+ data.set("revision_token",token);
+ return data;
+}
+attachEl.addEventListener("click",async event=>{
+ const button=event.target.closest?.("[data-attachment]");
+ if(!button) return;
+ event.preventDefault();
+ const field=button.dataset.attachment||"";
+ const original=button.textContent;
+ const popup=window.open("about:blank","_blank");
+ button.disabled=true;
+ button.textContent="جارٍ فتح المرفق…";
  try{
-  const fd=new FormData(form);fd.set("revision_token",token);
-  const r=await fetch(ENDPOINT,{method:"POST",body:fd});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(j.message||"تعذر إعادة إرسال الطلب.");
-  form.hidden=true;document.getElementById("editActions").hidden=true;
-  show("تم إعادة إرسال الطلب رقم "+(j.reference_number||"")+" للاعتماد بنجاح. لا حاجة إلى تقديم طلب جديد.","success");
- }catch(e){show(e.message||"تعذر إعادة إرسال الطلب.");}
- finally{btn.disabled=false;btn.textContent="إعادة إرسال الطلب للاعتماد";}
+  const {response,body}=await fetchJson(
+   ENDPOINT+"?t="+encodeURIComponent(token)+"&attachment="+encodeURIComponent(field)+"&_="+Date.now(),
+   {headers:{accept:"application/json"}},
+   {attempts:2,timeoutMs:12000}
+  );
+  if(!response.ok||!body.signed_url) throw new Error(body.message||"تعذر فتح المرفق.");
+  if(popup) popup.location.replace(body.signed_url);
+  else window.location.assign(body.signed_url);
+ }catch(error){
+  try{popup?.close();}catch{}
+  show(isNetworkError(error)?friendlyNetwork("فتح المرفق"):(error?.message||"تعذر فتح المرفق."));
+ }finally{
+  button.disabled=false;
+  button.textContent=original;
+ }
 });
-load();
+form.addEventListener("submit",async event=>{
+ event.preventDefault();
+ clearMessage();
+ if(!form.reportValidity()) return;
+ const btn=document.getElementById("submitBtn");
+ btn.disabled=true;
+ btn.textContent="جارٍ تثبيت المرفقات…";
+ try{
+  const data=await buildRevisionPayload();
+  btn.textContent="جارٍ إعادة إرسال الطلب…";
+  const {response,body}=await fetchJson(
+   ENDPOINT,
+   {method:"POST",body:data},
+   {attempts:1,timeoutMs:180000}
+  );
+  if(!response.ok) throw new Error(body.message||"تعذر إعادة إرسال الطلب.");
+  form.hidden=true;
+  editActions.hidden=true;
+  show("تم إعادة إرسال الطلب رقم "+(body.reference_number||"")+" للاعتماد بنجاح. لا حاجة إلى تقديم طلب جديد.","success");
+ }catch(error){
+  if(isNetworkError(error)){
+   show("تعذر التأكد من نتيجة الإرسال بسبب انقطاع الاتصال. أعد فتح رابط التعديل للتحقق من حالة الطلب قبل محاولة الإرسال مرة أخرى.");
+  }else{
+   const cache=window.TallamFileCache;
+   const message=cache?.friendlyError?.(error,"أحد المرفقات")||error?.message||"تعذر إعادة إرسال الطلب.";
+   show(message);
+  }
+ }finally{
+  btn.disabled=false;
+  btn.textContent="إعادة إرسال الطلب للاعتماد";
+ }
+});
+window.addEventListener("online",()=>{if(!loaded&&!loadingNow) load(true);});
+load();load();
 })();
 </script>
 </body>
