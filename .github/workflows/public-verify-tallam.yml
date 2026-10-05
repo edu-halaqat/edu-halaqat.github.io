@@ -15,20 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: https://edu-halaqat.github.io/tallam
-      BUILD: 20260902-manual-ministry-form-v1
-      TEMPLATE_URL: https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/ministry-form-template
+      REQUEST_RELEASE: 20261005-requests-hardening-v2
+      EDIT_RELEASE: 20261005-edit-network-v3
+      REVISION_URL: https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision
     steps:
-      - name: Verify public manual ministry form release
+      - name: Verify deployed request and edit pages
         shell: bash
         run: |
           set -euo pipefail
           fetch_expected() {
             local url="$1" output="$2" expected="$3"
             for attempt in $(seq 1 36); do
-              if curl --fail --silent --show-error --location --max-time 30 \
-                -H 'Cache-Control: no-cache, no-store, must-revalidate' \
-                "${url}?v=${BUILD}&attempt=${attempt}" --output "$output" \
-                && test -s "$output" && grep -Fq "$expected" "$output"; then
+              if curl --fail --silent --show-error --location --max-time 30                 -H 'Cache-Control: no-cache, no-store, must-revalidate'                 "${url}?verify=${attempt}&ts=$(date +%s)" --output "$output"                 && test -s "$output" && grep -Fq "$expected" "$output"; then
                 return 0
               fi
               sleep 5
@@ -37,51 +35,43 @@ jobs:
           }
 
           mkdir -p /tmp/tallam-live
-          fetch_expected "${BASE_URL}/" /tmp/tallam-live/index.html "bootstrap.js?v=${BUILD}"
-          fetch_expected "${BASE_URL}/assets/fragments/application-2.html" /tmp/tallam-live/application-2.html "ministry_form_filled"
-          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "$BUILD"
-          fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live/submit.js "manual-ministry-form-v1"
-          fetch_expected "${BASE_URL}/assets/js/form-readiness-v2.js" /tmp/tallam-live/readiness.js "$BUILD"
-          fetch_expected "${BASE_URL}/admin/" /tmp/tallam-live/admin.html "admin.js?v=${BUILD}"
+          fetch_expected "${BASE_URL}/" /tmp/tallam-live/index.html "bootstrap.js?v=${REQUEST_RELEASE}"
+          fetch_expected "${BASE_URL}/assets/js/bootstrap.js" /tmp/tallam-live/bootstrap.js "${REQUEST_RELEASE}"
+          fetch_expected "${BASE_URL}/assets/js/file-cache.js" /tmp/tallam-live/file-cache.js 'document.getElementById("editForm")'
+          fetch_expected "${BASE_URL}/assets/js/app-submit.js" /tmp/tallam-live/app-submit.js '"educational_entity"'
+          fetch_expected "${BASE_URL}/edit.html" /tmp/tallam-live/edit.html "${EDIT_RELEASE}"
 
           node --check /tmp/tallam-live/bootstrap.js
-          node --check /tmp/tallam-live/submit.js
-          node --check /tmp/tallam-live/readiness.js
-          grep -Fq 'ministry-form-template' /tmp/tallam-live/application-2.html
-          grep -Fq 'ministry_form_filled' /tmp/tallam-live/submit.js
-          grep -Fq 'ministry_form_filled' /tmp/tallam-live/readiness.js
-          grep -Fq 'إرسال الطلب</button>' /tmp/tallam-live/application-2.html
-          ! grep -Fq 'TallamMinistryPreviewRenderer' /tmp/tallam-live/bootstrap.js
-          ! grep -Fq 'ministry_form_preview' /tmp/tallam-live/submit.js
-          ! grep -Fq 'regenerate.js?v=' /tmp/tallam-live/admin.html
-          ! grep -Fq 'archive.js?v=' /tmp/tallam-live/admin.html
+          node --check /tmp/tallam-live/file-cache.js
+          node --check /tmp/tallam-live/app-submit.js
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('/tmp/tallam-live/edit.html').read_text(encoding='utf-8')
+          start = html.rfind('<script>') + len('<script>')
+          end = html.rfind('</script>')
+          Path('/tmp/tallam-live/edit-inline.js').write_text(html[start:end], encoding='utf-8')
+          assert 'إعادة المحاولة' in html
+          assert 'attempts:4' in html
+          PY
+          node --check /tmp/tallam-live/edit-inline.js
 
-          curl --fail --silent --show-error --location --retry 4 --retry-all-errors "$TEMPLATE_URL" -o /tmp/tallam-live/ministry-template.docx
-          test "$(stat -c%s /tmp/tallam-live/ministry-template.docx)" -gt 10000
-          unzip -t /tmp/tallam-live/ministry-template.docx >/dev/null
-          unzip -l /tmp/tallam-live/ministry-template.docx | grep -Fq 'word/document.xml'
+          TOKEN="$(printf 'a%.0s' {1..64})"
+          status="$(curl --silent --show-error --location --max-time 20             -o /tmp/tallam-live/revision-invalid.json -w '%{http_code}'             "${REVISION_URL}?t=${TOKEN}")"
+          test "$status" = "401"
 
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME"
-          for attempt in $(seq 1 12); do
-            timeout 45s "$CHROME" --headless=new --disable-gpu --no-sandbox \
-              --virtual-time-budget=18000 --dump-dom \
-              "${BASE_URL}/?v=${BUILD}&browser_attempt=${attempt}" \
-              > /tmp/tallam-live/index-dom.html 2>/tmp/tallam-live/chrome-index.log || true
-            if grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html \
-              && grep -Fq 'name="ministry_form_filled"' /tmp/tallam-live/index-dom.html \
-              && grep -Fq 'تنزيل استمارة الشؤون الإسلامية' /tmp/tallam-live/index-dom.html; then
-              break
-            fi
-            sleep 5
+          for attempt in $(seq 1 8); do
+            timeout 45s "$CHROME" --headless=new --disable-gpu --no-sandbox               --virtual-time-budget=16000 --dump-dom               "${BASE_URL}/?verify_browser=${attempt}"               > /tmp/tallam-live/index-dom.html 2>/tmp/tallam-live/chrome-index.log || true
+            if grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html; then break; fi
+            sleep 4
           done
           grep -Fq 'data-portal-ready="true"' /tmp/tallam-live/index-dom.html
           grep -Fq 'name="ministry_form_filled"' /tmp/tallam-live/index-dom.html
-          grep -Fq 'تنزيل استمارة الشؤون الإسلامية' /tmp/tallam-live/index-dom.html
-          grep -Fq 'تزكية الشيخ الأول <small>(اختياري)</small>' /tmp/tallam-live/index-dom.html
-          grep -Fq 'تزكية الشيخ الثاني <small>(اختياري)</small>' /tmp/tallam-live/index-dom.html
-          ! grep -Fq 'id="downloadWord"' /tmp/tallam-live/index-dom.html
-          ! grep -Fq 'id="downloadPdf"' /tmp/tallam-live/index-dom.html
-          ! grep -Fq 'data-portal-ready="false"' /tmp/tallam-live/index-dom.html
+          grep -Fq 'name="educational_entity"' /tmp/tallam-live/index-dom.html
 
-          echo 'Public Tallam manual ministry form release verified successfully.'
+          timeout 35s "$CHROME" --headless=new --disable-gpu --no-sandbox             --virtual-time-budget=8000 --dump-dom             "${BASE_URL}/edit.html?t=bad&verify=$(date +%s)"             > /tmp/tallam-live/edit-dom.html 2>/tmp/tallam-live/chrome-edit.log || true
+          grep -Fq 'رابط التعديل غير صحيح' /tmp/tallam-live/edit-dom.html
+          ! grep -Fq 'Failed to fetch' /tmp/tallam-live/edit-dom.html
+
+          echo 'Deployed Tallam request and edit portals verified successfully.'
