@@ -638,6 +638,7 @@ async function plansPage(root){
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
  const week=[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']];
  const memUnits=[{id:'lines',name:'أسطر'},{id:'pages',name:'صفحات'},{id:'ayahs',name:'آيات'}];
+ const customMemUnits=[...memUnits,{id:'surahs',name:'سور'}];
  const recentUnits=[{id:'pages',name:'صفحات'},{id:'ayahs',name:'آيات'},{id:'surahs',name:'سور'}];
  const majorUnits=[{id:'quarter_hizb',name:'ربع حزب'},{id:'half_hizb',name:'نصف حزب'},{id:'hizb',name:'حزب'},{id:'juz',name:'جزء'},{id:'surahs',name:'سور'},{id:'pages',name:'صفحات'},{id:'ayahs',name:'آيات'}];
  const dirs=[{id:'toward_nas',name:'نحو الناس'},{id:'toward_fatiha',name:'نحو الفاتحة'}];
@@ -788,6 +789,9 @@ async function plansPage(root){
        if(!val(form,'end')||val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
      }
+     for(const rt of tracks.filter(x=>x.type==='review'&&x.methodologyMeta)){
+       await result(sb().from('plans').update({methodology_meta:rt.methodologyMeta,updated_at:new Date().toISOString()}).eq('id',rt.id).select('id').single());
+     }
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
    });
@@ -802,13 +806,59 @@ async function plansPage(root){
    const setStart=(s,a)=>{const se=form.elements.memSurah,ae=form.elements.memAyah;if(!se||!ae)return;se.value=String(s);se.dispatchEvent(new Event('change'));ae.value=String(a||1)};
    const methodPosition=()=>({surah:Number(val(form,'memSurah')),ayah:Number(val(form,'memAyah'))||1});
    const clearReviews=()=>{container.innerHTML='';reviewIndex=0};
-   const addReview=async(defaults={})=>{if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');const i=reviewIndex++,box=document.createElement('fieldset');box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend><div class="form-grid two">${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'')}${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'hizb')}${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('الاتجاه','review'+i+'Direction',dirs,defaults.direction||'toward_fatiha')}${select('سورة البداية','review'+i+'Surah',[])}${select('آية البداية','review'+i+'Ayah',[])}</div><small class="sl-cycle-note">تحزيب مصحف المدينة للوحدات: جزء / حزب / نصف حزب / ربع حزب</small><button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;container.append(box);await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',defaults);box.querySelector('[data-remove-review]').onclick=()=>box.remove()};
+   const addReview=async(defaults={})=>{
+     if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');
+     const i=reviewIndex++,box=document.createElement('fieldset');
+     box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);
+     const startMode=defaults.startMode||'lesson',auto=!!defaults.auto;
+     box.dataset.autoMajor=auto?'1':'0';box.dataset.cycleDays=String(defaults.cycleDays||5);
+     box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend>
+       <div class="form-grid two">
+         ${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'المراجعة الكبرى')}
+         ${select('ابتداء المراجعة','review'+i+'StartMode',[{id:'lesson',name:'من درسه'},{id:'surah',name:'من سورة محددة'}],startMode)}
+         ${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'quarter_hizb')}
+         ${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required '+(auto?'readonly':''))}
+         <div data-review-start-fields>${select('سورة البداية','review'+i+'Surah',[])}</div>
+         <div data-review-start-fields>${select('آية البداية','review'+i+'Ayah',[])}</div>
+       </div>
+       <small class="sl-cycle-note">${auto?'المقدار يحسبه النظام تلقائيًا ليغطي جميع المحفوظ بعد المراجعة الصغرى خلال دورة المراجعة المعتمدة.':'الافتراضي «من درسه»: تبدأ المراجعة الكبرى مباشرة بعد نهاية المراجعة الصغرى وتمتد إلى نهاية محفوظ الطالب. ويمكن اختيار سورة محددة كبداية للدورة مع بقاء كامل المحفوظ ضمن نطاق المراجعة.'}</small>
+       <button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;
+     container.append(box);
+     await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',{surah:defaults.surah||114,ayah:defaults.ayah||1});
+     const mode=box.querySelector('[name="review'+i+'StartMode"]');
+     const toggle=()=>box.querySelectorAll('[data-review-start-fields]').forEach(x=>x.style.display=mode.value==='surah'?'':'none');
+     mode.onchange=toggle;toggle();
+     box.querySelector('[data-remove-review]').onclick=()=>box.remove();
+   };
+   const autoMajorCycleDays=(code,level)=>code==='bir_alwalidayn'?(Number(level)<=2?4:Number(level)<=5?5:10):5;
+   const addAutoMajor=async(code,level)=>{
+     const cycleDays=autoMajorCycleDays(code,level),pos=methodPosition();
+     const recentUnit=val(form,'recentUnit')||'pages',recentAmount=Number(val(form,'recentAmount'))||1;
+     let preview={dailyAmount:1};
+     try{
+       preview=await rpc('preview_auto_major_review',{
+         p_lesson_surah:pos.surah,p_lesson_ayah:pos.ayah,
+         p_recent_unit:recentUnit,p_recent_amount:recentAmount,p_cycle_days:cycleDays
+       });
+     }catch{}
+     await addReview({
+       name:'المراجعة الكبرى التلقائية',
+       unit:'quarter_hizb',
+       amount:Number(preview?.dailyAmount)||1,
+       direction:'toward_nas',
+       startMode:'lesson',
+       auto:true,
+       cycleDays,
+       surah:114,ayah:1
+     });
+   };
    const applyMethodology=async(useStudentStart=false)=>{
      const code=val(form,'methodology')||'manual',student=students.find(s=>s.id===val(form,'student'));
      const pathWrap=form.querySelector('[data-aqom-path]'),profileWrap=form.querySelector('[data-aqom-profile]'),remedialWrap=form.querySelector('[data-remedial-target]');
      pathWrap.style.display=code==='aqom'?'':'none';profileWrap.style.display=code==='aqom'&&val(form,'aqomPath')!=='preliminary'?'':'none';remedialWrap.style.display=code==='remedial'?'':'none';
      form.elements.memUnit.disabled=false;form.elements.memAmount.disabled=false;form.elements.memDirection.disabled=false;
      recentBox.style.display='';majorSection.style.display='';
+     unitOptions(form.elements.memUnit,predefinedMethods.has(code)?memUnits:customMemUnits,predefinedMethods.has(code)?'lines':(form.elements.memUnit.value||'lines'));
      if(useStudentStart&&student){const st=await studentStart(student);if(st)setStart(st.surahNo,st.ayahNo)}
      const pos=methodPosition();
      if(code==='custom'||code==='remedial'){
@@ -820,23 +870,24 @@ async function plansPage(root){
          ?'<b>الخطة العلاجية:</b> خطة مؤقتة يضبطها المعلم بحسب حاجة الطالب، وهدفها تهيئته للانتقال إلى <b>'+esc(targetMethodLabel(target))+'</b>. تنتهي عند اعتماد جاهزية الطالب للانتقال.'
          :'<b>الخطة الخاصة:</b> خطة فردية لا تتقيد بمنهج البرامج الجاهزة؛ يضبط المعلم مقدار الحفظ والمراجعات وفق مستوى الطالب وقدراته، ويحسب النظام مسارها حتى الختم.';
        methodGuide.textContent=code==='remedial'
-         ?'اضبط مقدارًا علاجيًا واقعيًا يناسب الطالب. يحتفظ النظام بالبرنامج المستهدف لتسهيل الانتقال إليه عند تحقق الجاهزية.'
-         :'في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.';
+         ?'اضبط مقدارًا علاجيًا واقعيًا يناسب الطالب. ويمكن اختيار «سور» ليكون المقرر سورة أو عدة سور يوميًا. يحتفظ النظام بالبرنامج المستهدف لتسهيل الانتقال إليه عند تحقق الجاهزية.'
+         :'يمكن ضبط الحفظ بالأسطر أو الصفحات أو الآيات أو السور؛ وعند اختيار «سور» يمكن للطالب حفظ سورة أو عدة سور يوميًا حسب العدد المحدد.';
        return;
      }
      if(code==='bir_alwalidayn'){
        const lv=methodologyLevel(code,null,pos.surah,pos.ayah);if(!lv){methodSummary.innerHTML='<b>خطة حلقات بر الوالدين:</b> موضع البداية الحالي خارج مستويات الخطة المحددة؛ عدّل موضع البداية.';currentMethod={code,level:null,profile:null,path:null,meta:{}};return}
        form.elements.memUnit.value='lines';form.elements.memAmount.value=String(lv.targetLines);form.elements.memDirection.value='toward_fatiha';
        if(Number(lv.id)<=2){
-         form.elements.userecent.checked=false;
+         form.elements.userecent.checked=true;
          form.elements.recentUnit.value='surahs';form.elements.recentAmount.value='3';
-         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>مراجعة المستويين 1–2:</b> يختلف توزيعها عند الوصول إلى المرسلات ثم الإنسان، والباقي يوزع حسب حفظ الطالب؛ لذلك لا يفرض النظام مقدارًا ثابتًا تلقائيًا.';
+         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>مراجعة المستويين 1–2:</b> تنطلق من درس الطالب نحو الناس، ويضبط النظام المراجعة الكبرى لتستوعب بقية المحفوظ دون فجوة.';
        }else{
          form.elements.userecent.checked=true;
          form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5';
-         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>الافتراضي:</b> خمس صفحات مما يلي الدرس الجديد، ويمكن للمعلم ضبط المراجعة الكبرى حسب تعليمات المستوى.';
+         const rh=recentBox.querySelector('.sl-help');if(rh)rh.innerHTML='<b>الافتراضي:</b> خمس صفحات مما يلي الدرس الجديد، ثم تبدأ المراجعة الكبرى تلقائيًا من بعدها وتستوفي بقية المحفوظ.';
        }
        clearReviews();
+       await addAutoMajor(code,lv.id);
        currentMethod={code,level:String(lv.id),profile:null,path:null,meta:{displayAmount:lv.displayAmount,officialDays:lv.officialDays,review:lv.review||{},source:'خطة حلقات بر الوالدين'}};
        const reviewText=Object.values(lv.review||{}).filter(Boolean).join(' ');
        methodSummary.innerHTML='<b>خطة حلقات بر الوالدين · المستوى '+esc(lv.id)+':</b> مقدار الدرس '+esc(lv.displayAmount)+'؛ المدة المرجعية '+esc(lv.officialDays)+' يومًا. <b>المراجعة:</b> '+esc(reviewText);
@@ -856,7 +907,9 @@ async function plansPage(root){
        const lv=methodologyLevel(code,path,pos.surah,pos.ayah);if(!lv){methodSummary.innerHTML='<b>برنامج أقوم:</b> موضع البداية لا يقع داخل المستوى المحدد في هذا المسار.';currentMethod={code,level:null,profile,path,meta:{}};return}
        const amount=Number(lv.profiles?.[profile]);if(!amount)throw Error('هذا المستوى غير متاح في المسار المختار.');
        form.elements.memUnit.value='lines';form.elements.memAmount.value=String(amount);form.elements.memDirection.value='toward_fatiha';
-       recentBox.style.display='none';majorSection.style.display='none';form.elements.userecent.checked=false;clearReviews();
+       recentBox.style.display='';majorSection.style.display='';form.elements.userecent.checked=true;
+       form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5';
+       clearReviews();await addAutoMajor(code,lv.id);
        currentMethod={code,level:String(lv.id),profile,path,meta:{source:'برنامج أقوم',path,officialDays:lv.officialDays?.[profile]||null}};
        methodSummary.innerHTML='<b>برنامج أقوم · '+esc(path==='path1'?'المسار الأول':'المسار الثاني')+' · المستوى '+esc(lv.id)+' · '+esc(profileName[profile]||profile)+':</b> '+esc(amount)+' أسطر يوميًا؛ المدة المرجعية '+esc(lv.officialDays?.[profile]||'—')+' يومًا.';
        methodGuide.textContent='مقدار أقوم يطبّق بالأسطر الفعلية مع عدم تجزئة الآية؛ نهاية الدرس أقرب نهاية آية للمقدار.';
@@ -892,6 +945,8 @@ async function plansPage(root){
    form.elements.memAyah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
    form.querySelector('[name="usemem"]').addEventListener('change',refreshBundleForecast);
    form.querySelector('[name="memAmount"]').addEventListener('input',()=>setTimeout(refreshBundleForecast,120));
+   form.elements.recentUnit.addEventListener('change',async()=>{if(predefinedMethods.has(val(form,'methodology'))){await applyMethodology(false)}});
+   form.elements.recentAmount.addEventListener('input',()=>setTimeout(async()=>{if(predefinedMethods.has(val(form,'methodology'))){await applyMethodology(false)}},180));
    if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
    if(initial.methodology&&methodItems.some(x=>x.id===initial.methodology))form.elements.methodology.value=initial.methodology;
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
@@ -908,7 +963,22 @@ async function plansPage(root){
      const tracks=[];
      if(hasMem)tracks.push({id:crypto.randomUUID(),type:'memorization',unit:val(form,'memUnit'),dailyAmount:Number(val(form,'memAmount')),direction:val(form,'memDirection'),startSurah:Number(val(form,'memSurah')),startAyah:Number(val(form,'memAyah')),methodologyCode:code,methodologyLevel:currentMethod.level,methodologyProfile:currentMethod.profile,methodologyMeta:currentMethod.meta||{}});
      if(recentBox.style.display!=='none'&&form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});
-     if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){const i=box.dataset.idx;tracks.push({id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),direction:val(box,'review'+i+'Direction'),startSurah:Number(val(box,'review'+i+'Surah')),startAyah:Number(val(box,'review'+i+'Ayah'))})}
+     if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){
+       const i=box.dataset.idx,startMode=val(box,'review'+i+'StartMode')||'lesson',auto=box.dataset.autoMajor==='1';
+       const startSurah=startMode==='lesson'?114:Number(val(box,'review'+i+'Surah')),startAyah=startMode==='lesson'?1:Number(val(box,'review'+i+'Ayah'));
+       tracks.push({
+         id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),
+         unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),
+         direction:'toward_nas',startSurah,startAyah,
+         methodologyMeta:{
+           reviewStartMode:startMode,
+           autoMajor:auto,
+           cycleDays:Number(box.dataset.cycleDays||5),
+           selectedStartSurah:startMode==='surah'?startSurah:null,
+           coverageRule:'after_recent_to_end_of_memorized'
+         }
+       });
+     }
      if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');
      if(initial.transitionFromPlanId){
        if(!predefinedMethods.has(code))throw Error('الانتقال من الخطة العلاجية يجب أن يكون إلى خطة حلقات بر الوالدين أو برنامج أقوم.');
