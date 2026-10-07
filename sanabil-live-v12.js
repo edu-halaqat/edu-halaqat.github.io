@@ -822,10 +822,11 @@ async function plansPage(root){
        <button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;
      container.append(box);
      await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',{surah:defaults.surah||114,ayah:defaults.ayah||1});
-     const mode=box.querySelector('[name="review'+i+'StartMode"]');
+     const mode=box.querySelector('[name="review'+i+'StartMode"]'),unitEl=box.querySelector('[name="review'+i+'Unit"]'),removeBtn=box.querySelector('[data-remove-review]');
      const toggle=()=>box.querySelectorAll('[data-review-start-fields]').forEach(x=>x.style.display=mode.value==='surah'?'':'none');
      mode.onchange=toggle;toggle();
-     box.querySelector('[data-remove-review]').onclick=()=>box.remove();
+     if(auto){unitEl.disabled=true;removeBtn.style.display='none'}
+     removeBtn.onclick=()=>box.remove();
    };
    const autoMajorCycleDays=(code,level)=>code==='bir_alwalidayn'?(Number(level)<=2?4:Number(level)<=5?5:10):5;
    const addAutoMajor=async(code,level)=>{
@@ -887,7 +888,7 @@ async function plansPage(root){
        await addAutoMajor(code,lv.id);
        currentMethod={code,level:String(lv.id),profile:null,path:null,meta:{displayAmount:lv.displayAmount,officialDays:lv.officialDays,review:lv.review||{},source:'خطة حلقات بر الوالدين'}};
        const reviewText=Object.values(lv.review||{}).filter(Boolean).join(' ');
-       methodSummary.innerHTML='<b>خطة حلقات بر الوالدين · المستوى '+esc(lv.id)+':</b> مقدار الدرس '+esc(lv.displayAmount)+'؛ المدة المرجعية '+esc(lv.officialDays)+' يومًا. <b>المراجعة:</b> '+esc(reviewText);
+       methodSummary.innerHTML='<b>خطة حلقات بر الوالدين · المستوى '+esc(lv.id)+':</b> مقدار الدرس '+esc(lv.displayAmount)+'؛ المدة المرجعية '+esc(lv.officialDays)+' يومًا. <b>المراجعة الكبرى:</b> يحسب النظام مقدارها تلقائيًا لتغطي جميع المحفوظ بعد المراجعة الصغرى دون فجوة. <b>تعليمات المستوى:</b> '+esc(reviewText);
        methodGuide.textContent='المقدار المرجعي '+lv.displayAmount+'، لكن نهاية كل يوم تكون عند نهاية آية كاملة وفق أقرب عدد أسطر فعلي في مصحف المدينة.';
        return;
      }
@@ -908,7 +909,7 @@ async function plansPage(root){
        form.elements.recentUnit.value='pages';form.elements.recentAmount.value='5';
        clearReviews();await addAutoMajor(code,lv.id);
        currentMethod={code,level:String(lv.id),profile,path,meta:{source:'برنامج أقوم',path,officialDays:lv.officialDays?.[profile]||null}};
-       methodSummary.innerHTML='<b>برنامج أقوم · '+esc(path==='path1'?'المسار الأول':'المسار الثاني')+' · المستوى '+esc(lv.id)+' · '+esc(profileName[profile]||profile)+':</b> '+esc(amount)+' أسطر يوميًا؛ المدة المرجعية '+esc(lv.officialDays?.[profile]||'—')+' يومًا.';
+       methodSummary.innerHTML='<b>برنامج أقوم · '+esc(path==='path1'?'المسار الأول':'المسار الثاني')+' · المستوى '+esc(lv.id)+' · '+esc(profileName[profile]||profile)+':</b> '+esc(amount)+' أسطر يوميًا؛ المدة المرجعية '+esc(lv.officialDays?.[profile]||'—')+' يومًا. <b>المراجعة الكبرى:</b> يحدد النظام مقدارها تلقائيًا من بعد المراجعة الصغرى حتى نهاية المحفوظ.';
        methodGuide.textContent='مقدار أقوم يطبّق بالأسطر الفعلية مع عدم تجزئة الآية؛ نهاية الدرس أقرب نهاية آية للمقدار.';
      }
    };
