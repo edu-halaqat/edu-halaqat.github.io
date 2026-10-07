@@ -654,7 +654,13 @@ async function plansPage(root){
    if(!list.length)throw Error('لا يوجد للطالب موعد اختبار قادم؛ اختر البدء من تاريخ الخطة أو قم بجدولة الاختبار أولًا.');
    return riyadhDate(list[0].scheduled_at);
  };
- const methodItems=[{id:'manual',name:'خطة يدوية'},...(methodologies||[]).filter(m=>m.active&&m.configured).map(m=>({id:m.code,name:m.name}))];
+ const methodItems=[
+   {id:'bir_alwalidayn',name:'خطة حلقات بر الوالدين'},
+   {id:'aqom',name:'برنامج أقوم'},
+   {id:'custom',name:'خطة خاصة'},
+   {id:'remedial',name:'خطة علاجية'}
+ ];
+ const predefinedMethods=new Set(['bir_alwalidayn','aqom']);
  const profileName={excellent:'ممتاز',average:'متوسط',weak:'ضعيف'};
  const normSurahName=s=>String(s||'').normalize('NFD').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ء/g,'').replace(/ـ/g,'').trim();
  const studentStart=async student=>{
@@ -675,22 +681,25 @@ async function plansPage(root){
    return levels.find(lv=>levelMatches(lv,Number(s),Number(a)||1))||null;
  };
  const methodologyByCode=code=>(methodologies||[]).find(x=>x.code===code);
- const methodLabel=p=>p?.methodology_code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':p?.methodology_code==='aqom'?'برنامج أقوم':'خطة يدوية';
+ const methodLabel=p=>p?.methodology_code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':p?.methodology_code==='aqom'?'برنامج أقوم':p?.methodology_code==='remedial'?'خطة علاجية':p?.methodology_code==='custom'?'خطة خاصة':'خطة خاصة';
+ const targetMethodLabel=code=>code==='aqom'?'برنامج أقوم':'خطة حلقات بر الوالدين';
 
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
- <div class="sl-toolbar">${button('خطة طالب متكاملة','bundle')}${button('إضافة مسار منفرد','new')}</div><div class="sl-data"></div>`;
+ <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
+ <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div><div class="sl-data"></div>`;
 
  const planCard=(p,i)=>{
    const recent=p.type==='recent_review',qpc=p.type==='review'&&qpcUnits.has(p.unit),mem=p.type==='memorization';
    const timeFacts=mem
      ?`<span><b>بدء الخطة</b>${esc(p.start_date)}</span><span><b>الختم المتوقع</b>${esc(p.projected_completion_date||p.end_date||'—')}</span><span><b>أيام التعليم المتوقعة</b>${esc(p.projected_teaching_days??'—')}</span><span><b>المنهج</b>${esc(methodLabel(p))}${p.methodology_level?' · المستوى '+esc(p.methodology_level):''}${p.methodology_profile?' · '+esc(profileName[p.methodology_profile]||p.methodology_profile):''}</span>`
      :`<span><b>المدة</b>${esc(p.start_date+' — '+p.end_date)}</span>`;
+   const remedial=p.type==='memorization'&&p.methodology_code==='remedial',remedialTarget=p.methodology_meta?.targetMethodology||'bir_alwalidayn';
    const facts=recent
     ?`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>المنهج</b>نافذة متحركة تبدأ من نهاية الدرس وتتجه نحو الناس</span><span><b>الارتباط</b>تتبع خطة الحفظ تلقائيًا</span>${timeFacts}`
-    :`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>الاتجاه</b>${esc(directionName[p.direction]||p.direction)}</span><span><b>البداية</b>${esc(qref(p.start_ref))}</span>${timeFacts}${qpc?`<span><b>وحدة المراجعة</b>${esc(unitName[p.unit]||p.unit)}</span>`:''}${p.type==='review'?'<span><b>التكرار</b>دوري تلقائي</span>':''}`;
-   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${button('تعديل الخطة','edit-'+i)}${button('حذف / إنهاء','remove-'+i)}</div></article>`;
+    :`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>الاتجاه</b>${esc(directionName[p.direction]||p.direction)}</span><span><b>البداية</b>${esc(qref(p.start_ref))}</span>${timeFacts}${remedial?`<span><b>الهدف العلاجي</b>التهيئة للانتقال إلى ${esc(targetMethodLabel(remedialTarget))}</span><span><b>طبيعة الخطة</b>مؤقتة وتنتهي عند اعتماد جاهزية الطالب للبرنامج المستهدف</span>`:''}${qpc?`<span><b>وحدة المراجعة</b>${esc(unitName[p.unit]||p.unit)}</span>`:''}${p.type==='review'?'<span><b>التكرار</b>دوري تلقائي</span>':''}`;
+   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('حذف / إنهاء','remove-'+i)}</div></article>`;
  };
 
  const load=async()=>{
@@ -718,6 +727,12 @@ async function plansPage(root){
          ]));
          if(p.type!=='recent_review')days.forEach((d,j)=>{const x=b.querySelector(`[data-action="x${j}"]`);if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,`تم الاستثناء ونقل ${r.movedDays} يومًا.`);await render();await load()})});
        };await render()
+     });
+
+     const transitionBtn=root.querySelector(`[data-action="transition-${i}"]`);
+     if(transitionBtn)action(root,transitionBtn,async()=>{
+       const target=p.methodology_meta?.targetMethodology||'bir_alwalidayn';
+       await createBundle({studentId:p.student_id,methodology:target,transitionFromPlanId:p.id});
      });
 
      action(root,root.querySelector(`[data-action="edit-${i}"]`),async()=>{
@@ -777,12 +792,12 @@ async function plansPage(root){
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
    });
  };
- const createBundle=async()=>{
+ const createBundle=async(initial={})=>{
    const b=modal('خطة طالب متكاملة');
    const memBuilder=`<fieldset class="sl-plan-builder"><legend><label><input type="checkbox" name="usemem" checked> الحفظ الجديد</label></legend><div class="form-grid two">${select('الوحدة','memUnit',memUnits,'lines')}${field('المقدار اليومي','memAmount','number',5,'min="1" max="45" required')}${select('الاتجاه','memDirection',dirs,'toward_nas')}${select('سورة البداية','memSurah',[])}${select('آية البداية','memAyah',[])}</div><p class="sl-help" data-method-guide>في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.</p></fieldset>`;
    const recentBuilder=`<fieldset class="sl-plan-builder" data-recent-box><legend><label><input type="checkbox" name="userecent" checked> المراجعة الصغرى</label></legend><div class="form-grid two">${select('المقدار بوحدة','recentUnit',recentUnits,'pages')}${field('المقدار','recentAmount','number',2,'min="1" max="45" required')}</div><p class="sl-help"><b>نافذة مرتبطة بالدرس:</b> تتحرك تلقائيًا مع موضع الحفظ الجديد نحو المحفوظ السابق.</p></fieldset>`;
-   b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المنهج','methodology',methodItems,'manual')}${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<label data-aqom-path style="display:none">مسار برنامج أقوم<select name="aqomPath"><option value="preliminary">المرحلة التمهيدية</option><option value="path1">المسار الأول · 10 مستويات</option><option value="path2">المسار الثاني · 20 مستوى</option></select></label><label data-aqom-profile style="display:none">مستوى الطالب<select name="aqomProfile"><option value="excellent">ممتاز</option><option value="average">متوسط</option><option value="weak">ضعيف</option></select></label><div data-bundle-end-wrap style="display:none">${field('نهاية المسارات (عند عدم اختيار الحفظ)','end','date','')}</div></div><p class="sl-rule-note" data-method-summary><b>الخطة اليدوية:</b> اضبط الحفظ والمراجعات يدويًا.</p><p class="sl-rule-note" data-bundle-forecast><b>جارٍ حساب موعد الختم المتوقع…</b></p>${commonDays(['5','6'])}<div class="sl-plan-builders">${memBuilder}${recentBuilder}<section data-major-section><div class="sl-builder-head"><div><h3>المراجعات الكبرى</h3><p>في الخطة اليدوية يمكن إضافة مراجعات كبرى متعددة. في خطة بر الوالدين تظهر تعليمات المراجعة المعتمدة بحسب المستوى.</p></div>${button('إضافة مراجعة كبرى','add-review')}</div><div class="sl-review-builders"></div></section></div><button type="submit" class="button button-primary button-wide">إنشاء المسارات المختارة</button></form>`;
-   const form=b.querySelector('form'),container=form.querySelector('.sl-review-builders'),bundleForecast=form.querySelector('[data-bundle-forecast]'),bundleEndWrap=form.querySelector('[data-bundle-end-wrap]'),methodSummary=form.querySelector('[data-method-summary]'),methodGuide=form.querySelector('[data-method-guide]'),recentBox=form.querySelector('[data-recent-box]'),majorSection=form.querySelector('[data-major-section]');let reviewIndex=0,currentMethod={code:'manual',level:null,profile:null,path:null,meta:{}};
+   b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('نوع الخطة','methodology',methodItems,'bir_alwalidayn')}${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<label data-aqom-path style="display:none">مسار برنامج أقوم<select name="aqomPath"><option value="preliminary">المرحلة التمهيدية</option><option value="path1">المسار الأول · 10 مستويات</option><option value="path2">المسار الثاني · 20 مستوى</option></select></label><label data-aqom-profile style="display:none">مستوى الطالب<select name="aqomProfile"><option value="excellent">ممتاز</option><option value="average">متوسط</option><option value="weak">ضعيف</option></select></label><label data-remedial-target style="display:none">الخطة المستهدفة بعد العلاج<select name="remedialTarget"><option value="bir_alwalidayn">خطة حلقات بر الوالدين</option><option value="aqom">برنامج أقوم</option></select></label><div data-bundle-end-wrap style="display:none">${field('نهاية المسارات (عند عدم اختيار الحفظ)','end','date','')}</div></div><p class="sl-rule-note" data-method-summary><b>خطة حلقات بر الوالدين:</b> سيحدد النظام المستوى تلقائيًا من موضع الطالب ويبني الخطة وفق المنهج المعتمد.</p><p class="sl-rule-note" data-bundle-forecast><b>جارٍ حساب موعد الختم المتوقع…</b></p>${commonDays(['5','6'])}<div class="sl-plan-builders">${memBuilder}${recentBuilder}<section data-major-section><div class="sl-builder-head"><div><h3>المراجعات الكبرى</h3><p>في الخطة الخاصة والعلاجية يمكن للمعلم ضبط المراجعات بحسب حاجة الطالب. وفي خطة بر الوالدين تظهر تعليمات المراجعة المعتمدة بحسب المستوى.</p></div>${button('إضافة مراجعة كبرى','add-review')}</div><div class="sl-review-builders"></div></section></div><button type="submit" class="button button-primary button-wide">إنشاء خطة الطالب</button></form>`;
+   const form=b.querySelector('form'),container=form.querySelector('.sl-review-builders'),bundleForecast=form.querySelector('[data-bundle-forecast]'),bundleEndWrap=form.querySelector('[data-bundle-end-wrap]'),methodSummary=form.querySelector('[data-method-summary]'),methodGuide=form.querySelector('[data-method-guide]'),recentBox=form.querySelector('[data-recent-box]'),majorSection=form.querySelector('[data-major-section]');let reviewIndex=0,currentMethod={code:'bir_alwalidayn',level:null,profile:null,path:null,meta:{}};
    const bundleExcluded=()=>week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
    const setStart=(s,a)=>{const se=form.elements.memSurah,ae=form.elements.memAyah;if(!se||!ae)return;se.value=String(s);se.dispatchEvent(new Event('change'));ae.value=String(a||1)};
    const methodPosition=()=>({surah:Number(val(form,'memSurah')),ayah:Number(val(form,'memAyah'))||1});
@@ -790,16 +805,23 @@ async function plansPage(root){
    const addReview=async(defaults={})=>{if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');const i=reviewIndex++,box=document.createElement('fieldset');box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend><div class="form-grid two">${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'')}${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'hizb')}${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('الاتجاه','review'+i+'Direction',dirs,defaults.direction||'toward_fatiha')}${select('سورة البداية','review'+i+'Surah',[])}${select('آية البداية','review'+i+'Ayah',[])}</div><small class="sl-cycle-note">تحزيب مصحف المدينة للوحدات: جزء / حزب / نصف حزب / ربع حزب</small><button type="button" class="button button-soft" data-remove-review>حذف هذه المراجعة</button>`;container.append(box);await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',defaults);box.querySelector('[data-remove-review]').onclick=()=>box.remove()};
    const applyMethodology=async(useStudentStart=false)=>{
      const code=val(form,'methodology')||'manual',student=students.find(s=>s.id===val(form,'student'));
-     const pathWrap=form.querySelector('[data-aqom-path]'),profileWrap=form.querySelector('[data-aqom-profile]');
-     pathWrap.style.display=code==='aqom'?'':'none';profileWrap.style.display=code==='aqom'&&val(form,'aqomPath')!=='preliminary'?'':'none';
+     const pathWrap=form.querySelector('[data-aqom-path]'),profileWrap=form.querySelector('[data-aqom-profile]'),remedialWrap=form.querySelector('[data-remedial-target]');
+     pathWrap.style.display=code==='aqom'?'':'none';profileWrap.style.display=code==='aqom'&&val(form,'aqomPath')!=='preliminary'?'':'none';remedialWrap.style.display=code==='remedial'?'':'none';
      form.elements.memUnit.disabled=false;form.elements.memAmount.disabled=false;form.elements.memDirection.disabled=false;
      recentBox.style.display='';majorSection.style.display='';
      if(useStudentStart&&student){const st=await studentStart(student);if(st)setStart(st.surahNo,st.ayahNo)}
      const pos=methodPosition();
-     if(code==='manual'){
-       currentMethod={code:'manual',level:null,profile:null,path:null,meta:{}};
-       methodSummary.innerHTML='<b>الخطة اليدوية:</b> اضبط مقدار الحفظ والمراجعات كما تريد.';
-       methodGuide.textContent='في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.';
+     if(code==='custom'||code==='remedial'){
+       const target=val(form,'remedialTarget')||'bir_alwalidayn';
+       currentMethod=code==='remedial'
+         ?{code,level:null,profile:null,path:null,meta:{source:'خطة علاجية',temporary:true,targetMethodology:target,transitionPolicy:'teacher_readiness'}}
+         :{code,level:null,profile:null,path:null,meta:{source:'خطة خاصة',custom:true}};
+       methodSummary.innerHTML=code==='remedial'
+         ?'<b>الخطة العلاجية:</b> خطة مؤقتة يضبطها المعلم بحسب حاجة الطالب، وهدفها تهيئته للانتقال إلى <b>'+esc(targetMethodLabel(target))+'</b>. تنتهي عند اعتماد جاهزية الطالب للانتقال.'
+         :'<b>الخطة الخاصة:</b> خطة فردية لا تتقيد بمنهج البرامج الجاهزة؛ يضبط المعلم مقدار الحفظ والمراجعات وفق مستوى الطالب وقدراته، ويحسب النظام مسارها حتى الختم.';
+       methodGuide.textContent=code==='remedial'
+         ?'اضبط مقدارًا علاجيًا واقعيًا يناسب الطالب. يحتفظ النظام بالبرنامج المستهدف لتسهيل الانتقال إليه عند تحقق الجاهزية.'
+         :'في وحدة الأسطر لا يقسم النظام الآية: يختار أقرب نهاية آية للمقدار المطلوب، وعند تعادل النقص والزيادة يرجح الزيادة.';
        return;
      }
      if(code==='bir_alwalidayn'){
@@ -852,8 +874,8 @@ async function plansPage(root){
      try{
        bundleForecast.innerHTML='<b>جارٍ حساب موعد الختم المتوقع…</b>';
        const startDate=await resolvePlanStart(form);
-       const methodCode=val(form,'methodology')||'manual';
-       const r=methodCode!=='manual'
+       const methodCode=val(form,'methodology')||'bir_alwalidayn';
+       const r=predefinedMethods.has(methodCode)
          ?await rpc('preview_methodology_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_methodology_code:methodCode,p_path:methodCode==='aqom'?val(form,'aqomPath'):null,p_profile:methodCode==='aqom'?val(form,'aqomProfile'):null,p_start_date:startDate,p_excluded_weekdays:bundleExcluded()})
          :await rpc('preview_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_unit:val(form,'memUnit'),p_daily_amount:Number(val(form,'memAmount')),p_direction:val(form,'memDirection'),p_start_date:startDate,p_excluded_weekdays:bundleExcluded()});
        if(token!==bundleForecastToken)return;
@@ -865,27 +887,36 @@ async function plansPage(root){
    form.elements.methodology.addEventListener('change',async()=>{await applyMethodology(true);await refreshBundleForecast()});
    form.elements.aqomPath.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
    form.elements.aqomProfile.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
+   form.elements.remedialTarget.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
    form.elements.memSurah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
    form.elements.memAyah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
    form.querySelector('[name="usemem"]').addEventListener('change',refreshBundleForecast);
    form.querySelector('[name="memAmount"]').addEventListener('input',()=>setTimeout(refreshBundleForecast,120));
+   if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
+   if(initial.methodology&&methodItems.some(x=>x.id===initial.methodology))form.elements.methodology.value=initial.methodology;
+   if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
    await applyMethodology(true);setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
      const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
-     const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'manual';
+     const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
      if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
        const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
        b.closest('dialog').close();await load();msg(root,'تم إنشاء برنامج أقوم · المرحلة التمهيدية. تاريخ الانتهاء المتوقع: '+(r.projectedEndDate||'—')+'.');return;
      }
      if(!hasMem&&(!val(form,'end')||val(form,'end')<startDate))throw Error('عند إنشاء مراجعات بلا حفظ يجب تحديد تاريخ نهاية صحيح.');
-     if(code!=='manual'&&!currentMethod.level)throw Error('تعذر تحديد مستوى المنهج من موضع بداية الطالب؛ راجع السورة والآية.');
+     if(predefinedMethods.has(code)&&!currentMethod.level)throw Error('تعذر تحديد مستوى المنهج من موضع بداية الطالب؛ راجع السورة والآية.');
      const tracks=[];
-     if(hasMem)tracks.push({id:crypto.randomUUID(),type:'memorization',unit:val(form,'memUnit'),dailyAmount:Number(val(form,'memAmount')),direction:val(form,'memDirection'),startSurah:Number(val(form,'memSurah')),startAyah:Number(val(form,'memAyah')),methodologyCode:code==='manual'?null:code,methodologyLevel:currentMethod.level,methodologyProfile:currentMethod.profile,methodologyMeta:currentMethod.meta||{}});
+     if(hasMem)tracks.push({id:crypto.randomUUID(),type:'memorization',unit:val(form,'memUnit'),dailyAmount:Number(val(form,'memAmount')),direction:val(form,'memDirection'),startSurah:Number(val(form,'memSurah')),startAyah:Number(val(form,'memAyah')),methodologyCode:code,methodologyLevel:currentMethod.level,methodologyProfile:currentMethod.profile,methodologyMeta:currentMethod.meta||{}});
      if(recentBox.style.display!=='none'&&form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});
      if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){const i=box.dataset.idx;tracks.push({id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),direction:val(box,'review'+i+'Direction'),startSurah:Number(val(box,'review'+i+'Surah')),startAyah:Number(val(box,'review'+i+'Ayah'))})}
      if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');
+     if(initial.transitionFromPlanId){
+       if(!predefinedMethods.has(code))throw Error('الانتقال من الخطة العلاجية يجب أن يكون إلى خطة حلقات بر الوالدين أو برنامج أقوم.');
+       if(!confirm('سيتم إنهاء الخطة العلاجية الحالية وحفظ سجلها ثم إنشاء '+targetMethodLabel(code)+' من موضع الطالب الحالي. هل تريد المتابعة؟'))return;
+       await rpc('remove_plan',{p_plan_id:initial.transitionFromPlanId});
+     }
      let r;
-     if(hasMem&&code!=='manual'){
+     if(hasMem&&predefinedMethods.has(code)){
        const memTrack=tracks.find(x=>x.type==='memorization');
        const memResult=await rpc('save_methodology_memorization_plan',{
          p_plan_id:memTrack.id,p_student_id:student.id,p_teacher_id:student.teacher_id,
@@ -905,12 +936,18 @@ async function plansPage(root){
        r={...memResult,reviewBundle};
      }else if(hasMem){
        r=await rpc('save_plan_bundle_whole_ayah',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks});
+       const memTrack=tracks.find(x=>x.type==='memorization');
+       if(memTrack&&['custom','remedial'].includes(code)){
+         const planName=code==='remedial'?'خطة علاجية':'خطة خاصة';
+         await result(sb().from('plans').update({name:planName,methodology_code:code,methodology_level:null,methodology_profile:null,methodology_meta:currentMethod.meta||{},updated_at:new Date().toISOString()}).eq('id',memTrack.id).select('id').single());
+       }
      }else{
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
      }
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
-     msg(root,'تم إنشاء '+(code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':'الخطة')+(finish?' · الختم المتوقع: '+finish+'.':''));
+     const createdName=code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':code==='remedial'?'الخطة العلاجية':'الخطة الخاصة';
+     msg(root,'تم إنشاء '+createdName+(code==='remedial'?' كخطة مؤقتة حتى جاهزية الطالب للانتقال إلى '+targetMethodLabel(val(form,'remedialTarget'))+'.':(finish?' · الختم المتوقع: '+finish+'.':'')));
    });
  };
  action(root,root.querySelector('[data-action="new"]'),createSingle);
