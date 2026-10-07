@@ -789,9 +789,6 @@ async function plansPage(root){
        if(!val(form,'end')||val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
      }
-     for(const rt of tracks.filter(x=>x.type==='review'&&x.methodologyMeta)){
-       await result(sb().from('plans').update({methodology_meta:rt.methodologyMeta,updated_at:new Date().toISOString()}).eq('id',rt.id).select('id').single());
-     }
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
    });
@@ -1013,6 +1010,9 @@ async function plansPage(root){
        }
      }else{
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
+     }
+     for(const rt of tracks.filter(x=>x.type==='review'&&x.methodologyMeta)){
+       await result(sb().from('plans').update({methodology_meta:rt.methodologyMeta,updated_at:new Date().toISOString()}).eq('id',rt.id).select('id').single());
      }
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
