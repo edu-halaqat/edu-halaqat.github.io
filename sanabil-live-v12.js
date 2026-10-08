@@ -618,7 +618,15 @@ async function outcomesPage(root){
     return;
   }
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
-  const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يحفظ','لم يسمع'];
+  const noScheduledAssignments=students.length>0&&students.every(s=>!s.memorization&&!s.recentReview&&!(s.reviews||[]).length);
+  let nextTeachingDate='';
+  if(noScheduledAssignments){
+    try{const days=await result(sb().from('plan_days').select('date_key').eq('circle_id',circle).gte('date_key',date).order('date_key',{ascending:true}).limit(1));nextTeachingDate=days?.[0]?.date_key||''}catch(e){console.warn('تعذر تحديد اليوم التعليمي التالي',e)}
+  }
+  const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يسمع','لم يحفظ'];
+  const stateBanner=(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
+    noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+(nextTeachingDate&&nextTeachingDate!==date?' '+button('عرض اليوم التعليمي التالي: '+nextTeachingDate,'next-planned-day'):'')+'</div>':'')+
+    (readOnly?'<div class="sl-outcome-info sl-outcome-readonly" role="status">استعراض فقط: '+esc(sessionInfo?.reason||'جلسة الإدخال غير متاحة الآن')+'. لا يمكن تعديل التقديرات أو الحفظ.</div>':'');
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
   const states=students.map(s=>({
     attendance:s.attendanceStatus||'',
@@ -684,8 +692,12 @@ async function outcomesPage(root){
     guardian:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
   };
   const outcomeAction=(label,id,iconName,extraClass)=>`<button type="button" class="button sl-outcome-action ${extraClass}" data-action="${esc(id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${outcomeIconPaths[iconName]}</svg><span>${esc(label)}</span></button>`;
-  box.innerHTML=`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session"><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions">${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+  box.innerHTML=stateBanner+`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session"><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions">${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
   const form=box.querySelector('form');
+  if(nextTeachingDate&&nextTeachingDate!==date)action(box,box.querySelector('[data-action="next-planned-day"]'),()=>{
+    root.querySelector('[name="date"]').value=nextTeachingDate;
+    root.querySelector('[data-action="load"]')?.click();
+  });
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
   const persistDraft=i=>{const s=students[i],x=rowData(s,i);
     drafts[s.studentId]={attendance:x.att,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
@@ -732,6 +744,9 @@ async function outcomesPage(root){
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
+  if(readOnly){
+    box.querySelectorAll('[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
+  }
   submit(form,async()=>{
     validateAttendance();await ensureCircleSession(circle,date,true);
     const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)}});
@@ -742,6 +757,13 @@ async function outcomesPage(root){
     box.innerHTML='<p class="sl-message" role="status">'+(r.queued?'حُفظت حصائل الحلقة محليًا بانتظار المزامنة؛ وتبقى المسودات محفوظة على هذا الجهاز. أُغلقت جلسة الإدخال.':'تم حفظ حصيلة الحلقة وإنهاء الجلسة بنجاح. يمكنك إعادة فتح الحصيلة للاطلاع على البيانات المحفوظة.')+'</p>';
   })
  })
+ const refreshSelection=()=>{
+   const btn=root.querySelector('[data-action="load"]');
+   root.querySelector('.sl-data').innerHTML='<p class="sl-outcome-info" role="status">جارٍ تحديث طلاب الحلقة ومقرراتهم…</p>';
+   if(btn&&!btn.disabled)btn.click();
+ };
+ root.querySelector('[name="circle"]').addEventListener('change',()=>{localStorage.setItem(selectedCircleKey,val(root,'circle'));refreshSelection()});
+ root.querySelector('[name="date"]').addEventListener('change',refreshSelection);
  try{const active=JSON.parse(localStorage.getItem(activeSessionKey)||'null');
   if(active?.date===today()&&l.circles.some(c=>c.id===active.circle)){
    root.querySelector('[name="circle"]').value=active.circle;root.querySelector('[name="date"]').value=active.date;
