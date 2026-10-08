@@ -638,6 +638,13 @@ async function outcomesPage(root){
   let drafts={};
   try{const old=JSON.parse(localStorage.getItem(draftKey)||'{}');if(old&&typeof old==='object')drafts=old}catch{}
   students.forEach((s,i)=>{const d=drafts[s.studentId];if(!d)return;
+    // الخادم مرجع الحصيلة بعد الحفظ؛ لا تُستعاد مسودة أقدم من آخر حفظ موثق.
+    const savedAt=Date.parse(s.outcomeSavedAt||'');
+    const draftAt=Date.parse(d.updatedAt||'');
+    if(Number.isFinite(savedAt)&&(!Number.isFinite(draftAt)||draftAt<=savedAt)){
+      delete drafts[s.studentId];
+      return;
+    }
     if(d.attendance)states[i].attendance=d.attendance;
     if(typeof d.note==='string')states[i].note=d.note;
     if(d.ratings&&typeof d.ratings==='object')states[i].ratings={...states[i].ratings,...d.ratings};
@@ -645,6 +652,8 @@ async function outcomesPage(root){
     if(d.metrics)metrics.set(s.studentId,normalizedMetrics(d.metrics));
   });
   const saveDrafts=()=>{try{if(Object.keys(drafts).length)localStorage.setItem(draftKey,JSON.stringify(drafts));else localStorage.removeItem(draftKey)}catch(e){console.warn('تعذر حفظ المسودة المحلية',e)}};
+  // احذف النسخ المحلية المنتهية بمجرد تحميل الحصيلة المحفوظة بالخادم.
+  saveDrafts();
   const gradeValue=(st,key)=>key.startsWith('review:')?(st.reviewPlans[key.slice(7)]||''):(st.ratings[key]||'');
   const setGrade=(st,key,value)=>{if(key.startsWith('review:'))st.reviewPlans[key.slice(7)]=value;else st.ratings[key]=value};
   const attButtons=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>`<button type="button" class="sl-choice sl-att-choice ${current===id?'active':''}" data-att-student="${i}" data-att-value="${id}">${esc(name)}</button>`).join('');
@@ -694,6 +703,11 @@ async function outcomesPage(root){
   const outcomeAction=(label,id,iconName,extraClass)=>`<button type="button" class="button sl-outcome-action ${extraClass}" data-action="${esc(id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${outcomeIconPaths[iconName]}</svg><span>${esc(label)}</span></button>`;
   box.innerHTML=stateBanner+`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session"><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions">${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
   const form=box.querySelector('form');
+  students.forEach((s,i)=>{
+    const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
+    if(drafts[s.studentId]){status.textContent='مسودة محلية لم تُؤكَّد بعد';status.dataset.saved='draft'}
+    else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
+  });
   if(nextTeachingDate&&nextTeachingDate!==date)action(box,box.querySelector('[data-action="next-planned-day"]'),()=>{
     root.querySelector('[name="date"]').value=nextTeachingDate;
     root.querySelector('[data-action="load"]')?.click();
@@ -705,6 +719,33 @@ async function outcomesPage(root){
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft'}
   };
   const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
+  // تأكيد مستقل: لا نعتمد رسالة النجاح حتى تعيد قاعدة البيانات التقديرات والعدادات ذاتها.
+  const confirmSaved=async(s,x,loadedRows=null)=>{
+    const items=loadedRows||await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+    const saved=(items||[]).find(item=>item.studentId===s.studentId);
+    if(!saved||saved.attendanceStatus!==x.att)throw Error('لم تتطابق حالة الحضور مع البيانات التي أعادها الخادم.');
+    if(['absent','excused'].includes(x.att))return saved;
+    if(s.memorization&&(saved.memorizationRating||'')!==(x.ratings.memorization||''))throw Error('لم تتطابق درجة الحفظ المحفوظة.');
+    if(s.recentReview&&(saved.recentReviewRating||'')!==(x.ratings.recentReview||''))throw Error('لم تتطابق درجة المراجعة الصغرى.');
+    for(const review of x.reviews){
+      const actual=(saved.reviews||[]).find(r=>r.planId===review.planId);
+      if(!actual||actual.rating!==review.grade)throw Error('لم تتطابق درجة '+review.name+' المحفوظة.');
+    }
+    const expected=normalizedMetrics(x.metrics),actual=normalizedMetrics(saved.recitationMetrics);
+    for(const track of ['memorization','recentReview','review']){
+      for(const field of ['errors','doubts','tajweed']){
+        if(expected[track][field]!==actual[track][field])throw Error('لم يتطابق عدد '+field+' بعد الحفظ في '+track+'.');
+      }
+    }
+    const keys=new Set([...Object.keys(expected.reviewPlans||{}),...Object.keys(actual.reviewPlans||{})]);
+    for(const key of keys)for(const field of ['errors','doubts','tajweed']){
+      if((expected.reviewPlans[key]?.[field]||0)!==(actual.reviewPlans[key]?.[field]||0))
+        throw Error('لم يتطابق عدد الأخطاء/الشكوك/التجويد في إحدى المراجعات الكبرى.');
+    }
+    if((saved.notes||'').trim()!==(x.note||'').trim())throw Error('لم تُستعد ملاحظة الطالب بالصيغة المحفوظة.');
+    if(!saved.outcomeSavedAt)throw Error('لم يُؤكِّد الخادم وقت حفظ الحصيلة.');
+    return saved;
+  };
   const setMetric=(i,key,field,value)=>{
     if(['absent','excused'].includes(states[i].attendance))return;
     const m=normalizedMetrics(metrics.get(students[i].studentId));
@@ -727,12 +768,26 @@ async function outcomesPage(root){
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
     const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
     validateRow(s,x);await ensureCircleSession(circle,date,true);
+    // ثبِّت المسودة قبل الإرسال حتى لا تضيع إذا اكتمل الحفظ بينما تغيرت الصفحة.
+    persistDraft(i);
     const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)};
     const before=JSON.stringify(drafts[s.studentId]||null);
+    const status=box.querySelector('[data-save-status="'+i+'"]');
     const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
-    if(JSON.stringify(drafts[s.studentId]||null)===before)clearDraft(i);
-    const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent=r.queued?'حُفظ محليًا وبانتظار المزامنة':'تم حفظ الحصيلة';status.dataset.saved=r.queued?'queued':'saved'}
-    msg(box,r.queued?'حُفظت حصيلة '+s.fullName+' على الجهاز وستُزامن عند الاتصال.':'تم حفظ حصيلة '+s.fullName+' بنجاح.');
+    if(r.queued){
+      if(status){status.textContent='محفوظ مؤقتًا على الجهاز · بانتظار المزامنة';status.dataset.saved='queued'}
+      msg(box,'حصيلة '+s.fullName+' في انتظار المزامنة. لا تعتبر الحصيلة مؤكدة في الخادم بعد.');
+      return;
+    }
+    try{await confirmSaved(s,x)}
+    catch(err){
+      if(status){status.textContent='تعذر تأكيد الحفظ · المسودة محفوظة';status.dataset.saved='draft'}
+      throw Error('أُرسل طلب الحفظ، ولكن التحقق من البيانات لم يكتمل: '+err.message+' المسودة محفوظة على الجهاز.');
+    }
+    const unchanged=JSON.stringify(drafts[s.studentId]||null)===before;
+    if(unchanged)clearDraft(i);
+    if(status){status.textContent=unchanged?'تم الحفظ والتحقق من الخادم':'حُفظت نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft'}
+    msg(box,unchanged?'تم حفظ حصيلة '+s.fullName+' والتأكد من مطابقة التقديرات والعدادات في قاعدة البيانات.':'تم حفظ نسخة سابقة من حصيلة '+s.fullName+'، لكن توجد تعديلات أحدث لم تُحفظ بعد.');
   }));
   action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   students.forEach((s,i)=>{
@@ -749,12 +804,22 @@ async function outcomesPage(root){
   }
   submit(form,async()=>{
     validateAttendance();await ensureCircleSession(circle,date,true);
-    const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)}});
+    const captured=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{s,x}});
+    captured.forEach(({s},i)=>persistDraft(i));
+    const payload=captured.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)}));
+    const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
     const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');
-    // في وضع عدم الاتصال تبقى المسودات المحلية حتى تؤكد المزامنة.
-    if(!r.queued){drafts={};saveDrafts()}
+    if(r.queued){msg(box,'الحفظ الجماعي في انتظار المزامنة. لم تُغلق الجلسة وتبقى المسودات محفوظة على هذا الجهاز.');return}
+    try{
+      const verifiedRows=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+      for(const {s,x} of captured)await confirmSaved(s,x,verifiedRows);
+    }
+    catch(e){throw Error('تم إرسال الحفظ الجماعي لكن لم نتأكد من تطابق النتائج كلها: '+e.message+' بقيت الجلسة مفتوحة والمسودات محفوظة.')}
+    let newerEdits=0;
+    captured.forEach(({s},i)=>{if(JSON.stringify(drafts[s.studentId]||null)===snapshots[i])clearDraft(i);else newerEdits++});
+    if(newerEdits){msg(box,'تأكد حفظ البيانات المرسلة، لكن هناك '+newerEdits+' تعديلات أحدث لم تُحفظ. بقيت الجلسة مفتوحة.');return}
     localStorage.removeItem(activeSessionKey);
-    box.innerHTML='<p class="sl-message" role="status">'+(r.queued?'حُفظت حصائل الحلقة محليًا بانتظار المزامنة؛ وتبقى المسودات محفوظة على هذا الجهاز. أُغلقت جلسة الإدخال.':'تم حفظ حصيلة الحلقة وإنهاء الجلسة بنجاح. يمكنك إعادة فتح الحصيلة للاطلاع على البيانات المحفوظة.')+'</p>';
+    box.innerHTML='<p class="sl-message" role="status">تم التحقق من حفظ حصيلة جميع الطلاب في قاعدة البيانات ثم إغلاق الجلسة بنجاح.</p>';
   })
  })
  let pendingRefreshObserver=null;
@@ -775,7 +840,9 @@ async function outcomesPage(root){
  root.querySelector('[name="circle"]').addEventListener('change',()=>{localStorage.setItem(selectedCircleKey,val(root,'circle'));refreshSelection()});
  root.querySelector('[name="date"]').addEventListener('change',refreshSelection);
  try{const active=JSON.parse(localStorage.getItem(activeSessionKey)||'null');
-  if(active?.date===today()&&l.circles.some(c=>c.id===active.circle)){
+  // تبقى جلسة اليوم مفتوحة عند التنقل ولو كان تاريخ الحصيلة المختار مختلفًا عن اليوم الحالي.
+  const openedDay=active?.openedAt?new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(active.openedAt)):null;
+  if(active?.date&&openedDay===today()&&l.circles.some(c=>c.id===active.circle)){
    root.querySelector('[name="circle"]').value=active.circle;root.querySelector('[name="date"]').value=active.date;
    setTimeout(()=>root.querySelector('[data-action="load"]')?.click(),0);
   }
