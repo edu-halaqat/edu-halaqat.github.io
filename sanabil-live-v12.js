@@ -33,7 +33,24 @@ const localSessionAllowed=(data,date)=>{
  if(!r.allow_outside_hours){const n=Number(get('hour'))*60+Number(get('minute')),tm=x=>{const [h,m]=String(x||'00:00').split(':');return Number(h)*60+Number(m)},a=tm(r.start_time),b=tm(r.end_time),inside=a<=b?(n>=a&&n<=b):(n>=a||n<=b);if(!inside)return{allowed:false,reason:'جلسة الحصيلة متاحة من '+String(r.start_time).slice(0,5)+' إلى '+String(r.end_time).slice(0,5)+' فقط.'}}
  return{allowed:true};
 };
-const bestGeoPosition=async()=>{if(!navigator.geolocation)throw Error('خدمة الموقع غير مدعومة في هذا الجهاز.');const samples=[];let lastErr=null;for(let i=0;i<3;i++){try{const p=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:0}));samples.push(p);if(Number(p.coords.accuracy)<=35)break}catch(e){lastErr=e}}if(!samples.length)throw Error(lastErr?.code===1?'اسمح بالوصول للموقع من إعدادات المتصفح ثم أعد المحاولة.':'تعذر تحديد موقعك بدقة؛ فعّل GPS وأعد المحاولة.');samples.sort((a,b)=>Number(a.coords.accuracy)-Number(b.coords.accuracy));return samples[0]};
+const bestGeoPosition=async()=>{
+ if(!window.isSecureContext)throw Error('تتطلب البصمة فتح الموقع عبر HTTPS.');
+ if(!navigator.geolocation)throw Error('المتصفح لا يوفر خدمة الموقع؛ فعّل الموقع في إعدادات الجهاز أو استخدم متصفحًا يدعمه.');
+ const attempts=[{enableHighAccuracy:true,timeout:25000,maximumAge:0},{enableHighAccuracy:false,timeout:18000,maximumAge:0},{enableHighAccuracy:true,timeout:30000,maximumAge:0}];
+ const samples=[];let lastErr=null;
+ for(const options of attempts){
+  try{
+   const p=await new Promise((ok,fail)=>navigator.geolocation.getCurrentPosition(ok,fail,options));
+   if(Number.isFinite(p.coords.latitude)&&Number.isFinite(p.coords.longitude)&&Number.isFinite(p.coords.accuracy))samples.push(p);
+   if(Number(p.coords.accuracy)<=45)break;
+  }catch(e){lastErr=e;if(e.code===1)break}
+ }
+ if(!samples.length){if(lastErr?.code===1)throw Error('رفض إذن الموقع. فعّل خدمات الموقع للجهاز واسمح للموقع باستخدام الموقع الدقيق من إعدادات المتصفح.');
+   throw Error('تعذر الحصول على موقع التابلت. فعّل Wi-Fi وخدمات الموقع، واسمح بالوصول إلى الموقع الدقيق، ثم أعد المحاولة.');
+ }
+ samples.sort((a,b)=>Number(a.coords.accuracy)-Number(b.coords.accuracy));
+ return samples[0];
+};
 const ensureCircleSession=async(circle,date,refresh=false)=>{
  let data;
  if(navigator.onLine){try{data=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});cacheSessionRule(circle,data)}catch(e){if(!networkFailure(e))throw e}}
@@ -356,8 +373,20 @@ const outcomeRatings=o=>[o?.memorization_rating,o?.recent_review_rating,o?.revie
 const outcomeTrackRate=list=>{const r=list.flatMap(outcomeRatings);return r.length?Math.round(r.filter(gradeOk).length/r.length*100):0};
 const outcomeFailCount=o=>outcomeRatings(o).filter(gradeFail).length;
 
-const metricBlank=()=>({memorization:{errors:0,doubts:0,tajweed:0},recentReview:{errors:0,doubts:0,tajweed:0},review:{errors:0,doubts:0,tajweed:0}});
-const normalizedMetrics=m=>{const o=metricBlank();for(const [k] of metricTracks)for(const f of ['errors','doubts','tajweed'])o[k][f]=Math.max(0,Math.min(100,Number(m?.[k]?.[f]||0)));return o};
+const metricEmpty=()=>({errors:0,doubts:0,tajweed:0});
+const metricBlank=()=>({memorization:metricEmpty(),recentReview:metricEmpty(),review:metricEmpty(),reviewPlans:{}});
+const metricInt=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0)));
+const normalizedMetrics=m=>{
+ const o=metricBlank();
+ for(const [k] of metricTracks)for(const f of ['errors','doubts','tajweed'])o[k][f]=metricInt(m?.[k]?.[f]);
+ if(m?.reviewPlans&&typeof m.reviewPlans==='object'&&!Array.isArray(m.reviewPlans)){
+  for(const [planId,values] of Object.entries(m.reviewPlans)){
+   if(!planId||!values||typeof values!=='object')continue;
+   o.reviewPlans[planId]={errors:metricInt(values.errors),doubts:metricInt(values.doubts),tajweed:metricInt(values.tajweed)};
+  }
+ }
+ return o;
+};
 const metricTotal=m=>{const n=normalizedMetrics(m);return metricTracks.reduce((z,[k])=>z+n[k].errors+n[k].doubts+n[k].tajweed,0)};
 const metricSummary=m=>{const n=normalizedMetrics(m),e=metricTracks.reduce((z,[k])=>z+n[k].errors,0),d=metricTracks.reduce((z,[k])=>z+n[k].doubts,0),t=metricTracks.reduce((z,[k])=>z+n[k].tajweed,0);return e+d+t?`خطأ ${e} · شك ${d} · تجويد ${t}`:'لا تفاصيل'};
 function editMetrics(title,initial,onSave){
@@ -498,9 +527,12 @@ async function studentsPage(root){
 }
 async function outcomesPage(root){
  const l=await lookups();
+ const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
+ const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');await ensureCircleSession(circle,date);
+  localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
@@ -584,13 +616,40 @@ async function outcomesPage(root){
     ratings:{memorization:s.memorizationRating||'',recentReview:s.recentReviewRating||''},
     reviewPlans:Object.fromEntries((s.reviews||[]).map(r=>[r.planId,r.rating||'']))
   }));
+  const draftKey='sanabil_outcome_drafts_v2:'+activeUserId+':'+circle+':'+date;
+  let drafts={};
+  try{const old=JSON.parse(localStorage.getItem(draftKey)||'{}');if(old&&typeof old==='object')drafts=old}catch{}
+  students.forEach((s,i)=>{const d=drafts[s.studentId];if(!d)return;
+    if(d.attendance)states[i].attendance=d.attendance;
+    if(typeof d.note==='string')states[i].note=d.note;
+    if(d.ratings&&typeof d.ratings==='object')states[i].ratings={...states[i].ratings,...d.ratings};
+    if(d.reviewPlans&&typeof d.reviewPlans==='object')states[i].reviewPlans={...states[i].reviewPlans,...d.reviewPlans};
+    if(d.metrics)metrics.set(s.studentId,normalizedMetrics(d.metrics));
+  });
+  const saveDrafts=()=>{try{if(Object.keys(drafts).length)localStorage.setItem(draftKey,JSON.stringify(drafts));else localStorage.removeItem(draftKey)}catch(e){console.warn('تعذر حفظ المسودة المحلية',e)}};
   const gradeValue=(st,key)=>key.startsWith('review:')?(st.reviewPlans[key.slice(7)]||''):(st.ratings[key]||'');
   const setGrade=(st,key,value)=>{if(key.startsWith('review:'))st.reviewPlans[key.slice(7)]=value;else st.ratings[key]=value};
   const attButtons=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>`<button type="button" class="sl-choice sl-att-choice ${current===id?'active':''}" data-att-student="${i}" data-att-value="${id}">${esc(name)}</button>`).join('');
   const gradeButtons=(i,key,current)=>gradeItems.map(g=>`<button type="button" class="sl-choice sl-grade-choice ${current===g?'active':''}" data-grade-student="${i}" data-grade-key="${esc(key)}" data-grade-value="${esc(g)}">${esc(g)}</button>`).join('');
+  const metricFor=(i,key)=>{
+    const m=metrics.get(students[i].studentId)||metricBlank();
+    if(!key.startsWith('review:'))return m[key]||metricEmpty();
+    const id=key.slice(7);
+    return m.reviewPlans?.[id]||((students[i].reviews||[]).length===1?m.review:metricEmpty());
+  };
+  const metricControls=(i,key)=>{
+    const m=metricFor(i,key);
+    return '<div class="sl-metric-bar" aria-label="عدادات التسميع">'+
+      [['errors','الأخطاء'],['doubts','الشكوك'],['tajweed','التجويد']].map(([f,label])=>
+        '<div class="sl-metric-counter"><span>'+label+'</span><div class="sl-metric-buttons">'+
+        '<button type="button" data-metric-step="-1" data-metric-student="'+i+'" data-metric-key="'+esc(key)+'" data-metric-field="'+f+'" aria-label="إنقاص '+label+'">−</button>'+
+        '<input type="number" min="0" max="100" inputmode="numeric" aria-label="'+label+'" data-metric-count data-metric-student="'+i+'" data-metric-key="'+esc(key)+'" data-metric-field="'+f+'" value="'+metricInt(m[f])+'">'+
+        '<button type="button" data-metric-step="1" data-metric-student="'+i+'" data-metric-key="'+esc(key)+'" data-metric-field="'+f+'" aria-label="زيادة '+label+'">+</button>'+
+        '</div></div>').join('')+'</div>';
+  };
   const track=(a,i,key,title,actionId)=>{
     if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${esc(title)}</b><span>لا يوجد مقرر</span></div></section>`;
-    return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+actionId)}</div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div></section>`
+    return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+actionId)}</div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div>${metricControls(i,key)}</section>`;
   };
   const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>Object.prototype.hasOwnProperty.call(counts,x.attendance)&&x.attendance!=='unset'?counts[x.attendance]++:counts.unset++);const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
   const syncCard=i=>{
@@ -600,20 +659,51 @@ async function outcomesPage(root){
     card.querySelectorAll('[data-grade-student]').forEach(b=>{b.disabled=blocked;b.classList.toggle('active',b.dataset.gradeValue===gradeValue(st,b.dataset.gradeKey))});
     const note=card.querySelector('.sl-absence-note');if(note)note.textContent=blocked?'لن يُحتسب مقرر هذا اليوم، وسيعاد توزيع كل خطة متأثرة تلقائيًا.':'';
     if(blocked){st.ratings={memorization:'',recentReview:''};st.reviewPlans={};card.querySelectorAll('[data-grade-student]').forEach(b=>b.classList.remove('active'))}
+    card.querySelectorAll('[data-metric-count],[data-metric-step]').forEach(b=>b.disabled=blocked);
     renderSummary();
   };
   const studentTracks=(s,i)=>{
     const reviews=(s.reviews||[]).map((a,j)=>track(a,i,'review:'+a.planId,a.planName||('المراجعة الكبرى '+(j+1)),`r-${i}-${j}`)).join('');
     return track(s.memorization,i,'memorization','الحفظ الجديد',`m-${i}`)+track(s.recentReview,i,'recentReview','المراجعة الصغرى',`s-${i}`)+(reviews||'<section class="sl-track is-empty"><div class="sl-track-head"><b>المراجعة الكبرى</b><span>لا توجد خطة مراجعة كبرى لهذا اليوم</span></div></section>');
   };
-  box.innerHTML=`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions">${button('تفاصيل التسميع','metrics-'+i)}${button('واتساب','wa-'+i)}${button('بطاقة الحصيلة','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><div class="sl-savebar"><div><b>حفظ الحصيلة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة.</small></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ حصيلة الحلقة</button></div></form>`;
+  box.innerHTML=`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions">${button('حفظ الحصيلة','save-student-'+i)}<small class="sl-student-save-status" data-save-status="${i}" role="status"></small>${button('واتساب','wa-'+i)}${button('بطاقة الحصيلة','img-'+i)}${button('بوابة ولي الأمر','portal-'+i)}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><div class="sl-savebar"><div><b>حفظ الحصيلة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة.</small></div><button class="button button-primary" type="submit" ${students.length?'':'disabled'}>حفظ حصيلة الحلقة وإنهاء الجلسة</button>${button('إغلاق الجلسة','close-outcome-session')}</div></form>`;
   const form=box.querySelector('form');
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
+  const persistDraft=i=>{const s=students[i],x=rowData(s,i);
+    drafts[s.studentId]={attendance:x.att,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
+    saveDrafts();
+    const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft'}
+  };
+  const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
+  const setMetric=(i,key,field,value)=>{
+    if(['absent','excused'].includes(states[i].attendance))return;
+    const m=normalizedMetrics(metrics.get(students[i].studentId));
+    const target=key.startsWith('review:')?(m.reviewPlans[key.slice(7)]||(m.reviewPlans[key.slice(7)]=((students[i].reviews||[]).length===1?{...m.review}:metricEmpty()))):(m[key]||metricEmpty());
+    target[field]=metricInt(value);
+    if(key.startsWith('review:'))for(const f of ['errors','doubts','tajweed'])m.review[f]=metricInt(Object.values(m.reviewPlans).reduce((n,r)=>n+(r[f]||0),0));
+    metrics.set(students[i].studentId,m);
+    box.querySelectorAll('[data-metric-count]').forEach(el=>{if(Number(el.dataset.metricStudent)===i&&el.dataset.metricKey===key&&el.dataset.metricField===field)el.value=String(target[field])});
+    persistDraft(i);
+  };
   const validateAttendance=()=>{const miss=states.findIndex(x=>!x.attendance);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+students[miss].fullName)};
   const validateRow=(s,x)=>{if(['absent','excused'].includes(x.att))return;if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة الصغرى للطالب: '+s.fullName);for(const r of x.reviews)if(!r.grade)throw Error('اختر تقدير «'+r.name+'» للطالب: '+s.fullName)};
-  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i)});
-  box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent);setGrade(states[i],b.dataset.gradeKey,b.dataset.gradeValue);syncCard(i)});
-  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
+  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i);persistDraft(i)});
+  box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent);setGrade(states[i],b.dataset.gradeKey,b.dataset.gradeValue);syncCard(i);persistDraft(i)});
+  box.querySelectorAll('[data-metric-step]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.metricStudent),k=b.dataset.metricKey,f=b.dataset.metricField;setMetric(i,k,f,metricInt(metricFor(i,k)[f])+Number(b.dataset.metricStep))});
+  box.querySelectorAll('[data-metric-count]').forEach(b=>b.addEventListener('change',()=>setMetric(Number(b.dataset.metricStudent),b.dataset.metricKey,b.dataset.metricField,b.value)));
+  form.addEventListener('input',e=>{const m=String(e.target.name||'').match(/^note(\\d+)$/);if(m)persistDraft(Number(m[1]))});
+  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i);persistDraft(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
+  action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
+  students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
+    const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
+    validateRow(s,x);await ensureCircleSession(circle,date,true);
+    const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)};
+    const before=JSON.stringify(drafts[s.studentId]||null);
+    const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
+    if(JSON.stringify(drafts[s.studentId]||null)===before)clearDraft(i);
+    const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent=r.queued?'حُفظ محليًا وبانتظار المزامنة':'تم حفظ الحصيلة';status.dataset.saved=r.queued?'queued':'saved'}
+    msg(box,r.queued?'حُفظت حصيلة '+s.fullName+' على الجهاز وستُزامن عند الاتصال.':'تم حفظ حصيلة '+s.fullName+' بنجاح.');
+  }));
   action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   students.forEach((s,i)=>{
     syncCard(i);
@@ -624,8 +714,14 @@ async function outcomesPage(root){
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
-  submit(form,async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:x.metrics}});const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');msg(root,r.queued?'حُفظت الحصيلة محليًا على هذا الجهاز، وستتم مزامنتها تلقائيًا عند عودة الإنترنت حتى لو انتقلت إلى صفحة أخرى.':`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا؛ وكل مراجعة كبرى عولجت بصورة مستقلة.`)})
+  submit(form,async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)}});const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');drafts={};saveDrafts();localStorage.removeItem(activeSessionKey);msg(root,r.queued?'حُفظت الحصيلة محليًا بانتظار المزامنة. أُغلقت الجلسة في هذا الجهاز.':`تم حفظ جلسة الحلقة لـ ${r.saved} طالبًا وإنهاؤها، وكل مراجعة كبرى عولجت بصورة مستقلة.`)})
  })
+ try{const active=JSON.parse(localStorage.getItem(activeSessionKey)||'null');
+  if(active?.date===today()&&l.circles.some(c=>c.id===active.circle)){
+   root.querySelector('[name="circle"]').value=active.circle;root.querySelector('[name="date"]').value=active.date;
+   setTimeout(()=>root.querySelector('[data-action="load"]')?.click(),0);
+  }
+ }catch{}
 }
 
 async function plansPage(root){
@@ -814,7 +910,7 @@ async function plansPage(root){
          ${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'المراجعة الكبرى')}
          ${select('ابتداء المراجعة','review'+i+'StartMode',[{id:'lesson',name:'من درسه'},{id:'surah',name:'من سورة محددة'}],startMode)}
          ${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'quarter_hizb')}
-         ${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required '+(auto?'readonly':''))}
+         ${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('اتجاه المراجعة','review'+i+'Direction',dirs,defaults.direction||'toward_nas')}
          <div data-review-start-fields>${select('سورة البداية','review'+i+'Surah',[])}</div>
          <div data-review-start-fields>${select('آية البداية','review'+i+'Ayah',[])}</div>
        </div>
@@ -825,7 +921,7 @@ async function plansPage(root){
      const mode=box.querySelector('[name="review'+i+'StartMode"]'),unitEl=box.querySelector('[name="review'+i+'Unit"]'),removeBtn=box.querySelector('[data-remove-review]');
      const toggle=()=>box.querySelectorAll('[data-review-start-fields]').forEach(x=>x.style.display=mode.value==='surah'?'':'none');
      mode.onchange=toggle;toggle();
-     if(auto){unitEl.disabled=true;removeBtn.style.display='none'}
+     box.querySelector('[name="review'+i+'Amount"]').addEventListener('input',()=>{box.dataset.autoMajor='0'});unitEl.addEventListener('change',()=>{box.dataset.autoMajor='0'});box.querySelector('[name="review'+i+'Direction"]').addEventListener('change',()=>{box.dataset.autoMajor='0'});
      removeBtn.onclick=()=>box.remove();
    };
    const autoMajorCycleDays=(code,level)=>code==='bir_alwalidayn'?(Number(level)<=2?4:Number(level)<=5?5:10):5;
@@ -839,10 +935,15 @@ async function plansPage(root){
          p_recent_unit:recentUnit,p_recent_amount:recentAmount,p_cycle_days:cycleDays
        });
      }catch{}
-     await addReview({
+     const quarters=Math.max(1,Number(preview?.dailyAmount)||1);
+    const recommended=Number(level)>=7&&quarters>=8?{unit:'juz',amount:Math.ceil(quarters/8)}:
+      Number(level)>=6&&quarters>=4?{unit:'hizb',amount:Math.ceil(quarters/4)}:
+      quarters>=2?{unit:'half_hizb',amount:Math.ceil(quarters/2)}:
+      {unit:'quarter_hizb',amount:quarters};
+    await addReview({
        name:'المراجعة الكبرى التلقائية',
-       unit:'quarter_hizb',
-       amount:Number(preview?.dailyAmount)||1,
+       unit:recommended.unit,
+       amount:recommended.amount,
        direction:'toward_nas',
        startMode:'lesson',
        auto:true,
@@ -967,7 +1068,7 @@ async function plansPage(root){
        tracks.push({
          id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),
          unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),
-         direction:'toward_nas',startSurah,startAyah,
+         direction:val(box,'review'+i+'Direction')||'toward_nas',startSurah,startAyah,
          methodologyMeta:{
            reviewStartMode:startMode,
            autoMajor:auto,
