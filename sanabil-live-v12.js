@@ -757,10 +757,20 @@ async function outcomesPage(root){
     box.innerHTML='<p class="sl-message" role="status">'+(r.queued?'حُفظت حصائل الحلقة محليًا بانتظار المزامنة؛ وتبقى المسودات محفوظة على هذا الجهاز. أُغلقت جلسة الإدخال.':'تم حفظ حصيلة الحلقة وإنهاء الجلسة بنجاح. يمكنك إعادة فتح الحصيلة للاطلاع على البيانات المحفوظة.')+'</p>';
   })
  })
+ let pendingRefreshObserver=null;
  const refreshSelection=()=>{
    const btn=root.querySelector('[data-action="load"]');
    root.querySelector('.sl-data').innerHTML='<p class="sl-outcome-info" role="status">جارٍ تحديث طلاب الحلقة ومقرراتهم…</p>';
-   if(btn&&!btn.disabled)btn.click();
+   if(!btn)return;
+   if(!btn.disabled){btn.click();return}
+   // لا تُهمَل آخر حلقة/تاريخ اختاره المعلم إذا تغيّر المدخل أثناء تحميل سابق.
+   if(pendingRefreshObserver)return;
+   pendingRefreshObserver=new MutationObserver(()=>{
+     if(btn.disabled)return;
+     pendingRefreshObserver.disconnect();pendingRefreshObserver=null;
+     if(root.isConnected)btn.click();
+   });
+   pendingRefreshObserver.observe(btn,{attributes:true,attributeFilter:['disabled']});
  };
  root.querySelector('[name="circle"]').addEventListener('change',()=>{localStorage.setItem(selectedCircleKey,val(root,'circle'));refreshSelection()});
  root.querySelector('[name="date"]').addEventListener('change',refreshSelection);
