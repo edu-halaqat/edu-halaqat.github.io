@@ -150,3 +150,38 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
   .sl-lesson-actions .button{padding:8px 10px!important;min-height:40px!important;font-size:13px!important}
   .sl-lesson-overlay.is-fullscreen .sl-lesson-panel{width:100vw!important;height:100dvh!important;border-radius:0!important}
 }
+
+
+/* سنابل الوحي — عدادات التسميع اللحظية والحفظ الفردي */
+.sl-live .sl-metric-bar{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+ margin:12px 0 4px;padding:12px;border:1px solid #d8e6e1;
+ border-radius:14px;background:#f8fbfa;direction:rtl;
+}
+.sl-live .sl-metric-counter{display:flex;flex-direction:column;gap:7px;min-width:0}
+.sl-live .sl-metric-counter>span{color:#204d44;font-weight:700;font-size:13px;text-align:center}
+.sl-live .sl-metric-buttons{display:grid;grid-template-columns:minmax(32px,1fr) minmax(42px,1.3fr) minmax(32px,1fr);gap:4px;align-items:center;direction:ltr}
+.sl-live .sl-metric-buttons button{
+ touch-action:manipulation;min-height:43px;min-width:32px;
+ background:#e4f0ec;color:#075545;border:1px solid #bad7cd;
+ border-radius:9px;font-weight:700;font-size:21px;padding:0
+}
+.sl-live .sl-metric-buttons button:active{background:#bfdcd0}
+.sl-live .sl-metric-buttons button:disabled{opacity:.45}
+.sl-live .sl-metric-buttons input[type=number]{
+ box-sizing:border-box;width:100%;min-width:0;min-height:43px;
+ border-radius:9px;border:1px solid #acc9c0;text-align:center;
+ direction:ltr;font-weight:700;font-size:17px;padding:0 2px;
+ color:#0d3e34;background:#fff;appearance:textfield;-moz-appearance:textfield
+}
+.sl-live .sl-metric-buttons input::-webkit-outer-spin-button,
+.sl-live .sl-metric-buttons input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.sl-live .sl-student-save-status{display:inline-block;align-self:center;min-width:92px;color:#756a48;font-size:12px}
+.sl-live .sl-student-save-status[data-saved="saved"]{color:#007c61;font-weight:700}
+.sl-live .sl-student-save-status[data-saved="queued"]{color:#896616}
+@media(max-width:560px){
+ .sl-live .sl-metric-bar{gap:5px;padding:8px}
+ .sl-live .sl-metric-counter>span{font-size:11px}
+ .sl-live .sl-metric-buttons{grid-template-columns:minmax(28px,1fr) minmax(32px,1.1fr) minmax(28px,1fr);gap:2px}
+ .sl-live .sl-metric-buttons button,.sl-live .sl-metric-buttons input[type=number]{min-height:46px;font-size:16px}
+}
