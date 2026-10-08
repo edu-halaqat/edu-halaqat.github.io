@@ -94,6 +94,75 @@ const segmentsOnlyText=segments=>Array.isArray(segments)&&segments.length?segmen
 const assignmentText=a=>{if(!a)return'لا يوجد مقرر';const fallback=segmentsOnlyText(a.segments)||(`${qref(a.from)} ← ${qref(a.to)}`),detail=a.displayLabel||fallback,meta=[];if(a.amount)meta.push(`${a.amount} ${unitAr[a.unit]||'وحدة'}`);if(a.direction&&a.planName!=='المراجعة الصغرى')meta.push(directionAr[a.direction]||a.direction);if(Number(a.cycleNo||1)>1)meta.push('الدورة '+a.cycleNo);if(Number(a.carryIn||0)>0)meta.push('كمية مرحّلة '+a.carryIn);return detail+(meta.length?' · '+meta.join(' · '):'')};
 const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
 const waPhone=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
+
+/* رسائل واتساب: بيانات منظمة بلا تفاصيل تقنية زائدة عن حاجة ولي الأمر */
+const whatsappSurahName=ref=>String(ref?.surahName||ref?.surah||'').replace(/^سورة\s+/,'').trim();
+const whatsappAyah=ref=>Number(ref?.ayahNo||ref?.ayah)||null;
+const whatsappAyahRange=a=>{
+ if(!a)return '';
+ const segments=Array.isArray(a.segments)?a.segments:[];
+ const first=a.from||segments[0]?.from;
+ const last=a.to||segments[segments.length-1]?.to;
+ if(!first||!last)return String(a.displayLabel||'').trim();
+ const fromName=whatsappSurahName(first),toName=whatsappSurahName(last);
+ const from=whatsappAyah(first),to=whatsappAyah(last);
+ if(fromName&&toName&&from&&to){
+  if(fromName===toName)return 'سورة '+fromName+' من الآية '+from+' إلى الآية '+to;
+  return 'من سورة '+fromName+'، الآية '+from+' إلى سورة '+toName+'، الآية '+to;
+ }
+ return String(a.displayLabel||'').trim();
+};
+const whatsappReviewSummary=a=>{
+ if(!a)return '';
+ const label=String(a.displayLabel||'').trim();
+ // يُعرض اسم الحزب/الجزء/السورة/الصفحة المعتمد فقط، دون رقم الدورة أو الاتجاه أو المقدار المجرد.
+ if(label&&/^(حزب|نصف حزب|ربع حزب|جزء|سورة|سور|صفحة|الجزء|الحزب|الصفحات|الآيات)(?:\s|$)/u.test(label))return label;
+ return whatsappAyahRange(a)||label;
+};
+const guardianWhatsappMessage=({studentName,date,status,memorization,recentReview,reviews=[],notes='',portal=''})=>{
+ const name=String(studentName||'الطالب').trim();
+ const opening='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' المحترم، أسعد الله أوقاتكم بكل خير.\n';
+ const closing='\n\nنشكر لكم تعاونكم واهتمامكم بمتابعة ابنكم، ونسأل الله له التوفيق والسداد.';
+ const portalText=portal?'\n\nيمكنكم متابعة برنامج ابنكم والاطلاع على تفاصيل حصيلته عبر بوابة ولي الأمر:\n'+portal:'';
+ if(status==='absent'){
+  return opening+'\nنود الاطمئنان على ابنكم؛ فقد افتقدناه في الحلقة بتاريخ '+date+'، وسُجّل غائبًا هذا اليوم. نرجو أن يكون بخير وعافية، ونأمل إفادتنا بسبب الغياب، مع الحرص على انتظامه قدر المستطاع.'+closing+portalText;
+ }
+ const lines=[];
+ const add=(title,assignment,grade,major=false)=>{
+  if(!assignment)return;
+  const lesson=major?whatsappReviewSummary(assignment):whatsappAyahRange(assignment);
+  if(!lesson)return;
+  lines.push('• '+title+': '+(major?'تمت مراجعة ':'')+lesson+(grade?'، بتقدير «'+grade+'».':'.'));
+ };
+ if(status==='excused'){
+  lines.push('سُجّل ابنكم مستأذنًا من الحلقة اليوم، ولذلك لم تُرصد له حصيلة تسميع مكتملة.');
+ }else{
+  add('الحفظ الجديد',memorization?.assignment,memorization?.grade);
+  add('المراجعة الصغرى',recentReview?.assignment,recentReview?.grade);
+  reviews.forEach((r,i)=>add(r.name||'المراجعة الكبرى '+(i+1),r.assignment,r.grade,true));
+  if(!lines.length)lines.push('لم تُدرج لهذا اليوم مقررات تسميع في سجل الطالب.');
+ }
+ const cautions=[];
+ if(status==='late')cautions.push('نرجو حث ابنكم على الحضور المبكر والالتزام بموعد الحلقة؛ ليستفيد من وقت التعليم والمراجعة كاملًا.');
+ if(status==='excused')cautions.push('نود إحاطتكم بأنه استأذن من الحلقة اليوم. ونأمل تقليل الاستئذان والخروج المبكر قدر الإمكان؛ فتكرار ذلك قد يؤثر في انتظام برنامجه ومستواه.');
+ const note=String(notes||'').trim();
+ const notesText=note?'\n\nملاحظة المعلم: '+note:'';
+ return opening+'\nيسعدنا اطلاعكم على حصيلة ابنكم في حلقة القرآن الكريم بتاريخ '+date+':\n\n'+lines.join('\n')+
+  notesText+(cautions.length?'\n\nتنبيه: '+cautions.join(' '):'')+closing+portalText;
+};
+const teacherWhatsappMessage=({name,date,kind,circleName,lateMinutes=0})=>{
+ const teacher=String(name||'المعلم').trim();
+ const greeting='السلام عليكم ورحمة الله وبركاته\n\nالأستاذ الفاضل '+teacher+'، أسعد الله أوقاتكم بكل خير.\n';
+ const circumstance=' بحلقة '+String(circleName||'القرآن الكريم')+' بتاريخ '+date;
+ let body;
+ if(kind==='late')body='رصدنا تأخرًا في الحضور'+circumstance+'، ونرجو الاطمئنان إلى أن أموركم بخير. ونأمل التكرم بإفادتنا بسبب التأخر، والحرص على بدء الحلقة في موعدها لما لذلك من أثر في انتظام تعليم الطلاب.'+(lateMinutes>0?' (مدة التأخر المسجلة: '+lateMinutes+' دقيقة).':'');
+ else if(kind==='excused')body='ورد تسجيل استئذانكم'+circumstance+'، ونتفهم ما قد يطرأ من ظروف. ونأمل قدر المستطاع تجنّب الاستئذان أثناء وقت الحلقة إلا عند الحاجة، حفاظًا على استمرارية الدروس وانتظام الطلاب.';
+ else if(kind==='absent')body='افتقدنا حضوركم'+circumstance+'، ونرجو أن تكونوا وأن يكون أهلكم بخير وعافية. يسعدنا الاطمئنان على أحوالكم ومعرفة ما حال دون حضوركم، ونسأل الله لكم السلامة والتيسير.';
+ else if(kind==='early')body='لوحظ تسجيل انصراف مبكر'+circumstance+'، ونرجو أن يكون كل شيء على ما يرام. ونأمل استكمال وقت الحلقة المعتمد قدر المستطاع، وإبلاغ الإشراف عند الحاجة إلى الانصراف قبل الموعد.';
+ else body='لم يظهر لنا تسجيل حضوركم حتى الآن'+circumstance+'، فنرجو الاطمئنان على أحوالكم وإفادتنا إن كانت هناك مشكلة في تسجيل البصمة أو ظرف عارض.';
+ return greeting+'\n'+body+'\n\nشاكرين لكم جهودكم المباركة وتعاونكم، ونسأل الله أن يبارك فيكم وفي تعليمكم لكتابه الكريم.\n\nالإشراف التعليمي';
+};
+
 const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const w=window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');if(!w)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return w};
 const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
@@ -795,7 +864,32 @@ async function outcomesPage(root){
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
     for(const [id,a] of mushafAssignments){const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
     const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت التفاصيل مؤقتًا؛ احفظ حصيلة الحلقة لتثبيتها.')})});
-    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const portal=await guardianLink(s.studentId),blocked=['absent','excused'].includes(x.att),line=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`,reviewLines=x.reviews.map(r=>line(r.name,r.assignment,r.grade)).join('\n'),alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم.':'';const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${line('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${line('المراجعة الصغرى',x.recent,x.ratings.recentReview)}${reviewLines?'\n'+reviewLines:''}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;openWhatsApp(s.guardianPhone,text)});
+    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
+      const x=rowData(s,i);if(!x.att)throw Error('حدّد حالة حضور الطالب أولًا.');
+      if(!['absent','excused'].includes(x.att))validateRow(s,x);
+      // افتح نافذة واتساب في ضغطة المعلم نفسها لتجنب حظرها عند انتظار رابط ولي الأمر.
+      const phone=waPhone(s.guardianPhone);
+      if(!phone||phone.length<10)throw Error('لا يوجد رقم جوال صحيح لولي الأمر.');
+      const popup=window.open('about:blank','_blank');
+      if(!popup)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+      try{
+        // لا تُرسل حصيلة غير مؤكدة؛ رسالة الغياب والاستئذان تعتمد على الحضور المحفوظ.
+        try{await confirmSaved(s,x)}
+        catch(e){throw Error('احفظ حصيلة الطالب أولًا وتأكد من ظهور تأكيد الحفظ قبل إرسال واتساب. '+e.message)}
+        const portal=await guardianLink(s.studentId);
+        const text=guardianWhatsappMessage({
+          studentName:s.fullName,date,status:x.att,
+          memorization:{assignment:s.memorization,grade:x.ratings.memorization},
+          recentReview:{assignment:s.recentReview,grade:x.ratings.recentReview},
+          reviews:(s.reviews||[]).map((r,j)=>({
+            name:r.planName||'المراجعة الكبرى '+(j+1),assignment:r,
+            grade:x.ratings.reviewPlans[r.planId]||''
+          })),
+          notes:x.note,portal
+        });
+        popup.location.replace('https://wa.me/'+phone+'?text='+encodeURIComponent(text));
+      }catch(err){try{popup.close()}catch{}throw err}
+    });
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
@@ -1264,30 +1358,35 @@ async function attendancePage(root){
  const getWindow=async c=>{if(!c?.mosque_id)return null;const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
  const minuteNow=()=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date),get=t=>p.find(x=>x.type===t)?.value||'0';return Number(get('hour'))*60+Number(get('minute'))};
  const tmin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m};
+ const teacherWhatsAppButton=(i,phone)=>`<button type="button" class="button button-soft sl-teacher-whatsapp" data-action="msg-${i}" ${waPhone(phone).length<10?'disabled title="راجع رقم جوال المعلم في بيانات المعلمين أولًا"':''} aria-label="فتح رسالة واتساب للمعلم"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>`;
  let lastWindow=null,lastAttendance=[];
  const load=async()=>{
   const c=selected(),date=val(root,'date');if(!c||!date){root.querySelector('.sl-data').innerHTML='<p>اختر الحلقة والتاريخ.</p>';return}
   const [att,win]=await Promise.all([rows('attendance','*',{circle_id:c.id,date_key:date}),getWindow(c)]);lastWindow=win;lastAttendance=att;
   root.querySelector('.sl-window').innerHTML=win?`<div class="sl-window-grid"><article><small>وقت الفترة المعتمد</small><b>${esc(win.period||c.session_period||'الفترة')} · ${esc(win.prayerStart||win.start)} – ${esc(win.prayerEnd||win.end)}</b><span>تُحسب النافذة يوميًا وفق فترة الحلقة وإحداثيات المسجد المعتمدة.</span></article><article><small>تسجيل الحضور</small><b>${esc(win.checkInOpen||win.start)} – ${esc(win.checkInClose||win.end)}</b><span>الحضور المبكر ${esc(win.earlyArrivalMinutes)} د · نهاية سماح التأخير ${esc(win.lateUntil||'—')} · الغياب ${esc(win.absenceAt||'—')}</span></article><article><small>تسجيل الانصراف</small><b>${esc(win.checkOutOpen||'—')} – ${esc(win.checkOutClose||'—')}</b><span>يسمح بالانصراف المبكر قبل نهاية الفترة بـ ${esc(win.earlyLeaveMinutes)} د · مهلة الإغلاق ${esc(win.checkoutGraceMinutes)} د · النطاق ${esc(win.radiusMeters)}م</span></article></div>`:'';
-  const teachers=l.teachers.filter(t=>t.circle_id===c.id),day=new Date(date+'T12:00:00+03:00').getDay(),working=win?.weekdays?.map(Number).includes(day);
+  const teachers=teachersForCircle(l,c.id),day=new Date(date+'T12:00:00+03:00').getDay(),working=win?.weekdays?.map(Number).includes(day);
   const autoAbsent=working&&(date<today()||(date===today()&&minuteNow()>tmin(win.absenceAt||win.checkInClose||win.start)));
   root.querySelector('.sl-data').innerHTML=table(['المعلم','الحضور','الانصراف','الحالة','ملاحظة','إجراء'],teachers.map((t,i)=>{
     const r=att.find(x=>x.teacher_id===t.id),bits=[];
     if(r?.status==='excused')bits.push('مستأذن');else if(r?.status==='absent')bits.push('غائب');
     else if(r?.check_in_at){bits.push('حاضر');if(Number(r.late_minutes)>0)bits.push('متأخر '+r.late_minutes+' د');if(Number(r.early_arrival_minutes)>0)bits.push('مبكر '+r.early_arrival_minutes+' د');if(Number(r.early_leave_minutes)>0)bits.push('انصرف مبكرًا '+r.early_leave_minutes+' د')}
     else bits.push(autoAbsent?'غائب - غير معتمد':'لم يسجل');
-    const noteworthy=r?.status==='excused'||r?.status==='absent'||Number(r?.late_minutes)>0||autoAbsent;
-    return[esc(t.full_name),esc(dateText(r?.check_in_at)),esc(dateText(r?.check_out_at)),esc(bits.join(' · ')),esc(r?.excuse_note||'—'),(manager&&!r?.check_in_at?button('مستأذن','exc-'+i)+button('غائب','abs-'+i):'')+(manager&&noteworthy&&t.phone?button('مراسلة','msg-'+i):'')];
+    const noteworthy=r?.status==='excused'||r?.status==='absent'||Number(r?.late_minutes)>0||Number(r?.early_leave_minutes)>0||(autoAbsent&&!r?.check_in_at);
+    return[esc(t.full_name),esc(dateText(r?.check_in_at)),esc(dateText(r?.check_out_at)),esc(bits.join(' · ')),esc(r?.excuse_note||'—'),(manager&&!r?.check_in_at?button('مستأذن','exc-'+i)+button('غائب','abs-'+i):'')+(manager&&noteworthy?teacherWhatsAppButton(i,t.phone):'')];
   }));
   if(manager)teachers.forEach((t,i)=>{
    const r=att.find(x=>x.teacher_id===t.id);
    for(const [kind,status] of [['exc','excused'],['abs','absent']]){const btn=root.querySelector(`[data-action="${kind}-${i}"]`);if(btn)action(root,btn,async()=>{const note=prompt(status==='excused'?'سبب الاستئذان:':'سبب الغياب أو الملاحظة:','')||'';await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:status,p_note:note});await load()})}
-   const mb=root.querySelector(`[data-action="msg-${i}"]`);if(mb)action(root,mb,async()=>{const state=r?.status==='excused'?'الاستئذان':r?.status==='absent'?'الغياب':Number(r?.late_minutes)>0?'التأخر في الحضور':'عدم تسجيل الحضور';const txt=`السلام عليكم ورحمة الله وبركاته، نود الاستفسار عن ${state} بتاريخ ${date}. شاكرين تعاونكم. — سنابل الوحي`;openWhatsApp(t.phone,txt)})
+   const mb=root.querySelector(`[data-action="msg-${i}"]`);if(mb)action(root,mb,async()=>{
+     const kind=r?.status==='excused'?'excused':r?.status==='absent'?'absent':Number(r?.late_minutes)>0?'late':Number(r?.early_leave_minutes)>0?'early':'missing';
+     const txt=teacherWhatsappMessage({name:t.full_name,date,kind,circleName:c.name,lateMinutes:Number(r?.late_minutes||0)});
+     openWhatsApp(t.phone,txt);
+   })
   })
  };
  for(const kind of ['in','out']){const btn=root.querySelector(`[data-action="${kind}"]`);if(btn)action(root,btn,async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');if(val(root,'date')!==today())throw Error('البصمة الجغرافية متاحة لليوم الحالي فقط');const p=await bestGeoPosition();const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
  if(manager){
-  action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=l.teachers.filter(t=>t.circle_id===c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
+  action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=teachersForCircle(l,c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
   action(root,root.querySelector('[data-action="fingerprint-settings"]'),async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single()),cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{},d=modal('إعدادات بصمة '+m.name),prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];d.innerHTML=`<form><div class="form-grid two">${field('خط العرض','latitude','number',m.latitude,'step="any" required')}${field('خط الطول','longitude','number',m.longitude,'step="any" required')}${field('النطاق بالمتر','radius','number',m.radius_meters||100,'min="20" max="500"')}${select('البداية','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('النهاية','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('الحضور المبكر','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('الانصراف المبكر','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('اعتبار الغياب بعد','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي</button><button type="submit" class="button button-primary">حفظ</button></form>`;const form=d.querySelector('form');action(d,d.querySelector('[data-action="gps"]'),async()=>{const p=await bestGeoPosition();form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={...cfg,action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(cfg.checkoutGraceMinutes??120)};await result(sb().from('mosques').update({latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],updated_at:new Date().toISOString()}).eq('id',m.id).select('id').single());d.closest('dialog').close();await load();msg(root,'تم حفظ إعدادات البصمة لهذا المجمع.')})})
  }
  action(root,root.querySelector('[data-action="load"]'),load);await load()
