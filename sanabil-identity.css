@@ -247,3 +247,134 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
 @media(prefers-reduced-motion:reduce){
  .sl-live .sl-outcome-actions .sl-outcome-action{transition:none}
 }
+
+
+/* V13.1.3 — النموذج المتجاوب المعتمد لأركان التسميع وحفظ الحصيلة */
+/* الحصيلة القرآنية فقط: لا تؤثر هذه القواعد في حلقات التلقين أو النماذج الأخرى */
+.sl-live .sl-outcome-session,
+.sl-live .sl-outcome-session *,
+.sl-live .sl-outcome-session *::before,
+.sl-live .sl-outcome-session *::after{box-sizing:border-box}
+.sl-live .sl-outcome-session{min-width:0;width:100%;direction:rtl}
+.sl-live .sl-outcome-session .sl-student-grid{
+ display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:16px!important
+}
+.sl-live .sl-outcome-session .sl-student-card{min-width:0;overflow:hidden}
+.sl-live .sl-outcome-session .sl-tracks{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:13px!important;align-items:start
+}
+.sl-live .sl-outcome-session .sl-track{
+ min-width:0!important;container-type:inline-size;
+ padding:clamp(10px,1.1vw,16px)!important;border-radius:16px
+}
+.sl-live .sl-outcome-session .sl-track-head{flex-wrap:wrap;align-items:flex-start}
+.sl-live .sl-outcome-session .sl-track-head>div{min-width:0;flex:1 1 130px}
+.sl-live .sl-outcome-session .sl-metric-bar{
+ display:grid!important;grid-template-columns:minmax(0,1fr)!important;
+ gap:10px!important;padding:0!important;border:none!important;
+ background:transparent!important;margin:12px 0 4px!important;
+ min-width:0!important;direction:rtl
+}
+.sl-live .sl-outcome-session .sl-metric-counter{
+ display:flex!important;flex-direction:column!important;min-width:0!important;
+ padding:10px!important;gap:8px!important;border-radius:12px!important;
+ border:1px solid #d8e6e1;background:#f7fbf9
+}
+.sl-live .sl-outcome-session .sl-metric-errors{border-color:#efd0ca;background:#fff9f8}
+.sl-live .sl-outcome-session .sl-metric-doubts{border-color:#ebdfb9;background:#fffdf4}
+.sl-live .sl-outcome-session .sl-metric-tajweed{border-color:#cedfe7;background:#f7fbfd}
+.sl-live .sl-outcome-session .sl-metric-title{
+ display:block!important;text-align:right!important;font-size:clamp(12px,1.35vw,15px)!important;
+ font-weight:900!important;line-height:1.4!important;color:#195446
+}
+.sl-live .sl-outcome-session .sl-metric-errors .sl-metric-title{color:#9e493f}
+.sl-live .sl-outcome-session .sl-metric-doubts .sl-metric-title{color:#896716}
+.sl-live .sl-outcome-session .sl-metric-tajweed .sl-metric-title{color:#286f90}
+.sl-live .sl-outcome-session .sl-metric-buttons{
+ display:grid!important;direction:ltr!important;
+ grid-template-columns:minmax(44px,1fr) minmax(44px,1.3fr) minmax(44px,1fr)!important;
+ gap:8px!important;align-items:stretch!important;min-width:0!important
+}
+.sl-live .sl-outcome-session .sl-metric-buttons button{
+ display:grid!important;place-items:center!important;
+ width:100%!important;min-width:44px!important;min-height:48px!important;
+ padding:0!important;margin:0!important;
+ border:1px solid #c8ded6!important;border-radius:10px!important;
+ background:#e1eee9!important;color:#135e4e!important;
+ font-size:22px!important;font-weight:900!important;
+ cursor:pointer;touch-action:manipulation
+}
+.sl-live .sl-outcome-session .sl-metric-buttons button:disabled{opacity:.4;cursor:not-allowed}
+.sl-live .sl-outcome-session .sl-metric-buttons input[data-metric-count]{
+ display:block!important;width:100%!important;min-width:0!important;
+ height:48px!important;min-height:48px!important;
+ margin:0!important;padding:0 3px!important;
+ border:1px solid #b9d1c8!important;border-radius:10px!important;
+ background:white!important;color:#174b40!important;text-align:center!important;
+ font-size:19px!important;font-weight:900!important;direction:ltr!important
+}
+.sl-live .sl-outcome-session .sl-metric-buttons :is(button,input):focus-visible{
+ outline:3px solid #d8bd88!important;outline-offset:2px
+}
+.sl-live .sl-outcome-session .sl-outcome-savebar{
+ position:relative!important;bottom:auto!important;z-index:1!important;
+ display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)!important;
+ gap:16px!important;align-items:center!important;
+ width:100%!important;min-width:0!important;
+ margin-top:18px!important;padding:18px!important;
+ background:#fff!important;border:1px solid #d9e6df!important;
+ border-radius:19px!important;box-shadow:0 5px 22px #183c3310!important;
+ backdrop-filter:none!important
+}
+.sl-live .sl-outcome-session .sl-savebar-copy{display:grid;gap:5px;min-width:0}
+.sl-live .sl-outcome-session .sl-savebar-copy b{font-size:clamp(16px,1.5vw,21px);color:#174a3e}
+.sl-live .sl-outcome-session .sl-savebar-copy small{font-size:12px;color:#5e796d;line-height:1.8}
+.sl-live .sl-outcome-session .sl-savebar-actions{
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:12px!important;min-width:0!important;width:100%!important
+}
+.sl-live .sl-outcome-session .sl-savebar-actions .button{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ flex-direction:row!important;gap:8px!important;
+ width:100%!important;min-width:0!important;max-width:100%!important;
+ min-height:62px!important;margin:0!important;padding:12px 14px!important;
+ border-radius:14px!important;font-size:clamp(13px,1.2vw,17px)!important;
+ font-weight:850!important;line-height:1.6!important;white-space:normal!important;
+ overflow-wrap:anywhere!important;text-align:center!important;touch-action:manipulation
+}
+.sl-live .sl-outcome-session .sl-savebar-actions .sl-savebar-submit{
+ background:#087e70!important;color:white!important;border:1px solid #087668!important
+}
+.sl-live .sl-outcome-session .sl-savebar-actions [data-action="close-outcome-session"]{
+ background:#faf5f1!important;color:#8c4a36!important;border:1px solid #ead6cd!important
+}
+.sl-live .sl-outcome-session .sl-savebar-icon{font-size:22px;line-height:1;flex:none}
+.sl-live .sl-outcome-session .sl-savebar-actions .button:focus-visible{
+ outline:3px solid #d8bd88!important;outline-offset:2px
+}
+/* التابلت: بطاقة طالب بعرض الشاشة، أركان التسميع متتابعة وأزرار الجلسة متجاورة */
+@media(min-width:701px) and (max-width:1199px){
+ .sl-live .sl-outcome-session .sl-tracks{grid-template-columns:minmax(0,1fr)!important;gap:12px!important}
+ .sl-live .sl-outcome-session .sl-outcome-savebar{grid-template-columns:minmax(0,1fr)!important}
+}
+/* الجوال: عداد واضح في كل سطر، حفظ وإغلاق كلٌّ في زر مستقل */
+@media(max-width:700px){
+ .sl-live .sl-outcome-session .sl-tracks{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}
+ .sl-live .sl-outcome-session .sl-student-card{padding:12px!important}
+ .sl-live .sl-outcome-session .sl-outcome-savebar{
+   grid-template-columns:minmax(0,1fr)!important;gap:12px!important;padding:15px!important
+ }
+ .sl-live .sl-outcome-session .sl-savebar-actions{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}
+ .sl-live .sl-outcome-session .sl-savebar-actions .button{min-height:58px!important;font-size:15px!important}
+ .sl-live .sl-outcome-session .sl-metric-counter{padding:9px!important}
+ .sl-live .sl-outcome-session .sl-metric-buttons{gap:7px!important}
+}
+@media(max-width:360px){
+ .sl-live .sl-outcome-session .sl-metric-buttons{grid-template-columns:minmax(42px,1fr) minmax(38px,1.2fr) minmax(42px,1fr)!important;gap:5px!important}
+ .sl-live .sl-outcome-session .sl-metric-buttons button{min-width:42px!important;min-height:48px!important}
+}
+@container (min-width:680px){
+ .sl-live .sl-outcome-session .sl-metric-bar{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ .sl-live .sl-outcome-session .sl-metric-buttons{grid-template-columns:44px minmax(44px,1fr) 44px!important;gap:4px!important}
+}
