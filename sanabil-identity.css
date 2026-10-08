@@ -378,3 +378,21 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
  .sl-live .sl-outcome-session .sl-metric-bar{grid-template-columns:repeat(3,minmax(0,1fr))!important}
  .sl-live .sl-outcome-session .sl-metric-buttons{grid-template-columns:44px minmax(44px,1fr) 44px!important;gap:4px!important}
 }
+
+/* V13.1.4 — استعادة النصوص المحجوبة وتصحيح عرض الأيام دون مقررات */
+@media(max-width:430px){
+ .sl-live .sl-outcome-session .sl-savebar-actions .sl-savebar-submit > span{
+  display:inline-flex!important;visibility:visible!important;opacity:1!important;
+  align-items:center;justify-content:center;white-space:normal!important;
+ }
+}
+.sl-live .sl-outcome-info{
+ display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0;
+ padding:14px 16px;border:1px solid #cae3d9;background:#f0faf5;
+ color:#185c4d;border-radius:14px;
+ font-size:clamp(13px,1.4vw,16px);font-weight:700;line-height:1.8;direction:rtl
+}
+.sl-live .sl-outcome-info .button{min-height:44px;white-space:normal}
+.sl-live .sl-outcome-info-empty{background:#f8f7ef;border-color:#e4ddc5;color:#635737}
+.sl-live .sl-outcome-readonly{background:#fff9f1;border-color:#ead7bc;color:#7d5428}
+.sl-live .sl-outcome-session button:disabled{cursor:not-allowed}
