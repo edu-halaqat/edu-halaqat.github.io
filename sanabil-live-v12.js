@@ -94,6 +94,75 @@ const segmentsOnlyText=segments=>Array.isArray(segments)&&segments.length?segmen
 const assignmentText=a=>{if(!a)return'لا يوجد مقرر';const fallback=segmentsOnlyText(a.segments)||(`${qref(a.from)} ← ${qref(a.to)}`),detail=a.displayLabel||fallback,meta=[];if(a.amount)meta.push(`${a.amount} ${unitAr[a.unit]||'وحدة'}`);if(a.direction&&a.planName!=='المراجعة الصغرى')meta.push(directionAr[a.direction]||a.direction);if(Number(a.cycleNo||1)>1)meta.push('الدورة '+a.cycleNo);if(Number(a.carryIn||0)>0)meta.push('كمية مرحّلة '+a.carryIn);return detail+(meta.length?' · '+meta.join(' · '):'')};
 const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
 const waPhone=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
+
+/* رسائل واتساب: بيانات منظمة بلا تفاصيل تقنية زائدة عن حاجة ولي الأمر */
+const whatsappSurahName=ref=>String(ref?.surahName||ref?.surah||'').replace(/^سورة\s+/,'').trim();
+const whatsappAyah=ref=>Number(ref?.ayahNo||ref?.ayah)||null;
+const whatsappAyahRange=a=>{
+ if(!a)return '';
+ const segments=Array.isArray(a.segments)?a.segments:[];
+ const first=a.from||segments[0]?.from;
+ const last=a.to||segments[segments.length-1]?.to;
+ if(!first||!last)return String(a.displayLabel||'').trim();
+ const fromName=whatsappSurahName(first),toName=whatsappSurahName(last);
+ const from=whatsappAyah(first),to=whatsappAyah(last);
+ if(fromName&&toName&&from&&to){
+  if(fromName===toName)return 'سورة '+fromName+' من الآية '+from+' إلى الآية '+to;
+  return 'من سورة '+fromName+'، الآية '+from+' إلى سورة '+toName+'، الآية '+to;
+ }
+ return String(a.displayLabel||'').trim();
+};
+const whatsappReviewSummary=a=>{
+ if(!a)return '';
+ const label=String(a.displayLabel||'').trim();
+ // يُعرض اسم الحزب/الجزء/السورة/الصفحة المعتمد فقط، دون رقم الدورة أو الاتجاه أو المقدار المجرد.
+ if(label&&/^(حزب|نصف حزب|ربع حزب|جزء|سورة|سور|صفحة|الجزء|الحزب|الصفحات|الآيات)\b/u.test(label))return label;
+ return whatsappAyahRange(a)||label;
+};
+const guardianWhatsappMessage=({studentName,date,status,memorization,recentReview,reviews=[],notes='',portal=''})=>{
+ const name=String(studentName||'الطالب').trim();
+ const opening='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' المحترم، أسعد الله أوقاتكم بكل خير.\n';
+ const closing='\n\nنشكر لكم تعاونكم واهتمامكم بمتابعة ابنكم، ونسأل الله له التوفيق والسداد.';
+ const portalText=portal?'\n\nيمكنكم متابعة برنامج ابنكم والاطلاع على تفاصيل حصيلته عبر بوابة ولي الأمر:\n'+portal:'';
+ if(status==='absent'){
+  return opening+'\nنود الاطمئنان على ابنكم؛ فقد افتقدناه في الحلقة بتاريخ '+date+'، وسُجّل غائبًا هذا اليوم. نرجو أن يكون بخير وعافية، ونأمل إفادتنا بسبب الغياب، مع الحرص على انتظامه قدر المستطاع.'+closing+portalText;
+ }
+ const lines=[];
+ const add=(title,assignment,grade,major=false)=>{
+  if(!assignment)return;
+  const lesson=major?whatsappReviewSummary(assignment):whatsappAyahRange(assignment);
+  if(!lesson)return;
+  lines.push('• '+title+': '+(major?'تمت مراجعة ':'')+lesson+(grade?'، بتقدير «'+grade+'».':'.'));
+ };
+ if(status==='excused'){
+  lines.push('سُجّل ابنكم مستأذنًا من الحلقة اليوم، ولذلك لم تُرصد له حصيلة تسميع مكتملة.');
+ }else{
+  add('الحفظ الجديد',memorization?.assignment,memorization?.grade);
+  add('المراجعة الصغرى',recentReview?.assignment,recentReview?.grade);
+  reviews.forEach((r,i)=>add(r.name||'المراجعة الكبرى '+(i+1),r.assignment,r.grade,true));
+  if(!lines.length)lines.push('لم تُدرج لهذا اليوم مقررات تسميع في سجل الطالب.');
+ }
+ const cautions=[];
+ if(status==='late')cautions.push('نرجو حث ابنكم على الحضور المبكر والالتزام بموعد الحلقة؛ ليستفيد من وقت التعليم والمراجعة كاملًا.');
+ if(status==='excused')cautions.push('نود إحاطتكم بأنه استأذن من الحلقة اليوم. ونأمل تقليل الاستئذان والخروج المبكر قدر الإمكان؛ فتكرار ذلك قد يؤثر في انتظام برنامجه ومستواه.');
+ const note=String(notes||'').trim();
+ const notesText=note?'\n\nملاحظة المعلم: '+note:'';
+ return opening+'\nيسعدنا اطلاعكم على حصيلة ابنكم في حلقة القرآن الكريم بتاريخ '+date+':\n\n'+lines.join('\n')+
+  notesText+(cautions.length?'\n\nتنبيه: '+cautions.join(' '):'')+closing+portalText;
+};
+const teacherWhatsappMessage=({name,date,kind,circleName,lateMinutes=0})=>{
+ const teacher=String(name||'المعلم').trim();
+ const greeting='السلام عليكم ورحمة الله وبركاته\n\nالأستاذ الفاضل '+teacher+'، أسعد الله أوقاتكم بكل خير.\n';
+ const circumstance=' في '+String(circleName||'الحلقة')+' بتاريخ '+date+'.';
+ let body;
+ if(kind==='late')body='رصدنا تأخرًا في الحضور'+circumstance+' ونرجو الاطمئنان إلى أن أموركم بخير. ونأمل التكرم بإفادتنا بسبب التأخر، والحرص على بدء الحلقة في موعدها لما لذلك من أثر في انتظام تعليم الطلاب.'+(lateMinutes>0?' (مدة التأخر المسجلة: '+lateMinutes+' دقيقة).':'');
+ else if(kind==='excused')body='ورد تسجيل استئذانكم'+circumstance+' ونتفهم ما قد يطرأ من ظروف. ونأمل قدر المستطاع تجنّب الاستئذان أثناء وقت الحلقة إلا عند الحاجة، حفاظًا على استمرارية الدروس وانتظام الطلاب.';
+ else if(kind==='absent')body='افتقدنا حضوركم'+circumstance+'، ونرجو أن تكونوا وأن يكون أهلكم بخير وعافية. يسعدنا الاطمئنان على أحوالكم ومعرفة ما حال دون حضوركم، ونسأل الله لكم السلامة والتيسير.';
+ else if(kind==='early')body='لوحظ تسجيل انصراف مبكر'+circumstance+' ونرجو أن يكون كل شيء على ما يرام. ونأمل استكمال وقت الحلقة المعتمد قدر المستطاع، وإبلاغ الإشراف عند الحاجة إلى الانصراف قبل الموعد.';
+ else body='لم يظهر لنا تسجيل حضوركم حتى الآن'+circumstance+'، فنرجو الاطمئنان على أحوالكم وإفادتنا إن كانت هناك مشكلة في تسجيل البصمة أو ظرف عارض.';
+ return greeting+'\n'+body+'\n\nشاكرين لكم جهودكم المباركة وتعاونكم، ونسأل الله أن يبارك فيكم وفي تعليمكم لكتابه الكريم.\n\nالإشراف التعليمي';
+};
+
 const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const w=window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');if(!w)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return w};
 const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
@@ -795,7 +864,29 @@ async function outcomesPage(root){
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
     for(const [id,a] of mushafAssignments){const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
     const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت التفاصيل مؤقتًا؛ احفظ حصيلة الحلقة لتثبيتها.')})});
-    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const portal=await guardianLink(s.studentId),blocked=['absent','excused'].includes(x.att),line=(name,text,grade)=>blocked?`${name}: لم يُحتسب بسبب ${x.att==='absent'?'الغياب':'الاستئذان'}`:`${name}: ${text}${grade?' — التقدير: '+grade:''}`,reviewLines=x.reviews.map(r=>line(r.name,r.assignment,r.grade)).join('\n'),alert=x.att==='late'?'\nتنبيه: حضر الطالب متأخرًا، ونأمل الحرص على الحضور في الوقت المحدد.':x.att==='absent'?'\nالطالب غائب اليوم؛ نأمل إفادتنا بسبب الغياب.':x.att==='excused'?'\nالطالب مستأذن اليوم.':'';const text=`الحصيلة اليومية - سنابل الوحي\nالطالب: ${s.fullName}\nالتاريخ: ${date}\nالحضور: ${attendanceAr[x.att]||x.att}\n${line('الحفظ الجديد',x.lesson,x.ratings.memorization)}\n${line('المراجعة الصغرى',x.recent,x.ratings.recentReview)}${reviewLines?'\n'+reviewLines:''}${x.note?'\nملاحظة: '+x.note:''}${alert}\n\nبوابة ولي الأمر: ${portal}`;openWhatsApp(s.guardianPhone,text)});
+    const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
+      const x=rowData(s,i);if(!x.att)throw Error('حدّد حالة حضور الطالب أولًا.');
+      if(!['absent','excused'].includes(x.att))validateRow(s,x);
+      // افتح نافذة واتساب في ضغطة المعلم نفسها لتجنب حظرها عند انتظار رابط ولي الأمر.
+      const phone=waPhone(s.guardianPhone);
+      if(!phone||phone.length<10)throw Error('لا يوجد رقم جوال صحيح لولي الأمر.');
+      const popup=window.open('about:blank','_blank');
+      if(!popup)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+      try{
+        const portal=await guardianLink(s.studentId);
+        const text=guardianWhatsappMessage({
+          studentName:s.fullName,date,status:x.att,
+          memorization:{assignment:s.memorization,grade:x.ratings.memorization},
+          recentReview:{assignment:s.recentReview,grade:x.ratings.recentReview},
+          reviews:(s.reviews||[]).map((r,j)=>({
+            name:r.planName||'المراجعة الكبرى '+(j+1),assignment:r,
+            grade:x.ratings.reviewPlans[r.planId]||''
+          })),
+          notes:x.note,portal
+        });
+        popup.location.replace('https://wa.me/'+phone+'?text='+encodeURIComponent(text));
+      }catch(err){try{popup.close()}catch{}throw err}
+    });
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
