@@ -904,7 +904,7 @@ async function plansPage(root){
      const i=reviewIndex++,box=document.createElement('fieldset');
      box.className='sl-plan-builder sl-review-builder';box.dataset.idx=String(i);
      const startMode=defaults.startMode||'lesson',auto=!!defaults.auto;
-     box.dataset.autoMajor=auto?'1':'0';box.dataset.cycleDays=String(defaults.cycleDays||5);
+     box.dataset.autoMajor=auto?'1':'0';box.dataset.cycleDays=String(defaults.cycleDays||5);box.dataset.autoStartSurah=String(defaults.autoStartSurah||'');box.dataset.autoStartAyah=String(defaults.autoStartAyah||'');
      box.innerHTML=`<legend>مراجعة كبرى ${container.children.length+1}</legend>
        <div class="form-grid two">
          ${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'المراجعة الكبرى')}
@@ -948,7 +948,9 @@ async function plansPage(root){
        startMode:'lesson',
        auto:true,
        cycleDays,
-       surah:114,ayah:1
+       autoStartSurah:Number(preview?.startSurahNo)||pos.surah,
+       autoStartAyah:Number(preview?.startAyahNo)||pos.ayah,
+       surah:Number(preview?.startSurahNo)||pos.surah,ayah:Number(preview?.startAyahNo)||pos.ayah
      });
    };
    const applyMethodology=async(useStudentStart=false)=>{
@@ -1064,11 +1066,15 @@ async function plansPage(root){
      if(recentBox.style.display!=='none'&&form.querySelector('[name="userecent"]').checked)tracks.push({id:crypto.randomUUID(),type:'recent_review',unit:val(form,'recentUnit'),dailyAmount:Number(val(form,'recentAmount'))});
      if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){
        const i=box.dataset.idx,startMode=val(box,'review'+i+'StartMode')||'lesson',auto=box.dataset.autoMajor==='1';
-       const startSurah=startMode==='lesson'?114:Number(val(box,'review'+i+'Surah')),startAyah=startMode==='lesson'?1:Number(val(box,'review'+i+'Ayah'));
+       const direction=val(box,'review'+i+'Direction')||'toward_nas';
+       // يبدأ الاتجاه نحو الناس بعد المراجعة الصغرى، مع عدم إهدار بقية المحفوظ.
+       // أما الاتجاه الصاعد فيبدأ من الناس، ويستطيع المعلم توزيع المراجعة بين مسارين متقابلين.
+       const startSurah=startMode==='lesson'?(direction==='toward_fatiha'?114:(Number(box.dataset.autoStartSurah)||Number(val(form,'memSurah')))):Number(val(box,'review'+i+'Surah'));
+       const startAyah=startMode==='lesson'?(direction==='toward_fatiha'?1:(Number(box.dataset.autoStartAyah)||Number(val(form,'memAyah'))||1)):Number(val(box,'review'+i+'Ayah'));
        tracks.push({
          id:crypto.randomUUID(),type:'review',name:val(box,'review'+i+'Name').trim(),
          unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),
-         direction:val(box,'review'+i+'Direction')||'toward_nas',startSurah,startAyah,
+         direction,startSurah,startAyah,
          methodologyMeta:{
            reviewStartMode:startMode,
            autoMajor:auto,
