@@ -153,12 +153,12 @@ const guardianWhatsappMessage=({studentName,date,status,memorization,recentRevie
 const teacherWhatsappMessage=({name,date,kind,circleName,lateMinutes=0})=>{
  const teacher=String(name||'المعلم').trim();
  const greeting='السلام عليكم ورحمة الله وبركاته\n\nالأستاذ الفاضل '+teacher+'، أسعد الله أوقاتكم بكل خير.\n';
- const circumstance=' في '+String(circleName||'الحلقة')+' بتاريخ '+date+'.';
+ const circumstance=' بحلقة '+String(circleName||'القرآن الكريم')+' بتاريخ '+date;
  let body;
- if(kind==='late')body='رصدنا تأخرًا في الحضور'+circumstance+' ونرجو الاطمئنان إلى أن أموركم بخير. ونأمل التكرم بإفادتنا بسبب التأخر، والحرص على بدء الحلقة في موعدها لما لذلك من أثر في انتظام تعليم الطلاب.'+(lateMinutes>0?' (مدة التأخر المسجلة: '+lateMinutes+' دقيقة).':'');
- else if(kind==='excused')body='ورد تسجيل استئذانكم'+circumstance+' ونتفهم ما قد يطرأ من ظروف. ونأمل قدر المستطاع تجنّب الاستئذان أثناء وقت الحلقة إلا عند الحاجة، حفاظًا على استمرارية الدروس وانتظام الطلاب.';
+ if(kind==='late')body='رصدنا تأخرًا في الحضور'+circumstance+'، ونرجو الاطمئنان إلى أن أموركم بخير. ونأمل التكرم بإفادتنا بسبب التأخر، والحرص على بدء الحلقة في موعدها لما لذلك من أثر في انتظام تعليم الطلاب.'+(lateMinutes>0?' (مدة التأخر المسجلة: '+lateMinutes+' دقيقة).':'');
+ else if(kind==='excused')body='ورد تسجيل استئذانكم'+circumstance+'، ونتفهم ما قد يطرأ من ظروف. ونأمل قدر المستطاع تجنّب الاستئذان أثناء وقت الحلقة إلا عند الحاجة، حفاظًا على استمرارية الدروس وانتظام الطلاب.';
  else if(kind==='absent')body='افتقدنا حضوركم'+circumstance+'، ونرجو أن تكونوا وأن يكون أهلكم بخير وعافية. يسعدنا الاطمئنان على أحوالكم ومعرفة ما حال دون حضوركم، ونسأل الله لكم السلامة والتيسير.';
- else if(kind==='early')body='لوحظ تسجيل انصراف مبكر'+circumstance+' ونرجو أن يكون كل شيء على ما يرام. ونأمل استكمال وقت الحلقة المعتمد قدر المستطاع، وإبلاغ الإشراف عند الحاجة إلى الانصراف قبل الموعد.';
+ else if(kind==='early')body='لوحظ تسجيل انصراف مبكر'+circumstance+'، ونرجو أن يكون كل شيء على ما يرام. ونأمل استكمال وقت الحلقة المعتمد قدر المستطاع، وإبلاغ الإشراف عند الحاجة إلى الانصراف قبل الموعد.';
  else body='لم يظهر لنا تسجيل حضوركم حتى الآن'+circumstance+'، فنرجو الاطمئنان على أحوالكم وإفادتنا إن كانت هناك مشكلة في تسجيل البصمة أو ظرف عارض.';
  return greeting+'\n'+body+'\n\nشاكرين لكم جهودكم المباركة وتعاونكم، ونسأل الله أن يبارك فيكم وفي تعليمكم لكتابه الكريم.\n\nالإشراف التعليمي';
 };
@@ -873,6 +873,9 @@ async function outcomesPage(root){
       const popup=window.open('about:blank','_blank');
       if(!popup)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
       try{
+        // لا تُرسل حصيلة غير مؤكدة؛ رسالة الغياب والاستئذان تعتمد على الحضور المحفوظ.
+        try{await confirmSaved(s,x)}
+        catch(e){throw Error('احفظ حصيلة الطالب أولًا وتأكد من ظهور تأكيد الحفظ قبل إرسال واتساب. '+e.message)}
         const portal=await guardianLink(s.studentId);
         const text=guardianWhatsappMessage({
           studentName:s.fullName,date,status:x.att,
