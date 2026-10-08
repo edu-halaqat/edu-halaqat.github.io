@@ -718,8 +718,8 @@ async function outcomesPage(root){
   };
   const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
   // تأكيد مستقل: لا نعتمد رسالة النجاح حتى تعيد قاعدة البيانات التقديرات والعدادات ذاتها.
-  const confirmSaved=async(s,x)=>{
-    const items=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+  const confirmSaved=async(s,x,loadedRows=null)=>{
+    const items=loadedRows||await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
     const saved=(items||[]).find(item=>item.studentId===s.studentId);
     if(!saved||saved.attendanceStatus!==x.att)throw Error('لم تتطابق حالة الحضور مع البيانات التي أعادها الخادم.');
     if(['absent','excused'].includes(x.att))return saved;
@@ -808,7 +808,10 @@ async function outcomesPage(root){
     const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
     const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');
     if(r.queued){msg(box,'الحفظ الجماعي في انتظار المزامنة. لم تُغلق الجلسة وتبقى المسودات محفوظة على هذا الجهاز.');return}
-    try{for(const {s,x} of captured)await confirmSaved(s,x)}
+    try{
+      const verifiedRows=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+      for(const {s,x} of captured)await confirmSaved(s,x,verifiedRows);
+    }
     catch(e){throw Error('تم إرسال الحفظ الجماعي لكن لم نتأكد من تطابق النتائج كلها: '+e.message+' بقيت الجلسة مفتوحة والمسودات محفوظة.')}
     let newerEdits=0;
     captured.forEach(({s},i)=>{if(JSON.stringify(drafts[s.studentId]||null)===snapshots[i])clearDraft(i);else newerEdits++});
