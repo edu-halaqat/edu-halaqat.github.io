@@ -396,3 +396,16 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
 .sl-live .sl-outcome-info-empty{background:#f8f7ef;border-color:#e4ddc5;color:#635737}
 .sl-live .sl-outcome-readonly{background:#fff9f1;border-color:#ead7bc;color:#7d5428}
 .sl-live .sl-outcome-session button:disabled{cursor:not-allowed}
+
+/* سنابل الوحي V13.1.6 — زر التواصل المهني عبر واتساب في صفحة بصمة المعلمين */
+.sl-live .sl-teacher-whatsapp{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ flex-direction:row!important;gap:7px!important;min-height:44px!important;
+ padding:8px 12px!important;white-space:nowrap!important;border-radius:11px!important;
+ color:#086b52!important;background:#e4f4ec!important;border:1px solid #b3dec9!important;
+ font-weight:800!important;font-size:14px!important;touch-action:manipulation;
+}
+.sl-live .sl-teacher-whatsapp svg{display:block;flex:none;width:19px;height:19px}
+.sl-live .sl-teacher-whatsapp span{display:inline!important}
+.sl-live .sl-teacher-whatsapp:disabled{opacity:.55;cursor:not-allowed!important}
+.sl-live .sl-teacher-whatsapp:not(:disabled):focus-visible{outline:3px solid #d8bd88;outline-offset:2px}
