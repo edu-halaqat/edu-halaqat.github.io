@@ -529,10 +529,20 @@ async function outcomesPage(root){
  const l=await lookups();
  const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
  const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
+ const selectedCircleKey='sanabil_outcome_selected_circle_v1:'+activeUserId;
+ const circleCounts=new Map();
+ try{const members=await rows('students','circle_id',{active:true});for(const st of members)circleCounts.set(st.circle_id,(circleCounts.get(st.circle_id)||0)+1)}catch(e){console.warn('تعذر عد طلاب الحلقات',e)}
+ const circleChoices=l.circles.map(c=>({...c,name:c.name+(circleCounts.has(c.id)?' · '+circleCounts.get(c.id)+' طالبًا':' · لا يوجد طلاب')}));
+ const selectedSaved=localStorage.getItem(selectedCircleKey);
+ const selectedDefault=l.circles.find(c=>c.id===selectedSaved)||l.circles.find(c=>(circleCounts.get(c.id)||0)>0)||l.circles[0];
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="load"]'),async()=>{
-  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');await ensureCircleSession(circle,date);
-  localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
+  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
+  localStorage.setItem(selectedCircleKey,circle);
+  // استعراض الأيام خارج الدوام مسموح دون فتح إمكانية التحرير.
+  const sessionInfo=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});
+  const readOnly=!sessionInfo?.allowed;
+  if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
