@@ -691,7 +691,7 @@ async function outcomesPage(root){
   box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent);setGrade(states[i],b.dataset.gradeKey,b.dataset.gradeValue);syncCard(i);persistDraft(i)});
   box.querySelectorAll('[data-metric-step]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.metricStudent),k=b.dataset.metricKey,f=b.dataset.metricField;setMetric(i,k,f,metricInt(metricFor(i,k)[f])+Number(b.dataset.metricStep))});
   box.querySelectorAll('[data-metric-count]').forEach(b=>b.addEventListener('change',()=>setMetric(Number(b.dataset.metricStudent),b.dataset.metricKey,b.dataset.metricField,b.value)));
-  form.addEventListener('input',e=>{const m=String(e.target.name||'').match(/^note(\\d+)$/);if(m)persistDraft(Number(m[1]))});
+  form.addEventListener('input',e=>{const m=String(e.target.name||'').match(/^note(\d+)$/);if(m)persistDraft(Number(m[1]))});
   action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i);persistDraft(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
   action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
