@@ -185,3 +185,65 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
  .sl-live .sl-metric-buttons{grid-template-columns:minmax(28px,1fr) minmax(32px,1.1fr) minmax(28px,1fr);gap:2px}
  .sl-live .sl-metric-buttons button,.sl-live .sl-metric-buttons input[type=number]{min-height:46px;font-size:16px}
 }
+
+
+/* V13.1.1 — إجراءات الحصيلة، التصميم المعتمد */
+.sl-live .sl-student-card .sl-card-actions.sl-outcome-actions{
+ display:flex!important;flex-direction:column!important;align-items:stretch!important;
+ gap:10px!important;width:100%;margin-top:14px;direction:rtl
+}
+.sl-live .sl-outcome-actions .sl-outcome-action{
+ box-sizing:border-box!important;display:flex!important;align-items:center!important;
+ justify-content:center!important;flex-direction:row!important;gap:10px!important;
+ width:100%!important;min-width:0!important;margin:0!important;padding:12px!important;
+ border:1px solid #c9e0d9;border-radius:15px;min-height:54px;
+ font-family:inherit!important;font-size:16px!important;font-weight:800!important;
+ line-height:1.35!important;white-space:normal;text-align:center;
+ cursor:pointer;touch-action:manipulation;
+ transition:background .14s ease,box-shadow .14s ease,transform .14s ease
+}
+.sl-live .sl-outcome-actions .sl-outcome-action svg{
+ display:block;flex:none;width:23px;height:23px;pointer-events:none
+}
+.sl-live .sl-outcome-actions .sl-outcome-primary{
+ position:relative;min-height:64px;padding:13px 53px!important;
+ background:linear-gradient(110deg,#0b897a,#087767)!important;
+ border-color:#087b6c!important;color:white!important;font-size:19px!important;
+ box-shadow:0 5px 13px rgba(6,99,83,.17)
+}
+.sl-live .sl-outcome-actions .sl-outcome-primary svg{
+ position:absolute;inset-inline-start:19px;width:27px;height:27px
+}
+.sl-live .sl-outcome-actions .sl-outcome-primary:active{
+ background:#076653!important;transform:translateY(1px)
+}
+.sl-live .sl-outcome-actions .sl-outcome-secondary-row{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%
+}
+.sl-live .sl-outcome-actions .sl-outcome-secondary,
+.sl-live .sl-outcome-actions .sl-outcome-guardian{
+ background:#e4f1ed!important;border-color:#c7ded6!important;color:#0b5447!important
+}
+.sl-live .sl-outcome-actions .sl-outcome-secondary:active,
+.sl-live .sl-outcome-actions .sl-outcome-guardian:active{background:#d1e8de!important}
+.sl-live .sl-outcome-actions .sl-outcome-guardian{min-height:58px}
+.sl-live .sl-outcome-actions .sl-student-save-status{
+ align-self:stretch!important;text-align:center;margin:0;padding:0
+}
+.sl-live .sl-outcome-actions .sl-student-save-status:empty{display:none}
+.sl-live .sl-outcome-actions .sl-student-save-status:not(:empty){
+ padding:7px 10px;border-radius:9px;background:#f5faf7;font-size:12px
+}
+.sl-live .sl-outcome-actions .sl-outcome-action:focus-visible{
+ outline:3px solid #d8bd88!important;outline-offset:3px
+}
+@media(max-width:440px){
+ .sl-live .sl-outcome-actions .sl-outcome-action{font-size:14px!important;padding:10px 7px!important;gap:5px!important;min-height:54px}
+ .sl-live .sl-outcome-actions .sl-outcome-primary{font-size:18px!important;padding:12px 48px!important;min-height:60px}
+ .sl-live .sl-outcome-actions .sl-outcome-action svg{width:20px;height:20px}
+ .sl-live .sl-outcome-actions .sl-outcome-primary svg{width:25px;height:25px;inset-inline-start:14px}
+ .sl-live .sl-outcome-actions .sl-outcome-secondary-row{gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .sl-live .sl-outcome-actions .sl-outcome-action{transition:none}
+}
