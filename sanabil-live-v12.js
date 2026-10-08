@@ -853,7 +853,7 @@ async function plansPage(root){
        const form=b.querySelector('form');await quranPair(form,'surah','ayah',{surah:sr.surahNo||sr.surah_no,ayah:sr.ayahNo||sr.ayah});
        submit(form,async()=>{if(!mem&&val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');const ex=week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));const r=mem
          ?await rpc('save_memorization_plan_whole_ayah',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true,p_methodology_code:p.methodology_code||null,p_methodology_level:p.methodology_level||null,p_methodology_profile:p.methodology_profile||null,p_methodology_meta:p.methodology_meta||{}})
-         :await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(p.type==='review'&&val(form,'planName').trim())await result(sb().from('plans').update({name:val(form,'planName').trim()}).eq('id',p.id).select('id').single());b.closest('dialog').close();await load();msg(root,mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
+         :await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(p.type==='review'&&val(form,'planName').trim())await rpc('update_plan_details_guarded',{p_plan_id:p.id,p_name:val(form,'planName').trim()});b.closest('dialog').close();await load();msg(root,mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
      });
    });
  };
@@ -1122,14 +1122,13 @@ async function plansPage(root){
        const memTrack=tracks.find(x=>x.type==='memorization');
        if(memTrack&&['custom','remedial'].includes(code)){
          const planName=code==='remedial'?'خطة علاجية':'خطة خاصة';
-         await result(sb().from('plans').update({name:planName,methodology_code:code,methodology_level:null,methodology_profile:null,methodology_meta:currentMethod.meta||{},updated_at:new Date().toISOString()}).eq('id',memTrack.id).select('id').single());
+         await rpc('update_plan_details_guarded',{p_plan_id:memTrack.id,p_name:planName,p_methodology_code:code,p_methodology_meta:currentMethod.meta||{}});
        }
      }else{
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:tracks});
      }
-     for(const rt of tracks.filter(x=>x.type==='review'&&x.methodologyMeta)){
-       await result(sb().from('plans').update({methodology_meta:rt.methodologyMeta,updated_at:new Date().toISOString()}).eq('id',rt.id).select('id').single());
-     }
+     // تُحفظ إعدادات المراجعات الكبرى ضمن save_plan_bundle بمعاملة واحدة
+     // ولا تتطلب تصريح UPDATE مباشر على جدول الخطط.
      await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
      const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
      const createdName=code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':code==='remedial'?'الخطة العلاجية':'الخطة الخاصة';
