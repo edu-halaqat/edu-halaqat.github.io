@@ -723,7 +723,7 @@ async function outcomesPage(root){
     if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
     const box=root.querySelector('.sl-data');
     // Unsaved grades and notes remain intact when another student is saved or attendance refreshes.
-    const talaqqinDrafts=new Map();
+    const talaqqinDrafts=new Map(),attendanceDrafts=new Map();
     const renderTalaqqin=async()=>{
       const [all,attRows,assessments]=await Promise.all([
         rpc('get_talaqqin_dashboard',{}),
@@ -733,7 +733,7 @@ async function outcomesPage(root){
       const items=(all||[]).filter(x=>x.circleId===circle),attMap=new Map((attRows||[]).map(x=>[x.student_id,x]));
       const assessmentMap=new Map();
       for(const a of assessments||[])if(!assessmentMap.has(a.student_id))assessmentMap.set(a.student_id,a);
-      const states=items.map(r=>({status:attMap.get(r.studentId)?.status||'',note:attMap.get(r.studentId)?.note||''}));
+      const states=items.map(r=>({status:attendanceDrafts.get(r.studentId)?.status??attMap.get(r.studentId)?.status??'',note:attendanceDrafts.get(r.studentId)?.note??attMap.get(r.studentId)?.note??''}));
       const attChoices=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>'<button type="button" class="sl-choice sl-att-choice '+(current===id?'active':'')+'" data-tl-att="'+i+'" data-tl-att-value="'+esc(id)+'">'+esc(name)+'</button>').join('');
       const summary=()=>{const m={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>x.status&&m[x.status]!==undefined?m[x.status]++:m.unset++);return '<span>حاضر <b>'+m.present+'</b></span><span>متأخر <b>'+m.late+'</b></span><span>مستأذن <b>'+m.excused+'</b></span><span>غائب <b>'+m.absent+'</b></span>'+(m.unset?'<span class="warn">غير محضر <b>'+m.unset+'</b></span>':'')};
       box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>جلسة التلقين اليومية</h3><p>اختر تقدير درس نور البيان أمام اسم الطالب، ثم احفظ حصيلته مباشرة. إدارة الخطط والدروس الخاصة من صفحة الخطط.</p></div></section>'+
@@ -763,20 +763,26 @@ async function outcomesPage(root){
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
        }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      box.querySelectorAll('[data-tl-note]').forEach(input=>input.addEventListener('input',()=>{
+        const i=Number(input.dataset.tlNote),r=items[i];if(!r)return;
+        states[i].note=input.value;
+        attendanceDrafts.set(r.studentId,{...attendanceDrafts.get(r.studentId),status:states[i].status,note:input.value});
+      }));
+      if(readOnly)box.querySelectorAll('[data-tl-att],[data-tl-note],[data-action="tl-all-present"],[data-action="tl-save-attendance"]').forEach(el=>el.disabled=true);
       const refreshSummary=()=>{const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=summary();items.forEach((r,i)=>{const absent=['absent','excused'].includes(states[i].status);const note=box.querySelector('[data-tl-note="'+i+'"]')?.closest('label');if(note)note.hidden=!['late','absent','excused'].includes(states[i].status);box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>b.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed);const save=box.querySelector('[data-action="tl-save-'+i+'"]');if(save)save.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed;const textarea=box.querySelector('[data-tl-assessment-note="'+i+'"]');if(textarea)textarea.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed})};refreshSummary();
-      box.querySelectorAll('[data-tl-att]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.tlAtt);states[i].status=b.dataset.tlAttValue;box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(x=>x.classList.toggle('active',x.dataset.tlAttValue===states[i].status));refreshSummary()});
-      action(box,box.querySelector('[data-action="tl-all-present"]'),()=>{states.forEach((x,i)=>{x.status='present';box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(b=>b.classList.toggle('active',b.dataset.tlAttValue==='present'))});refreshSummary();msg(box,'تم تحديد الجميع حاضرين؛ عدّل حالات الاستثناء ثم احفظ التحضير.')});
+      box.querySelectorAll('[data-tl-att]').forEach(b=>b.onclick=()=>{if(readOnly)return;const i=Number(b.dataset.tlAtt);states[i].status=b.dataset.tlAttValue;attendanceDrafts.set(items[i].studentId,{...attendanceDrafts.get(items[i].studentId),status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value||states[i].note});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(x=>x.classList.toggle('active',x.dataset.tlAttValue===states[i].status));refreshSummary()});
+      action(box,box.querySelector('[data-action="tl-all-present"]'),()=>{if(readOnly)throw Error('هذه الجلسة للعرض فقط.');states.forEach((x,i)=>{x.status='present';attendanceDrafts.set(items[i].studentId,{status:'present',note:box.querySelector('[data-tl-note="'+i+'"]')?.value||''});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(b=>b.classList.toggle('active',b.dataset.tlAttValue==='present'))});refreshSummary();msg(box,'تم تحديد الجميع حاضرين؛ عدّل حالات الاستثناء ثم احفظ التحضير.')});
       action(box,box.querySelector('[data-action="tl-save-attendance"]'),async()=>{
         const miss=states.findIndex(x=>!x.status);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+items[miss].fullName);
         const payload=items.map((r,i)=>({studentId:r.studentId,status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value.trim()||null}));
         await ensureCircleSession(circle,date,true);const rr=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير حلقة التلقين');
-        msg(box,rr.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':'تم حفظ تحضير '+rr.saved+' طالبًا.');if(!rr.queued)await renderTalaqqin();
+        msg(box,rr.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':'تم حفظ تحضير '+rr.saved+' طالبًا.');if(!rr.queued){attendanceDrafts.clear();await renderTalaqqin();}
       });
       items.forEach((r,i)=>{
         const ll=r.lesson||{},savedStatus=attMap.get(r.studentId)?.status||'';
         const draftFor=()=>talaqqinDrafts.get(r.studentId)||{};
         const updateDraft=patch=>talaqqinDrafts.set(r.studentId,{...draftFor(),...patch});
-        const selectedGrade=()=>draftFor().rating||'';
+        const selectedGrade=()=>assessmentMap.get(r.studentId)?.rating||draftFor().rating||'';
         const syncGradeButtons=()=>{
           const current=selectedGrade(),absent=['absent','excused'].includes(states[i].status);
           const locked=readOnly||assessmentMap.has(r.studentId)||absent||!r.placementSet||r.completed;
@@ -2035,6 +2041,9 @@ const style=document.createElement('style');style.textContent=`.sl-live{backgrou
 
  const talaqqinStyle=document.createElement('style');
  talaqqinStyle.textContent='.sl-tl-outcome{margin-top:14px;padding:15px;border:1px solid #D8BD88;border-radius:14px;background:#FCFBF6}.sl-tl-outcome h4{margin:0 0 12px;color:#063B34}.sl-tl-outcome textarea{width:100%;box-sizing:border-box}.sl-tl-card-preview{text-align:center;max-height:55vh;overflow:auto;background:#F8F5EE;border-radius:12px;padding:8px}.sl-tl-card-preview img{width:min(100%,470px);height:auto}.sl-dialog textarea[readonly]{width:100%;box-sizing:border-box;padding:12px;border:1px solid #CBD5CE;border-radius:10px;line-height:1.8;background:#F8FAF8}';
+
+ talaqqinStyle.textContent+='.sl-tl-outcome{margin-top:14px!important;padding:12px 0!important;border:0!important;border-top:1px solid #e0e8e2!important;border-radius:0!important;background:transparent!important}.sl-tl-outcome-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.sl-tl-outcome-heading b{font-size:1rem;color:#063B34}.sl-tl-outcome-heading small{font-size:.8rem;color:#61766d}.sl-tl-grade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0 12px}.sl-tl-grade{min-height:44px;margin:0!important;padding:8px!important;border:1px solid #c9dcd4!important;border-radius:10px!important;background:#f5faf8!important;color:#144f43!important;font-weight:700!important;font-size:.88rem!important;line-height:1.5;white-space:normal}.sl-tl-grade.active{background:#006c5a!important;border-color:#006c5a!important;color:#fff!important;box-shadow:0 0 0 2px #d8bd88}.sl-tl-grade:disabled:not(.active){opacity:.52}.sl-tl-notes{font-size:.9rem}.sl-tl-notes textarea{max-height:130px;min-height:64px;padding:9px;border:1px solid #cbd9d1;border-radius:10px;background:#fff}.sl-tl-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.sl-tl-primary-actions .button{margin:0;min-height:44px;white-space:normal}.sl-tl-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.sl-tl-tools button{min-height:42px;margin:0}.sl-tl-more{margin-top:9px;color:#397568;font-size:.85rem}.sl-tl-more summary{cursor:pointer;padding:7px 0}.sl-plan-type-tabs{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 18px}.sl-plan-type-tabs button{flex:1 1 155px}.sl-live [hidden],.sl-dialog [hidden]{display:none!important}@media(max-width:650px){.sl-tl-grade-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sl-tl-grade{font-size:.85rem!important}.sl-tl-primary-actions{gap:8px}.sl-tl-primary-actions .button{font-size:.88rem}}';
+
  document.head.append(talaqqinStyle);
 })();
 
