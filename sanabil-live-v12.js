@@ -17,7 +17,7 @@ const queueOfflineRpc=async(name,args,label)=>{const item={id:crypto.randomUUID(
 const networkFailure=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request/i.test(String(e?.message||e||''));
 const rpcOffline=async(name,args,label)=>{if(!navigator.onLine)return await queueOfflineRpc(name,args,label);try{return await rpc(name,args)}catch(e){if(networkFailure(e))return await queueOfflineRpc(name,args,label);throw e}};
 let offlineFlushing=false;
-const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[item.name]||item.name;await rpc(guardedName,item.args);try{const reg=await offlineSw();reg?.active?.postMessage({type:'ack',id:item.id})}catch{}}catch(e){left.push(item);if(networkFailure(e))left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
+const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[item.name]||item.name;await rpc(guardedName,item.args);try{const reg=await offlineSw();reg?.active?.postMessage({type:'ack',id:item.id})}catch{}}catch(e){left.push(item);left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
 window.addEventListener('online',()=>{flushOfflineQueue().catch(()=>{});offlineSw().then(r=>r?.active?.postMessage({type:'flush'})).catch(()=>{})});
 navigator.serviceWorker?.addEventListener?.('message',e=>{if(e.data?.type==='sanabil-offline-synced'&&e.data.id)offlineWrite(offlineRead().filter(x=>x.id!==e.data.id))});
 const sessionCache=()=>{try{return JSON.parse(localStorage.getItem(SESSION_RULE_KEY)||'{}')||{}}catch{return{}}};
@@ -491,7 +491,7 @@ const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\
 function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
 const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){msg(form,e.message,true)}finally{b.disabled=false}})};
 let lookupPromise=null,lookupAt=0;
-async function lookups(){if(!lookupPromise||Date.now()-lookupAt>30000){lookupAt=Date.now();lookupPromise=Promise.all([
+async function lookups(){if(!lookupPromise||Date.now()-lookupAt>120000){lookupAt=Date.now();lookupPromise=Promise.all([
  rows('complexes','id,name,org_id',{active:true}),
  rows('circles','id,name,complex_id,org_id,mosque_id,circle_type,session_period,declared_student_count,assignment_note',{active:true}),
  rows('teachers','id,full_name,circle_id,complex_id,user_id,phone,job_title,source_ref',{active:true}),
@@ -944,10 +944,15 @@ async function outcomesPage(root){
 }
 
 async function plansPage(root){
- const [students,methodologies]=await Promise.all([
+ const scope=await lookups();
+ const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
+ const [allStudents,methodologies]=await Promise.all([
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
    rpc('list_plan_methodologies',{}).catch(()=>[])
  ]);
+ const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id));
+ const quranStudentIds=new Set(students.map(s=>s.id));
+ if(!students.length){root.innerHTML='<section class="sl-session-head"><h2>خطط التلقين مستقلة عن خطط القرآن</h2><p>لا يوجد طلاب لحلقات القرآن ضمن صلاحياتك. يمكن إعداد خطة نور البيان الخاصة بكل طالب من «الحصيلة اليومية» ثم «الخطة الشخصية».</p></section>';return;}
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -1019,7 +1024,7 @@ async function plansPage(root){
  };
 
  const load=async()=>{
-   const plans=await rows('plans','*',{status:'active'});plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+   const plans=(await rows('plans','*',{status:'active'})).filter(p=>quranStudentIds.has(p.student_id));plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
    root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
    plans.forEach((p,i)=>{
      action(root,root.querySelector(`[data-action="remove-${i}"]`),async()=>{
