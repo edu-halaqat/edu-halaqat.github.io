@@ -1105,6 +1105,49 @@ async function outcomesPage(root){
  }catch{}
 }
 
+
+async function talaqqinPlansPage(root,scope){
+  const circles=(scope?.circles||[]).filter(x=>x.circle_type==='حلقات التلقين');
+  if(!circles.length){
+    root.innerHTML='<section class="sl-session-head"><h2>خطط حلقات التلقين</h2><p>لم تُسند إليك حاليًا حلقة تلقين نشطة.</p></section>';
+    return;
+  }
+  root.innerHTML='<section class="sl-session-head"><h2>خطط الطلاب · حلقات التلقين</h2><p>حدد موضع البداية، واضبط مدة الوحدات لكل طالب، وأنشئ الدروس الخاصة أو مدّد الدرس عند الحاجة. تبقى هذه الإعدادات خارج صفحة الحصيلة اليومية.</p></section><p class="sl-help">جارٍ جلب خطط التلقين…</p>';
+  const all=await rpc('get_talaqqin_dashboard',{});
+  const circleIds=new Set(circles.map(x=>x.id));
+  const students=(all||[]).filter(x=>circleIds.has(x.circleId)).sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'ar'));
+  root.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">خطط الطلاب</span><h2>خطط نور البيان · حلقات التلقين</h2>'
+    +'<p>إعداد خطة الطالب الشخصية وموضعه ودروسه الخاصة. التقييم اليومي والحفظ والمشاركة من صفحة «الحصيلة» فقط.</p></div>'
+    +button('عرض منهج نور البيان','tl-reference')+'</section>'
+    +(students.length?'<div class="sl-plan-grid">'+students.map((r,i)=>{
+       const l=r.lesson||{},weeks=r.pacing?.totalWeeks||50;
+       const circle=circles.find(c=>c.id===r.circleId);
+       return '<article class="sl-plan-card sl-tl-plan-card"><header><div><span class="sl-plan-type">حلقات التلقين</span><h3>'+esc(r.fullName)+'</h3>'
+        +'<small>'+esc(circle?.name||'')+'</small></div>'
+        +'<span class="sl-plan-status">'+esc(r.completed?'أتم المنهج':r.placementSet?'نشط':'بانتظار تحديد المستوى')+'</span></header>'
+        +'<div class="sl-plan-facts"><span><b>الدرس الحالي</b>'+esc(r.completed?'أتم منهج نور البيان':r.placementSet?l.title||'—':'لم يحدد موضع البداية')+'</span>'
+        +'<span><b>مدة الخطة الشخصية</b>'+esc(weeks)+' أسبوعًا</span>'
+        +'<span><b>وحدة المنهج</b>'+esc(l.unitName||'—')+'</span>'
+        +'<span><b>الدرس الخاص</b>'+esc(r.activeCustomLesson?'نشط':'لا يوجد')+'</span></div>'
+        +'<div class="sl-card-actions">'
+        +button(r.placementSet?'تعديل الموضع':'تحديد موضع البداية','tl-plan-place-'+i)
+        +button('إعداد الخطة الشخصية','tl-plan-pace-'+i)
+        +(r.placementSet&&!r.completed&&r.lessonSource!=='custom'?button('تمديد الدرس الحالي','tl-plan-extend-'+i):'')
+        +(r.placementSet&&!r.completed&&!r.activeCustomLesson?button('إضافة درس خاص','tl-plan-custom-'+i):'')
+        +(r.activeCustomLesson?button('إلغاء الدرس الخاص','tl-plan-cancel-'+i):'')
+        +'</div></article>';
+     }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون في حلقات التلقين المسندة إليك.</p>');
+  action(root,root.querySelector('[data-action="tl-reference"]'),showTalaqqinCurriculum);
+  const refresh=()=>talaqqinPlansPage(root,scope);
+  students.forEach((r,i)=>{
+    action(root,root.querySelector('[data-action="tl-plan-place-'+i+'"]'),()=>placeTalaqqinStudent(root,r,refresh));
+    action(root,root.querySelector('[data-action="tl-plan-pace-'+i+'"]'),()=>paceTalaqqinStudent(root,r,refresh));
+    action(root,root.querySelector('[data-action="tl-plan-extend-'+i+'"]'),()=>extendTalaqqinLesson(root,r,refresh));
+    action(root,root.querySelector('[data-action="tl-plan-custom-'+i+'"]'),()=>addCustomTalaqqinLesson(root,r,refresh));
+    action(root,root.querySelector('[data-action="tl-plan-cancel-'+i+'"]'),()=>cancelCustomTalaqqinLesson(root,r,refresh));
+  });
+}
+
 async function plansPage(root){
  const scope=await lookups();
  const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
@@ -1114,7 +1157,7 @@ async function plansPage(root){
  ]);
  const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id));
  const quranStudentIds=new Set(students.map(s=>s.id));
- if(!students.length){root.innerHTML='<section class="sl-session-head"><h2>خطط التلقين مستقلة عن خطط القرآن</h2><p>لا يوجد طلاب لحلقات القرآن ضمن صلاحياتك. يمكن إعداد خطة نور البيان الخاصة بكل طالب من «الحصيلة اليومية» ثم «الخطة الشخصية».</p></section>';return;}
+ if(!students.length)return await talaqqinPlansPage(root,scope);
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -1172,6 +1215,29 @@ async function plansPage(root){
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
  <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div><div class="sl-data"></div>`;
+
+ if(talaqqinCircles.size){
+   const quranMarkup=root.innerHTML;
+   root.innerHTML='<nav class="sl-plan-type-tabs" aria-label="مسار خطط الطلاب">'
+     +'<button type="button" class="button button-primary" data-action="tab-quran" aria-pressed="true">خطط حلقات القرآن</button>'
+     +'<button type="button" class="button button-soft" data-action="tab-talaqqin" aria-pressed="false">خطط حلقات التلقين</button></nav>'
+     +'<div data-plan-tab-panel="quran">'+quranMarkup+'</div><div data-plan-tab-panel="talaqqin" hidden></div>';
+   const q=root.querySelector('[data-plan-tab-panel="quran"]'),t=root.querySelector('[data-plan-tab-panel="talaqqin"]');
+   const qButton=root.querySelector('[data-action="tab-quran"]'),tButton=root.querySelector('[data-action="tab-talaqqin"]');
+   const switchPlanTab=async kind=>{
+     const showT=kind==='talaqqin';
+     q.hidden=showT;t.hidden=!showT;
+     qButton.className='button '+(!showT?'button-primary':'button-soft');
+     tButton.className='button '+(showT?'button-primary':'button-soft');
+     qButton.setAttribute('aria-pressed',String(!showT));tButton.setAttribute('aria-pressed',String(showT));
+     if(showT&&!t.dataset.loaded){
+       await talaqqinPlansPage(t,scope);
+       t.dataset.loaded='1';
+     }
+   };
+   action(root,qButton,()=>switchPlanTab('quran'));
+   action(root,tButton,()=>switchPlanTab('talaqqin'));
+ }
 
  const planCard=(p,i)=>{
    const recent=p.type==='recent_review',qpc=p.type==='review'&&qpcUnits.has(p.unit),mem=p.type==='memorization';
@@ -1873,27 +1939,6 @@ const cancelCustomTalaqqinLesson=async(root,row,refresh)=>{
  msg(root,'تم إلغاء الدرس الخاص والعودة إلى المسار الأصلي.');
  if(refresh)await refresh();else await dashboard(root);
 };
-const assessTalaqqinStudent=(root,row,refresh)=>{
- if(!row.placementSet)throw Error('حدد موضع الطالب أولًا.');
- const l=row.lesson||{},isCustom=row.lessonSource==='custom',b=modal('تقييم درس التلقين · '+row.fullName);
- b.innerHTML='<form><p><b>'+esc(l.title||'الدرس الحالي')+'</b>'+(isCustom?' <span class="status">درس خاص</span>':'')+'<br><span class="sl-help">'+esc(l.unitName||'')+
-   (l.weekStart?' · الخطة المرجعية: الأسبوع '+esc(l.weekStart===l.weekEnd?l.weekStart:(l.weekStart+'–'+l.weekEnd)):'')+
-   (l.plannedWeeks?' · المدة المخططة للدرس الخاص: '+esc(l.plannedWeeks)+' أسبوع/أسابيع':'')+
-   '</span></p><div class="sl-toolbar">'+(l.pageFrom?button('فتح صفحة الدرس','open-lesson'):'')+(l.mediaUrl?button('استماع / مشاهدة الشرح','media'):'')+'</div>'+
-   '<label>تقدير الدرس<select name="rating" required><option value="">اختر التقدير</option><option>ممتاز</option><option>جيد جدًا</option><option>جيد</option><option>يحتاج إعادة</option><option>لم يسمع</option></select></label>'+
-   '<label>ملاحظة المعلم<textarea name="notes" rows="3" style="width:100%"></textarea></label>'+
-   '<p class="sl-help">'+(isCustom?(l.afterPassAction==='advance'?'عند الاجتياز سيُعتمد الدرس الخاص بديلًا عن الدرس الحالي وينتقل الطالب إلى التالي.':'عند الاجتياز سيعود الطالب إلى الدرس الأصلي نفسه.'):'ممتاز / جيد جدًا / جيد: ينتقل الطالب تلقائيًا إلى الدرس التالي. «يحتاج إعادة» أو «لم يسمع»: يبقى على الدرس نفسه دون أن تتغير خطة بقية الطلاب.')+'</p>'+
-   '<button type="submit" class="button button-primary">حفظ التقييم</button></form>';
- if(l.pageFrom)action(b,b.querySelector('[data-action="open-lesson"]'),()=>openTalaqqinLesson(l,row));
- if(l.mediaUrl)action(b,b.querySelector('[data-action="media"]'),()=>window.open(l.mediaUrl,'_blank','noopener,noreferrer'));
- submit(b.querySelector('form'),async()=>{
-   const r=await rpc('save_talaqqin_assessment_guarded',{p_student_id:row.studentId,p_rating:val(b,'rating'),p_notes:b.querySelector('[name="notes"]').value.trim()||null});
-   b.closest('dialog').close();
-   msg(root,r.completed?'أتم الطالب منهج حلقات التلقين كاملًا.':(r.passed?(r.wasCustom?'تم اجتياز الدرس الخاص وتطبيق إجراء ما بعده.':'تم اجتياز الدرس والانتقال إلى الدرس التالي.'):'حُفظ التقييم وسيبقى الطالب على الدرس نفسه.'));
-   if(refresh)await refresh();else await dashboard(root);
- });
-};
-
 async function dashboard(root){
  const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
  const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
