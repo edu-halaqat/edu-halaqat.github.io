@@ -538,7 +538,7 @@ async function parseEntityDatabaseNative(file){
  return{payload:{complexes:[],mosques:[],circles:[],teachers:[],students},validation:{errors,warnings,counts:{complexes:0,mosques:0,circles:0,teachers:0,students:students.length}},source:{entityName,complex,circleRows:circleRows.length}};
 }
 
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261001-v12.7.4'};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261013-v13.2.2'};
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
