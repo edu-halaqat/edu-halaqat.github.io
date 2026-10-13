@@ -1156,6 +1156,9 @@ async function talaqqinPlansPage(root,scope){
 
 async function plansPage(root){
  const scope=await lookups();
+ // Talaqqin-only accounts do not need Quran-plan methodology or student-plan reads.
+ if(scope.circles.length&&scope.circles.every(c=>c.circle_type==='حلقات التلقين'))
+   return await talaqqinPlansPage(root,scope);
  const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
  const [allStudents,methodologies]=await Promise.all([
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
