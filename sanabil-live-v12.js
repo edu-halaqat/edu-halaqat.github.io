@@ -168,10 +168,10 @@ const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('http
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
 
 
-const talaqqinFamilyMessage=({name,date,circleName,status,lessonTitle,grade,notes})=>{
+const talaqqinFamilyMessage=({name,date,circleName,status,lessonTitle,grade,notes,portal})=>{
   const intro='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' الكريم، أسعد الله أوقاتكم بكل خير.\n\n';
   const circle=circleName||'حلقات التلقين';
-  const closing='\n\nشاكرين لكم حرصكم ومتابعتكم، ونسأل الله أن يبارك في ابنكم ويعينه على إتقان القراءة.\n\nمعلم الحلقة · منصة سنابل الوحي';
+  const closing=(portal?'\n\nللاطلاع على حصائل ابنكم وخطته التعليمية من بوابة ولي الأمر الخاصة به:\n'+portal:'')+'\n\nشاكرين لكم حرصكم ومتابعتكم، ونسأل الله أن يبارك في ابنكم ويعينه على إتقان القراءة.\n\nمعلم الحلقة · منصة سنابل الوحي';
   if(status==='absent')return intro+'افتقدنا ابنكم اليوم '+date+' في '+circle+'، ونرجو أن يكون بخير وعافية. نأمل منكم الاطمئنان عليه وإفادتنا ـ متى تيسر ـ بسبب غيابه؛ لنساعده على تعويض ما فاته من درس، مع التشجيع على الانتظام في الحضور.'+closing;
   if(status==='excused')return intro+'نحيطكم علمًا بأن ابنكم استأذن من الحلقة اليوم '+date+'، ونسأل الله له التيسير في شأنه. نأمل مساعدته على مراجعة ما فاته بالرفق والتشجيع، والحرص على استكمال وقت الحلقة في الأيام القادمة قدر المستطاع.'+closing;
   const saved=!!grade;
@@ -185,7 +185,7 @@ const talaqqinFamilyMessage=({name,date,circleName,status,lessonTitle,grade,note
     +(notes?'\n• ملاحظة المعلم: '+notes:'')
     +'\n\n'+lateText+praise+'\n\nنوصي بتخصيص دقائق يومية للاستماع إليه ومراجعته، والثناء على كل تقدم يحققه ولو كان يسيرًا.'+closing;
 };
-async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName,guardianPhone){
+async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName,guardianPhone,portal){
   // A saved attendance notice may be shared without inventing a lesson grade.
   const isNotice=attendance==='absent'||attendance==='excused'||(attendance==='late'&&!assessment);
   if(!isNotice&&(!assessment||assessment.assessed_on!==date))
@@ -201,7 +201,7 @@ async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName
     lessonTitle=lessonTitle||(assessment.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+(assessment.lesson_no||'—'));
   }
   const name=row.fullName||'الطالب',grade=assessment?.rating||'',note=String(assessment?.notes||'').trim();
-  const messageText=talaqqinFamilyMessage({name,date,circleName,status:attendance,lessonTitle,grade,notes:note});
+  const messageText=talaqqinFamilyMessage({name,date,circleName,status:attendance,lessonTitle,grade,notes:note,portal});
   const textActions=panel=>{
     action(panel,panel.querySelector('[data-action="tl-guardian-whatsapp"]'),()=>{
       openWhatsApp(guardianPhone,messageText);
@@ -728,7 +728,7 @@ async function outcomesPage(root){
       const [all,attRows,assessments]=await Promise.all([
         rpc('get_talaqqin_dashboard',{}),
         result(sb().from('student_attendance').select('student_id,status,note').eq('circle_id',circle).eq('date_key',date)),
-        result(sb().from('talaqqin_assessments').select('student_id,lesson_no,custom_lesson_id,rating,notes,assessed_on,created_at').eq('circle_id',circle).eq('assessed_on',date).order('created_at',{ascending:false}).limit(250))
+        result(sb().from('talaqqin_assessments').select('id,student_id,lesson_no,custom_lesson_id,rating,notes,assessed_on,created_at,updated_at').eq('circle_id',circle).eq('assessed_on',date).order('created_at',{ascending:false}).limit(250))
       ]);
       const items=(all||[]).filter(x=>x.circleId===circle),attMap=new Map((attRows||[]).map(x=>[x.student_id,x]));
       const assessmentMap=new Map();
@@ -739,26 +739,26 @@ async function outcomesPage(root){
       box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>جلسة التلقين اليومية</h3><p>اختر تقدير درس نور البيان أمام اسم الطالب، ثم احفظ حصيلته مباشرة. إدارة الخطط والدروس الخاصة من صفحة الخطط.</p></div></section>'+
        '<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الغياب والتأخر والاستئذان.</small></div><div class="sl-bulk-actions">'+button('الجميع حاضر','tl-all-present')+button('حفظ التحضير','tl-save-attendance')+'</div></div><div class="sl-att-summary">'+summary()+'</div>'+
        (items.length?'<div class="sl-student-grid">'+items.map((r,i)=>{
-        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=saved?.rating||draft.rating||'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status);
+        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status);
         return '<article class="sl-student-card" data-tl-card="'+i+'"><header><div class="sl-student-no">'+(i+1)+'</div><div><h3>'+esc(r.fullName)+'</h3><small>منهج نور البيان</small></div></header>'+
          '<div class="sl-att-grid">'+attChoices(i,states[i].status)+'</div>'+
          '<label class="sl-note">ملاحظة الحضور<input data-tl-note="'+i+'" value="'+esc(states[i].note)+'" placeholder="ملاحظة اختيارية"></label>'+
          '<section class="sl-track"><div class="sl-track-head"><div><b>'+(isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—')))+'</span></div></div>'+
          '<p class="sl-help">'+(placed?(esc(ll.unitName||'')+' · '+esc(pg)):'حدد موضع بداية الطالب من زر «تحديد موضع البداية» قبل التقييم.')+'</p>'+
          (blocked?'<p class="sl-absence-note">الطالب '+(states[i].status==='absent'?'غائب':'مستأذن')+'؛ لا يسجل له تقييم درس اليوم.</p>':'')+
-         '<section class="sl-tl-outcome"><div class="sl-tl-outcome-heading"><b>تقدير درس اليوم</b><small>'+(saved?'محفوظ في قاعدة البيانات':(['absent','excused'].includes(states[i].status)?'لا يُقيّم الطالب الغائب أو المستأذن':'اختر التقدير المناسب'))+'</small></div>'+
+         '<section class="sl-tl-outcome"><div class="sl-tl-outcome-heading"><b>تقدير درس اليوم</b><small>'+(saved?'محفوظ · يمكن تعديل التقدير وإعادة الحفظ':(['absent','excused'].includes(states[i].status)?'لا يُقيّم الطالب الغائب أو المستأذن':'اختر التقدير المناسب'))+'</small></div>'+
          '<div class="sl-tl-grade-grid" role="group" aria-label="تقدير درس '+esc(r.fullName)+'">'+
          [{value:'ممتاز',label:'ممتاز'},{value:'جيد جدًا',label:'جيد جدًا'},{value:'جيد',label:'جيد'},
           {value:'يحتاج إعادة',label:'يحتاج إعادة'},{value:'لم يسمع',label:'لم يسمع / لم يقع الدرس'}]
-         .map(g=>'<button type="button" class="sl-choice sl-tl-grade '+(chosen===g.value?'active':'')+'" data-tl-grade-student="'+i+'" data-tl-grade-value="'+esc(g.value)+'" aria-pressed="'+(chosen===g.value)+'" '+(saved||readOnly||blocked||!placed||r.completed?'disabled':'')+'>'+esc(g.label)+'</button>').join('')+
+         .map(g=>'<button type="button" class="sl-choice sl-tl-grade '+(chosen===g.value?'active':'')+'" data-tl-grade-student="'+i+'" data-tl-grade-value="'+esc(g.value)+'" aria-pressed="'+(chosen===g.value)+'" '+(!saved&&(readOnly||blocked||!placed||r.completed)?'disabled':'')+'>'+esc(g.label)+'</button>').join('')+
          '</div>'+
-         '<label class="sl-tl-notes">ملاحظة المعلم (اختيارية)<textarea data-tl-assessment-note="'+i+'" rows="2" placeholder="ملاحظة تربوية مختصرة" '+(saved||readOnly||blocked||!placed||r.completed?'disabled':'')+'>'+esc(saved?.notes??draft.notes??'')+'</textarea></label>'+
-         '<div class="sl-tl-primary-actions"><button type="button" class="button button-primary" data-action="tl-save-'+i+'" '+(saved||readOnly||blocked||!placed||r.completed?'disabled':'')+'>حفظ الحصيلة</button>'+
+         '<label class="sl-tl-notes">ملاحظة المعلم (اختيارية)<textarea data-tl-assessment-note="'+i+'" rows="2" placeholder="ملاحظة تربوية مختصرة" '+(!saved&&(readOnly||blocked||!placed||r.completed)?'disabled':'')+'>'+esc(draft.notes??saved?.notes??'')+'</textarea></label>'+
+         '<div class="sl-tl-primary-actions"><button type="button" class="button button-primary" data-action="tl-save-'+i+'" '+(!saved&&(readOnly||blocked||!placed||r.completed)?'disabled':'')+'>'+(saved?'تحديث الحصيلة':'حفظ الحصيلة')+'</button>'+
          '<button type="button" class="button button-soft" data-action="tl-card-'+i+'" '+(!saved&&!['absent','excused','late'].includes(attMap.get(r.studentId)?.status)?'disabled':'')+'>مشاركة الحصيلة</button></div>'+
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
-           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+
+           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
@@ -769,7 +769,7 @@ async function outcomesPage(root){
         attendanceDrafts.set(r.studentId,{...attendanceDrafts.get(r.studentId),status:states[i].status,note:input.value});
       }));
       if(readOnly)box.querySelectorAll('[data-tl-att],[data-tl-note],[data-action="tl-all-present"],[data-action="tl-save-attendance"]').forEach(el=>el.disabled=true);
-      const refreshSummary=()=>{const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=summary();items.forEach((r,i)=>{const absent=['absent','excused'].includes(states[i].status);const note=box.querySelector('[data-tl-note="'+i+'"]')?.closest('label');if(note)note.hidden=!['late','absent','excused'].includes(states[i].status);box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>b.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed);const save=box.querySelector('[data-action="tl-save-'+i+'"]');if(save)save.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed;const textarea=box.querySelector('[data-tl-assessment-note="'+i+'"]');if(textarea)textarea.disabled=readOnly||absent||!!assessmentMap.get(r.studentId)||!r.placementSet||r.completed})};refreshSummary();
+      const refreshSummary=()=>{const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=summary();items.forEach((r,i)=>{const absent=['absent','excused'].includes(states[i].status),locked=!assessmentMap.has(r.studentId)&&(readOnly||absent||!r.placementSet||r.completed);const note=box.querySelector('[data-tl-note="'+i+'"]')?.closest('label');if(note)note.hidden=!['late','absent','excused'].includes(states[i].status);box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>b.disabled=locked);const save=box.querySelector('[data-action="tl-save-'+i+'"]');if(save)save.disabled=locked;const textarea=box.querySelector('[data-tl-assessment-note="'+i+'"]');if(textarea)textarea.disabled=locked})};refreshSummary();
       box.querySelectorAll('[data-tl-att]').forEach(b=>b.onclick=()=>{if(readOnly)return;const i=Number(b.dataset.tlAtt);states[i].status=b.dataset.tlAttValue;attendanceDrafts.set(items[i].studentId,{...attendanceDrafts.get(items[i].studentId),status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value||states[i].note});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(x=>x.classList.toggle('active',x.dataset.tlAttValue===states[i].status));refreshSummary()});
       action(box,box.querySelector('[data-action="tl-all-present"]'),()=>{if(readOnly)throw Error('هذه الجلسة للعرض فقط.');states.forEach((x,i)=>{x.status='present';attendanceDrafts.set(items[i].studentId,{status:'present',note:box.querySelector('[data-tl-note="'+i+'"]')?.value||''});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(b=>b.classList.toggle('active',b.dataset.tlAttValue==='present'))});refreshSummary();msg(box,'تم تحديد الجميع حاضرين؛ عدّل حالات الاستثناء ثم احفظ التحضير.')});
       action(box,box.querySelector('[data-action="tl-save-attendance"]'),async()=>{
@@ -782,10 +782,10 @@ async function outcomesPage(root){
         const ll=r.lesson||{},savedStatus=attMap.get(r.studentId)?.status||'';
         const draftFor=()=>talaqqinDrafts.get(r.studentId)||{};
         const updateDraft=patch=>talaqqinDrafts.set(r.studentId,{...draftFor(),...patch});
-        const selectedGrade=()=>assessmentMap.get(r.studentId)?.rating||draftFor().rating||'';
+        const selectedGrade=()=>draftFor().rating??assessmentMap.get(r.studentId)?.rating??'';
         const syncGradeButtons=()=>{
           const current=selectedGrade(),absent=['absent','excused'].includes(states[i].status);
-          const locked=readOnly||assessmentMap.has(r.studentId)||absent||!r.placementSet||r.completed;
+          const locked=!assessmentMap.has(r.studentId)&&(readOnly||absent||!r.placementSet||r.completed);
           box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>{
             b.classList.toggle('active',b.dataset.tlGradeValue===current);
             b.setAttribute('aria-pressed',String(b.dataset.tlGradeValue===current));
@@ -801,24 +801,35 @@ async function outcomesPage(root){
         if(noteBox)noteBox.addEventListener('input',()=>updateDraft({notes:noteBox.value}));
         const ensureReady=()=>{
           if(readOnly)throw Error('جلسة اليوم خارج وقت الحفظ المسموح.');
-          if(assessmentMap.has(r.studentId))throw Error('حُفظت حصيلة الطالب بالفعل اليوم؛ شارك البطاقة المحفوظة.');
           if(!r.placementSet||r.completed)throw Error('حدد موضع الطالب أو تأكد من أن المنهج لم يكتمل.');
           if(!savedStatus||savedStatus!==states[i].status)throw Error('احفظ حضور هذا الطالب أولًا قبل تقييم درسه.');
           if(['absent','excused'].includes(savedStatus))throw Error('لا يسجل تقييم لطالب غائب أو مستأذن.');
         };
         const save=box.querySelector('[data-action="tl-save-'+i+'"]');
         if(save)action(box,save,async()=>{
-          ensureReady();
-          const rating=selectedGrade(),notes=noteBox?.value.trim()||null;
+          const rating=selectedGrade(),notes=noteBox?.value.trim()||null,saved=assessmentMap.get(r.studentId);
           if(!rating)throw Error('اختر أحد تقديرات الدرس أولًا.');
-          await ensureCircleSession(circle,date,true);
-          await rpc('save_talaqqin_assessment_guarded',{p_student_id:r.studentId,p_rating:rating,p_notes:notes});
-          // Confirm what the database stored, not merely completion of the request.
-          const confirmed=await result(sb().from('talaqqin_assessments').select('rating,assessed_on').eq('student_id',r.studentId).eq('assessed_on',date).order('created_at',{ascending:false}).limit(1));
-          if(!confirmed?.length||confirmed[0].rating!==rating)throw Error('أُرسل التقييم ولكن تعذر تأكيد الحفظ من قاعدة البيانات؛ أعد فتح الجلسة للتحقق قبل تكراره.');
+          let response;
+          if(saved){
+            response=await rpc('update_talaqqin_assessment_guarded',{
+              p_assessment_id:saved.id,p_rating:rating,p_notes:notes,p_expected_updated_at:saved.updated_at
+            });
+          }else{
+            ensureReady();
+            await ensureCircleSession(circle,date,true);
+            response=await rpc('save_talaqqin_assessment_guarded',{p_student_id:r.studentId,p_rating:rating,p_notes:notes});
+          }
+          const confirmed=await result(sb().from('talaqqin_assessments')
+            .select('rating,notes,assessed_on').eq('student_id',r.studentId).eq('assessed_on',date)
+            .order('created_at',{ascending:false}).limit(1));
+          if(!confirmed?.length||confirmed[0].rating!==rating||(confirmed[0].notes||'')!==(notes||''))
+            throw Error('تعذر تأكيد التعديل من قاعدة البيانات. راجع السجل قبل محاولة الحفظ مجددًا.');
           talaqqinDrafts.delete(r.studentId);
           await renderTalaqqin();
-          msg(box,'حُفظت حصيلة '+r.fullName+' وتأكد تسجيلها في قاعدة البيانات.');
+          const progressNote=response?.progressAction==='reverted'?' أُعيد الطالب إلى الدرس لتكراره.':
+            response?.progressAction==='advanced'?' تم تحديث تقدم الطالب إلى الدرس التالي.':
+            response?.progressAction==='preserved'?' حُفظت الدرجة مع الحفاظ على دروسه اللاحقة.':'';
+          msg(box,(saved?'تم تحديث':'تم حفظ')+' حصيلة '+r.fullName+' والتحقق منها في قاعدة البيانات.'+progressNote);
         });
         const share=box.querySelector('[data-action="tl-card-'+i+'"]');
         if(share)action(box,share,async()=>{
@@ -826,10 +837,11 @@ async function outcomesPage(root){
           if(!saved&&!['absent','excused','late'].includes(savedAttendance))
             throw Error('احفظ حصيلة الطالب قبل مشاركتها.');
           // Verify the persisted attendance and grade, not unsaved form changes.
-          const student=await result(sb().from('students').select('guardian_phone').eq('id',r.studentId).single());
-          await showTalaqqinOutcomeCard(r,saved,savedAttendance,date,circleMeta?.name||'',student?.guardian_phone||'');
+          const [student,portal]=await Promise.all([result(sb().from('students').select('guardian_phone').eq('id',r.studentId).single()),guardianLink(r.studentId)]);
+          await showTalaqqinOutcomeCard(r,saved,savedAttendance,date,circleMeta?.name||'',student?.guardian_phone||'',portal);
         });
         syncGradeButtons();
+        action(box,box.querySelector('[data-action="tl-history-'+i+'"]'),()=>showTalaqqinAssessmentHistory(box,r,renderTalaqqin));
         const op=box.querySelector('[data-action="to-open-'+i+'"]');
         if(op){op.dataset.tlHandled='1';op.onclick=e=>{e.preventDefault();e.stopPropagation();try{openTalaqqinLesson(ll,r,i)}catch(err){alert(err?.message||'تعذر فتح معاينة الدرس.')}}}
         const md=box.querySelector('[data-action="to-media-'+i+'"]');
