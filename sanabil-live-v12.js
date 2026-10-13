@@ -169,15 +169,17 @@ const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'
 
 
 
-async function showTalaqqinAssessmentHistory(root,row,refresh){
+async function showTalaqqinAssessmentHistory(root,row,refresh,focusDate=''){
   const panel=modal('سجل حصائل نور البيان · '+row.fullName);
   const ratings=[{id:'ممتاز',name:'ممتاز'},{id:'جيد جدًا',name:'جيد جدًا'},{id:'جيد',name:'جيد'},
     {id:'يحتاج إعادة',name:'يحتاج إعادة'},{id:'لم يسمع',name:'لم يسمع / لم يقع الدرس'}];
   const reload=async()=>{
     panel.innerHTML='<p class="sl-help">جارٍ عرض الحصائل السابقة…</p>';
-    const assessments=await result(sb().from('talaqqin_assessments')
+    let query=sb().from('talaqqin_assessments')
       .select('id,lesson_no,custom_lesson_id,rating,notes,assessed_on,created_at,updated_at')
-      .eq('student_id',row.studentId).order('created_at',{ascending:false}).limit(35));
+      .eq('student_id',row.studentId).order('created_at',{ascending:false}).limit(35);
+    if(focusDate)query=query.eq('assessed_on',focusDate);
+    const assessments=await result(query);
     const numbers=[...new Set(assessments.map(a=>a.lesson_no).filter(Boolean))],
       customIds=[...new Set(assessments.map(a=>a.custom_lesson_id).filter(Boolean))];
     const [lessons,customs]=await Promise.all([
@@ -792,7 +794,34 @@ async function outcomesPage(root){
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   if(circleMeta?.circle_type==='حلقات التلقين'){
-    if(date!==today())throw Error('تقييم حلقات التلقين يتم من جلسة اليوم؛ افتح تاريخ اليوم للتقييم.');
+    if(date!==today()){
+      const box=root.querySelector('.sl-data');
+      const [all,previous]=await Promise.all([
+        rpc('get_talaqqin_dashboard',{}),
+        result(sb().from('talaqqin_assessments')
+          .select('student_id,lesson_no,rating,notes,assessed_on')
+          .eq('circle_id',circle).eq('assessed_on',date).order('created_at',{ascending:false}).limit(150))
+      ]);
+      const students=(all||[]).filter(x=>x.circleId===circle);
+      const latest=new Map();for(const a of previous)if(!latest.has(a.student_id))latest.set(a.student_id,a);
+      const found=students.filter(x=>latest.has(x.studentId));
+      box.innerHTML='<section class="sl-session-head"><div><h3>تصحيح حصائل التلقين ليوم '+esc(date)+'</h3>'
+        +'<p>يمكن فتح السجل السابق وتعديل التقدير أو الملاحظة، دون إنشاء درس جديد أو تغيير تاريخ الحصيلة.</p></div></section>'
+        +(found.length?'<div class="sl-student-grid">'+found.map((r,i)=>{
+          const a=latest.get(r.studentId);
+          return '<article class="sl-student-card"><h3>'+esc(r.fullName)+'</h3><p>الدرس رقم '+esc(a.lesson_no)+' · التقدير: '+esc(a.rating)+'</p>'
+            +button('تعديل الحصيلة السابقة','tl-old-'+i)+'</article>';
+        }).join('')+'</div>':'<p class="sl-message">لم تُحفظ حصائل تلقين لهذا التاريخ ضمن الحلقة المختارة.</p>');
+      found.forEach((r,i)=>action(box,box.querySelector('[data-action="tl-old-'+i+'"]'),
+        ()=>showTalaqqinAssessmentHistory(box,r,async()=>{
+          const a=await result(sb().from('talaqqin_assessments')
+            .select('rating,lesson_no').eq('student_id',r.studentId)
+            .eq('assessed_on',date).order('created_at',{ascending:false}).limit(1));
+          const card=box.querySelector('[data-action="tl-old-'+i+'"]')?.closest('.sl-student-card');
+          if(card&&a[0])card.querySelector('p').textContent='الدرس رقم '+a[0].lesson_no+' · التقدير: '+a[0].rating;
+        },date)));
+      return;
+    }
     const box=root.querySelector('.sl-data');
     // Unsaved grades and notes remain intact when another student is saved or attendance refreshes.
     const talaqqinDrafts=new Map(),attendanceDrafts=new Map();
