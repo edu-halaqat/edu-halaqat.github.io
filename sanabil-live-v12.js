@@ -168,6 +168,78 @@ const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('http
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
 
 
+
+async function showTalaqqinAssessmentHistory(root,row,refresh){
+  const panel=modal('سجل حصائل نور البيان · '+row.fullName);
+  const ratings=[{id:'ممتاز',name:'ممتاز'},{id:'جيد جدًا',name:'جيد جدًا'},{id:'جيد',name:'جيد'},
+    {id:'يحتاج إعادة',name:'يحتاج إعادة'},{id:'لم يسمع',name:'لم يسمع / لم يقع الدرس'}];
+  const reload=async()=>{
+    panel.innerHTML='<p class="sl-help">جارٍ عرض الحصائل السابقة…</p>';
+    const assessments=await result(sb().from('talaqqin_assessments')
+      .select('id,lesson_no,custom_lesson_id,rating,notes,assessed_on,created_at,updated_at')
+      .eq('student_id',row.studentId).order('created_at',{ascending:false}).limit(35));
+    const numbers=[...new Set(assessments.map(a=>a.lesson_no).filter(Boolean))],
+      customIds=[...new Set(assessments.map(a=>a.custom_lesson_id).filter(Boolean))];
+    const [lessons,customs]=await Promise.all([
+      numbers.length?result(sb().from('talaqqin_lessons').select('lesson_no,lesson_title').in('lesson_no',numbers)):Promise.resolve([]),
+      customIds.length?result(sb().from('talaqqin_custom_lessons').select('id,title').in('id',customIds)):Promise.resolve([])
+    ]);
+    const lessonMap=new Map(lessons.map(x=>[x.lesson_no,x.lesson_title]));
+    const customMap=new Map(customs.map(x=>[x.id,x.title]));
+    const titleFor=a=>a.custom_lesson_id?(customMap.get(a.custom_lesson_id)||'درس خاص'):
+      (lessonMap.get(a.lesson_no)||'الدرس رقم '+a.lesson_no);
+    panel.innerHTML='<p class="sl-help">يمكن للمعلم والمشرف تصحيح أي تقييم سابق دون إنشاء حصيلة مكررة. يُحفظ تاريخ الدرس الأصلي، ويُوثق التعديل في سجل المراجعة. تظهر الدرجات المصححة في بوابة ولي الأمر.</p>'
+      +(assessments.length?assessments.map((a,i)=>
+        '<article class="sl-tl-history-row"><div class="sl-tl-history-head"><b>'+esc(titleFor(a))+'</b><small>'+esc(a.assessed_on)+'</small></div>'
+        +'<div class="sl-tl-history-summary"><span>التقدير: <b>'+esc(a.rating)+'</b></span>'
+        +(a.notes?'<small>ملاحظة المعلم: '+esc(a.notes)+'</small>':'')+'</div>'
+        +'<div class="sl-card-actions">'+button('تعديل الحصيلة','tl-h-edit-'+i)+button('مشاركة مع ولي الأمر','tl-h-share-'+i)+'</div>'
+        +'<section data-tl-h-editor="'+i+'" class="sl-tl-history-editor" hidden>'
+        +'<div class="sl-tl-grade-grid" role="group" aria-label="تعديل التقدير">'+ratings.map(g=>
+          '<button type="button" class="sl-choice sl-tl-grade '+(a.rating===g.id?'active':'')+'" data-tl-h-grade="'+i+'" data-tl-h-value="'+esc(g.id)+'">'+esc(g.name)+'</button>'
+        ).join('')+'</div>'
+        +'<label>ملاحظة المعلم<textarea rows="2" data-tl-h-notes="'+i+'" placeholder="ملاحظة تربوية مختصرة">'+esc(a.notes||'')+'</textarea></label>'
+        +'<div class="sl-card-actions"><button type="button" class="button button-primary" data-action="tl-h-save-'+i+'">إعادة حفظ التعديل</button>'
+        +button('إلغاء','tl-h-cancel-'+i)+'</div></section></article>').join('')
+      :'<p class="sl-message">لم تُسجَّل حصائل لهذا الطالب حتى الآن.</p>');
+    assessments.forEach((a,i)=>{
+      let grade=a.rating;
+      const editor=panel.querySelector('[data-tl-h-editor="'+i+'"]');
+      const chips=[...panel.querySelectorAll('[data-tl-h-grade="'+i+'"]')];
+      const changeGrade=value=>{
+        grade=value;
+        chips.forEach(x=>{x.classList.toggle('active',x.dataset.tlHValue===value);x.setAttribute('aria-pressed',String(x.dataset.tlHValue===value))});
+      };
+      chips.forEach(x=>x.onclick=()=>changeGrade(x.dataset.tlHValue));
+      action(panel,panel.querySelector('[data-action="tl-h-edit-'+i+'"]'),()=>{editor.hidden=false;editor.scrollIntoView({behavior:'smooth',block:'nearest'})});
+      action(panel,panel.querySelector('[data-action="tl-h-cancel-'+i+'"]'),()=>{editor.hidden=true;changeGrade(a.rating);panel.querySelector('[data-tl-h-notes="'+i+'"]').value=a.notes||''});
+      action(panel,panel.querySelector('[data-action="tl-h-save-'+i+'"]'),async()=>{
+        const note=panel.querySelector('[data-tl-h-notes="'+i+'"]')?.value.trim()||null;
+        const resultData=await rpc('update_talaqqin_assessment_guarded',{
+          p_assessment_id:a.id,p_rating:grade,p_notes:note,p_expected_updated_at:a.updated_at
+        });
+        const confirmed=await result(sb().from('talaqqin_assessments').select('rating,notes,assessed_on').eq('id',a.id).single());
+        if(confirmed.rating!==grade||(confirmed.notes||'')!==(note||''))
+          throw Error('تعذر التأكد من حفظ التعديل في الخادم؛ راجع الحصيلة قبل المحاولة مجددًا.');
+        if(refresh)await refresh();
+        await reload();
+        msg(panel,'تم تعديل حصيلة '+a.assessed_on+' وتحديث سجل الطالب.'
+          +(resultData?.progressAction==='reverted'?' أُعيد الطالب إلى الدرس السابق.':'')
+          +(resultData?.progressAction==='preserved'?' بقي تقدمه اللاحق محفوظًا.':''));
+      });
+      action(panel,panel.querySelector('[data-action="tl-h-share-'+i+'"]'),async()=>{
+        const [student,att,portal]=await Promise.all([
+          result(sb().from('students').select('guardian_phone').eq('id',row.studentId).single()),
+          result(sb().from('student_attendance').select('status').eq('student_id',row.studentId).eq('date_key',a.assessed_on).maybeSingle()),
+          guardianLink(row.studentId)
+        ]);
+        await showTalaqqinOutcomeCard(row,a,att?.status||'',a.assessed_on,row.circleName||'',student?.guardian_phone||'',portal);
+      });
+    });
+  };
+  await reload();
+}
+
 const talaqqinFamilyMessage=({name,date,circleName,status,lessonTitle,grade,notes,portal})=>{
   const intro='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' الكريم، أسعد الله أوقاتكم بكل خير.\n\n';
   const circle=circleName||'حلقات التلقين';
