@@ -1157,18 +1157,31 @@ async function plansPage(root){
 
      action(root,root.querySelector(`[data-action="days-${i}"]`),async()=>{
        const b=modal('أيام الخطة - '+(p.name||typeName[p.type]||p.type));
-       const render=async()=>{
-         const days=await rows('plan_days','*',{plan_id:p.id});days.sort((a,b)=>a.date_key.localeCompare(b.date_key));
-         const intro=p.type==='recent_review'
-           ?'<p class="sl-help">هذه الأيام مشتقة تلقائيًا من نهاية درس الطالب. لا تُستثنى المراجعة الصغرى منفردة؛ عند غياب الطالب أو استثناء يوم الدرس يعيد النظام اشتقاقها من خطة الحفظ.</p>'
-           :qpcUnits.has(p.unit)?'<p class="sl-help">المقادير هنا وحدات تحزيب كاملة من المصحف المدني وليست تقديرًا بعدد الصفحات.</p>':'<p>المقرر يعرض مقاطع كل سورة صراحةً.</p>';
-         b.innerHTML=intro+table(['التاريخ','المقرر بالتفصيل','المطلوب','الدورة','المنجز','الحالة','إجراء'],days.map((d,j)=>[
-           esc(d.date_key),esc(segmentsOnlyText(d.segments)||(qref(d.target_from)+' ← '+qref(d.target_to))),
-           esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit),esc(d.cycle_no||1),esc(d.completed_amount),esc(d.status),
-           p.type==='recent_review'?'يتبع الدرس':d.rating?'تم الرصد':button('استثناء اليوم','x'+j)
-         ]));
-         if(p.type!=='recent_review')days.forEach((d,j)=>{const x=b.querySelector(`[data-action="x${j}"]`);if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,`تم الاستثناء ونقل ${r.movedDays} يومًا.`);await render();await load()})});
-       };await render()
+       let currentPage=0;
+        const pageSize=60;
+        const render=async()=>{
+          // Fetch only the visible page. Long plans may contain nearly 2,000 days.
+          const {data:days,count,error}=await sb().from('plan_days').select('*',{count:'exact'})
+            .eq('plan_id',p.id).order('date_key',{ascending:true}).order('id',{ascending:true})
+            .range(currentPage*pageSize,currentPage*pageSize+pageSize-1);
+          if(error)throw Error(error.message);
+          const total=count||0,totalPages=Math.max(1,Math.ceil(total/pageSize));
+          if(currentPage>=totalPages){currentPage=totalPages-1;return render()}
+          const intro=p.type==='recent_review'
+            ?'<p class="sl-help">هذه الأيام مشتقة تلقائيًا من نهاية درس الطالب. لا تُستثنى المراجعة الصغرى منفردة؛ عند غياب الطالب أو استثناء يوم الدرس يعيد النظام اشتقاقها من خطة الحفظ.</p>'
+            :qpcUnits.has(p.unit)?'<p class="sl-help">المقادير هنا وحدات تحزيب كاملة من المصحف المدني وليست تقديرًا بعدد الصفحات.</p>':'<p>المقرر يعرض مقاطع كل سورة صراحةً.</p>';
+          b.innerHTML=intro+'<div class="sl-toolbar"><span>عرض '+(currentPage*pageSize+1)+'–'+Math.min(total,(currentPage+1)*pageSize)+' من '+total+' يوم · الصفحة '+(currentPage+1)+' من '+totalPages+'</span>'
+            +'<button type="button" class="button button-soft" data-action="plan-prev" '+(currentPage===0?'disabled':'')+'>السابق</button>'
+            +'<button type="button" class="button button-soft" data-action="plan-next" '+(currentPage>=totalPages-1?'disabled':'')+'>التالي</button></div>'
+            +table(['التاريخ','المقرر بالتفصيل','المطلوب','الدورة','المنجز','الحالة','إجراء'],days.map((d,j)=>[
+            esc(d.date_key),esc(segmentsOnlyText(d.segments)||(qref(d.target_from)+' ← '+qref(d.target_to))),
+            esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit),esc(d.cycle_no||1),esc(d.completed_amount),esc(d.status),
+            p.type==='recent_review'?'يتبع الدرس':d.rating?'تم الرصد':button('استثناء اليوم','x'+j)
+          ]));
+          action(b,b.querySelector('[data-action="plan-prev"]'),async()=>{if(currentPage>0){currentPage--;await render()}});
+          action(b,b.querySelector('[data-action="plan-next"]'),async()=>{if(currentPage<totalPages-1){currentPage++;await render()}});
+          if(p.type!=='recent_review')days.forEach((d,j)=>{const x=b.querySelector('[data-action="x'+j+'"]');if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,'تم الاستثناء ونقل '+r.movedDays+' يومًا.');await render();await load()})});
+        };await render()
      });
 
      const transitionBtn=root.querySelector(`[data-action="transition-${i}"]`);
