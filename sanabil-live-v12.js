@@ -166,6 +166,91 @@ const teacherWhatsappMessage=({name,date,kind,circleName,lateMinutes=0})=>{
 const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const w=window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');if(!w)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return w};
 const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
+
+async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName,guardianPhone){
+  // Share only the assessment returned by the database for the selected day.
+  if(!assessment||assessment.assessed_on!==date)throw Error('الحصيلة غير مؤكدة بتاريخ اليوم، احفظها أولًا.');
+  let lessonTitle=row.currentLessonNo===assessment.lesson_no?row.lesson?.title:null;
+  if(!lessonTitle&&!assessment.custom_lesson_id&&assessment.lesson_no){
+    const lesson=await result(sb().from('talaqqin_lessons').select('lesson_title').eq('lesson_no',assessment.lesson_no).maybeSingle());
+    lessonTitle=lesson?.lesson_title;
+  }
+  lessonTitle=lessonTitle||(assessment.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+(assessment.lesson_no||'—'));
+  const grade=assessment.rating||'—',name=row.fullName||'الطالب',note=String(assessment.notes||'').trim();
+  const passed=['ممتاز','جيد جدًا','جيد'].includes(grade);
+  const positive=passed
+    ?'نبارك لابنكم تقدمه في تعلم القراءة، ونحثه على الاستمرار في التدريب اليومي حتى يزداد إتقانًا وثقة.'
+    :'لكل طالب وتيرته في التعلم، وبالتكرار الهادئ والتشجيع والمتابعة المنزلية يتحسن مستوى القراءة بإذن الله.';
+  const attendanceText=attendanceAr[attendance]||'—';
+  const messageText='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' الكريم، أسعد الله أوقاتكم بكل خير.\n\n'
+    +'يسرنا مشاركتكم حصيلة ابنكم اليوم '+date+' في '+(circleName||'حلقات التلقين')+' بمنهج نور البيان:\n'
+    +'• الحضور: '+attendanceText+'\n• الدرس: '+lessonTitle+'\n• التقدير: '+grade
+    +(note?'\n• ملاحظة المعلم: '+note:'')
+    +'\n\n'+positive+'\n\nنوصي بتخصيص دقائق يومية للاستماع لابنكم ومراجعته بأسلوب لطيف ومحفز، مع الثناء على كل تقدم يحققه، ولو كان يسيرًا.'
+    +'\n\nشكر الله لكم عنايتكم وتعاونكم، وبارك في ابنكم وعلّمه القرآن ورفع به قدره.\n\nمعلم الحلقة · منصة سنابل الوحي';
+  try{await document.fonts.ready}catch{}
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1380;
+  const ctx=canvas.getContext('2d');if(!ctx)throw Error('تعذر تهيئة صورة الحصيلة في هذا الجهاز.');
+  ctx.direction='rtl';ctx.textAlign='right';
+  ctx.fillStyle='#F8F5EE';ctx.fillRect(0,0,1080,1380);
+  const gradient=ctx.createLinearGradient(0,0,1080,330);
+  gradient.addColorStop(0,'#063B34');gradient.addColorStop(1,'#00808A');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,1080,335);
+  ctx.fillStyle='#D8BD88';ctx.fillRect(0,323,1080,12);
+  try{
+    const logo=await canvasImage('/assets/logo-sanabil-v6.png');
+    ctx.fillStyle='#FFFFFF';ctx.fillRect(760,32,265,112);
+    ctx.drawImage(logo,776,46,230,83);
+  }catch{ctx.fillStyle='#FFFFFF';ctx.font='700 37px Doran, Alyamama, sans-serif';ctx.fillText('سنابل الوحي',990,94)}
+  ctx.fillStyle='#D8BD88';ctx.font='700 27px Alyamama, sans-serif';ctx.fillText('بطاقة الحصيلة اليومية · حلقات التلقين',730,84);
+  ctx.fillStyle='#FFFFFF';ctx.font='700 46px Doran, Alyamama, sans-serif';ctx.fillText(name,730,162,640);
+  ctx.fillStyle='#E7F4F0';ctx.font='400 27px Alyamama, sans-serif';ctx.fillText(circleName||'نور البيان',730,215,640);
+  ctx.font='400 25px Alyamama, sans-serif';ctx.fillText('التاريخ: '+date,730,274);
+  drawRound(ctx,64,375,952,415,26,'#FFFFFF','#DEE7E0');
+  ctx.fillStyle='#063B34';ctx.font='700 36px Doran, Alyamama, sans-serif';ctx.fillText('حصيلة درس اليوم',952,446);
+  ctx.font='700 29px Alyamama, sans-serif';ctx.fillText('الحضور: '+attendanceText,950,508);
+  ctx.fillText('التقدير: '+grade,950,571);
+  ctx.font='400 30px Alyamama, sans-serif';wrapCanvas(ctx,'الدرس: '+lessonTitle,950,634,850,48);
+  ctx.fillStyle='#00808A';ctx.font='700 31px Alyamama, sans-serif';ctx.fillText('رسالة تشجيعية للأسرة',950,848);
+  ctx.fillStyle='#183C33';ctx.font='400 28px Alyamama, sans-serif';
+  wrapCanvas(ctx,positive,950,903,865,48);
+  if(note){
+    ctx.fillStyle='#735D37';ctx.font='700 28px Alyamama, sans-serif';ctx.fillText('ملاحظة المعلم',950,1057);
+    ctx.fillStyle='#183C33';ctx.font='400 25px Alyamama, sans-serif';
+    wrapCanvas(ctx,note.slice(0,160),950,1104,860,39);
+  }
+  ctx.fillStyle='#D8BD88';ctx.fillRect(64,1270,952,3);
+  ctx.fillStyle='#506962';ctx.font='400 23px Alyamama, sans-serif';
+  ctx.fillText('بالرفق والتشجيع والمراجعة اليومية تنمو مهارة القراءة',957,1324);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  if(!blob)throw Error('تعذر إعداد صورة بطاقة الحصيلة.');
+  const fileName='حصيلة-التلقين-'+safeFileName(name)+'-'+date+'.png';
+  const previewUrl=URL.createObjectURL(blob);
+  const panel=modal('بطاقة الحصيلة · '+name);
+  panel.innerHTML='<div class="sl-tl-card-preview"><img src="'+previewUrl+'" alt="بطاقة الحصيلة اليومية للطالب '+esc(name)+'"></div>'
+    +'<p class="sl-help">هذه البطاقة مستمدة من الحصيلة المحفوظة في قاعدة البيانات. يمكن مشاركتها كصورة مع الرسالة، أو فتح واتساب برسالة تحفيزية لولي الأمر.</p>'
+    +'<label>الرسالة التربوية الجاهزة<textarea rows="9" readonly>'+esc(messageText)+'</textarea></label>'
+    +'<div class="sl-card-actions">'+button('مشاركة الصورة والرسالة','tl-native-share')
+    +button('إرسال رسالة واتساب','tl-guardian-whatsapp')
+    +button('حفظ صورة البطاقة','tl-download-card')+'</div>';
+  panel.closest('dialog')?.addEventListener('close',()=>{URL.revokeObjectURL(previewUrl)},{once:true});
+  action(panel,panel.querySelector('[data-action="tl-native-share"]'),async()=>{
+    const file=new File([blob],fileName,{type:'image/png'});
+    if(!navigator.share||!navigator.canShare?.({files:[file]})){
+      downloadBlobFile(blob,fileName);
+      msg(panel,'المشاركة المباشرة للصور غير متاحة بهذا المتصفح؛ حُفظت البطاقة لتتمكن من إرفاقها في واتساب.');
+      return;
+    }
+    try{await navigator.share({title:'حصيلة نور البيان · '+name,text:messageText,files:[file]})}
+    catch(e){if(e?.name!=='AbortError')throw e}
+  });
+  action(panel,panel.querySelector('[data-action="tl-guardian-whatsapp"]'),()=>{
+    openWhatsApp(guardianPhone,messageText);
+    msg(panel,'فُتحت رسالة واتساب. بعد مراجعتها وإرسالها يمكن إرفاق صورة البطاقة باستخدام زر «حفظ صورة البطاقة».');
+  });
+  action(panel,panel.querySelector('[data-action="tl-download-card"]'),()=>{downloadBlobFile(blob,fileName);msg(panel,'تم تجهيز صورة البطاقة للحفظ.')});
+}
+
 async function shareOutcomeImage(student,date,lesson,recent,review,ratings,attendance,note){
   try{await document.fonts.ready;await Promise.allSettled([document.fonts.load('700 52px Doran'),document.fonts.load('400 30px Alyamama'),document.fonts.load('700 30px Alyamama')])}catch{}
   const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1900;const ctx=canvas.getContext('2d');
@@ -1848,5 +1933,9 @@ async function mount(root,view){root.classList.add('sl-live');root.dataset.build
 window.SanabilLive={mount,usersPanel};window.dispatchEvent(new Event("sanabil-live-ready"));
 window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null});
 const style=document.createElement('style');style.textContent=`.sl-live{background:white;border:1px solid #dde5df;border-radius:20px;padding:24px;min-height:300px}.sl-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:15px 0}.sl-live label,.sl-dialog label{display:grid;gap:8px;font-weight:600}.sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select{font:inherit;max-width:100%;min-width:0;padding:10px;border:1px solid #bdccc3;border-radius:8px;background:white}.sl-live table,.sl-dialog table{width:100%;border-collapse:collapse}.sl-live th,.sl-live td,.sl-dialog td,.sl-dialog th{padding:12px;text-align:right;border-bottom:1px solid #e2e9e5}.sl-dialog{direction:rtl;width:min(900px,94vw);max-height:90vh;border:0;border-radius:18px;padding:24px;color:#183c33}.sl-dialog::backdrop{background:#002c2580}.sl-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.sl-dialog fieldset{border:1px solid #ddd;border-radius:12px;margin:12px 0}.sl-live .button,.sl-dialog .button{margin:3px}.sl-message{padding:12px;background:#f3f7f4;border-radius:8px}.sl-tasks{margin:18px 0;padding:16px;border:1px solid #dde5df;border-radius:16px;background:#fbfdfc}.sl-announcement{padding:12px 0;border-bottom:1px solid #e2e9e5}.sl-announcement:last-child{border-bottom:0}.sl-announcement b{color:#00808A}.sl-announcement small{color:#63766e}.sl-import-preview{margin:14px 0}.sl-import-warning{margin:12px 0;padding:14px 16px;border:1px solid #e2c56f;background:#fff8df;color:#6b5313;border-radius:12px;font-weight:600}.sl-dialog .form-grid,.sl-live .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.sl-live .table-wrap{overflow:auto}.sl-data input{width:100%;box-sizing:border-box}.sl-live .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:650px){.sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr}.sl-live{padding:14px}.sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.topbar,.tabs,.mobile-nav,.sl-toolbar,button,.more-sheet{display:none!important}.app-content,.sl-live{margin:0!important;padding:0!important;border:0}.table-wrap{overflow:visible!important}thead{display:table-header-group}tr{break-inside:avoid}body{background:white!important}}`;document.head.append(style);
+
+ const talaqqinStyle=document.createElement('style');
+ talaqqinStyle.textContent='.sl-tl-outcome{margin-top:14px;padding:15px;border:1px solid #D8BD88;border-radius:14px;background:#FCFBF6}.sl-tl-outcome h4{margin:0 0 12px;color:#063B34}.sl-tl-outcome textarea{width:100%;box-sizing:border-box}.sl-tl-card-preview{text-align:center;max-height:55vh;overflow:auto;background:#F8F5EE;border-radius:12px;padding:8px}.sl-tl-card-preview img{width:min(100%,470px);height:auto}.sl-dialog textarea[readonly]{width:100%;box-sizing:border-box;padding:12px;border:1px solid #CBD5CE;border-radius:10px;line-height:1.8;background:#F8FAF8}';
+ document.head.append(talaqqinStyle);
 })();
 
