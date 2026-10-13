@@ -167,88 +167,109 @@ const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)thro
 const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
 
+
+const talaqqinFamilyMessage=({name,date,circleName,status,lessonTitle,grade,notes})=>{
+  const intro='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' الكريم، أسعد الله أوقاتكم بكل خير.\n\n';
+  const circle=circleName||'حلقات التلقين';
+  const closing='\n\nشاكرين لكم حرصكم ومتابعتكم، ونسأل الله أن يبارك في ابنكم ويعينه على إتقان القراءة.\n\nمعلم الحلقة · منصة سنابل الوحي';
+  if(status==='absent')return intro+'افتقدنا ابنكم اليوم '+date+' في '+circle+'، ونرجو أن يكون بخير وعافية. نأمل منكم الاطمئنان عليه وإفادتنا ـ متى تيسر ـ بسبب غيابه؛ لنساعده على تعويض ما فاته من درس، مع التشجيع على الانتظام في الحضور.'+closing;
+  if(status==='excused')return intro+'نحيطكم علمًا بأن ابنكم استأذن من الحلقة اليوم '+date+'، ونسأل الله له التيسير في شأنه. نأمل مساعدته على مراجعة ما فاته بالرفق والتشجيع، والحرص على استكمال وقت الحلقة في الأيام القادمة قدر المستطاع.'+closing;
+  const saved=!!grade;
+  const lateText=status==='late'?'نود إحاطتكم بأن ابنكم وصل متأخرًا إلى الحلقة اليوم. نأمل مساعدته على الحضور في الموعد حتى ينتفع بكامل وقت الدرس، مع شكرنا لحرصكم.\n\n':'';
+  if(!saved)return intro+lateText+'بانتظار استكمال تقييم درس نور البيان لهذا اليوم '+date+'، وسنوافيكم بحصيلته بعد اعتماد المعلم لها.'+closing;
+  const praise=['ممتاز','جيد جدًا','جيد'].includes(grade)
+    ?'نسعد بتقدم ابنكم في تعلم القراءة، ونشجعه على مواصلة التدريب حتى يزداد إتقانًا وثقة.'
+    :'نثق أن التكرار الهادئ والتشجيع المستمر يعينان ابنكم على تجاوز صعوبة الدرس والتقدم فيه بإذن الله.';
+  return intro+'يسرنا مشاركتكم حصيلة ابنكم في '+circle+' بمنهج نور البيان بتاريخ '+date+':\n'
+    +'• درس اليوم: '+(lessonTitle||'نور البيان')+'\n• التقدير: '+grade
+    +(notes?'\n• ملاحظة المعلم: '+notes:'')
+    +'\n\n'+lateText+praise+'\n\nنوصي بتخصيص دقائق يومية للاستماع إليه ومراجعته، والثناء على كل تقدم يحققه ولو كان يسيرًا.'+closing;
+};
 async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName,guardianPhone){
-  // Share only the assessment returned by the database for the selected day.
-  if(!assessment||assessment.assessed_on!==date)throw Error('الحصيلة غير مؤكدة بتاريخ اليوم، احفظها أولًا.');
-  let lessonTitle=row.currentLessonNo===assessment.lesson_no?row.lesson?.title:null;
-  if(!lessonTitle&&!assessment.custom_lesson_id&&assessment.lesson_no){
-    const lesson=await result(sb().from('talaqqin_lessons').select('lesson_title').eq('lesson_no',assessment.lesson_no).maybeSingle());
-    lessonTitle=lesson?.lesson_title;
+  // A saved attendance notice may be shared without inventing a lesson grade.
+  const isNotice=attendance==='absent'||attendance==='excused'||(attendance==='late'&&!assessment);
+  if(!isNotice&&(!assessment||assessment.assessed_on!==date))
+    throw Error('احفظ تقييم الدرس أولًا وتحقق من ظهوره في قاعدة البيانات قبل مشاركة حصيلته.');
+  let lessonTitle='';
+  if(assessment){
+    if(assessment.assessed_on!==date)throw Error('لا توجد حصيلة محفوظة لهذا اليوم.');
+    lessonTitle=row.currentLessonNo===assessment.lesson_no?row.lesson?.title||'':'';
+    if(!lessonTitle&&!assessment.custom_lesson_id&&assessment.lesson_no){
+      const lesson=await result(sb().from('talaqqin_lessons').select('lesson_title').eq('lesson_no',assessment.lesson_no).maybeSingle());
+      lessonTitle=lesson?.lesson_title||'';
+    }
+    lessonTitle=lessonTitle||(assessment.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+(assessment.lesson_no||'—'));
   }
-  lessonTitle=lessonTitle||(assessment.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+(assessment.lesson_no||'—'));
-  const grade=assessment.rating||'—',name=row.fullName||'الطالب',note=String(assessment.notes||'').trim();
+  const name=row.fullName||'الطالب',grade=assessment?.rating||'',note=String(assessment?.notes||'').trim();
+  const messageText=talaqqinFamilyMessage({name,date,circleName,status:attendance,lessonTitle,grade,notes:note});
+  const textActions=panel=>{
+    action(panel,panel.querySelector('[data-action="tl-guardian-whatsapp"]'),()=>{
+      openWhatsApp(guardianPhone,messageText);
+      msg(panel,'فُتحت رسالة واتساب لتراجعها ثم ترسلها إلى ولي الأمر.');
+    });
+    action(panel,panel.querySelector('[data-action="tl-copy-text"]'),()=>{
+      if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(messageText).then(()=>msg(panel,'نُسخت الرسالة.')).catch(()=>{panel.querySelector('textarea')?.select();msg(panel,'حدّد نص الرسالة وانسخه يدويًا.');});
+      panel.querySelector('textarea')?.select();msg(panel,'حدّد نص الرسالة وانسخه من الجهاز.');
+    });
+  };
+  if(isNotice){
+    const panel=modal('رسالة متابعة الطالب · '+name);
+    panel.innerHTML='<p class="sl-help">إشعار تربوي يعتمد على حالة الحضور المحفوظة، دون إظهار تقدير درس لم يُسجّل.</p>'
+      +'<label>الرسالة الموجهة لولي الأمر<textarea rows="10" readonly>'+esc(messageText)+'</textarea></label>'
+      +'<div class="sl-card-actions">'+button('إرسال رسالة واتساب','tl-guardian-whatsapp')+button('نسخ الرسالة','tl-copy-text')+'</div>';
+    textActions(panel);
+    return;
+  }
   const passed=['ممتاز','جيد جدًا','جيد'].includes(grade);
-  const positive=passed
-    ?'نبارك لابنكم تقدمه في تعلم القراءة، ونحثه على الاستمرار في التدريب اليومي حتى يزداد إتقانًا وثقة.'
+  const positive=passed?'نبارك لابنكم تقدمه في تعلم القراءة، ونحثه على الاستمرار في التدريب اليومي حتى يزداد إتقانًا وثقة.'
     :'لكل طالب وتيرته في التعلم، وبالتكرار الهادئ والتشجيع والمتابعة المنزلية يتحسن مستوى القراءة بإذن الله.';
-  const attendanceText=attendanceAr[attendance]||'—';
-  const messageText='السلام عليكم ورحمة الله وبركاته\n\nولي أمر الطالب '+name+' الكريم، أسعد الله أوقاتكم بكل خير.\n\n'
-    +'يسرنا مشاركتكم حصيلة ابنكم اليوم '+date+' في '+(circleName||'حلقات التلقين')+' بمنهج نور البيان:\n'
-    +'• الحضور: '+attendanceText+'\n• الدرس: '+lessonTitle+'\n• التقدير: '+grade
-    +(note?'\n• ملاحظة المعلم: '+note:'')
-    +'\n\n'+positive+'\n\nنوصي بتخصيص دقائق يومية للاستماع لابنكم ومراجعته بأسلوب لطيف ومحفز، مع الثناء على كل تقدم يحققه، ولو كان يسيرًا.'
-    +'\n\nشكر الله لكم عنايتكم وتعاونكم، وبارك في ابنكم وعلّمه القرآن ورفع به قدره.\n\nمعلم الحلقة · منصة سنابل الوحي';
   try{await document.fonts.ready}catch{}
   const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1380;
-  const ctx=canvas.getContext('2d');if(!ctx)throw Error('تعذر تهيئة صورة الحصيلة في هذا الجهاز.');
-  ctx.direction='rtl';ctx.textAlign='right';
-  ctx.fillStyle='#F8F5EE';ctx.fillRect(0,0,1080,1380);
-  const gradient=ctx.createLinearGradient(0,0,1080,330);
-  gradient.addColorStop(0,'#063B34');gradient.addColorStop(1,'#00808A');
-  ctx.fillStyle=gradient;ctx.fillRect(0,0,1080,335);
-  ctx.fillStyle='#D8BD88';ctx.fillRect(0,323,1080,12);
-  try{
-    const logo=await canvasImage('/assets/logo-sanabil-v6.png');
-    ctx.fillStyle='#FFFFFF';ctx.fillRect(760,32,265,112);
-    ctx.drawImage(logo,776,46,230,83);
-  }catch{ctx.fillStyle='#FFFFFF';ctx.font='700 37px Doran, Alyamama, sans-serif';ctx.fillText('سنابل الوحي',990,94)}
+  const ctx=canvas.getContext('2d');if(!ctx)throw Error('تعذر إعداد بطاقة الحصيلة على هذا الجهاز.');
+  ctx.direction='rtl';ctx.textAlign='right';ctx.fillStyle='#F8F5EE';ctx.fillRect(0,0,1080,1380);
+  const gradient=ctx.createLinearGradient(0,0,1080,330);gradient.addColorStop(0,'#063B34');gradient.addColorStop(1,'#00808A');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,1080,335);ctx.fillStyle='#D8BD88';ctx.fillRect(0,323,1080,12);
+  try{const logo=await canvasImage('/assets/logo-sanabil-v6.png');ctx.fillStyle='#FFFFFF';ctx.fillRect(760,32,265,112);ctx.drawImage(logo,776,46,230,83)}
+  catch{ctx.fillStyle='#FFFFFF';ctx.font='700 37px Doran, Alyamama, sans-serif';ctx.fillText('سنابل الوحي',990,94)}
   ctx.fillStyle='#D8BD88';ctx.font='700 27px Alyamama, sans-serif';ctx.fillText('بطاقة الحصيلة اليومية · حلقات التلقين',730,84);
   ctx.fillStyle='#FFFFFF';ctx.font='700 46px Doran, Alyamama, sans-serif';ctx.fillText(name,730,162,640);
   ctx.fillStyle='#E7F4F0';ctx.font='400 27px Alyamama, sans-serif';ctx.fillText(circleName||'نور البيان',730,215,640);
   ctx.font='400 25px Alyamama, sans-serif';ctx.fillText('التاريخ: '+date,730,274);
   drawRound(ctx,64,375,952,415,26,'#FFFFFF','#DEE7E0');
   ctx.fillStyle='#063B34';ctx.font='700 36px Doran, Alyamama, sans-serif';ctx.fillText('حصيلة درس اليوم',952,446);
-  ctx.font='700 29px Alyamama, sans-serif';ctx.fillText('الحضور: '+attendanceText,950,508);
-  ctx.fillText('التقدير: '+grade,950,571);
+  ctx.font='700 29px Alyamama, sans-serif';
+  if(attendance==='late')ctx.fillText('الحضور: متأخر',950,508);
+  ctx.fillText('التقدير: '+grade,950,attendance==='late'?571:515);
   ctx.font='400 30px Alyamama, sans-serif';wrapCanvas(ctx,'الدرس: '+lessonTitle,950,634,850,48);
   ctx.fillStyle='#00808A';ctx.font='700 31px Alyamama, sans-serif';ctx.fillText('رسالة تشجيعية للأسرة',950,848);
-  ctx.fillStyle='#183C33';ctx.font='400 28px Alyamama, sans-serif';
-  wrapCanvas(ctx,positive,950,903,865,48);
+  ctx.fillStyle='#183C33';ctx.font='400 28px Alyamama, sans-serif';wrapCanvas(ctx,positive,950,903,865,48);
   if(note){
     ctx.fillStyle='#735D37';ctx.font='700 28px Alyamama, sans-serif';ctx.fillText('ملاحظة المعلم',950,1057);
-    ctx.fillStyle='#183C33';ctx.font='400 25px Alyamama, sans-serif';
-    wrapCanvas(ctx,note.slice(0,160),950,1104,860,39);
+    ctx.fillStyle='#183C33';ctx.font='400 25px Alyamama, sans-serif';wrapCanvas(ctx,note.slice(0,160),950,1104,860,39);
   }
   ctx.fillStyle='#D8BD88';ctx.fillRect(64,1270,952,3);
-  ctx.fillStyle='#506962';ctx.font='400 23px Alyamama, sans-serif';
-  ctx.fillText('بالرفق والتشجيع والمراجعة اليومية تنمو مهارة القراءة',957,1324);
+  ctx.fillStyle='#506962';ctx.font='400 23px Alyamama, sans-serif';ctx.fillText('بالرفق والتشجيع والمراجعة اليومية تنمو مهارة القراءة',957,1324);
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
   if(!blob)throw Error('تعذر إعداد صورة بطاقة الحصيلة.');
-  const fileName='حصيلة-التلقين-'+safeFileName(name)+'-'+date+'.png';
-  const previewUrl=URL.createObjectURL(blob);
+  const filename='حصيلة-التلقين-'+safeFileName(name)+'-'+date+'.png',preview=URL.createObjectURL(blob);
   const panel=modal('بطاقة الحصيلة · '+name);
-  panel.innerHTML='<div class="sl-tl-card-preview"><img src="'+previewUrl+'" alt="بطاقة الحصيلة اليومية للطالب '+esc(name)+'"></div>'
-    +'<p class="sl-help">هذه البطاقة مستمدة من الحصيلة المحفوظة في قاعدة البيانات. يمكن مشاركتها كصورة مع الرسالة، أو فتح واتساب برسالة تحفيزية لولي الأمر.</p>'
+  panel.innerHTML='<div class="sl-tl-card-preview"><img src="'+preview+'" alt="بطاقة حصيلة '+esc(name)+'"></div>'
     +'<label>الرسالة التربوية الجاهزة<textarea rows="9" readonly>'+esc(messageText)+'</textarea></label>'
-    +'<div class="sl-card-actions">'+button('مشاركة الصورة والرسالة','tl-native-share')
-    +button('إرسال رسالة واتساب','tl-guardian-whatsapp')
-    +button('حفظ صورة البطاقة','tl-download-card')+'</div>';
-  panel.closest('dialog')?.addEventListener('close',()=>{URL.revokeObjectURL(previewUrl)},{once:true});
+    +'<div class="sl-card-actions">'+button('مشاركة الصورة والرسالة','tl-native-share')+button('إرسال رسالة واتساب','tl-guardian-whatsapp')
+    +button('حفظ صورة البطاقة','tl-download-card')+button('نسخ الرسالة','tl-copy-text')+'</div>';
+  panel.closest('dialog')?.addEventListener('close',()=>URL.revokeObjectURL(preview),{once:true});
+  textActions(panel);
   action(panel,panel.querySelector('[data-action="tl-native-share"]'),async()=>{
-    const file=new File([blob],fileName,{type:'image/png'});
+    const file=new File([blob],filename,{type:'image/png'});
     if(!navigator.share||!navigator.canShare?.({files:[file]})){
-      downloadBlobFile(blob,fileName);
-      msg(panel,'المشاركة المباشرة للصور غير متاحة بهذا المتصفح؛ حُفظت البطاقة لتتمكن من إرفاقها في واتساب.');
+      downloadBlobFile(blob,filename);
+      msg(panel,'حُفظت البطاقة في التنزيلات، ويمكن إرفاقها مع الرسالة عبر واتساب.');
       return;
     }
     try{await navigator.share({title:'حصيلة نور البيان · '+name,text:messageText,files:[file]})}
     catch(e){if(e?.name!=='AbortError')throw e}
   });
-  action(panel,panel.querySelector('[data-action="tl-guardian-whatsapp"]'),()=>{
-    openWhatsApp(guardianPhone,messageText);
-    msg(panel,'فُتحت رسالة واتساب. بعد مراجعتها وإرسالها يمكن إرفاق صورة البطاقة باستخدام زر «حفظ صورة البطاقة».');
-  });
-  action(panel,panel.querySelector('[data-action="tl-download-card"]'),()=>{downloadBlobFile(blob,fileName);msg(panel,'تم تجهيز صورة البطاقة للحفظ.')});
+  action(panel,panel.querySelector('[data-action="tl-download-card"]'),()=>{downloadBlobFile(blob,filename);msg(panel,'جُهزت صورة البطاقة للحفظ.')});
 }
 
 async function shareOutcomeImage(student,date,lesson,recent,review,ratings,attendance,note){
