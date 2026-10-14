@@ -1365,6 +1365,10 @@ async function outcomesPage(root){
   const syncCard=i=>{
     const st=states[i],card=box.querySelector(`[data-student-card="${i}"]`),blocked=['absent','excused'].includes(st.attendance);if(!card)return;
     card.dataset.attendance=st.attendance||'unset';
+    const kind=activeKind(students[i].studentId);
+    const reason=card.querySelector('[data-quran-absence-reason]')?.closest('label');
+    if(reason)reason.hidden=st.attendance!=='absent'||!needsDayAttendance(kind);
+    if(!needsDayAttendance(kind))return;
     card.querySelectorAll('[data-att-student]').forEach(b=>b.classList.toggle('active',b.dataset.attValue===st.attendance));
     card.querySelectorAll('[data-grade-student]').forEach(b=>{b.disabled=blocked;b.classList.toggle('active',b.dataset.gradeValue===gradeValue(st,b.dataset.gradeKey))});
     const note=card.querySelector('.sl-absence-note');if(note)note.textContent=blocked?'لن يُحتسب مقرر هذا اليوم، وسيعاد توزيع كل خطة متأثرة تلقائيًا.':'';
@@ -1407,9 +1411,9 @@ async function outcomesPage(root){
     root.querySelector('[name="date"]').value=nextTeachingDate;
     root.querySelector('[data-action="load"]')?.click();
   });
-  const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
+  const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,absenceReason:st.attendance==='absent'?st.absenceReason||'':null,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
   const persistDraft=i=>{const s=students[i],x=rowData(s,i);
-    drafts[s.studentId]={attendance:x.att,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
+    drafts[s.studentId]={attendance:x.att,absenceReason:x.absenceReason,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
     saveDrafts();
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft'}
   };
