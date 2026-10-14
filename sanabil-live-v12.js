@@ -963,7 +963,7 @@ async function outcomesPage(root){
     const renderTalaqqin=async()=>{
       const [all,attRows,assessments]=await Promise.all([
         rpc('get_talaqqin_dashboard',{}),
-        result(sb().from('student_attendance').select('student_id,status,note').eq('circle_id',circle).eq('date_key',date)),
+        result(sb().from('student_attendance').select('student_id,status,note,absence_reason').eq('circle_id',circle).eq('date_key',date)),
         result(sb().from('talaqqin_assessments').select('id,student_id,lesson_no,custom_lesson_id,rating,notes,assessed_on,created_at,updated_at').eq('circle_id',circle).eq('assessed_on',date).order('created_at',{ascending:false}).limit(250))
       ]);
       const items=(all||[]).filter(x=>x.circleId===circle),attMap=new Map((attRows||[]).map(x=>[x.student_id,x]));
@@ -972,7 +972,7 @@ async function outcomesPage(root){
       const storedLessonIds=[...new Set([...assessmentMap.values()].map(a=>a.lesson_no).filter(Boolean))];
       const storedLessons=storedLessonIds.length?await result(sb().from('talaqqin_lessons').select('lesson_no,lesson_title').in('lesson_no',storedLessonIds)):[];
       const storedTitles=new Map(storedLessons.map(a=>[a.lesson_no,a.lesson_title]));
-      const states=items.map(r=>({status:attendanceDrafts.get(r.studentId)?.status??attMap.get(r.studentId)?.status??'',note:attendanceDrafts.get(r.studentId)?.note??attMap.get(r.studentId)?.note??''}));
+      const states=items.map(r=>({status:attendanceDrafts.get(r.studentId)?.status??attMap.get(r.studentId)?.status??'',note:attendanceDrafts.get(r.studentId)?.note??attMap.get(r.studentId)?.note??'',absenceReason:attendanceDrafts.get(r.studentId)?.absenceReason??attMap.get(r.studentId)?.absence_reason??''}));
       const attChoices=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>'<button type="button" class="sl-choice sl-att-choice '+(current===id?'active':'')+'" data-tl-att="'+i+'" data-tl-att-value="'+esc(id)+'">'+esc(name)+'</button>').join('');
       const summary=()=>{const m={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>x.status&&m[x.status]!==undefined?m[x.status]++:m.unset++);return '<span>حاضر <b>'+m.present+'</b></span><span>متأخر <b>'+m.late+'</b></span><span>مستأذن <b>'+m.excused+'</b></span><span>غائب <b>'+m.absent+'</b></span>'+(m.unset?'<span class="warn">غير محضر <b>'+m.unset+'</b></span>':'')};
       box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>جلسة التلقين اليومية</h3><p>اختر تقدير درس نور البيان أمام اسم الطالب، ثم احفظ حصيلته مباشرة. إدارة الخطط والدروس الخاصة من صفحة الخطط.</p></div></section>'+
@@ -981,6 +981,7 @@ async function outcomesPage(root){
         const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status),mismatch=!!(saved&&!isCustom&&placed&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no)),savedTitle=saved?(storedTitles.get(saved.lesson_no)||(saved.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+saved.lesson_no)):'',advanced=!!(saved&&!isCustom&&Number(r.currentLessonNo)>Number(saved.lesson_no));
         return '<article class="sl-student-card" data-tl-card="'+i+'"><header><div class="sl-student-no">'+(i+1)+'</div><div><h3>'+esc(r.fullName)+'</h3><small>منهج نور البيان</small></div></header>'+
          '<div class="sl-att-grid">'+attChoices(i,states[i].status)+'</div>'+
+         '<label class="sl-absence-reason" '+(states[i].status==='absent'?'':'hidden')+'>نوع الغياب<select data-tl-absence-reason="'+i+'"><option value="">اختر نوع الغياب</option><option value="excused" '+(attMap.get(r.studentId)?.absence_reason==='excused'?'selected':'')+'>غياب بعذر</option><option value="unexcused" '+(attMap.get(r.studentId)?.absence_reason==='unexcused'?'selected':'')+'>غياب بدون عذر</option></select></label>'+
          '<label class="sl-note">ملاحظة الحضور<input data-tl-note="'+i+'" value="'+esc(states[i].note)+'" placeholder="ملاحظة اختيارية"></label>'+
          '<section class="sl-track"><div class="sl-track-head"><div><b>'+(saved?'الدرس الذي سُمِّع في هذا التاريخ':isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(saved?savedTitle:(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—'))))+'</span></div></div>'+
           (advanced?'<p class="sl-help"><b>الدرس التالي بعد الحصيلة:</b> '+esc(ll.title||('رقم '+r.currentLessonNo))+'</p>':'')+
@@ -1020,18 +1021,31 @@ async function outcomesPage(root){
           if(attend)attend.hidden=true;if(attNote)attNote.hidden=true;
         }
       });
+      box.querySelectorAll('[data-tl-absence-reason]').forEach(el=>el.addEventListener('change',()=>{
+        const i=Number(el.dataset.tlAbsenceReason),r=items[i];if(!r)return;
+        attendanceDrafts.set(r.studentId,{...attendanceDrafts.get(r.studentId),status:states[i].status,
+          absenceReason:el.value});
+      }));
       box.querySelectorAll('[data-tl-note]').forEach(input=>input.addEventListener('input',()=>{
         const i=Number(input.dataset.tlNote),r=items[i];if(!r)return;
         states[i].note=input.value;
         attendanceDrafts.set(r.studentId,{...attendanceDrafts.get(r.studentId),status:states[i].status,note:input.value});
       }));
-      if(readOnly)box.querySelectorAll('[data-tl-att],[data-tl-note],[data-action="tl-all-present"],[data-action="tl-save-attendance"]').forEach(el=>el.disabled=true);
-      const refreshSummary=()=>{const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=summary();items.forEach((r,i)=>{const absent=['absent','excused'].includes(states[i].status),locked=!assessmentMap.has(r.studentId)&&(readOnly||absent||!r.placementSet||r.completed);const note=box.querySelector('[data-tl-note="'+i+'"]')?.closest('label');if(note)note.hidden=!['late','absent','excused'].includes(states[i].status);box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>b.disabled=locked);const save=box.querySelector('[data-action="tl-save-'+i+'"]');if(save)save.disabled=locked;const textarea=box.querySelector('[data-tl-assessment-note="'+i+'"]');if(textarea)textarea.disabled=locked})};refreshSummary();
-      box.querySelectorAll('[data-tl-att]').forEach(b=>b.onclick=()=>{if(readOnly)return;const i=Number(b.dataset.tlAtt);states[i].status=b.dataset.tlAttValue;attendanceDrafts.set(items[i].studentId,{...attendanceDrafts.get(items[i].studentId),status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value||states[i].note});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(x=>x.classList.toggle('active',x.dataset.tlAttValue===states[i].status));refreshSummary()});
-      action(box,box.querySelector('[data-action="tl-all-present"]'),()=>{if(readOnly)throw Error('هذه الجلسة للعرض فقط.');states.forEach((x,i)=>{x.status='present';attendanceDrafts.set(items[i].studentId,{status:'present',note:box.querySelector('[data-tl-note="'+i+'"]')?.value||''});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(b=>b.classList.toggle('active',b.dataset.tlAttValue==='present'))});refreshSummary();msg(box,'تم تحديد الجميع حاضرين؛ عدّل حالات الاستثناء ثم احفظ التحضير.')});
+      if(readOnly)box.querySelectorAll('[data-tl-att],[data-tl-note],[data-tl-absence-reason],[data-action="tl-all-present"],[data-action="tl-save-attendance"]').forEach(el=>el.disabled=true);
+      const refreshSummary=()=>{const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=summary();items.forEach((r,i)=>{const reason=box.querySelector('[data-tl-absence-reason="'+i+'"]')?.closest('label');if(reason)reason.hidden=states[i].status!=='absent'||!needsDayAttendance(activeKind(r.studentId));const absent=['absent','excused'].includes(states[i].status),locked=!assessmentMap.has(r.studentId)&&(readOnly||absent||!r.placementSet||r.completed);const note=box.querySelector('[data-tl-note="'+i+'"]')?.closest('label');if(note)note.hidden=!['late','absent','excused'].includes(states[i].status);box.querySelectorAll('[data-tl-grade-student="'+i+'"]').forEach(b=>b.disabled=locked);const save=box.querySelector('[data-action="tl-save-'+i+'"]');if(save)save.disabled=locked;const textarea=box.querySelector('[data-tl-assessment-note="'+i+'"]');if(textarea)textarea.disabled=locked})};refreshSummary();
+      box.querySelectorAll('[data-tl-att]').forEach(b=>b.onclick=()=>{if(readOnly)return;const i=Number(b.dataset.tlAtt);states[i].status=b.dataset.tlAttValue;attendanceDrafts.set(items[i].studentId,{...attendanceDrafts.get(items[i].studentId),status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value||states[i].note,absenceReason:box.querySelector('[data-tl-absence-reason="'+i+'"]')?.value||null});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(x=>x.classList.toggle('active',x.dataset.tlAttValue===states[i].status));refreshSummary()});
+      action(box,box.querySelector('[data-action="tl-all-present"]'),()=>{if(readOnly)throw Error('هذه الجلسة للعرض فقط.');states.forEach((x,i)=>{if(!needsDayAttendance(activeKind(items[i].studentId)))return;x.status='present';attendanceDrafts.set(items[i].studentId,{status:'present',note:box.querySelector('[data-tl-note="'+i+'"]')?.value||''});box.querySelectorAll('[data-tl-att="'+i+'"]').forEach(b=>b.classList.toggle('active',b.dataset.tlAttValue==='present'))});refreshSummary();msg(box,'تم تحديد الجميع حاضرين؛ عدّل حالات الاستثناء ثم احفظ التحضير.')});
       action(box,box.querySelector('[data-action="tl-save-attendance"]'),async()=>{
-        const miss=states.findIndex(x=>!x.status);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+items[miss].fullName);
-        const payload=items.map((r,i)=>({studentId:r.studentId,status:states[i].status,note:box.querySelector('[data-tl-note="'+i+'"]')?.value.trim()||null}));
+        const miss=states.findIndex((x,i)=>needsDayAttendance(activeKind(items[i].studentId))&&!x.status);
+        if(miss>=0)throw Error('لم يتم تحضير الطالب: '+items[miss].fullName);
+        const missedReason=states.findIndex((x,i)=>needsDayAttendance(activeKind(items[i].studentId))&&x.status==='absent'&&!box.querySelector('[data-tl-absence-reason="'+i+'"]')?.value);
+        if(missedReason>=0)throw Error('حدد نوع غياب الطالب: '+items[missedReason].fullName);
+        const payload=items.filter(r=>needsDayAttendance(activeKind(r.studentId))).map(r=>{
+          const i=items.indexOf(r);return {studentId:r.studentId,status:states[i].status,
+          note:box.querySelector('[data-tl-note="'+i+'"]')?.value.trim()||null,
+          absenceReason:states[i].status==='absent'?(box.querySelector('[data-tl-absence-reason="'+i+'"]')?.value||''):null};
+        });
+        if(!payload.length){msg(box,'لا يوجد تحضير لتسجيله في يوم إجازة أو غير محتسب.');return}
         await ensureCircleSession(circle,date,true);const rr=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير حلقة التلقين');
         msg(box,rr.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':'تم حفظ تحضير '+rr.saved+' طالبًا.');if(!rr.queued){attendanceDrafts.clear();await renderTalaqqin();}
       });
@@ -1057,6 +1071,7 @@ async function outcomesPage(root){
         const noteBox=box.querySelector('[data-tl-assessment-note="'+i+'"]');
         if(noteBox)noteBox.addEventListener('input',()=>updateDraft({notes:noteBox.value}));
         const ensureReady=()=>{
+          if(activeKind(r.studentId)!=='study')throw Error('لا يُقيَّم درس جديد إلا في يوم دراسي.');
           if(readOnly)throw Error('جلسة اليوم خارج وقت الحفظ المسموح.');
           if(!r.placementSet||r.completed)throw Error('حدد موضع الطالب أو تأكد من أن المنهج لم يكتمل.');
           if(!savedStatus||savedStatus!==states[i].status)throw Error('احفظ حضور هذا الطالب أولًا قبل تقييم درسه.');
