@@ -1549,7 +1549,11 @@ async function outcomesPage(root){
     if(status){status.textContent=unchanged?'تم الحفظ والتحقق من الخادم':'حُفظت نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft'}
     msg(box,unchanged?'تم حفظ حصيلة '+s.fullName+' والتأكد من مطابقة التقديرات والعدادات في قاعدة البيانات.':'تم حفظ نسخة سابقة من حصيلة '+s.fullName+'، لكن توجد تعديلات أحدث لم تُحفظ بعد.');
   }));
-  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.map((s,i)=>({studentId:s.studentId,status:states[i].attendance,note:val(form,'note'+i)||null}));const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
+  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
+    const i=students.indexOf(s);return{studentId:s.studentId,status:states[i].attendance,
+      absenceReason:states[i].attendance==='absent'?states[i].absenceReason:null,note:val(form,'note'+i)||null};
+  });
+  if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   students.forEach((s,i)=>{
     syncCard(i);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
@@ -1592,24 +1596,37 @@ async function outcomesPage(root){
     box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
   submit(form,async()=>{
-    validateAttendance();await ensureCircleSession(circle,date,true);
-    const captured=students.map((s,i)=>{const x=rowData(s,i);validateRow(s,x);return{s,x}});
-    captured.forEach(({s},i)=>persistDraft(i));
-    const payload=captured.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)}));
+    validateAttendance();
+    const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
+      const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
+    });
+    if(!captured.length){msg(box,'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');return}
+    await ensureCircleSession(circle,date,true);
+    captured.forEach(({i})=>persistDraft(i));
     const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
-    const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');
-    if(r.queued){msg(box,'الحفظ الجماعي في انتظار المزامنة. لم تُغلق الجلسة وتبقى المسودات محفوظة على هذا الجهاز.');return}
-    try{
-      const verifiedRows=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
-      for(const {s,x} of captured)await confirmSaved(s,x,verifiedRows);
+    for(const {s,x} of captured.filter(v=>v.kind==='test')){
+      await saveTestReviewStudent(s,x);
+      await confirmSaved(s,x);
     }
-    catch(e){throw Error('تم إرسال الحفظ الجماعي لكن لم نتأكد من تطابق النتائج كلها: '+e.message+' بقيت الجلسة مفتوحة والمسودات محفوظة.')}
-    let newerEdits=0;
-    captured.forEach(({s},i)=>{if(JSON.stringify(drafts[s.studentId]||null)===snapshots[i])clearDraft(i);else newerEdits++});
-    if(newerEdits){msg(box,'تأكد حفظ البيانات المرسلة، لكن هناك '+newerEdits+' تعديلات أحدث لم تُحفظ. بقيت الجلسة مفتوحة.');return}
+    const normal=captured.filter(v=>v.kind==='study');
+    if(normal.length){
+      const payload=normal.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,
+        notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,
+        recitationMetrics:normalizedMetrics(x.metrics)}));
+      const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');
+      if(saved.queued){msg(box,'مراجعات الاختبار محفوظة، والحصائل الدراسية تنتظر المزامنة. بقيت الجلسة مفتوحة.');return}
+      const confirmed=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+      for(const {s,x} of normal)await confirmSaved(s,x,confirmed);
+    }
+    let modified=0;
+    captured.forEach(({s,i},j)=>{
+      if(JSON.stringify(drafts[s.studentId]||null)===snapshots[j])clearDraft(i);
+      else modified++;
+    });
+    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');return}
     localStorage.removeItem(activeSessionKey);
-    box.innerHTML='<p class="sl-message" role="status">تم التحقق من حفظ حصيلة جميع الطلاب في قاعدة البيانات ثم إغلاق الجلسة بنجاح.</p>';
-  })
+    box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
+  });
  })
  let pendingRefreshObserver=null;
  const refreshSelection=()=>{
