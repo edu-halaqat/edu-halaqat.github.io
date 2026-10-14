@@ -1429,8 +1429,39 @@ async function outcomesPage(root){
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft'}
   };
   const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
+  // Exam reviews are saved outside ordinary plan progress.
+  const testReviewRatings=(student,row)=>({
+    ...(student.recentReview?{[student.recentReview.planId]:row.ratings.recentReview||''}:{}),
+    ...Object.fromEntries(row.reviews.map(r=>[r.planId,r.grade||'']))
+  });
+  const testReviewMetrics=(student,row)=>{
+    const m=normalizedMetrics(row.metrics),out={};
+    if(student.recentReview)out[student.recentReview.planId]=m.recentReview;
+    for(const r of row.reviews)out[r.planId]=m.reviewPlans?.[r.planId]||metricEmpty();
+    return out;
+  };
+  const saveTestReviewStudent=(student,row)=>rpc('save_test_day_reviews_guarded',{
+    p_student_id:student.studentId,p_date:date,p_attendance:row.att,
+    p_absence_reason:row.absenceReason,p_notes:row.note,
+    p_ratings:testReviewRatings(student,row),p_metrics:testReviewMetrics(student,row)
+  });
   // تأكيد مستقل: لا نعتمد رسالة النجاح حتى تعيد قاعدة البيانات التقديرات والعدادات ذاتها.
   const confirmSaved=async(s,x,loadedRows=null)=>{
+    if(activeKind(s.studentId)==='test'){
+      const [dayInfo,att]=await Promise.all([
+        rpc('get_day_types_guarded',{p_circle_id:circle,p_date:date}),
+        result(sb().from('student_attendance').select('status,absence_reason')
+          .eq('student_id',s.studentId).eq('date_key',date).maybeSingle())
+      ]);
+      if(att?.status!==x.att||(x.att==='absent'&&att.absence_reason!==x.absenceReason))
+        throw Error('حالة حضور الاختبار أو سبب الغياب لم يتطابق مع الخادم.');
+      if(['absent','excused'].includes(x.att))return att;
+      for(const [planId,rating] of Object.entries(testReviewRatings(s,x))){
+        const saved=(dayInfo.testReviews||[]).find(q=>q.studentId===s.studentId&&q.planId===planId);
+        if(!saved||saved.grade!==rating)throw Error('درجة المراجعة في يوم الاختبار لم تتطابق مع المحفوظ.');
+      }
+      return att;
+    }
     const items=loadedRows||await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
     const saved=(items||[]).find(item=>item.studentId===s.studentId);
     if(!saved||saved.attendanceStatus!==x.att)throw Error('لم تتطابق حالة الحضور مع البيانات التي أعادها الخادم.');
@@ -1502,7 +1533,7 @@ async function outcomesPage(root){
     const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,recitationMetrics:normalizedMetrics(x.metrics)};
     const before=JSON.stringify(drafts[s.studentId]||null);
     const status=box.querySelector('[data-save-status="'+i+'"]');
-    const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
+    const r=activeKind(s.studentId)==='test'?await saveTestReviewStudent(s,x):await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
     if(r.queued){
       if(status){status.textContent='محفوظ مؤقتًا على الجهاز · بانتظار المزامنة';status.dataset.saved='queued'}
       msg(box,'حصيلة '+s.fullName+' في انتظار المزامنة. لا تعتبر الحصيلة مؤكدة في الخادم بعد.');
