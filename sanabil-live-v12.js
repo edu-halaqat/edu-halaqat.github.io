@@ -545,6 +545,35 @@ async function parseEntityDatabaseNative(file){
 }
 
 const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261013-v13.2.2'};
+
+async function shareStudentWeekOnWhatsapp(studentId,studentName,knownPhone=''){
+  const popup=window.open('about:blank','_blank');
+  if(!popup)throw Error('اسمح بفتح نافذة واتساب عند مشاركة الملخص الأسبوعي.');
+  try{
+    const end=today(),from=new Date(new Date(end+'T12:00:00Z').getTime()-6*86400000).toISOString().slice(0,10);
+    const [student,attendance,lessons,talaqqin,link]=await Promise.all([
+      knownPhone?Promise.resolve({guardian_phone:knownPhone}):result(sb().from('students').select('guardian_phone').eq('id',studentId).single()),
+      result(sb().from('student_attendance').select('date_key,status').eq('student_id',studentId).gte('date_key',from).lte('date_key',end).limit(10)),
+      result(sb().from('outcomes').select('date_key').eq('student_id',studentId).gte('date_key',from).lte('date_key',end).limit(10)),
+      result(sb().from('talaqqin_assessments').select('assessed_on').eq('student_id',studentId).gte('assessed_on',from).lte('assessed_on',end).limit(12)),
+      guardianLink(studentId)
+    ]);
+    const phone=waPhone(student.guardian_phone);
+    if(!phone||phone.length<10)throw Error('لا يوجد رقم هاتف صحيح لولي أمر الطالب.');
+    const present=attendance.filter(x=>['present','late'].includes(x.status)).length;
+    const absent=attendance.filter(x=>x.status==='absent').length;
+    const excused=attendance.filter(x=>x.status==='excused').length;
+    const count=new Set([...lessons.map(x=>x.date_key),...talaqqin.map(x=>x.assessed_on)]).size;
+    const text=['السلام عليكم ورحمة الله وبركاته','أسعد الله أوقاتكم بكل خير.',
+      'ملخص متابعة الطالب: '+studentName,'الفترة: '+from+' إلى '+end,
+      'أيام الحضور المسجلة: '+present+'، الغياب المسجل: '+absent+'، الاستئذان: '+excused,
+      'أيام الحصيلة المرصودة: '+count,
+      'للاطلاع على تفاصيل التحصيل والواجبات وملاحظات المعلم، تفضلوا بزيارة بوابة ابنكم:',
+      link,'شاكرين لكم تعاونكم وحرصكم على متابعة ابنكم.'].join('\n');
+    popup.location.replace('https://wa.me/'+phone+'?text='+encodeURIComponent(text));
+  }catch(e){try{popup.close()}catch{}throw e}
+}
+
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
@@ -1036,7 +1065,7 @@ async function outcomesPage(root){
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
-           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+
+           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
@@ -1161,6 +1190,8 @@ async function outcomesPage(root){
           await renderTalaqqin();
           msg(box,'صُحِّح ارتباط الحصيلة بالدرس الصحيح في قاعدة البيانات، ويمكن مشاركة البطاقة المحدثة.');
         });
+        const weekly=box.querySelector('[data-action="tl-weekly-'+i+'"]');
+        if(weekly)action(box,weekly,()=>shareStudentWeekOnWhatsapp(r.studentId,r.fullName,r.guardianPhone||''));
         const share=box.querySelector('[data-action="tl-card-'+i+'"]');
         if(share)action(box,share,async()=>{
           const freshRows=await result(sb().from('talaqqin_assessments')
@@ -1444,7 +1475,7 @@ async function outcomesPage(root){
 <option value="">اختر نوع الغياب</option>
 <option value="excused" ${states[i].absenceReason==='excused'?'selected':''}>غياب بعذر</option>
 <option value="unexcused" ${states[i].absenceReason==='unexcused'?'selected':''}>غياب بدون عذر</option>
-</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
   showFamilyExcuses(box,familyRequests);
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
@@ -1629,6 +1660,8 @@ async function outcomesPage(root){
       }catch(err){try{popup.close()}catch{}throw err}
     });
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
+    const week=box.querySelector('[data-action="weekly-'+i+'"]');
+    if(week)action(box,week,()=>shareStudentWeekOnWhatsapp(s.studentId,s.fullName,s.guardianPhone));
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
   if(readOnly){
