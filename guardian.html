@@ -148,7 +148,7 @@ const riyadhToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',ye
 const familyCalendar=(rows,monthKey)=>{
  const [year,month]=monthKey.split('-').map(Number),byDate=new Map(rows.map(x=>[x.date_key,x.status]));
  const first=new Date(Date.UTC(year,month-1,1)).getUTCDay(),days=new Date(Date.UTC(year,month,0)).getUTCDate();
- const monthTitle=new Intl.DateTimeFormat('ar-SA',{year:'numeric',month:'long',timeZone:'UTC'})
+ const monthTitle=new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{year:'numeric',month:'long',timeZone:'UTC'})
    .format(new Date(Date.UTC(year,month-1,15)));
  let out=['ح','ن','ث','ر','خ','ج','س'].map(x=>'<span class="cal-cell header">'+x+'</span>').join('');
  out+=Array.from({length:first},()=>'<span class="cal-cell empty" aria-hidden="true"></span>').join('');
