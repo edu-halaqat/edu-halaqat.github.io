@@ -133,6 +133,88 @@ const openTalaqqinMedia=l=>{
 };
 const quranLessonUrl=x=>{const s=x?.from?.surahNo,a=x?.from?.ayahNo||x?.from?.ayah;return s&&a?'https://quran.ksu.edu.sa/index.php?aya='+encodeURIComponent(s+'_'+a)+'&l=ar':'https://quran.ksu.edu.sa/'};
 
+
+const familyRequest=async payload=>{
+ const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+    cache:'no-store',body:JSON.stringify({code,...payload})});
+ const d=await r.json().catch(()=>({error:'تعذر قراءة رد الخادم'}));
+ if(!r.ok||d.error)throw Error(d.error||'تعذر تنفيذ الطلب.');
+ return d;
+};
+const riyadhToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const familyCalendar=(rows,monthKey)=>{
+ const [year,month]=monthKey.split('-').map(Number),byDate=new Map(rows.map(x=>[x.date_key,x.status]));
+ const first=new Date(Date.UTC(year,month-1,1)).getUTCDay(),days=new Date(Date.UTC(year,month,0)).getUTCDate();
+ const monthTitle=new Intl.DateTimeFormat('ar-SA',{year:'numeric',month:'long',timeZone:'UTC'})
+   .format(new Date(Date.UTC(year,month-1,15)));
+ let out=['ح','ن','ث','ر','خ','ج','س'].map(x=>'<span class="cal-cell header">'+x+'</span>').join('');
+ out+=Array.from({length:first},()=>'<span class="cal-cell empty" aria-hidden="true"></span>').join('');
+ for(let day=1;day<=days;day++){
+   const key=monthKey+'-'+String(day).padStart(2,'0'),st=byDate.get(key)||'',label=attend[st]||'غير مسجل';
+   out+='<span class="cal-cell '+esc(st)+'" title="'+esc(key+' · '+label)+'" aria-label="'+esc(key+' · '+label)+'">'+day+'</span>';
+ }
+ return '<p class="cal-month">'+esc(monthTitle)+'</p><div class="att-calendar" role="group" aria-label="أيام حضور الطالب لهذا الشهر">'+out+'</div>'+
+ '<p class="cal-legend"><span><i style="background:#97cfaf"></i>حاضر</span><span><i style="background:#e7a6a0"></i>غائب</span><span><i style="background:#e7ce8f"></i>مستأذن أو متأخر</span><span><i style="background:#e6eeea"></i>غير مسجل</span></p>';
+};
+const familyNotes=(outcomes,history,receipts)=>{
+ const seen=new Set(receipts.map(x=>x.note_type+':'+x.note_date));
+ return [...outcomes.filter(x=>String(x.notes||'').trim()).map(x=>({type:'outcome',date:x.date_key,text:x.notes})),
+         ...history.filter(x=>String(x.notes||'').trim()).map(x=>({type:'talaqqin',date:x.assessedOn,text:x.notes}))]
+ .sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,8).map(n=>{
+   const read=seen.has(n.type+':'+n.date);
+   return '<article class="guardian-note"><small>ملاحظة المعلم · '+esc(n.date)+'</small><p>'+esc(n.text)+'</p>'+
+      (read?'<span class="guardian-ack">✓ تمت قراءة الملاحظة</span>':
+        '<button type="button" class="guardian-button" data-ack-type="'+esc(n.type)+'" data-ack-date="'+esc(n.date)+'">قرأت ذلك</button>')+'</article>';
+ }).join('');
+};
+const familyBadges=(awards,attendance)=>{
+ const badges=awards.slice(0,6).map(a=>'<div class="family-badge"><span class="symbol">★</span><div>'+
+   esc(a.title)+'<small>تكريم معتمد · '+esc(a.awarded_on)+'</small></div></div>');
+ const latest=attendance.filter(x=>['present','late','absent','excused'].includes(x.status)).slice(0,7);
+ if(latest.length===7&&latest.every(x=>x.status==='present'||x.status==='late')&&
+    Date.now()-Date.parse(latest[6].date_key+'T12:00:00Z')<=14*86400000){
+   badges.unshift('<div class="family-badge"><span class="symbol">✦</span><div>وسام الانضباط<small>سبعة أيام حضور مسجلة دون غياب</small></div></div>');
+ }
+ return badges.join('');
+};
+const bindFamilyActions=(data,attendance)=>{
+ document.querySelectorAll('[data-ack-type]').forEach(button=>{
+   button.onclick=async()=>{
+     button.disabled=true;
+     try{
+       await familyRequest({action:'ack',noteType:button.dataset.ackType,noteDate:button.dataset.ackDate});
+       const result=document.createElement('span');result.className='guardian-ack';
+       result.textContent='✓ تمت قراءة الملاحظة';button.replaceWith(result);
+     }catch(e){button.disabled=false;alert(e.message)}
+   };
+ });
+ const form=document.getElementById('guardian-excuse-form');
+ if(form)form.onsubmit=async e=>{
+   e.preventDefault();const btn=form.querySelector('[type="submit"]'),status=form.querySelector('[data-excuse-feedback]');
+   if(btn.disabled)return;btn.disabled=true;status.textContent='جارٍ تسجيل الطلب…';
+   try{
+     const data=await familyRequest({action:'excuse',date:riyadhToday(),
+       reason:form.elements.reason.value,note:form.elements.note.value.trim()});
+     status.textContent=data.message||'أُرسل الطلب إلى المعلم للمراجعة.';
+     form.elements.reason.disabled=true;form.elements.note.disabled=true;
+   }catch(err){status.textContent=err.message;btn.disabled=false}
+ };
+ const weekly=document.getElementById('guardian-week-share');
+ if(weekly)weekly.onclick=async()=>{
+   const from=new Date(Date.now()-6*86400000).toISOString().slice(0,10);
+   const current=attendance.filter(x=>x.date_key>=from),present=current.filter(x=>['present','late'].includes(x.status)).length,
+     absent=current.filter(x=>x.status==='absent').length;
+   const message=['السلام عليكم ورحمة الله وبركاته','ملخص متابعة الطالب: '+data.student.fullName,
+      'الحضور المسجل هذا الأسبوع: '+present+' · الغياب المسجل: '+absent,
+      'لمراجعة الحصيلة والخطة التعليمية: '+location.href].join('\n');
+   if(navigator.share){try{await navigator.share({title:'الملخص الأسبوعي',text:message});return}
+     catch(e){if(e.name==='AbortError')return}}
+   window.open('https://wa.me/?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
+ };
+ const pdf=document.getElementById('guardian-month-pdf');
+ if(pdf)pdf.onclick=()=>window.print();
+};
+
 const code=new URLSearchParams(location.search).get('code')||'';
 if(!/^[A-Fa-f0-9]{32}$/.test(code)){app.innerHTML='<div class="error">رابط ولي الأمر غير مكتمل أو غير صالح.</div><a class="back" href="/">العودة إلى سنابل الوحي</a>';return}
 fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
