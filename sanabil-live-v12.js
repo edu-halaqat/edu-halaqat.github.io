@@ -1165,7 +1165,7 @@ async function outcomesPage(root){
     return;
   }
   let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
-  const noScheduledAssignments=students.length>0&&students.every(s=>!s.memorization&&!s.recentReview&&!(s.reviews||[]).length);
+  const noScheduledAssignments=students.length>0&&students.every(s=>!s.memorization&&!s.recentReview&&!(s.reviews||[]).length)&&!(dayData.testReviews||[]).length;
   let nextTeachingDate='';
   if(noScheduledAssignments){
     try{const days=await result(sb().from('plan_days').select('date_key').eq('circle_id',circle).gte('date_key',date).order('date_key',{ascending:true}).limit(1));nextTeachingDate=days?.[0]?.date_key||''}catch(e){console.warn('تعذر تحديد اليوم التعليمي التالي',e)}
@@ -1191,7 +1191,17 @@ async function outcomesPage(root){
   const stateBanner=(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
     noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+(nextTeachingDate&&nextTeachingDate!==date?' '+button('عرض اليوم التعليمي التالي: '+nextTeachingDate,'next-planned-day'):'')+'</div>':'')+
     (readOnly?'<div class="sl-outcome-info sl-outcome-readonly" role="status">استعراض فقط: '+esc(sessionInfo?.reason||'جلسة الإدخال غير متاحة الآن')+'. لا يمكن تعديل التقديرات أو الحفظ.</div>':'');
-  const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
+  const metrics=new Map(students.map(s=>{
+    const m=normalizedMetrics(s.recitationMetrics);
+    if(activeKind(s.studentId)==='test'){
+      for(const x of testSnapshots.get(s.studentId)||[]){
+        const saved=x.metrics||{};
+        if(x.type==='recent_review')m.recentReview={...metricEmpty(),...saved};
+        else m.reviewPlans[x.planId]={...metricEmpty(),...saved};
+      }
+    }
+    return [s.studentId,m];
+  }));
   const absences=await result(sb().from('student_attendance').select('student_id,absence_reason')
      .eq('circle_id',circle).eq('date_key',date));
   const reasonMap=new Map(absences.map(x=>[x.student_id,x.absence_reason||'']));
@@ -1214,6 +1224,7 @@ async function outcomesPage(root){
       return;
     }
     if(d.attendance)states[i].attendance=d.attendance;
+    if(typeof d.absenceReason==='string')states[i].absenceReason=d.absenceReason;
     if(typeof d.note==='string')states[i].note=d.note;
     if(d.ratings&&typeof d.ratings==='object')states[i].ratings={...states[i].ratings,...d.ratings};
     if(d.reviewPlans&&typeof d.reviewPlans==='object')states[i].reviewPlans={...states[i].reviewPlans,...d.reviewPlans};
