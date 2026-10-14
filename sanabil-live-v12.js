@@ -1391,7 +1391,7 @@ async function outcomesPage(root){
     const kind=activeKind(s.studentId);
     if(!needsDayAttendance(kind))return '<p class="sl-day-kind-notice">'+esc(absenceNote(kind))+'</p>';
     const reviews=(s.reviews||[]).map((a,j)=>track(a,i,'review:'+a.planId,a.planName||('المراجعة الكبرى '+(j+1)),`r-${i}-${j}`)).join('');
-    return track(s.memorization,i,'memorization','الحفظ الجديد',`m-${i}`)+track(s.recentReview,i,'recentReview','المراجعة الصغرى',`s-${i}`)+(reviews||'<section class="sl-track is-empty"><div class="sl-track-head"><b>المراجعة الكبرى</b><span>لا توجد خطة مراجعة كبرى لهذا اليوم</span></div></section>');
+    return (kind==='test'?'':track(s.memorization,i,'memorization','الحفظ الجديد',`m-${i}`))+track(s.recentReview,i,'recentReview','المراجعة الصغرى',`s-${i}`)+(reviews||'<section class="sl-track is-empty"><div class="sl-track-head"><b>المراجعة الكبرى</b><span>لا توجد خطة مراجعة كبرى لهذا اليوم</span></div></section>');
   };
   // إجراءات حصيلة كل طالب: حفظ بارز وتوزيع ثابت للجوال والأجهزة اللوحية.
   const outcomeIconPaths={
@@ -1554,6 +1554,7 @@ async function outcomesPage(root){
       absenceReason:states[i].attendance==='absent'?states[i].absenceReason:null,note:val(form,'note'+i)||null};
   });
   if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
+  renderSummary();
   students.forEach((s,i)=>{
     syncCard(i);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
