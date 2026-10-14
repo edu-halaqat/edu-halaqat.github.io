@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261014-v13.2.7';
+window.__SanabilLiveBuild='20261014-v13.2.8';
 const titles={dashboard:'الرئيسية',students:'الطلاب والمعلمون',outcomes:'الحصيلة اليومية',plans:'الخطط التعليمية',attendance:'الحضور والبصمة',tests:'الاختبارات',supervision:'الزيارات الإشرافية',inquiries:'الاستعلامات',reports:'التقارير والإحصاءات',settings:'إعدادات المنصة'};
 const roles={admin:'مدير النظام',manager:'مدير المؤسسة',supervisor:'مشرف مجمع',teacher:'معلم',examiner:'مختبر'};
 const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
@@ -778,6 +778,61 @@ async function studentsPage(root){
  if(canImport){const cr=await sb().from('students').select('id',{count:'exact',head:true}).eq('active',true),n=cr.count||0,w=root.querySelector('.sl-import-warning');if(n<=1&&w){w.hidden=false;w.innerHTML='<b>تنبيه:</b> قاعدة الطلاب المرفقة لم تُستورد بعد. الموجود فعليًا الآن '+n+' طالب فقط. اضغط «استيراد قاعدة الجهة» واختر ملف قاعدة الجهة لإدخال الـ87 طالبًا.'}}
  await load()
 }
+
+/* Local-only filtering of the current outcome session. Never fetch, remove,
+   reorder or re-render student cards while the teacher enters unsaved grades. */
+function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
+ const grid=box.querySelector('.sl-student-grid');
+ if(!grid||!names?.length)return;
+ const cards=[...grid.children].filter(el=>el.classList?.contains('sl-student-card'));
+ if(cards.length!==names.length){
+   console.warn('تعذر تفعيل البحث: عدد الطلاب لا يطابق عدد بطاقات الحصيلة.');
+   return;
+ }
+ const search=document.createElement('section');
+ search.className='sl-outcome-student-search';
+ search.setAttribute('role','search');
+ search.setAttribute('aria-label','البحث عن طالب في جلسة الحصيلة');
+ search.innerHTML='<label for="sl-outcome-search-input">البحث عن الطالب</label>'+
+   '<div class="sl-outcome-search-controls">'+
+   '<input id="sl-outcome-search-input" type="search" autocomplete="off" enterkeyhint="search" placeholder="اكتب اسم الطالب أو جزءًا منه…" aria-controls="sl-outcome-student-grid">'+
+   '<button type="button" class="button button-soft" data-outcome-search-clear aria-label="مسح البحث">مسح</button></div>'+
+   '<small data-outcome-search-count role="status" aria-live="polite"></small>';
+ grid.id='sl-outcome-student-grid';
+ const mount=grid.closest('form')||grid;
+ mount.parentElement.insertBefore(search,mount);
+ const input=search.querySelector('input'),clear=search.querySelector('[data-outcome-search-clear]'),
+   counter=search.querySelector('[data-outcome-search-count]');
+ const normalize=value=>String(value||'').normalize('NFKC')
+   .replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+   .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+   .replace(/\s+/g,' ').trim().toLocaleLowerCase('ar');
+ const normalizedNames=names.map(normalize);
+ const apply=()=>{
+   const value=input.value,terms=normalize(value).split(' ').filter(Boolean);
+   let visible=0;
+   cards.forEach((card,i)=>{
+     const match=terms.every(term=>normalizedNames[i].includes(term));
+     card.hidden=!match;
+     if(match)visible++;
+   });
+   clear.disabled=!value;
+   counter.textContent=terms.length
+     ?'النتائج: '+visible.toLocaleString('ar-SA')+' من '+names.length.toLocaleString('ar-SA')+' طالبًا'+(visible?'':' — لا يوجد طالب مطابق')
+     :'جميع الطلاب: '+names.length.toLocaleString('ar-SA')+' · البحث للعرض فقط ولا يؤثر في الحفظ الجماعي';
+   if(typeof onChange==='function')onChange(value);
+ };
+ input.value=initialValue||'';
+ input.addEventListener('input',apply);
+ // The memorization cards live inside a submission form. Search Enter must not save it.
+ input.addEventListener('keydown',event=>{
+   if(event.key==='Enter')event.preventDefault();
+   if(event.key==='Escape'&&input.value){event.preventDefault();input.value='';apply()}
+ });
+ clear.addEventListener('click',()=>{input.value='';apply();input.focus()});
+ apply();
+}
+
 async function outcomesPage(root){
  const l=await lookups();
  const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
@@ -797,6 +852,7 @@ async function outcomesPage(root){
   const readOnly=!sessionInfo?.allowed;
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
+  let studentSearchText='';
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today()){
       const box=root.querySelector('.sl-data');
@@ -816,6 +872,7 @@ async function outcomesPage(root){
           return '<article class="sl-student-card"><h3>'+esc(r.fullName)+'</h3><p>الدرس رقم '+esc(a.lesson_no)+' · التقدير: '+esc(a.rating)+'</p>'
             +button('تعديل الحصيلة السابقة','tl-old-'+i)+'</article>';
         }).join('')+'</div>':'<p class="sl-message">لم تُحفظ حصائل تلقين لهذا التاريخ ضمن الحلقة المختارة.</p>');
+      installOutcomeStudentSearch(box,found.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
       found.forEach((r,i)=>action(box,box.querySelector('[data-action="tl-old-'+i+'"]'),
         ()=>showTalaqqinAssessmentHistory(box,r,async()=>{
           const a=await result(sb().from('talaqqin_assessments')
@@ -873,6 +930,7 @@ async function outcomesPage(root){
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
        }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
       box.querySelectorAll('[data-tl-note]').forEach(input=>input.addEventListener('input',()=>{
         const i=Number(input.dataset.tlNote),r=items[i];if(!r)return;
         states[i].note=input.value;
@@ -1202,6 +1260,7 @@ async function outcomesPage(root){
   };
   const outcomeAction=(label,id,iconName,extraClass)=>`<button type="button" class="button sl-outcome-action ${extraClass}" data-action="${esc(id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${outcomeIconPaths[iconName]}</svg><span>${esc(label)}</span></button>`;
   box.innerHTML=stateBanner+`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session"><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid">${attButtons(i,states[i].attendance)}</div><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note">ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions">${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+  installOutcomeStudentSearch(box,students.map(s=>s.fullName),studentSearchText,value=>{studentSearchText=value});
   const form=box.querySelector('form');
   students.forEach((s,i)=>{
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
@@ -2324,6 +2383,11 @@ const style=document.createElement('style');style.textContent=`.sl-live{backgrou
  const simpleDailyRangeStyle=document.createElement('style');
  simpleDailyRangeStyle.textContent='.sl-quran-track .sl-track-head{align-items:start;gap:12px}.sl-lesson-summary{flex:1;min-width:180px;display:flex;flex-direction:column;gap:6px}.sl-lesson-summary>b{color:#063b34;font-size:1rem}.sl-lesson-range{display:block;color:#294c42;font-size:.95rem;line-height:1.8}.sl-inline-lesson-editor{width:100%;margin:12px 0 14px;padding:14px;border:1px solid #bdd4c9;border-radius:12px;background:#f7fbf8;box-sizing:border-box}.sl-inline-range-grid{display:grid;grid-template-columns:minmax(130px,1.5fr) minmax(75px,.65fr) minmax(130px,1.5fr) minmax(75px,.65fr);gap:9px;align-items:end}.sl-inline-range-grid label{margin:0;gap:6px;font-size:.82rem;color:#2b554b}.sl-inline-range-grid select,.sl-inline-range-grid input{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:8px!important;border-radius:8px!important}.sl-inline-range-message{font-size:.85rem;line-height:1.7;min-height:1.4em;margin:9px 0;color:#48695c}.sl-inline-range-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start}.sl-inline-range-actions .button{margin:0;min-height:42px}.sl-quran-track .sl-lesson-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sl-quran-track .sl-lesson-tools button{margin:0!important}.sl-inline-lesson-editor[hidden],.sl-lesson-range[hidden]{display:none!important}@media(max-width:690px){.sl-quran-track .sl-track-head{flex-wrap:wrap}.sl-quran-track .sl-lesson-tools{width:100%}.sl-inline-range-grid{grid-template-columns:minmax(0,1.7fr) minmax(0,.8fr);gap:10px}.sl-inline-lesson-editor{padding:10px}.sl-quran-track .sl-lesson-tools .button{flex:1}}';
  document.head.append(simpleDailyRangeStyle);
+
+ const searchStyle=document.createElement('style');
+ searchStyle.textContent='.sl-outcome-student-search{position:sticky;top:8px;z-index:6;margin:14px 0;padding:12px 14px;border:1px solid #c7ddd3;background:#f8fcf9;border-radius:14px;box-shadow:0 3px 12px #063b3410;direction:rtl}.sl-outcome-student-search label{display:block;margin-bottom:6px;font-weight:700;color:#063b34}.sl-outcome-search-controls{display:flex;align-items:center;gap:9px}.sl-outcome-search-controls input{flex:1;min-width:0;width:100%;min-height:43px;padding:9px 12px!important;background:#fff!important;font-size:1rem}.sl-outcome-search-controls button{flex:none;min-height:42px;padding-inline:15px!important}.sl-outcome-student-search small{display:block;margin-top:6px;color:#507368;font-size:.8rem}.sl-student-grid>.sl-student-card[hidden]{display:none!important}@media(max-width:650px){.sl-outcome-student-search{top:4px;padding:10px;margin:10px 0}.sl-outcome-search-controls{gap:6px}.sl-outcome-search-controls button{padding-inline:10px!important}}';
+ document.head.append(searchStyle);
+
  document.head.append(talaqqinStyle);
 })();
 
