@@ -2618,7 +2618,7 @@ async function dashboard(root){
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
 
  const fromWeek=new Date(new Date(today()+'T12:00:00Z').getTime()-6*86400000).toISOString().slice(0,10);
- let charts='';
+ let charts='',trendBuckets=[];
  if(isSupervisor||isAdmin){
    const [attRows,planRows]=await Promise.all([
      result(sb().from('student_attendance').select('date_key,status')
@@ -2630,18 +2630,20 @@ async function dashboard(root){
      const day=new Date(new Date(fromWeek+'T12:00:00Z').getTime()+i*86400000).toISOString().slice(0,10);
      const ar=attRows.filter(x=>x.date_key===day),pr=planRows.filter(x=>x.date_key===day);
      return {date:day,attendance:ar.length?Math.round(ar.filter(x=>['present','late'].includes(x.status)).length/ar.length*100):null,
-       completion:pr.length?Math.round(pr.filter(x=>x.status==='completed').length/pr.length*100):null};
+       completion:pr.length?Math.round(pr.filter(x=>x.status==='completed').length/pr.length*100):null,
+       attendanceCount:ar.length,planCount:pr.length};
    });
+   trendBuckets=buckets;
    const chart=(label,key)=>'<article class="sl-trend-card"><b>'+esc(label)+'</b>'+
       '<div class="sl-trend-bars">'+buckets.map(x=>
-        '<div class="sl-trend-col"><strong>'+esc(x[key]===null?'—':x[key]+'%')+'</strong>'+
+        '<button type="button" class="sl-trend-col" data-trend-day="'+esc(x.date)+'" data-trend-type="'+esc(key)+'" aria-label="'+esc(label+' · '+x.date)+'"><strong>'+esc(x[key]===null?'—':x[key]+'%')+'</strong>'+
         '<div class="sl-trend-track"><span style="height:'+(x[key]===null?0:x[key])+'%"></span></div>'+
-        '<small>'+esc(x.date.slice(5))+'</small></div>').join('')+'</div></article>';
+        '<small>'+esc(x.date.slice(5))+'</small></button>').join('')+'</div></article>';
    const behindIds=[...new Set(planRows.filter(x=>x.date_key<today()&&x.status!=='completed').map(x=>x.student_id))];
    charts='<section class="sl-tasks"><h3>لوحة المؤشرات الأسبوعية</h3>'+
      '<div class="sl-trend-grid">'+chart('الحضور من سجلات التحضير','attendance')+
      chart('إنجاز أيام الخطط المجدولة','completion')+'</div>'+
-     '<p class="sl-help">النسب محسوبة من السجلات الفعلية لكل يوم. الأيام بلا سجلات تظهر بشرطة، ولا تُعامل كغياب.</p>'+
+     '<p class="sl-help" data-trend-info role="status">انقر على أي يوم لمعرفة عدد السجلات الذي بُنيت عليه النسبة. الأيام بلا سجلات تظهر بشرطة ولا تُعامل كغياب.</p>'+
      (behindIds.length?'<h4>طلاب تأخر تنفيذ مقرراتهم خلال الأسبوع</h4><p>'+
        behindIds.slice(0,16).map(id=>esc(names.get(id)||id)).join(' · ')+
        (behindIds.length>16?' · وآخرون':'')+'</p>':'<p>لا توجد مقررات متأخرة ضمن الأيام المعروضة.</p>')+
@@ -2672,6 +2674,13 @@ async function dashboard(root){
    applySanabilTheme(dark);
    themeButton.textContent=dark?'☀️ الوضع الفاتح':'🌙 الوضع الليلي';
  });
+ root.querySelectorAll('[data-trend-day]').forEach(button=>button.addEventListener('click',()=>{
+   const day=trendBuckets.find(x=>x.date===button.dataset.trendDay),key=button.dataset.trendType;
+   const info=root.querySelector('[data-trend-info]');if(!day||!info)return;
+   info.textContent=(key==='attendance'?'الحضور':'إنجاز الخطط')+' بتاريخ '+day.date+
+      ': '+(day[key]===null?'لا توجد سجلات':day[key]+'%')+
+      ' · عدد السجلات: '+(key==='attendance'?day.attendanceCount:day.planCount);
+ }));
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
