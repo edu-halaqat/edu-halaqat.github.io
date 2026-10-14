@@ -1,6 +1,10 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.3.0';
+window.__SanabilLiveBuild='20261015-v13.4.0';
+const THEME_KEY='sanabil-theme-v1';
+const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
+  try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
+try{applySanabilTheme(localStorage.getItem(THEME_KEY)==='dark')}catch{}
 const titles={dashboard:'الرئيسية',students:'الطلاب والمعلمون',outcomes:'الحصيلة اليومية',plans:'الخطط التعليمية',attendance:'الحضور والبصمة',tests:'الاختبارات',supervision:'الزيارات الإشرافية',inquiries:'الاستعلامات',reports:'التقارير والإحصاءات',settings:'إعدادات المنصة'};
 const roles={admin:'مدير النظام',manager:'مدير المؤسسة',supervisor:'مشرف مجمع',teacher:'معلم',examiner:'مختبر'};
 const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
@@ -544,7 +548,36 @@ async function parseEntityDatabaseNative(file){
  return{payload:{complexes:[],mosques:[],circles:[],teachers:[],students},validation:{errors,warnings,counts:{complexes:0,mosques:0,circles:0,teachers:0,students:students.length}},source:{entityName,complex,circleRows:circleRows.length}};
 }
 
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261013-v13.2.2'};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261015-v13.4.0'};
+
+async function shareStudentWeekOnWhatsapp(studentId,studentName,knownPhone=''){
+  const popup=window.open('about:blank','_blank');
+  if(!popup)throw Error('اسمح بفتح نافذة واتساب عند مشاركة الملخص الأسبوعي.');
+  try{
+    const end=today(),from=new Date(new Date(end+'T12:00:00Z').getTime()-6*86400000).toISOString().slice(0,10);
+    const [student,attendance,lessons,talaqqin,link]=await Promise.all([
+      knownPhone?Promise.resolve({guardian_phone:knownPhone}):result(sb().from('students').select('guardian_phone').eq('id',studentId).single()),
+      result(sb().from('student_attendance').select('date_key,status').eq('student_id',studentId).gte('date_key',from).lte('date_key',end).limit(10)),
+      result(sb().from('outcomes').select('date_key').eq('student_id',studentId).gte('date_key',from).lte('date_key',end).limit(10)),
+      result(sb().from('talaqqin_assessments').select('assessed_on').eq('student_id',studentId).gte('assessed_on',from).lte('assessed_on',end).limit(12)),
+      guardianLink(studentId)
+    ]);
+    const phone=waPhone(student.guardian_phone);
+    if(!phone||phone.length<10)throw Error('لا يوجد رقم هاتف صحيح لولي أمر الطالب.');
+    const present=attendance.filter(x=>['present','late'].includes(x.status)).length;
+    const absent=attendance.filter(x=>x.status==='absent').length;
+    const excused=attendance.filter(x=>x.status==='excused').length;
+    const count=new Set([...lessons.map(x=>x.date_key),...talaqqin.map(x=>x.assessed_on)]).size;
+    const text=['السلام عليكم ورحمة الله وبركاته','أسعد الله أوقاتكم بكل خير.',
+      'ملخص متابعة الطالب: '+studentName,'الفترة: '+from+' إلى '+end,
+      'أيام الحضور المسجلة: '+present+'، الغياب المسجل: '+absent+'، الاستئذان: '+excused,
+      'أيام الحصيلة المرصودة: '+count,
+      'للاطلاع على تفاصيل التحصيل والواجبات وملاحظات المعلم، تفضلوا بزيارة بوابة ابنكم:',
+      link,'شاكرين لكم تعاونكم وحرصكم على متابعة ابنكم.'].join('\n');
+    popup.location.replace('https://wa.me/'+phone+'?text='+encodeURIComponent(text));
+  }catch(e){try{popup.close()}catch{}throw e}
+}
+
 async function showGuardianLink(root,studentId,name){
  const url=await guardianLink(studentId);
  if(navigator.share){try{await navigator.share({title:'بوابة ولي الأمر - '+name,text:'متابعة الطالب في منصة سنابل الوحي',url});return}catch(e){if(e?.name==='AbortError')return}}
@@ -895,6 +928,40 @@ function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,h
   });
 }
 
+
+function showFamilyExcuses(box,requests){
+  box.querySelector('.sl-family-excuses')?.remove();
+  if(!requests?.length)return;
+  const notice=document.createElement('section');notice.className='sl-family-excuses';
+  const display=()=>{
+    notice.innerHTML='<h3>طلبات استئذان أولياء الأمور</h3>'+
+      '<div class="sl-family-excuse-list">'+requests.map((r,i)=>
+      '<article class="sl-family-excuse"><b>'+esc(r.studentName||'الطالب')+'</b>'+
+      '<span>'+esc({health:'ظرف صحي',family:'ظرف عائلي',travel:'سفر',other:'سبب آخر'}[r.reason]||r.reason)+'</span>'+
+      (r.note?'<small>'+esc(r.note)+'</small>':'')+
+      '<span class="sl-family-excuse-state">'+esc({pending:'بانتظار القرار',approved:'معتمد',declined:'غير معتمد'}[r.status]||r.status)+'</span>'+
+      (r.status==='pending'?'<div class="sl-family-excuse-buttons"><button type="button" data-approve-excuse="'+i+'">اعتماد</button>'+
+        '<button type="button" data-decline-excuse="'+i+'">عدم الاعتماد</button></div>':'')+'</article>').join('')+'</div>'+
+      '<p class="sl-help">استئذان الأسرة طلب للمراجعة؛ اعتماد الطلب لا يغيّر التحضير تلقائيًا. حدّد الطالب «مستأذن» أثناء التحضير ثم احفظه.</p>';
+    requests.forEach((r,i)=>['approved','declined'].forEach(kind=>{
+      const button=notice.querySelector('[data-'+(kind==='approved'?'approve':'decline')+'-excuse="'+i+'"]');
+      if(!button)return;
+      button.onclick=async()=>{
+        button.disabled=true;
+        try{
+          const confirmed=await rpc('review_guardian_excuse_guarded',{
+            p_student_id:r.studentId,p_date:r.date,p_decision:kind,p_note:null
+          });
+          r.status=confirmed.status;display();
+          msg(box,'تم تحديث طلب الاستئذان. استكمل حفظ حضور الطالب من بطاقته.');
+        }catch(e){button.disabled=false;msg(box,e.message,true)}
+      };
+    }));
+  };
+  display();
+  box.prepend(notice);
+}
+
 async function outcomesPage(root){
  const l=await lookups();
  const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
@@ -916,6 +983,8 @@ async function outcomesPage(root){
   const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
   const dayData=await rpc('get_day_types_guarded',{p_circle_id:circle,p_date:date});
+  const familyRequests=await rpc('get_guardian_excuses_for_circle_guarded',
+    {p_circle_id:circle,p_date:date}).catch(e=>{console.warn('تعذر قراءة طلبات استئذان الأسر',e);return[]});
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
   const activeKind=id=>effectiveDayKind(dayData,id);
   const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
@@ -1000,11 +1069,12 @@ async function outcomesPage(root){
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
-           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+
+           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
        }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      showFamilyExcuses(box,familyRequests);
       addDayToolbar(box);
       attachStudentDayKindControls(box,items,dayData,{circle,date,reload:reloadDay,hasDrafts:()=>talaqqinDrafts.size>0||attendanceDrafts.size>0});
       installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
@@ -1124,6 +1194,8 @@ async function outcomesPage(root){
           await renderTalaqqin();
           msg(box,'صُحِّح ارتباط الحصيلة بالدرس الصحيح في قاعدة البيانات، ويمكن مشاركة البطاقة المحدثة.');
         });
+        const weekly=box.querySelector('[data-action="tl-weekly-'+i+'"]');
+        if(weekly)action(box,weekly,()=>shareStudentWeekOnWhatsapp(r.studentId,r.fullName,r.guardianPhone||''));
         const share=box.querySelector('[data-action="tl-card-'+i+'"]');
         if(share)action(box,share,async()=>{
           const freshRows=await result(sb().from('talaqqin_assessments')
@@ -1407,7 +1479,8 @@ async function outcomesPage(root){
 <option value="">اختر نوع الغياب</option>
 <option value="excused" ${states[i].absenceReason==='excused'?'selected':''}>غياب بعذر</option>
 <option value="unexcused" ${states[i].absenceReason==='unexcused'?'selected':''}>غياب بدون عذر</option>
-</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+  showFamilyExcuses(box,familyRequests);
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
     hasDrafts:()=>Object.keys(drafts).length>0});
@@ -1591,6 +1664,8 @@ async function outcomesPage(root){
       }catch(err){try{popup.close()}catch{}throw err}
     });
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
+    const week=box.querySelector('[data-action="weekly-'+i+'"]');
+    if(week)action(box,week,()=>shareStudentWeekOnWhatsapp(s.studentId,s.fullName,s.guardianPhone));
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
   if(readOnly){
@@ -2541,11 +2616,71 @@ async function dashboard(root){
  for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};r.fails+=outcomeFailCount(o);r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
  const risky=[...risk].filter(([,r])=>r.fails>=2||r.details>=5).map(([id,r])=>({name:names.get(id)||id,...r})).sort((x,y)=>(y.fails*10+y.details)-(x.fails*10+x.details)).slice(0,10);
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
+
+ const fromWeek=new Date(new Date(today()+'T12:00:00Z').getTime()-6*86400000).toISOString().slice(0,10);
+ let charts='',trendBuckets=[];
+ if(isSupervisor||isAdmin){
+   const [attRows,planRows]=await Promise.all([
+     result(sb().from('student_attendance').select('date_key,status')
+       .gte('date_key',fromWeek).lte('date_key',today()).limit(5000)),
+     result(sb().from('plan_days').select('date_key,status,student_id')
+       .gte('date_key',fromWeek).lte('date_key',today()).limit(5000))
+   ]);
+   const buckets=Array.from({length:7},(_,i)=>{
+     const day=new Date(new Date(fromWeek+'T12:00:00Z').getTime()+i*86400000).toISOString().slice(0,10);
+     const ar=attRows.filter(x=>x.date_key===day),pr=planRows.filter(x=>x.date_key===day);
+     return {date:day,attendance:ar.length?Math.round(ar.filter(x=>['present','late'].includes(x.status)).length/ar.length*100):null,
+       completion:pr.length?Math.round(pr.filter(x=>x.status==='completed').length/pr.length*100):null,
+       attendanceCount:ar.length,planCount:pr.length};
+   });
+   trendBuckets=buckets;
+   const chart=(label,key)=>'<article class="sl-trend-card"><b>'+esc(label)+'</b>'+
+      '<div class="sl-trend-bars">'+buckets.map(x=>
+        '<button type="button" class="sl-trend-col" data-trend-day="'+esc(x.date)+'" data-trend-type="'+esc(key)+'" aria-label="'+esc(label+' · '+x.date)+'"><strong>'+esc(x[key]===null?'—':x[key]+'%')+'</strong>'+
+        '<div class="sl-trend-track"><span style="height:'+(x[key]===null?0:x[key])+'%"></span></div>'+
+        '<small>'+esc(x.date.slice(5))+'</small></button>').join('')+'</div></article>';
+   const behindIds=[...new Set(planRows.filter(x=>x.date_key<today()&&x.status!=='completed').map(x=>x.student_id))];
+   charts='<section class="sl-tasks"><h3>لوحة المؤشرات الأسبوعية</h3>'+
+     '<div class="sl-trend-grid">'+chart('الحضور من سجلات التحضير','attendance')+
+     chart('إنجاز أيام الخطط المجدولة','completion')+'</div>'+
+     '<p class="sl-help" data-trend-info role="status">انقر على أي يوم لمعرفة عدد السجلات الذي بُنيت عليه النسبة. الأيام بلا سجلات تظهر بشرطة ولا تُعامل كغياب.</p>'+
+     (behindIds.length?'<h4>طلاب تأخر تنفيذ مقرراتهم خلال الأسبوع</h4><p>'+
+       behindIds.slice(0,16).map(id=>esc(names.get(id)||id)).join(' · ')+
+       (behindIds.length>16?' · وآخرون':'')+'</p>':'<p>لا توجد مقررات متأخرة ضمن الأيام المعروضة.</p>')+
+     '</section>';
+ }
  const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
 
 
+ if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
+   const home=document.createElement('section');home.className='sl-dashboard-one-tap';
+   home.innerHTML='<h3>جلسة الحلقة من الرئيسية</h3><p>تحضير الطلاب وتقييم الحفظ والمراجعات والحفظ الفردي في الشاشة نفسها.</p>'+
+     '<div data-home-live-session><p class="sl-help">جارٍ تجهيز الطلاب والمقررات…</p></div>';
+   root.querySelector('.sl-quick-grid')?.insertAdjacentElement('afterend',home);
+   const panel=home.querySelector('[data-home-live-session]');
+   outcomesPage(panel).then(()=>{
+      panel.querySelector('[data-action="load"]')?.click();
+   }).catch(e=>{
+      panel.innerHTML='<p class="sl-message">'+esc(e?.message||'تعذر فتح الجلسة')+'</p>'+
+        '<button type="button" class="button button-primary" data-home-open-outcomes>فتح صفحة الحصيلة</button>';
+      panel.querySelector('[data-home-open-outcomes]').onclick=()=>navigateView('outcomes');
+   });
+ }
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
+ const themeButton=root.querySelector('[data-action="toggle-theme"]');
+ if(themeButton)action(root,themeButton,()=>{
+   const dark=document.documentElement.dataset.sanabilTheme!=='dark';
+   applySanabilTheme(dark);
+   themeButton.textContent=dark?'☀️ الوضع الفاتح':'🌙 الوضع الليلي';
+ });
+ root.querySelectorAll('[data-trend-day]').forEach(button=>button.addEventListener('click',()=>{
+   const day=trendBuckets.find(x=>x.date===button.dataset.trendDay),key=button.dataset.trendType;
+   const info=root.querySelector('[data-trend-info]');if(!day||!info)return;
+   info.textContent=(key==='attendance'?'الحضور':'إنجاز الخطط')+' بتاريخ '+day.date+
+      ': '+(day[key]===null?'لا توجد سجلات':day[key]+'%')+
+      ' · عدد السجلات: '+(key==='attendance'?day.attendanceCount:day.planCount);
+ }));
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{

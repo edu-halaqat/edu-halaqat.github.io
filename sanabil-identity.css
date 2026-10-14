@@ -409,3 +409,47 @@ body,input,select,textarea,button{font-family:Alyamama,Tahoma,sans-serif!importa
 .sl-live .sl-teacher-whatsapp span{display:inline!important}
 .sl-live .sl-teacher-whatsapp:disabled{opacity:.55;cursor:not-allowed!important}
 .sl-live .sl-teacher-whatsapp:not(:disabled):focus-visible{outline:3px solid #d8bd88;outline-offset:2px}
+
+
+/* V13.4.0 · dark appearance chosen locally by the teacher */
+html[data-sanabil-theme="dark"] body,
+html[data-sanabil-theme="dark"] .sl-live{background:#101e1c!important;color:#e3eee9!important}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-student-card,.sl-track,.sl-student-grid,.sl-plan-card,.sl-plan-grid,.sl-tasks,.sl-bulkbar,.sl-session-head,.sl-att-summary,.sl-outcome-student-search,.sl-day-kind-toolbar,.sl-inline-lesson-editor,.sl-metric-bar,.sl-metric-counter,.sl-outcome-savebar,.sl-outcome-session,.stat-card,.sl-quick-action,.sl-outcome-info,.sl-family-excuses,.sl-family-excuse,.sl-trend-card),
+html[data-sanabil-theme="dark"] .sl-dialog,
+html[data-sanabil-theme="dark"] .sl-dialog .sl-body{background:#18302c!important;color:#e1eee8!important;border-color:#35574c!important;box-shadow:none!important}
+html[data-sanabil-theme="dark"] .sl-live :is(h1,h2,h3,h4,b,.sl-lesson-range,.sl-metric-title,.sl-student-day-kind,.sl-lesson-summary),
+html[data-sanabil-theme="dark"] .sl-dialog :is(h1,h2,h3,h4,b){color:#e7f6ef!important}
+html[data-sanabil-theme="dark"] .sl-live :is(p,small,label,span,legend,.sl-help,.sl-metric-title,.sl-outcome-savebar small),
+html[data-sanabil-theme="dark"] .sl-dialog :is(p,small,label,span,legend){color:#b9d1c6}
+html[data-sanabil-theme="dark"] .sl-live :is(input,select,textarea),
+html[data-sanabil-theme="dark"] .sl-dialog :is(input,select,textarea){background:#203d37!important;color:#f1faf4!important;border-color:#537469!important}
+html[data-sanabil-theme="dark"] .sl-live input::placeholder{color:#b0c3b9!important}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-choice,.button-soft,.sl-metric-buttons button){background:#275247!important;color:#e8fff2!important;border-color:#4d786a!important}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-choice.active,.button-primary){background:#007c70!important;color:white!important;border-color:#56ada0!important}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-metric-errors,.sl-metric-doubts,.sl-metric-tajweed,.sl-rule-note){background:#293b33!important;color:#e5e9cf!important;border-color:#5b684f!important}
+html[data-sanabil-theme="dark"] .sl-live .sl-absence-note{background:#382e2b!important;color:#ffd3c8!important}
+html[data-sanabil-theme="dark"] .sl-live .sl-outcome-student-search{position:sticky}
+html[data-sanabil-theme="dark"] .sl-live .sl-student-card [hidden]{display:none!important}
+html[data-sanabil-theme="dark"] .sl-dialog::backdrop{background:#0009}
+@media print{html[data-sanabil-theme="dark"] body{background:#fff!important;color:#111!important}}
+/* Teacher one-screen and management trend indicators */
+.sl-dashboard-one-tap{margin:14px 0;padding:14px;border:1px solid #d0e4da;border-radius:18px;background:#f8fbf8}
+.sl-dashboard-one-tap>h3{margin:0 0 7px;color:#064b3d}
+.sl-dashboard-one-tap>p{margin:0 0 12px;color:#527166}
+.sl-trend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sl-trend-card{border:1px solid #d9e8df;border-radius:15px;padding:14px;background:#f7faf7;min-width:0}
+.sl-trend-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;margin-top:14px}
+.sl-trend-col{display:grid;gap:6px;text-align:center;min-width:0}.sl-trend-col strong{font-size:12px;color:#38695b}
+.sl-trend-track{display:flex;align-items:end;width:100%;height:104px;background:#e6eee7;border-radius:8px;overflow:hidden}
+.sl-trend-track span{display:block;width:100%;background:linear-gradient(180deg,#00a18d,#007b72);border-radius:8px 8px 0 0}
+.sl-trend-col small{font-size:11px;white-space:nowrap;color:#617e72}
+.sl-family-excuses{margin:12px 0;border:1px solid #e6cb8c;background:#fffcf3;border-radius:16px;padding:13px}
+.sl-family-excuses h3{margin:0 0 11px;color:#65511f}
+.sl-family-excuse-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.sl-family-excuse{display:grid;gap:7px;background:white;border:1px solid #ead9b2;border-radius:12px;padding:12px;color:#28463d}
+.sl-family-excuse small{line-height:1.7}
+.sl-family-excuse-state{font-size:12px;color:#75602d}
+.sl-family-excuse-buttons{display:flex;gap:8px}.sl-family-excuse-buttons button{border:1px solid #bacdc5;background:#eef7f1;color:#075c4d;padding:8px 12px;border-radius:9px;cursor:pointer}
+@media(max-width:760px){.sl-trend-grid{grid-template-columns:1fr}.sl-trend-track{height:75px}.sl-dashboard-one-tap{padding:8px}}
+
+.sl-trend-col{font:inherit;border:1px solid transparent;background:transparent;padding:4px 2px;border-radius:9px;cursor:pointer}.sl-trend-col:hover,.sl-trend-col:focus-visible{background:#e7f5eb;border-color:#9dcab6;outline:none}html[data-sanabil-theme="dark"] .sl-trend-col:hover,html[data-sanabil-theme="dark"] .sl-trend-col:focus-visible{background:#275247;border-color:#86baa4}html[data-sanabil-theme="dark"] .sl-trend-col strong{color:#e0f7eb}
