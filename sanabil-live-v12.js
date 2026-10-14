@@ -834,20 +834,24 @@ async function outcomesPage(root){
       const items=(all||[]).filter(x=>x.circleId===circle),attMap=new Map((attRows||[]).map(x=>[x.student_id,x]));
       const assessmentMap=new Map();
       for(const a of assessments||[])if(!assessmentMap.has(a.student_id))assessmentMap.set(a.student_id,a);
+      const storedLessonIds=[...new Set([...assessmentMap.values()].map(a=>a.lesson_no).filter(Boolean))];
+      const storedLessons=storedLessonIds.length?await result(sb().from('talaqqin_lessons').select('lesson_no,lesson_title').in('lesson_no',storedLessonIds)):[];
+      const storedTitles=new Map(storedLessons.map(a=>[a.lesson_no,a.lesson_title]));
       const states=items.map(r=>({status:attendanceDrafts.get(r.studentId)?.status??attMap.get(r.studentId)?.status??'',note:attendanceDrafts.get(r.studentId)?.note??attMap.get(r.studentId)?.note??''}));
       const attChoices=(i,current)=>Object.entries(attendanceAr).map(([id,name])=>'<button type="button" class="sl-choice sl-att-choice '+(current===id?'active':'')+'" data-tl-att="'+i+'" data-tl-att-value="'+esc(id)+'">'+esc(name)+'</button>').join('');
       const summary=()=>{const m={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>x.status&&m[x.status]!==undefined?m[x.status]++:m.unset++);return '<span>حاضر <b>'+m.present+'</b></span><span>متأخر <b>'+m.late+'</b></span><span>مستأذن <b>'+m.excused+'</b></span><span>غائب <b>'+m.absent+'</b></span>'+(m.unset?'<span class="warn">غير محضر <b>'+m.unset+'</b></span>':'')};
       box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>جلسة التلقين اليومية</h3><p>اختر تقدير درس نور البيان أمام اسم الطالب، ثم احفظ حصيلته مباشرة. إدارة الخطط والدروس الخاصة من صفحة الخطط.</p></div></section>'+
        '<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الغياب والتأخر والاستئذان.</small></div><div class="sl-bulk-actions">'+button('الجميع حاضر','tl-all-present')+button('حفظ التحضير','tl-save-attendance')+'</div></div><div class="sl-att-summary">'+summary()+'</div>'+
        (items.length?'<div class="sl-student-grid">'+items.map((r,i)=>{
-        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status);
+        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status),mismatch=!!(saved&&!isCustom&&placed&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no));
         return '<article class="sl-student-card" data-tl-card="'+i+'"><header><div class="sl-student-no">'+(i+1)+'</div><div><h3>'+esc(r.fullName)+'</h3><small>منهج نور البيان</small></div></header>'+
          '<div class="sl-att-grid">'+attChoices(i,states[i].status)+'</div>'+
          '<label class="sl-note">ملاحظة الحضور<input data-tl-note="'+i+'" value="'+esc(states[i].note)+'" placeholder="ملاحظة اختيارية"></label>'+
          '<section class="sl-track"><div class="sl-track-head"><div><b>'+(isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—')))+'</span></div></div>'+
          '<p class="sl-help">'+(placed?(esc(ll.unitName||'')+' · '+esc(pg)):'حدد موضع بداية الطالب من زر «تحديد موضع البداية» قبل التقييم.')+'</p>'+
          (blocked?'<p class="sl-absence-note">الطالب '+(states[i].status==='absent'?'غائب':'مستأذن')+'؛ لا يسجل له تقييم درس اليوم.</p>':'')+
-         '<section class="sl-tl-outcome"><div class="sl-tl-outcome-heading"><b>تقدير درس اليوم</b><small>'+(saved?'محفوظ · يمكن تعديل التقدير وإعادة الحفظ':(['absent','excused'].includes(states[i].status)?'لا يُقيّم الطالب الغائب أو المستأذن':'اختر التقدير المناسب'))+'</small></div>'+
+         (mismatch?'<p class="sl-absence-note" role="alert">تنبيه: حصيلة اليوم محفوظة لدرس «'+esc(storedTitles.get(saved.lesson_no)||('رقم '+saved.lesson_no))+'»، بينما موضع الطالب الحالي «'+esc(ll.title||('رقم '+r.currentLessonNo))+'». يجب تصحيح ارتباط الحصيلة بالدرس قبل التقدير والمشاركة.</p>':'')+
+          '<section class="sl-tl-outcome"><div class="sl-tl-outcome-heading"><b>تقدير درس اليوم</b><small>'+(saved?'محفوظ · يمكن تعديل التقدير وإعادة الحفظ':(['absent','excused'].includes(states[i].status)?'لا يُقيّم الطالب الغائب أو المستأذن':'اختر التقدير المناسب'))+'</small></div>'+
          '<div class="sl-tl-grade-grid" role="group" aria-label="تقدير درس '+esc(r.fullName)+'">'+
          [{value:'ممتاز',label:'ممتاز'},{value:'جيد جدًا',label:'جيد جدًا'},{value:'جيد',label:'جيد'},
           {value:'يحتاج إعادة',label:'يحتاج إعادة'},{value:'لم يسمع',label:'لم يسمع / لم يقع الدرس'}]
@@ -855,7 +859,7 @@ async function outcomesPage(root){
          '</div>'+
          '<label class="sl-tl-notes">ملاحظة المعلم (اختيارية)<textarea data-tl-assessment-note="'+i+'" rows="2" placeholder="ملاحظة تربوية مختصرة" '+(!saved&&(readOnly||blocked||!placed||r.completed)?'disabled':'')+'>'+esc(draft.notes??saved?.notes??'')+'</textarea></label>'+
          '<div class="sl-tl-primary-actions"><button type="button" class="button button-primary" data-action="tl-save-'+i+'" '+(!saved&&(readOnly||blocked||!placed||r.completed)?'disabled':'')+'>'+(saved?'تحديث الحصيلة':'حفظ الحصيلة')+'</button>'+
-         '<button type="button" class="button button-soft" data-action="tl-card-'+i+'" '+(!saved&&!['absent','excused','late'].includes(attMap.get(r.studentId)?.status)?'disabled':'')+'>مشاركة الحصيلة</button></div>'+
+         '<button type="button" class="button button-soft" data-action="tl-card-'+i+'" '+(!saved&&!['absent','excused','late'].includes(attMap.get(r.studentId)?.status)?'disabled':'')+'>مشاركة الحصيلة</button>'+(mismatch?button('تصحيح درس الحصيلة','tl-correct-lesson-'+i):'')+'</div>'+
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
@@ -910,6 +914,7 @@ async function outcomesPage(root){
         if(save)action(box,save,async()=>{
           const rating=selectedGrade(),notes=noteBox?.value.trim()||null,saved=assessmentMap.get(r.studentId);
           if(!rating)throw Error('اختر أحد تقديرات الدرس أولًا.');
+          if(saved&&!r.completed&&r.lessonSource!=='custom'&&Number(r.currentLessonNo)<Number(saved.lesson_no))throw Error('الحصيلة مرتبطة بدرس آخر؛ اضغط «تصحيح درس الحصيلة» أولًا.');
           let response;
           if(saved){
             response=await rpc('update_talaqqin_assessment_guarded',{
@@ -932,11 +937,29 @@ async function outcomesPage(root){
             response?.progressAction==='preserved'?' حُفظت الدرجة مع الحفاظ على دروسه اللاحقة.':'';
           msg(box,(saved?'تم تحديث':'تم حفظ')+' حصيلة '+r.fullName+' والتحقق منها في قاعدة البيانات.'+progressNote);
         });
+        const correction=box.querySelector('[data-action="tl-correct-lesson-'+i+'"]');
+        if(correction)action(box,correction,async()=>{
+          const recorded=assessmentMap.get(r.studentId);
+          if(!recorded||!r.currentLessonNo)throw Error('أعد فتح جلسة الطالب للتحقق من الدرس.');
+          const oldTitle=storedTitles.get(recorded.lesson_no)||('الدرس '+recorded.lesson_no);
+          const currentTitle=r.lesson?.title||('الدرس '+r.currentLessonNo);
+          if(!confirm('حصيلة يوم '+date+' مرتبطة بـ «'+oldTitle+'». هل تريد ربطها بدلًا من ذلك بالدرس الحالي «'+currentTitle+'» وتحديث تقدم الطالب؟ سيتم توثيق العملية.'))return;
+          await rpc('correct_talaqqin_assessment_lesson_guarded',{
+            p_assessment_id:recorded.id,p_new_lesson_no:Number(r.currentLessonNo),
+            p_expected_updated_at:recorded.updated_at
+          });
+          const verified=await result(sb().from('talaqqin_assessments').select('lesson_no').eq('id',recorded.id).single());
+          if(Number(verified.lesson_no)!==Number(r.currentLessonNo))throw Error('تعذر تأكيد تصحيح الدرس.');
+          talaqqinDrafts.delete(r.studentId);
+          await renderTalaqqin();
+          msg(box,'صُحِّح ارتباط الحصيلة بالدرس الصحيح في قاعدة البيانات، ويمكن مشاركة البطاقة المحدثة.');
+        });
         const share=box.querySelector('[data-action="tl-card-'+i+'"]');
         if(share)action(box,share,async()=>{
           const saved=assessmentMap.get(r.studentId),savedAttendance=attMap.get(r.studentId)?.status||'';
           if(!saved&&!['absent','excused','late'].includes(savedAttendance))
             throw Error('احفظ حصيلة الطالب قبل مشاركتها.');
+          if(saved&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no))throw Error('صحح درس الحصيلة قبل مشاركتها مع ولي الأمر.');
           // Verify the persisted attendance and grade, not unsaved form changes.
           const [student,portal]=await Promise.all([result(sb().from('students').select('guardian_phone').eq('id',r.studentId).single()),guardianLink(r.studentId)]);
           await showTalaqqinOutcomeCard(r,saved,savedAttendance,date,circleMeta?.name||'',student?.guardian_phone||'',portal);
@@ -2064,11 +2087,17 @@ const cancelCustomTalaqqinLesson=async(root,row,refresh)=>{
 async function dashboard(root){
  const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
  const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
- const [studentsN,teachersN,teacherAttendanceN,outcomesN,pendingExamN,activePlansN]=await Promise.all([count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),count('outcomes',{date_key:today()}),count('exam_requests',{status:'pending'}),count('plans',{status:'active'})]);
+ const [studentsN,teachersN,teacherAttendanceN,quranToday,talaqqinToday,pendingExamN,activePlansN]=await Promise.all([
+    count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),
+    result(sb().from('outcomes').select('student_id').eq('date_key',today())),
+    result(sb().from('talaqqin_assessments').select('student_id').eq('assessed_on',today())),
+    count('exam_requests',{status:'pending'}),count('plans',{status:'active'})
+  ]);
+  const outcomesN=new Set([...quranToday,...talaqqinToday].map(x=>x.student_id)).size;
  const cards=[['الطلاب النشطون',studentsN],['المعلمون النشطون',teachersN],['بصمات المعلمين اليوم',teacherAttendanceN],['الحصائل المرصودة اليوم',outcomesN],['طلبات الاختبار المعلقة',pendingExamN],['الخطط النشطة',activePlansN]],alerts=[];
  if(isAdmin){const u=await adminCall('list'),unassigned=(u.users||[]).filter(x=>x.active&&!x.memberships?.some(m=>m.active)),unconfirmed=(u.users||[]).filter(x=>x.active&&!x.email_confirmed);const [cx,ci,mo]=await Promise.all([count('complexes',{active:true}),count('circles',{active:true}),count('mosques',{active:true})]);alerts.push(`الهيكل الحالي: ${cx} مجمع، ${mo} مسجد/موقع بصمة، ${ci} حلقة.`);if(unassigned.length)alerts.push(`يوجد ${unassigned.length} حساب نشط بلا إسناد صلاحية.`);if(unconfirmed.length)alerts.push(`يوجد ${unconfirmed.length} حساب يحتاج تأكيد البريد.`)}
  if(isSupervisor){const att=await rows('attendance','teacher_id,status,late_minutes,check_in_at',{date_key:today()}),late=att.filter(x=>Number(x.late_minutes)>0).length,abs=att.filter(x=>x.status==='absent').length,exc=att.filter(x=>x.status==='excused').length;if(late)alerts.push(`معلمون متأخرون اليوم: ${late}.`);if(abs)alerts.push(`غياب معلمين معتمد اليوم: ${abs}.`);if(exc)alerts.push(`استئذان معلمين اليوم: ${exc}.`);if(pendingExamN)alerts.push(`طلبات اختبار تنتظر الجدولة: ${pendingExamN}.`)}
- if(rolesNow.includes('teacher')){const st=await rows('students','id',{active:true}),oc=await rows('outcomes','student_id',{date_key:today()}),done=new Set(oc.map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.')}
+ if(rolesNow.includes('teacher')){const st=await rows('students','id',{active:true}),done=new Set([...quranToday,...talaqqinToday].map(x=>x.student_id)),remaining=st.filter(x=>!done.has(x.id)).length;if(remaining)alerts.push(`بقيت حصيلة ${remaining} طالب/طلاب لهذا اليوم.`);if(!remaining&&st.length)alerts.push('اكتملت حصيلة طلابك لليوم.')}
  const since=new Date(Date.now()-13*86400000).toISOString().slice(0,10),[recent,studentNames,announcements]=await Promise.all([
   result(sb().from('outcomes').select('student_id,memorization_rating,recent_review_rating,review_rating,recitation_metrics,date_key').gte('date_key',since).order('date_key',{ascending:false}).limit(5000)),
   rows('students','id,full_name',{active:true}),
