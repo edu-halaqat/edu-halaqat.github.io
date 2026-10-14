@@ -1059,115 +1059,123 @@ async function outcomesPage(root){
         '<button type="button" data-metric-step="1" data-metric-student="'+i+'" data-metric-key="'+esc(key)+'" data-metric-field="'+f+'" aria-label="زيادة '+label+' في '+(key.startsWith('review:')?'المراجعة الكبرى':key==='recentReview'?'المراجعة الصغرى':'الحفظ')+'">+</button>'+
         '</div></div>').join('')+'</div>';
   };
-  const track=(a,i,key,title,actionId)=>{
-    if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${esc(title)}</b><span>لا يوجد مقرر</span></div></section>`;
-    return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div><div class="sl-lesson-tools">${button('فتح المصحف','mushaf-'+actionId)}${!readOnly&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+esc(actionId)+'" aria-label="تعديل مقدار '+esc(title)+'">✎ تعديل المقدار</button>':''}</div></div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div>${metricControls(i,key)}</section>`;
-  };
-  const adjustToday=async(assignment,title,studentId)=>{
-    if(readOnly)throw Error('الجلسة للعرض فقط؛ افتح موعدًا مسموحًا لتعديل المقرر.');
-    if(!assignment?.dayId)throw Error('لا يوجد مقرر محفوظ يمكن تعديله لهذا المسار.');
-    // Never block a lesson correction just because another student has an unsaved grade.
-    // Those edits are already held in drafts and are reapplied on the next session render.
-    saveDrafts();
-    const division=['quarter_hizb','half_hizb','hizb','juz'].includes(assignment.unit);
-    const body=modal('تعديل مقدار '+title);
-    const initial=Math.min(45,Math.max(1,Math.round(Number(assignment.amount)||1)));
-    const unsavedCount=Object.keys(drafts).length;
-    body.innerHTML='<form class="sl-daily-adjust-form">'+
-      '<p class="sl-help">التعديل خاص بمقرر هذا اليوم فقط، وستُعاد جدولة الأيام اللاحقة غير المنجزة مع الاحتفاظ بالمقدار اليومي الأصلي للخطة. لا تُغيّر الحصائل السابقة.</p>'+
-      '<p class="sl-help"><b>المقرر الحالي:</b> '+esc(assignmentText(assignment))+'</p>'+
-      (unsavedCount?'<p class="sl-rule-note">توجد '+unsavedCount+' مسودة حصيلة غير محفوظة في هذه الجلسة. ستبقى محفوظة على جهازك عند تحديث المقرر؛ راجع المقررات بعد التعديل قبل حفظ الحصائل.</p>':'')+
-      '<p class="sl-help" data-adjust-readiness role="status" aria-live="polite">جارٍ التحقق من حالة المقرر…</p>'+
-      '<label>طريقة التعديل<select name="mode"><option value="amount">تغيير المقدار ('+esc(unitAr[assignment.unit]||'وحدة')+')</option>'+
-        (division?'':'<option value="manual">تحديد آية النهاية يدويًا</option>')+'</select></label>'+
-      '<div data-adjust-amount><label>المقدار الجديد<input name="amount" type="number" min="1" max="45" step="1" inputmode="numeric" required value="'+initial+'"></label></div>'+
-      (division?'':'<div data-adjust-manual hidden><label>السورة التي ينتهي عندها الدرس<select name="endSurah" aria-label="سورة نهاية الدرس"></select></label>'+
-        '<label>آخر آية في مقرر اليوم<select name="endAyah" aria-label="آية نهاية الدرس"></select></label></div>')+
-      '<div class="sl-card-actions"><button type="submit" class="button button-primary" disabled>حفظ المقدار وإعادة الجدولة</button></div></form>';
-    const form=body.querySelector('form'),mode=form.querySelector('[name="mode"]'),save=form.querySelector('[type="submit"]');
-    const readiness=form.querySelector('[data-adjust-readiness]');
-    let available=false,manualReady=false,manualLoading=false;
-    const updateMode=()=>{
-      const manual=mode.value==='manual';
-      const amountPane=form.querySelector('[data-adjust-amount]'),manualPane=form.querySelector('[data-adjust-manual]');
-      amountPane.hidden=manual;
-      if(manualPane)manualPane.hidden=!manual;
-      form.querySelector('[name="amount"]').required=!manual;
-      save.disabled=!available||(manual&&!manualReady)||manualLoading;
-    };
-    const loadManual=async()=>{
-      if(manualReady||manualLoading)return;
-      manualLoading=true;updateMode();
-      try{
-        await quranPair(form,'endSurah','endAyah',{
-          surahNo:assignment.to?.surahNo||assignment.from?.surahNo||1,
-          ayahNo:assignment.to?.ayahNo||assignment.from?.ayahNo||1
-        });
-        manualReady=true;
-      }catch(e){
-        readiness.textContent='تعذر تحميل سور القرآن لاختيار آية النهاية: '+(e?.message||'خطأ غير معروف');
-        readiness.style.color='#982431';
-      }finally{manualLoading=false;updateMode()}
-    };
-    mode.onchange=()=>{
-      updateMode();
-      if(mode.value==='manual')loadManual().catch(e=>msg(body,e.message||'تعذر فتح اختيار الآيات.',true));
-    };
-    updateMode();
-    // Modal opens before the status check, so a slow connection cannot make the button look inert.
-    try{
-      const [day,outcomes]=await Promise.all([
-        result(sb().from('plan_days').select('id,date_key,status,rating,completed_amount')
-          .eq('id',assignment.dayId).maybeSingle()),
-        result(sb().from('outcomes').select('student_id').eq('student_id',studentId)
-          .eq('date_key',date).limit(1))
-      ]);
-      if(!body.isConnected)return;
-      if(!day||day.date_key!==date){
-        readiness.textContent='المقرر لم يعد متاحًا لهذا اليوم. أعد فتح الحلقة لتحميل المقررات الجديدة.';
-        readiness.style.color='#982431';
-      }else if(day.status!=='planned'||day.rating||Number(day.completed_amount||0)>0||outcomes.length){
-        readiness.textContent='هذا المقرر سبق حفظ حصيلته أو تنفيذه؛ منع النظام إعادة جدولته حفاظًا على سجل الطالب ودرجاته. يمكنك تعديل التقييم من حصيلة الطالب، أما المقرر المنفذ فلا يُعدَّل من هذه النافذة.';
-        readiness.style.color='#982431';
-      }else{
-        available=true;
-        readiness.textContent='المقرر قابل للتعديل. اختر المقدار الجديد ثم احفظ لإعادة جدولة الأيام اللاحقة.';
-      }
-    }catch(e){
-      if(body.isConnected){readiness.textContent='تعذر التحقق من حالة المقرر: '+(e?.message||'أعد المحاولة.');readiness.style.color='#982431'}
+  // Teacher-facing daily lesson displays only the actual Quran passage.
+  const lessonRangeLabel=a=>{
+    if(!a)return'لا يوجد مقرر';
+    const start=a.from||a.plannedFrom||a.segments?.[0]?.from||{};
+    const end=a.to||a.segments?.[a.segments.length-1]?.to||{};
+    const sName=whatsappSurahName(start),eName=whatsappSurahName(end);
+    const sAyah=Number(start.ayahNo||start.ayah)||0,eAyah=Number(end.ayahNo||end.ayah)||0;
+    if(sName&&eName&&sAyah&&eAyah){
+      if(sName===eName)return 'سورة '+sName+'، من الآية '+sAyah+' إلى الآية '+eAyah;
+      return 'من سورة '+sName+'، الآية '+sAyah+' إلى سورة '+eName+'، الآية '+eAyah;
     }
-    updateMode();
-    form.onsubmit=async e=>{
-      e.preventDefault();
-      if(!available){msg(body,'هذا المقرر غير متاح لإعادة الجدولة. حدّث الجلسة أو راجع حالة الحصيلة.',true);return}
-      if(mode.value==='manual'&&!manualReady){msg(body,'انتظر حتى يكتمل تحميل السور والآيات.',true);return}
-      save.disabled=true;
-      const oldText=save.textContent;
-      save.textContent='جارٍ حفظ المقرر وإعادة الجدولة…';
-      try{
-        const manual=mode.value==='manual';
-        const payload={p_day_id:assignment.dayId,
-          p_amount:manual?null:Number(form.querySelector('[name="amount"]').value),
-          p_end_surah:manual?Number(form.querySelector('[name="endSurah"]').value):null,
-          p_end_ayah:manual?Number(form.querySelector('[name="endAyah"]').value):null};
-        if(!manual&&(!Number.isInteger(payload.p_amount)||payload.p_amount<1||payload.p_amount>45))
-          throw Error('حدد مقدارًا صحيحًا من 1 إلى 45.');
-        if(manual&&(!payload.p_end_surah||!payload.p_end_ayah))
-          throw Error('حدد السورة والآية التي ينتهي عندهما المقرر.');
-        const changed=await rpc('adjust_daily_plan_assignment_guarded',payload);
-        const confirmed=await result(sb().from('plan_days').select('target_to,target_amount').eq('id',assignment.dayId).single());
-        if((confirmed.target_to?.ayahIndex||0)!==(changed.to?.ayahIndex||0))
-          throw Error('تم إرسال التعديل لكن تعذر تأكيد المقرر الجديد؛ أعد فتح الجلسة للتحقق.');
-        body.closest('dialog')?.close();
-        msg(box,'تم تحديث مقدار '+title+' وحفظ المقرر الجديد. سيُعاد تحميل الحصيلة مع الاحتفاظ بمسودات التقديرات.');
-        root.querySelector('[data-action="load"]')?.click();
-      }catch(err){
-        msg(body,err?.message||'فشل تعديل المقرر.',true);
-      }finally{
-        save.textContent=oldText;
-        updateMode();
-      }
+    return String(a.displayLabel||segmentsOnlyText(a.segments)||'المقرر غير محدد');
+  };
+  const track=(a,i,key,title,actionId)=>{
+    if(!a)return '<section class="sl-track is-empty"><div class="sl-track-head"><b>'+esc(title)+'</b><span>لا يوجد مقرر</span></div></section>';
+    const display=esc(lessonRangeLabel(a)),id=esc(actionId);
+    const editor='<div class="sl-inline-lesson-editor" data-range-editor="'+id+'" hidden>'+
+      '<div class="sl-inline-range-grid">'+
+      '<label>من سورة<select name="fromSurah" aria-label="سورة بداية '+esc(title)+'"></select></label>'+
+      '<label>الآية<input name="fromAyah" type="number" min="1" inputmode="numeric" aria-label="آية البداية" required></label>'+
+      '<label>إلى سورة<select name="toSurah" aria-label="سورة نهاية '+esc(title)+'"></select></label>'+
+      '<label>الآية<input name="toAyah" type="number" min="1" inputmode="numeric" aria-label="آية النهاية" required></label>'+
+      '</div><p class="sl-inline-range-message" data-range-feedback role="status" aria-live="polite"></p>'+
+      '<div class="sl-inline-range-actions"><button type="button" class="button button-primary" data-action="range-save-'+id+'">حفظ المقرر</button>'+
+      '<button type="button" class="button button-soft" data-action="range-cancel-'+id+'">إلغاء</button></div></div>';
+    return '<section class="sl-track sl-quran-track" data-daily-track="'+id+'">'+
+      '<div class="sl-track-head"><div class="sl-lesson-summary"><b>'+esc(title)+'</b>'+
+      '<span class="sl-lesson-range" data-range-display="'+id+'">'+display+'</span></div>'+
+      '<div class="sl-lesson-tools">'+button('فتح المصحف','mushaf-'+actionId)+
+      (!readOnly&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+id+'" aria-expanded="false">تعديل المقرر</button>':'')+
+      '</div></div>'+editor+
+      '<div class="sl-grade-grid">'+gradeButtons(i,key,gradeValue(states[i],key))+'</div>'+metricControls(i,key)+'</section>';
+  };
+  const openInlineRangeEditor=(assignment,title,id,studentId)=>{
+    const section=box.querySelector('[data-daily-track="'+id+'"]');
+    if(!section)throw Error('تعذر العثور على بطاقة المقرر.');
+    const panel=section.querySelector('[data-range-editor]'),label=section.querySelector('[data-range-display]'),
+      edit=section.querySelector('[data-action="adjust-'+id+'"]'),
+      feedback=section.querySelector('[data-range-feedback]'),
+      save=section.querySelector('[data-action="range-save-'+id+'"]'),
+      cancel=section.querySelector('[data-action="range-cancel-'+id+'"]');
+    if(!panel||!edit||!save||!cancel)return;
+    const initialStart=assignment.from||assignment.plannedFrom||{},
+      initialEnd=assignment.to||{};
+    let ready=false,loading=false,busy=false;
+    const inform=(text,warning=false)=>{feedback.textContent=text;feedback.style.color=warning?'#a02737':'#48695c'};
+    const toggle=expanded=>{
+      panel.hidden=!expanded;
+      label.hidden=expanded;
+      edit.setAttribute('aria-expanded',String(expanded));
+      if(expanded)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
     };
+    const setAyahs=(selectName,ayahName,number)=>{
+      const surah=panel.querySelector('[name="'+selectName+'"]'),ayah=panel.querySelector('[name="'+ayahName+'"]');
+      if(!surah||!ayah)return;
+      const meta=window.__sanabilQuranCatalog||[];
+      const row=meta.find(x=>Number(x.surahNo)===Number(surah.value));
+      const upper=Math.max(1,Number(row?.ayahCount)||1);
+      const n=Math.min(upper,Math.max(1,Number(number)||1));
+      ayah.max=String(upper);ayah.value=String(n);
+    };
+    const prepare=async()=>{
+      if(ready||loading)return;
+      loading=true;edit.disabled=true;save.disabled=true;
+      inform('جارٍ تجهيز سور القرآن والآيات…');
+      try{
+        const catalog=await quranCatalog();
+        if(!panel.isConnected)return;
+        window.__sanabilQuranCatalog=catalog;
+        const entries=(catalog||[]).map(x=>'<option value="'+esc(x.surahNo)+'">'+esc(x.name)+'</option>').join('');
+        for(const [field,ref] of [['fromSurah',initialStart],['toSurah',initialEnd]]){
+          const select=panel.querySelector('[name="'+field+'"]');
+          select.innerHTML=entries;
+          select.value=String(ref.surahNo||1);
+          if(!select.value)select.selectedIndex=0;
+        }
+        for(const [surah,ayah,ref] of [['fromSurah','fromAyah',initialStart],['toSurah','toAyah',initialEnd]]){
+          setAyahs(surah,ayah,ref.ayahNo||ref.ayah||1);
+          panel.querySelector('[name="'+surah+'"]').addEventListener('change',()=>setAyahs(surah,ayah,1));
+          panel.querySelector('[name="'+ayah+'"]').addEventListener('change',e=>setAyahs(surah,ayah,e.target.value));
+        }
+        ready=true;
+        inform('عدّل الآيات ثم اضغط «حفظ المقرر».');
+      }catch(e){inform('تعذر تحميل فهرس السور: '+(e?.message||'أعد المحاولة.'),true)}
+      finally{loading=false;edit.disabled=false;save.disabled=!ready}
+    };
+    edit.addEventListener('click',async()=>{
+      if(readOnly){inform('جلسة اليوم غير متاحة للتعديل.',true);return}
+      if(panel.hidden){toggle(true);await prepare()}else toggle(false);
+    });
+    cancel.addEventListener('click',()=>{toggle(false);inform('')});
+    save.addEventListener('click',async()=>{
+      if(busy||!ready||readOnly)return;
+      const input=name=>Number(panel.querySelector('[name="'+name+'"]')?.value);
+      const values=[input('fromSurah'),input('fromAyah'),input('toSurah'),input('toAyah')];
+      if(values.some(x=>!Number.isInteger(x)||x<1)){inform('حدد السورة والآية الصحيحتين لبداية المقرر ونهايته.',true);return}
+      busy=true;save.disabled=true;cancel.disabled=true;edit.disabled=true;
+      inform('جارٍ حفظ المقرر وإعادة جدولة الأيام اللاحقة…');
+      try{
+        saveDrafts();
+        const changed=await rpc('update_quran_daily_range_guarded',{
+          p_day_id:assignment.dayId,
+          p_from_surah:values[0],p_from_ayah:values[1],
+          p_to_surah:values[2],p_to_ayah:values[3]
+        });
+        const confirmed=await result(sb().from('plan_days').select('target_from,target_to')
+          .eq('id',assignment.dayId).single());
+        if(!confirmed||Number(confirmed.target_from?.ayahIndex)!==Number(changed.from?.ayahIndex)
+          ||Number(confirmed.target_to?.ayahIndex)!==Number(changed.to?.ayahIndex))
+          throw Error('وصل طلب الحفظ، ولكن لم تتطابق بداية المقرر ونهايته مع قاعدة البيانات. راجعها قبل إعادة الإرسال.');
+        inform('حُفظ المقرر الجديد وأُعيدت جدولة الأيام غير المنجزة.');
+        // Refresh the whole session once so linked reviews and other assignments are up-to-date.
+        root.querySelector('[data-action="load"]')?.click();
+      }catch(e){
+        inform(e?.message||'تعذر حفظ المقرر. راجع البداية والنهاية ثم أعد المحاولة.',true);
+      }finally{busy=false;save.disabled=false;cancel.disabled=false;edit.disabled=false}
+    });
   };
   const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>Object.prototype.hasOwnProperty.call(counts,x.attendance)&&x.attendance!=='unset'?counts[x.attendance]++:counts.unset++);const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
   const syncCard=i=>{
@@ -1287,7 +1295,7 @@ async function outcomesPage(root){
     for(const [id,a] of mushafAssignments){
       const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a);
       const edit=box.querySelector(`[data-action="adjust-${id}"]`);
-      if(edit)action(box,edit,()=>adjustToday(a,id.startsWith('m-')?'الحفظ الجديد':id.startsWith('s-')?'المراجعة الصغرى':'المراجعة الكبرى',s.studentId));
+      if(edit)openInlineRangeEditor(a,id.startsWith('m-')?'الحفظ الجديد':id.startsWith('s-')?'المراجعة الصغرى':'المراجعة الكبرى',id,s.studentId);
     }
     const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت التفاصيل مؤقتًا؛ احفظ حصيلة الحلقة لتثبيتها.')})});
     const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
