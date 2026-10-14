@@ -48,6 +48,9 @@ button,a{touch-action:manipulation}
 .guardian-buttons{display:flex;gap:9px;flex-wrap:wrap;margin:11px 0}.guardian-button{font:700 13px Alyamama,Tahoma,sans-serif;border:1px solid #b8d6c9;background:#eaf5f2;color:#005c4a;border-radius:12px;padding:10px 14px;cursor:pointer}.guardian-button.primary{background:#006b62;color:#fff}.guardian-button:disabled{opacity:.6}.guardian-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.guardian-note{margin:9px 0;padding:12px 15px;background:#fffaf1;border:1px solid #f0d8a2;border-right:4px solid #d2a752;border-radius:14px}.guardian-note p{margin:7px 0;line-height:1.8}.guardian-note small{color:var(--muted)}.guardian-ack{font-size:12px;font-weight:800;color:#296448}.guardian-form{display:grid;gap:10px}.guardian-form label{display:grid;gap:6px;font-weight:700;font-size:13px}.guardian-form select,.guardian-form textarea{font:inherit;width:100%;border:1px solid #c8d8d1;border-radius:11px;padding:10px;background:#fff;color:var(--ink)}.guardian-form textarea{resize:vertical;min-height:70px}.guardian-feedback{font-size:12px;line-height:1.8;color:var(--teal2)}.family-badges{display:flex;flex-wrap:wrap;gap:10px}.family-badge{display:flex;align-items:center;gap:9px;background:#fffbef;border:1px solid #e9d49f;border-radius:15px;padding:11px 14px;font-weight:700}.family-badge .symbol{font-size:24px}.family-badge small{display:block;font-weight:400;color:var(--muted)}
 @media(max-width:480px){.progress-ring{width:95px;height:95px}.ring-core{width:72px;height:72px}.ring-core b{font-size:20px}.cal-cell{min-height:30px;font-size:11px}}
 @media print{@page{size:A4;margin:14mm}body{background:#fff!important}.wrap{max-width:100%;padding:0}.hero,.section,.metric{box-shadow:none;break-inside:avoid}.guardian-buttons,.guardian-form,.guardian-button,.footer{display:none!important}.cal-cell{print-color-adjust:exact}.section{page-break-inside:avoid}}
+
+.family-monthly-report{background:#fff;color:#193c32;font:14px/1.8 Alyamama,Tahoma,sans-serif}.family-monthly-report header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #d8bd88;padding-bottom:15px}.family-monthly-report h1{margin:0;color:#006b74}.family-monthly-report h2{margin:3px 0}.family-monthly-report h3{color:#006b74}.family-report-metrics{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 0}.family-report-metrics span{padding:7px 12px;background:#eef7f2;border-radius:9px}.family-monthly-report table{width:100%;border-collapse:collapse}.family-monthly-report th,.family-monthly-report td{border:1px solid #d5e5dd;padding:8px;text-align:right}.family-monthly-report th{background:#e9f3ed}.family-monthly-report footer{text-align:center;margin-top:28px;border-top:1px solid #d8bd88;padding-top:13px;font-size:12px}
+@media print{#app>:not(#guardian-month-report){display:none!important}#guardian-month-report[hidden]{display:block!important}}
 </style>
 </head>
 <body>
@@ -177,6 +180,35 @@ const familyBadges=(awards,attendance)=>{
  }
  return badges.join('');
 };
+
+const familyMonthlyReport=(data,attendance)=>{
+ const month=riyadhToday().slice(0,7),
+   att=attendance.filter(x=>x.date_key?.slice(0,7)===month),
+   outcomes=(data.outcomes||[]).filter(x=>x.date_key?.slice(0,7)===month),
+   history=(data.talaqqinHistory||[]).filter(x=>x.assessedOn?.slice(0,7)===month);
+ const present=att.filter(x=>['present','late'].includes(x.status)).length,
+   abs=att.filter(x=>x.status==='absent').length,
+   exc=att.filter(x=>x.status==='excused').length;
+ const records=outcomes.map(x=>'<tr><td>'+esc(x.date_key)+'</td><td>'+esc(x.memorization_rating||'—')+
+   '</td><td>'+esc(x.recent_review_rating||'—')+'</td><td>'+esc(x.review_rating||'—')+'</td></tr>').join('');
+ const other=history.map(x=>'<tr><td>'+esc(x.assessedOn)+'</td><td colspan="3">'+
+   esc(x.lessonTitle||'درس نور البيان')+' · '+esc(x.rating)+'</td></tr>').join('');
+ return '<section id="guardian-month-report" class="family-monthly-report" hidden dir="rtl">'+
+   '<header><img src="/assets/logo-sanabil-v6.png" width="138" alt="سنابل الوحي">'+
+   '<div><h1>تقرير الأداء الشهري</h1><p>الشهر: '+esc(month)+'</p>'+
+   '<h2>'+esc(data.student.fullName)+'</h2><p>'+esc(data.student.circleName||'')+
+   ' · المعلم: '+esc(data.student.teacherName||'—')+'</p></div></header>'+
+   '<div class="family-report-metrics"><span>حضور: <b>'+present+'</b></span>'+
+   '<span>غياب: <b>'+abs+'</b></span><span>استئذان: <b>'+exc+'</b></span>'+
+   '<span>حصائل مرصودة: <b>'+(outcomes.length+history.length)+'</b></span></div>'+
+   '<h3>تفاصيل الحصائل خلال الشهر</h3>'+
+   (records||other?'<table><thead><tr><th>التاريخ</th><th>الحفظ</th><th>المراجعة الصغرى</th><th>المراجعة الكبرى / نور البيان</th></tr></thead>'+
+   '<tbody>'+records+other+'</tbody></table>':'<p>لا توجد حصائل مسجلة في هذا الشهر.</p>')+
+   '<p>يستند التقرير إلى السجلات المحفوظة حتى تاريخ '+esc(riyadhToday())+
+   '، والأيام غير المسجلة لا تعتبر غيابًا.</p>'+
+   '<footer>سنابل الوحي · بوابة ولي الأمر · متابعة تعليمية للأسرة</footer></section>';
+};
+
 const bindFamilyActions=(data,attendance)=>{
  document.querySelectorAll('[data-ack-type]').forEach(button=>{
    button.onclick=async()=>{
@@ -289,6 +321,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<section class="section"><div class="section-head"><h2>الخطة التعليمية</h2></div>'+(plansHtml?'<div class="plan-list">'+plansHtml+'</div>':'<div class="empty">لا توجد خطة نشطة حاليًا.</div>')+'</section>'+
  (awardsHtml?'<section class="section"><div class="section-head"><h2>التكريم والإنجاز</h2></div><div class="award-list">'+awardsHtml+'</div></section>':'')+
  '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.4.0 · 2026.10.15</div></footer>';
+ app.insertAdjacentHTML('beforeend',familyMonthlyReport(d,a));
  bindFamilyActions(d,a);
  const tp=app.querySelector('[data-talaqqin-preview]');if(tp&&talaqqinLesson)tp.onclick=()=>window.open('/noor-bayan.html?page='+encodeURIComponent(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'&to='+encodeURIComponent(talaqqinLesson.pageTo):'')+'&title='+encodeURIComponent(talaqqinLesson.title),'_blank','noopener,noreferrer');
  const tm=app.querySelector('[data-talaqqin-media]');if(tm&&talaqqinLesson)tm.onclick=()=>openTalaqqinMedia(talaqqinLesson);
