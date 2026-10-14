@@ -136,4 +136,15 @@
     grid-template-columns: 1fr !important;
   }
 }
-
+/* Daily Quran assignment editing — compact on mobile and accessible. */
+.sl-lesson-tools {display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.sl-lesson-tools .sl-edit-daily-amount {min-height:42px;white-space:normal}
+.sl-daily-adjust-form {display:grid;gap:12px}
+.sl-daily-adjust-form label {display:grid;gap:6px}
+.sl-daily-adjust-form input,.sl-daily-adjust-form select {max-width:100%;min-height:44px}
+@media (max-width:600px) {
+  .sl-track-head {flex-wrap:wrap;row-gap:10px}
+  .sl-track-head > div:first-child {min-width:0}
+  .sl-track-head .sl-lesson-tools {width:100%;justify-content:flex-start}
+  .sl-track-head .sl-lesson-tools button {flex:1 1 auto}
+}
