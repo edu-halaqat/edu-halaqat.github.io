@@ -1455,21 +1455,40 @@ async function outcomesPage(root){
     box.querySelectorAll('[data-metric-count]').forEach(el=>{if(Number(el.dataset.metricStudent)===i&&el.dataset.metricKey===key&&el.dataset.metricField===field)el.value=String(target[field])});
     persistDraft(i);
   };
-  const validateAttendance=()=>{const miss=states.findIndex(x=>!x.attendance);if(miss>=0)throw Error('لم يتم تحضير الطالب: '+students[miss].fullName)};
-  const validateRow=(s,x)=>{if(['absent','excused'].includes(x.att))return;if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة الصغرى للطالب: '+s.fullName);for(const r of x.reviews)if(!r.grade)throw Error('اختر تقدير «'+r.name+'» للطالب: '+s.fullName)};
-  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.attStudent);states[i].attendance=b.dataset.attValue;syncCard(i);persistDraft(i)});
+  const validateAttendance=()=>{
+    const miss=states.findIndex((x,i)=>needsDayAttendance(activeKind(students[i].studentId))&&!x.attendance);
+    if(miss>=0)throw Error('لم يتم تحضير الطالب: '+students[miss].fullName);
+    const missingReason=states.findIndex((x,i)=>needsDayAttendance(activeKind(students[i].studentId))
+      &&x.attendance==='absent'&&!['excused','unexcused'].includes(x.absenceReason));
+    if(missingReason>=0)throw Error('حدد غياب الطالب بعذر أو بدون عذر: '+students[missingReason].fullName);
+  };
+  const validateRow=(s,x)=>{
+    if(!needsDayAttendance(activeKind(s.studentId)))return;
+    if(!x.att)throw Error('حدد حضور الطالب: '+s.fullName);
+    if(x.att==='absent'&&!['excused','unexcused'].includes(x.absenceReason))
+      throw Error('حدد نوع غياب الطالب: '+s.fullName);
+    if(['absent','excused'].includes(x.att))return;if(s.memorization&&!x.ratings.memorization)throw Error('اختر تقدير الحفظ الجديد للطالب: '+s.fullName);if(s.recentReview&&!x.ratings.recentReview)throw Error('اختر تقدير المراجعة الصغرى للطالب: '+s.fullName);for(const r of x.reviews)if(!r.grade)throw Error('اختر تقدير «'+r.name+'» للطالب: '+s.fullName)};
+  box.querySelectorAll('[data-quran-absence-reason]').forEach(el=>el.addEventListener('change',()=>{
+    const i=Number(el.dataset.quranAbsenceReason);states[i].absenceReason=el.value;persistDraft(i);
+  }));
+  box.querySelectorAll('[data-att-student]').forEach(b=>b.onclick=()=>{
+    const i=Number(b.dataset.attStudent);if(!needsDayAttendance(activeKind(students[i].studentId)))return;
+    states[i].attendance=b.dataset.attValue;
+    if(states[i].attendance!=='absent'){states[i].absenceReason='';const sel=box.querySelector('[data-quran-absence-reason="'+i+'"]');if(sel)sel.value=''}
+    syncCard(i);persistDraft(i)
+  });
   box.querySelectorAll('[data-grade-student]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.gradeStudent);setGrade(states[i],b.dataset.gradeKey,b.dataset.gradeValue);syncCard(i);persistDraft(i)});
   box.querySelectorAll('[data-metric-step]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.metricStudent),k=b.dataset.metricKey,f=b.dataset.metricField;setMetric(i,k,f,metricInt(metricFor(i,k)[f])+Number(b.dataset.metricStep))});
   box.querySelectorAll('[data-metric-count]').forEach(b=>b.addEventListener('change',()=>setMetric(Number(b.dataset.metricStudent),b.dataset.metricKey,b.dataset.metricField,b.value)));
   form.addEventListener('input',e=>{const m=String(e.target.name||'').match(/^note(\d+)$/);if(m)persistDraft(Number(m[1]))});
-  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{x.attendance='present';syncCard(i);persistDraft(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
+  action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{if(!needsDayAttendance(activeKind(students[i].studentId)))return;x.attendance='present';x.absenceReason='';syncCard(i);persistDraft(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
   action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
     const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
     validateRow(s,x);await ensureCircleSession(circle,date,true);
     // ثبِّت المسودة قبل الإرسال حتى لا تضيع إذا اكتمل الحفظ بينما تغيرت الصفحة.
     persistDraft(i);
-    const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,recitationMetrics:normalizedMetrics(x.metrics)};
+    const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,recitationMetrics:normalizedMetrics(x.metrics)};
     const before=JSON.stringify(drafts[s.studentId]||null);
     const status=box.querySelector('[data-save-status="'+i+'"]');
     const r=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
@@ -1528,7 +1547,7 @@ async function outcomesPage(root){
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
   if(readOnly){
-    box.querySelectorAll('[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
+    box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
   submit(form,async()=>{
     validateAttendance();await ensureCircleSession(circle,date,true);
