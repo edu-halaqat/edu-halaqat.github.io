@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261014-v13.2.6';
+window.__SanabilLiveBuild='20261014-v13.2.7';
 const titles={dashboard:'الرئيسية',students:'الطلاب والمعلمون',outcomes:'الحصيلة اليومية',plans:'الخطط التعليمية',attendance:'الحضور والبصمة',tests:'الاختبارات',supervision:'الزيارات الإشرافية',inquiries:'الاستعلامات',reports:'التقارير والإحصاءات',settings:'إعدادات المنصة'};
 const roles={admin:'مدير النظام',manager:'مدير المؤسسة',supervisor:'مشرف مجمع',teacher:'معلم',examiner:'مختبر'};
 const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
@@ -1103,6 +1103,7 @@ async function outcomesPage(root){
     if(!panel||!edit||!save||!cancel)return;
     const initialStart=assignment.from||assignment.plannedFrom||{},
       initialEnd=assignment.to||{};
+    let catalogRows=[];
     let ready=false,loading=false,busy=false;
     const inform=(text,warning=false)=>{feedback.textContent=text;feedback.style.color=warning?'#a02737':'#48695c'};
     const toggle=expanded=>{
@@ -1114,7 +1115,7 @@ async function outcomesPage(root){
     const setAyahs=(selectName,ayahName,number)=>{
       const surah=panel.querySelector('[name="'+selectName+'"]'),ayah=panel.querySelector('[name="'+ayahName+'"]');
       if(!surah||!ayah)return;
-      const meta=window.__sanabilQuranCatalog||[];
+      const meta=catalogRows;
       const row=meta.find(x=>Number(x.surahNo)===Number(surah.value));
       const upper=Math.max(1,Number(row?.ayahCount)||1);
       const n=Math.min(upper,Math.max(1,Number(number)||1));
@@ -1127,7 +1128,7 @@ async function outcomesPage(root){
       try{
         const catalog=await quranCatalog();
         if(!panel.isConnected)return;
-        window.__sanabilQuranCatalog=catalog;
+        catalogRows=catalog;
         const entries=(catalog||[]).map(x=>'<option value="'+esc(x.surahNo)+'">'+esc(x.name)+'</option>').join('');
         for(const [field,ref] of [['fromSurah',initialStart],['toSurah',initialEnd]]){
           const select=panel.querySelector('[name="'+field+'"]');
