@@ -275,7 +275,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
 
  const progressHtml=juz&&Number.isFinite(Number(juz.percent))?'<section class="section">'+
     '<div class="section-head"><h2>التقدم في الجزء الحالي</h2><small>آخر موضع حفظ مجتاز</small></div>'+
-    '<div class="family-progress"><div class="progress-ring" style="--p:'+Math.max(0,Math.min(100,Number(juz.percent)))+'">'+
+    '<div class="family-progress"><div class="progress-ring" style="background:conic-gradient(#00808A '+Math.max(0,Math.min(100,Number(juz.percent)))+'%,#e3eee8 0)">'+
     '<div class="ring-core"><b>'+esc(juz.percent)+'%</b><small>تقدم الموضع</small></div></div>'+
     '<div class="progress-info"><h3>الجزء '+esc(({30:'عمّ',29:'تبارك',28:'قد سمع'})[juz.juz]||juz.juz)+'</h3>'+
     '<p class="progress-caption">حتى آخر درس حفظ مجتاز بتاريخ '+esc(juz.lastCompletedOn)+
