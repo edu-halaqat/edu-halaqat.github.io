@@ -220,7 +220,7 @@ if(!/^[A-Fa-f0-9]{32}$/.test(code)){app.innerHTML='<div class="error">رابط �
 fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
 .then(async r=>{const j=await r.json().catch(()=>({error:'تعذر قراءة الاستجابة.'}));if(!r.ok||j.error)throw Error(j.error||'تعذر فتح البوابة.');return j})
 .then(d=>{
- const a=d.attendance||[],o=d.outcomes||[],t=d.tests||[],p=d.plans||[],next=d.nextAssignments||[],prep=d.prepAssignments||[],talaqqin=d.talaqqin||null,talaqqinHistory=d.talaqqinHistory||[],aw=d.awards||[],an=d.announcements||[];
+ const a=d.attendance||[],o=d.outcomes||[],t=d.tests||[],p=d.plans||[],next=d.nextAssignments||[],prep=d.prepAssignments||[],talaqqin=d.talaqqin||null,talaqqinHistory=d.talaqqinHistory||[],aw=d.awards||[],an=d.announcements||[],receipts=d.acknowledgements||[],requests=d.excuseRequests||[],juz=d.juzProgress||null;
  const present=a.filter(x=>x.status==='present'||x.status==='late').length,attRate=a.length?Math.round(present/a.length*100):0;
  const ratings=x=>[x.memorization_rating,x.recent_review_rating,...(Array.isArray(x.recitation_metrics?.reviewPlans)&&x.recitation_metrics.reviewPlans.length?x.recitation_metrics.reviewPlans.map(r=>r.rating||r.grade):[x.review_rating])].filter(Boolean),all=o.flatMap(ratings),outRate=all.length?Math.round(all.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x)).length/all.length*100):0;
  const testScores=t.filter(x=>x.scores?.total!=null).map(x=>Number(x.scores.total)).filter(Number.isFinite),avg=testScores.length?Math.round(testScores.reduce((x,y)=>x+y,0)/testScores.length*10)/10:'—';
@@ -240,8 +240,46 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  const talaqqinPrep=talaqqin&&talaqqin.placementSet===false?'<article class="prep-card"><span class="type">حلقات التلقين</span><strong>بانتظار تحديد المعلم لموضع الطالب</strong><small>سيظهر درس التحضير هنا فور اعتماد المعلم للدرس الذي وصل إليه الطالب.</small></article>':(talaqqinLesson?'<article class="prep-card"><span class="type">حلقات التلقين · '+(talaqqinLesson.isCustom?'درس خاص':'الدرس الحالي')+'</span><strong>'+esc(talaqqinLesson.title)+'</strong><small>'+esc(talaqqinLesson.unitName)+(talaqqinLesson.weekStart?' · الخطة المرجعية: الأسبوع '+esc(talaqqinLesson.weekStart===talaqqinLesson.weekEnd?talaqqinLesson.weekStart:(talaqqinLesson.weekStart+'–'+talaqqinLesson.weekEnd)):'')+(talaqqin?.totalWeeks?' · مدة خطة الطالب: '+esc(talaqqin.totalWeeks)+' أسبوعًا':'')+(talaqqinLesson.extraWeeks?' · تمديد خاص لهذا الدرس: '+esc(talaqqinLesson.extraWeeks)+' أسبوع/أسابيع':'')+(talaqqinLesson.plannedWeeks?' · مدة الدرس الخاص: '+esc(talaqqinLesson.plannedWeeks)+' أسبوع/أسابيع':'')+(talaqqinLesson.pageFrom?' · صفحة '+esc(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'–'+esc(talaqqinLesson.pageTo):''):'')+'</small><div class="prep-actions">'+(talaqqinLesson.pageFrom?'<button class="prep-button gold" type="button" data-talaqqin-preview>معاينة الدرس</button>':'')+(talaqqinLesson.mediaUrl?'<button class="prep-button" type="button" data-talaqqin-media>استمع / شاهد طريقة القراءة</button>':'')+'</div></article>':'');
  const quranPrepHtml=quranPrep.map((x,i)=>'<article class="prep-card"><span class="type">حلقات القرآن · التحضير للمقرر القادم</span><strong>'+esc(segText(x))+'</strong><small>'+esc(x.date)+' · '+esc(x.amount)+' '+esc(units[x.unit]||'وحدة')+(x.from?.pageNo?' · صفحة المصحف '+esc(x.from.pageNo)+(x.to?.pageNo&&x.to.pageNo!==x.from.pageNo?'–'+esc(x.to.pageNo):''):'')+'</small><div class="prep-actions"><a class="prep-button gold" target="_blank" rel="noopener noreferrer" href="'+esc(quranLessonUrl(x))+'">عرض موضع الدرس في المصحف</a><button class="prep-button" type="button" data-husary="'+i+'">استمع للمصحف المعلم · الحصري</button></div></article>').join('');
  const preparationHtml=talaqqinPrep||quranPrepHtml;
+
+ const progressHtml=juz&&Number.isFinite(Number(juz.percent))?'<section class="section">'+
+    '<div class="section-head"><h2>التقدم في الجزء الحالي</h2><small>آخر موضع حفظ مجتاز</small></div>'+
+    '<div class="family-progress"><div class="progress-ring" style="--p:'+Math.max(0,Math.min(100,Number(juz.percent)))+'">'+
+    '<div class="ring-core"><b>'+esc(juz.percent)+'%</b><small>تقدم الموضع</small></div></div>'+
+    '<div class="progress-info"><h3>الجزء '+esc(({30:'عمّ',29:'تبارك',28:'قد سمع'})[juz.juz]||juz.juz)+'</h3>'+
+    '<p class="progress-caption">حتى آخر درس حفظ مجتاز بتاريخ '+esc(juz.lastCompletedOn)+
+    '. هذه النسبة مؤشر لموضع الحفظ داخل الجزء، ولا تعني ختم جميع آياته.</p>'+
+    '<div class="progress-track"><span style="--width:'+esc(juz.percent)+'%"></span></div></div></div></section>'
+    :'<section class="section"><div class="section-head"><h2>التقدم في الجزء</h2></div>'+
+     '<div class="empty">سيظهر المؤشر عند اعتماد أول حصيلة حفظ مجتازة.</div></section>';
+ const notesHtml=familyNotes(o,talaqqinHistory,receipts),badgeHtml=familyBadges(aw,a);
+ const existingRequest=requests.find(x=>x.date_key===riyadhToday());
+ const requestHtml=existingRequest?'<p class="guardian-feedback">طلب استئذان اليوم: '+
+    esc({pending:'بانتظار المعلم',approved:'معتمد',declined:'لم يُعتمد'}[existingRequest.status]||existingRequest.status)+
+    ' · لم يغيّر الطلب حضور الطالب تلقائيًا.</p>':
+    '<form class="guardian-form" id="guardian-excuse-form">'+
+    '<label>سبب الاستئذان<select name="reason" required><option value="health">ظرف صحي</option>'+
+    '<option value="family">ظرف عائلي</option><option value="travel">سفر</option>'+
+    '<option value="other">سبب آخر</option></select></label>'+
+    '<label>ملاحظة مختصرة (اختيارية)<textarea name="note" maxlength="240"'+
+    ' placeholder="يمكن تركه فارغًا؛ تجنب إدخال تفاصيل صحية حساسة"></textarea></label>'+
+    '<button type="submit" class="guardian-button primary">إرسال طلب الاستئذان</button>'+
+    '<p class="guardian-feedback" role="status" data-excuse-feedback>'+
+    'سيصل الطلب للمعلم للمراجعة دون تسجيل حضور أو غياب تلقائيًا.</p></form>';
+ const familySections=progressHtml+
+    '<section class="section"><div class="section-head"><h2>تقويم الحضور الشهري</h2><small>التسجيلات المعتمدة فقط</small></div>'+
+    familyCalendar(a,riyadhToday().slice(0,7))+'</section>'+
+    '<section class="section"><div class="section-head"><h2>ملاحظات المعلم</h2><small>تأكيد اطلاع الأسرة</small></div>'+
+    (notesHtml||'<p class="empty">لا توجد ملاحظات حديثة.</p>')+'</section>'+
+    '<section class="section"><div class="section-head"><h2>خدمات ولي الأمر</h2></div>'+
+    '<div class="guardian-buttons"><button type="button" class="guardian-button" id="guardian-week-share">مشاركة الملخص الأسبوعي</button>'+
+    '<button type="button" class="guardian-button" id="guardian-month-pdf">طباعة / حفظ PDF</button></div>'+
+    '<h3>طلب استئذان ليوم الحلقة الحالي</h3>'+requestHtml+'</section>'+
+    (badgeHtml?'<section class="section"><div class="section-head"><h2>الأوسمة والإنجازات</h2></div>'+
+    '<div class="family-badges">'+badgeHtml+'</div></section>':'');
+
  app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
+ familySections+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
  (preparationHtml?'<section class="section"><div class="section-head"><h2>الاستعداد لدرس الغد</h2><small>معاينة الدرس والاستماع قبل الحلقة</small></div>'+preparationHtml+'</section>':'')+
  '<section class="section"><div class="section-head"><h2>المقرر القادم</h2><small>للاستعداد قبل الحلقة</small></div>'+(nextHtml?'<div class="next-grid">'+nextHtml+'</div>':'<div class="empty">لا يوجد مقرر قادم مجدول حاليًا.</div>')+'</section>'+
@@ -250,7 +288,8 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<section class="section"><div class="section-head"><h2>الاختبارات</h2></div>'+(testsHtml?'<div class="test-list">'+testsHtml+'</div>':'<div class="empty">لا توجد اختبارات حتى الآن.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الخطة التعليمية</h2></div>'+(plansHtml?'<div class="plan-list">'+plansHtml+'</div>':'<div class="empty">لا توجد خطة نشطة حاليًا.</div>')+'</section>'+
  (awardsHtml?'<section class="section"><div class="section-head"><h2>التكريم والإنجاز</h2></div><div class="award-list">'+awardsHtml+'</div></section>':'')+
- '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.2.2 · 2026.10.13</div></footer>';
+ '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.4.0 · 2026.10.15</div></footer>';
+ bindFamilyActions(d,a);
  const tp=app.querySelector('[data-talaqqin-preview]');if(tp&&talaqqinLesson)tp.onclick=()=>window.open('/noor-bayan.html?page='+encodeURIComponent(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'&to='+encodeURIComponent(talaqqinLesson.pageTo):'')+'&title='+encodeURIComponent(talaqqinLesson.title),'_blank','noopener,noreferrer');
  const tm=app.querySelector('[data-talaqqin-media]');if(tm&&talaqqinLesson)tm.onclick=()=>openTalaqqinMedia(talaqqinLesson);
  app.querySelectorAll('[data-husary]').forEach(b=>{b.onclick=()=>openHusary(quranPrep[Number(b.dataset.husary)])});
