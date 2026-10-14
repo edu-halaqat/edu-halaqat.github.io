@@ -2612,10 +2612,55 @@ async function dashboard(root){
  for(const o of recent){const r=risk.get(o.student_id)||{fails:0,details:0};r.fails+=outcomeFailCount(o);r.details+=metricTotal(o.recitation_metrics);risk.set(o.student_id,r)}
  const risky=[...risk].filter(([,r])=>r.fails>=2||r.details>=5).map(([id,r])=>({name:names.get(id)||id,...r})).sort((x,y)=>(y.fails*10+y.details)-(x.fails*10+x.details)).slice(0,10);
  if(risky.length)alerts.push(`طلاب يحتاجون متابعة خلال آخر 14 يومًا: ${risky.length}.`);
+
+ const fromWeek=new Date(new Date(today()+'T12:00:00Z').getTime()-6*86400000).toISOString().slice(0,10);
+ let charts='';
+ if(isSupervisor||isAdmin){
+   const [attRows,planRows]=await Promise.all([
+     result(sb().from('student_attendance').select('date_key,status')
+       .gte('date_key',fromWeek).lte('date_key',today()).limit(5000)),
+     result(sb().from('plan_days').select('date_key,status,student_id')
+       .gte('date_key',fromWeek).lte('date_key',today()).limit(5000))
+   ]);
+   const buckets=Array.from({length:7},(_,i)=>{
+     const day=new Date(new Date(fromWeek+'T12:00:00Z').getTime()+i*86400000).toISOString().slice(0,10);
+     const ar=attRows.filter(x=>x.date_key===day),pr=planRows.filter(x=>x.date_key===day);
+     return {date:day,attendance:ar.length?Math.round(ar.filter(x=>['present','late'].includes(x.status)).length/ar.length*100):null,
+       completion:pr.length?Math.round(pr.filter(x=>x.status==='completed').length/pr.length*100):null};
+   });
+   const chart=(label,key)=>'<article class="sl-trend-card"><b>'+esc(label)+'</b>'+
+      '<div class="sl-trend-bars">'+buckets.map(x=>
+        '<div class="sl-trend-col"><strong>'+esc(x[key]===null?'—':x[key]+'%')+'</strong>'+
+        '<div class="sl-trend-track"><span style="height:'+(x[key]===null?0:x[key])+'%"></span></div>'+
+        '<small>'+esc(x.date.slice(5))+'</small></div>').join('')+'</div></article>';
+   const behindIds=[...new Set(planRows.filter(x=>x.date_key<today()&&x.status!=='completed').map(x=>x.student_id))];
+   charts='<section class="sl-tasks"><h3>لوحة المؤشرات الأسبوعية</h3>'+
+     '<div class="sl-trend-grid">'+chart('الحضور من سجلات التحضير','attendance')+
+     chart('إنجاز أيام الخطط المجدولة','completion')+'</div>'+
+     '<p class="sl-help">النسب محسوبة من السجلات الفعلية لكل يوم. الأيام بلا سجلات تظهر بشرطة، ولا تُعامل كغياب.</p>'+
+     (behindIds.length?'<h4>طلاب تأخر تنفيذ مقرراتهم خلال الأسبوع</h4><p>'+
+       behindIds.slice(0,16).map(id=>esc(names.get(id)||id)).join(' · ')+
+       (behindIds.length>16?' · وآخرون':'')+'</p>':'<p>لا توجد مقررات متأخرة ضمن الأيام المعروضة.</p>')+
+     '</section>';
+ }
  const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
 
 
+ if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
+   const home=document.createElement('section');home.className='sl-dashboard-one-tap';
+   home.innerHTML='<h3>جلسة الحلقة من الرئيسية</h3><p>تحضير الطلاب وتقييم الحفظ والمراجعات والحفظ الفردي في الشاشة نفسها.</p>'+
+     '<div data-home-live-session><p class="sl-help">جارٍ تجهيز الطلاب والمقررات…</p></div>';
+   root.querySelector('.sl-quick-grid')?.insertAdjacentElement('afterend',home);
+   const panel=home.querySelector('[data-home-live-session]');
+   outcomesPage(panel).then(()=>{
+      panel.querySelector('[data-action="load"]')?.click();
+   }).catch(e=>{
+      panel.innerHTML='<p class="sl-message">'+esc(e?.message||'تعذر فتح الجلسة')+'</p>'+
+        '<button type="button" class="button button-primary" data-home-open-outcomes>فتح صفحة الحصيلة</button>';
+      panel.querySelector('[data-home-open-outcomes]').onclick=()=>navigateView('outcomes');
+   });
+ }
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
