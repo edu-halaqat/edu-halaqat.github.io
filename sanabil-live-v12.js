@@ -1049,7 +1049,57 @@ async function outcomesPage(root){
   };
   const track=(a,i,key,title,actionId)=>{
     if(!a)return `<section class="sl-track is-empty"><div class="sl-track-head"><b>${esc(title)}</b><span>لا يوجد مقرر</span></div></section>`;
-    return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div>${button('فتح المصحف','mushaf-'+actionId)}</div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div>${metricControls(i,key)}</section>`;
+    return `<section class="sl-track"><div class="sl-track-head"><div><b>${esc(title)}</b><span>${esc(assignmentText(a))}</span></div><div class="sl-lesson-tools">${button('فتح المصحف','mushaf-'+actionId)}${!readOnly&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+esc(actionId)+'" aria-label="تعديل مقدار '+esc(title)+'">✎ تعديل المقدار</button>':''}</div></div><div class="sl-grade-grid">${gradeButtons(i,key,gradeValue(states[i],key))}</div>${metricControls(i,key)}</section>`;
+  };
+  const adjustToday=async(assignment,title)=>{
+    if(readOnly)throw Error('الجلسة للعرض فقط؛ افتح موعدًا مسموحًا لتعديل المقرر.');
+    if(!assignment?.dayId)throw Error('لا يوجد مقرر محفوظ يمكن تعديله لهذا المسار.');
+    if(Object.keys(drafts).length)throw Error('توجد حصائل أو تقديرات غير محفوظة؛ احفظها أولًا قبل إعادة الجدولة حتى لا تضيع التعديلات.');
+    const division=['quarter_hizb','half_hizb','hizb','juz'].includes(assignment.unit);
+    const body=modal('تعديل مقدار '+title);
+    const initial=Math.min(45,Math.max(1,Math.round(Number(assignment.amount)||1)));
+    body.innerHTML='<form class="sl-daily-adjust-form">'+
+      '<p class="sl-help">التعديل خاص بمقرر هذا اليوم فقط، وستُعاد جدولة الأيام اللاحقة غير المنجزة مع الاحتفاظ بالمقدار اليومي الأصلي للخطة. لا تُغيّر الحصائل السابقة.</p>'+
+      '<p class="sl-help"><b>المقرر الحالي:</b> '+esc(assignmentText(assignment))+'</p>'+
+      '<label>طريقة التعديل<select name="mode"><option value="amount">تغيير المقدار ('+esc(unitAr[assignment.unit]||'وحدة')+')</option>'+
+        (division?'':'<option value="manual">تحديد آية النهاية يدويًا</option>')+'</select></label>'+
+      '<div data-adjust-amount><label>المقدار الجديد<input name="amount" type="number" min="1" max="45" step="1" inputmode="numeric" required value="'+initial+'"></label></div>'+
+      (division?'':'<div data-adjust-manual hidden><label>السورة التي ينتهي عندها الدرس<select name="endSurah"></select></label>'+
+        '<label>آخر آية في مقرر اليوم<select name="endAyah"></select></label></div>')+
+      '<div class="sl-card-actions"><button type="submit" class="button button-primary">حفظ المقدار وإعادة الجدولة</button></div></form>';
+    const form=body.querySelector('form'),mode=form.querySelector('[name="mode"]');
+    if(!division)await quranPair(form,'endSurah','endAyah',{
+      surahNo:assignment.to?.surahNo||assignment.from?.surahNo||1,
+      ayahNo:assignment.to?.ayahNo||assignment.from?.ayahNo||1
+    });
+    const updateMode=()=>{
+      const manual=mode.value==='manual';
+      const amountPane=form.querySelector('[data-adjust-amount]'),manualPane=form.querySelector('[data-adjust-manual]');
+      amountPane.hidden=manual;
+      if(manualPane)manualPane.hidden=!manual;
+      form.querySelector('[name="amount"]').required=!manual;
+    };
+    mode.onchange=updateMode;updateMode();
+    form.onsubmit=async e=>{
+      e.preventDefault();
+      const submit=form.querySelector('[type="submit"]');submit.disabled=true;
+      try{
+        const manual=mode.value==='manual';
+        const payload={p_day_id:assignment.dayId,
+          p_amount:manual?null:Number(form.querySelector('[name="amount"]').value),
+          p_end_surah:manual?Number(form.querySelector('[name="endSurah"]').value):null,
+          p_end_ayah:manual?Number(form.querySelector('[name="endAyah"]').value):null};
+        if(!manual&&(!Number.isInteger(payload.p_amount)||payload.p_amount<1||payload.p_amount>45))
+          throw Error('حدد مقدارًا صحيحًا من 1 إلى 45.');
+        const changed=await rpc('adjust_daily_plan_assignment_guarded',payload);
+        const confirmed=await result(sb().from('plan_days').select('target_to,target_amount').eq('id',assignment.dayId).single());
+        if((confirmed.target_to?.ayahIndex||0)!==(changed.to?.ayahIndex||0))
+          throw Error('تم إرسال التعديل لكن تعذر تأكيد المقرر الجديد؛ أعد فتح الجلسة للتحقق.');
+        body.closest('dialog')?.close();
+        root.querySelector('[data-action="load"]')?.click();
+      }catch(err){msg(body,err.message||'فشل تعديل المقرر.',true)}
+      finally{submit.disabled=false}
+    };
   };
   const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach(x=>Object.prototype.hasOwnProperty.call(counts,x.attendance)&&x.attendance!=='unset'?counts[x.attendance]++:counts.unset++);const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
   const syncCard=i=>{
@@ -1166,7 +1216,11 @@ async function outcomesPage(root){
   students.forEach((s,i)=>{
     syncCard(i);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
-    for(const [id,a] of mushafAssignments){const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a)}
+    for(const [id,a] of mushafAssignments){
+      const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a);
+      const edit=box.querySelector(`[data-action="adjust-${id}"]`);
+      if(edit)action(box,edit,()=>adjustToday(a,id.startsWith('m-')?'الحفظ الجديد':id.startsWith('s-')?'المراجعة الصغرى':'المراجعة الكبرى'));
+    }
     const md=box.querySelector(`[data-action="metrics-${i}"]`);if(md)action(box,md,()=>{if(['absent','excused'].includes(states[i].attendance))throw Error('لا تسجل تفاصيل تسميع لطالب غائب أو مستأذن.');editMetrics(s.fullName,metrics.get(s.studentId),x=>{metrics.set(s.studentId,x);msg(box,'حُفظت التفاصيل مؤقتًا؛ احفظ حصيلة الحلقة لتثبيتها.')})});
     const bw=box.querySelector(`[data-action="wa-${i}"]`);if(bw)action(box,bw,async()=>{
       const x=rowData(s,i);if(!x.att)throw Error('حدّد حالة حضور الطالب أولًا.');
