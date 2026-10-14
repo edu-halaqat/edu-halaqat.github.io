@@ -451,3 +451,5 @@ html[data-sanabil-theme="dark"] .sl-dialog::backdrop{background:#0009}
 .sl-family-excuse-state{font-size:12px;color:#75602d}
 .sl-family-excuse-buttons{display:flex;gap:8px}.sl-family-excuse-buttons button{border:1px solid #bacdc5;background:#eef7f1;color:#075c4d;padding:8px 12px;border-radius:9px;cursor:pointer}
 @media(max-width:760px){.sl-trend-grid{grid-template-columns:1fr}.sl-trend-track{height:75px}.sl-dashboard-one-tap{padding:8px}}
+
+.sl-trend-col{font:inherit;border:1px solid transparent;background:transparent;padding:4px 2px;border-radius:9px;cursor:pointer}.sl-trend-col:hover,.sl-trend-col:focus-visible{background:#e7f5eb;border-color:#9dcab6;outline:none}html[data-sanabil-theme="dark"] .sl-trend-col:hover,html[data-sanabil-theme="dark"] .sl-trend-col:focus-visible{background:#275247;border-color:#86baa4}html[data-sanabil-theme="dark"] .sl-trend-col strong{color:#e0f7eb}
