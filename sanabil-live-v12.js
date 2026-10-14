@@ -833,6 +833,68 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
  apply();
 }
 
+
+const dayKindLabels={study:'يوم دراسي',test:'يوم اختبار',holiday:'يوم إجازة',unaccounted:'غير محتسب'};
+const dayKindOptions=(selected,includeInherit=false,groupType='study')=>
+  (includeInherit?'<option value="inherit" '+(selected==='inherit'?'selected':'')+'>بحسب الحلقة: '+dayKindLabels[groupType]+'</option>':'')+
+  Object.entries(dayKindLabels).map(([value,label])=>'<option value="'+value+'" '+(selected===value?'selected':'')+'>'+label+'</option>').join('');
+const effectiveDayKind=(data,studentId)=>data?.overrides?.[studentId]||data?.defaultType||'study';
+const needsDayAttendance=kind=>kind==='study'||kind==='test';
+function mountDayKindToolbar(root,box,{circle,date,studentCount,dayData,reload,hasDrafts=()=>false}){
+  root.querySelector('.sl-day-kind-toolbar')?.remove();
+  const bar=document.createElement('section');
+  bar.className='sl-day-kind-toolbar';bar.dir='rtl';
+  bar.innerHTML='<div><b>تصنيف اليوم للحلقة</b><small>التصنيف الافتراضي: يوم دراسي. يمكنك تخصيص تصنيف طالب من بطاقته.</small></div>'+
+   '<div class="sl-day-kind-actions"><select aria-label="تصنيف اليوم لجميع طلاب الحلقة" data-day-global>'+
+   dayKindOptions(dayData.defaultType||'study')+'</select>'+
+   '<button type="button" class="button button-primary" data-day-global-save>اعتماد للجميع</button></div>'+
+   '<p role="status" aria-live="polite" data-day-global-info></p>';
+  box.parentNode.insertBefore(bar,box);
+  const select=bar.querySelector('[data-day-global]'),button=bar.querySelector('[data-day-global-save]'),
+    info=bar.querySelector('[data-day-global-info]');
+  button.addEventListener('click',async()=>{
+    const kind=select.value;
+    if(kind===(dayData.defaultType||'study')){info.textContent='تصنيف الحلقة معتمد بالفعل.';return}
+    if(hasDrafts()&&!confirm('توجد تقديرات أو ملاحظات غير محفوظة. احفظ الحصائل أولًا؛ هل تريد الاستمرار في تغيير تصنيف اليوم؟'))return;
+    if(!confirm('هل تريد اعتماد «'+dayKindLabels[kind]+'» لطلاب الحلقة؟ ستُرحّل المقررات غير المنجزة، ولن تُمس الحصائل المحفوظة.'))return;
+    select.disabled=true;button.disabled=true;info.textContent='جارٍ اعتماد التصنيف وتحديث خطط الطلاب…';
+    try{
+      const resultData=await rpc('set_day_type_guarded',{p_circle_id:circle,p_date:date,p_day_type:kind,p_student_id:null});
+      info.textContent='تم اعتماد التصنيف لـ '+(resultData.students||0)+' طالبًا.';
+      reload();
+    }catch(e){info.textContent='تعذر اعتماد التصنيف: '+(e.message||'خطأ غير معروف');select.value=dayData.defaultType||'study'}
+    finally{select.disabled=false;button.disabled=false}
+  });
+}
+function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,hasDrafts=()=>false}){
+  students.forEach((student,i)=>{
+    const card=box.querySelector('[data-student-card="'+i+'"],[data-tl-card="'+i+'"]');
+    if(!card)return;
+    const custom=dayData?.overrides?.[student.studentId];
+    const kind=effectiveDayKind(dayData,student.studentId);
+    const header=card.querySelector('header');
+    if(!header)return;
+    const wrap=document.createElement('div');wrap.className='sl-student-day-kind';
+    wrap.innerHTML='<label>تصنيف اليوم<select data-day-student="'+i+'" aria-label="تصنيف يوم '+esc(student.fullName)+'">'+
+      dayKindOptions(custom||'inherit',true,dayData?.defaultType||'study')+'</select></label>';
+    header.insertAdjacentElement('afterend',wrap);
+    const select=wrap.querySelector('select');
+    select.addEventListener('change',async()=>{
+      const next=select.value;
+      const before=custom||'inherit';
+      if(next===before)return;
+      if(hasDrafts()&&!confirm('توجد حصائل غير محفوظة. قد تحتاج إلى حفظها قبل تغيير التصنيف. هل تريد الاستمرار؟')){select.value=before;return}
+      if(!confirm('تغيير تصنيف '+student.fullName+' إلى '+(next==='inherit'?'تصنيف الحلقة':dayKindLabels[next])+'؟')){select.value=before;return}
+      select.disabled=true;
+      try{
+        await rpc('set_day_type_guarded',{p_circle_id:circle,p_date:date,p_day_type:next,p_student_id:student.studentId});
+        reload();
+      }catch(e){select.value=before;msg(box,'تعذر تغيير تصنيف الطالب: '+(e.message||''),true)}
+      finally{select.disabled=false}
+    });
+  });
+}
+
 async function outcomesPage(root){
  const l=await lookups();
  const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
@@ -853,6 +915,16 @@ async function outcomesPage(root){
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
+  const dayData=await rpc('get_day_types_guarded',{p_circle_id:circle,p_date:date});
+  const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
+  const activeKind=id=>effectiveDayKind(dayData,id);
+  const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
+    kind==='unaccounted'?'غير محتسب: خارج الأيام التعليمية، ولا تسجل له حصيلة.':
+    kind==='test'?'يوم اختبار مستقل: لا يوجد حفظ جديد؛ تُرصد المراجعات الصغرى والكبرى فقط.':'';
+  const addDayToolbar=box=>mountDayKindToolbar(root,box,{
+    circle,date,studentCount:0,dayData,reload:reloadDay,
+    hasDrafts:()=>!!box.querySelector('[data-save-status][data-saved="draft"],[data-save-status][data-saved="queued"]')
+  });
   if(circleMeta?.circle_type==='حلقات التلقين'){
     if(date!==today()){
       const box=root.querySelector('.sl-data');
@@ -873,6 +945,8 @@ async function outcomesPage(root){
             +button('تعديل الحصيلة السابقة','tl-old-'+i)+'</article>';
         }).join('')+'</div>':'<p class="sl-message">لم تُحفظ حصائل تلقين لهذا التاريخ ضمن الحلقة المختارة.</p>');
       installOutcomeStudentSearch(box,found.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
+      addDayToolbar(box);
+      attachStudentDayKindControls(box,found,dayData,{circle,date,reload:reloadDay});
       found.forEach((r,i)=>action(box,box.querySelector('[data-action="tl-old-'+i+'"]'),
         ()=>showTalaqqinAssessmentHistory(box,r,async()=>{
           const a=await result(sb().from('talaqqin_assessments')
@@ -930,7 +1004,22 @@ async function outcomesPage(root){
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
        }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      addDayToolbar(box);
+      attachStudentDayKindControls(box,items,dayData,{circle,date,reload:reloadDay,hasDrafts:()=>talaqqinDrafts.size>0||attendanceDrafts.size>0});
       installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
+
+      items.forEach((r,i)=>{
+        const kind=activeKind(r.studentId),card=box.querySelector('[data-tl-card="'+i+'"]');
+        if(!card||kind==='study')return;
+        const grade=card.querySelector('.sl-tl-outcome'),tools=card.querySelector('.sl-tl-tools'),preview=card.querySelector('.sl-tl-more');
+        if(grade)grade.hidden=true;if(tools)tools.hidden=true;if(preview)preview.hidden=true;
+        const note=document.createElement('p');note.className='sl-day-kind-notice';note.textContent=absenceNote(kind);
+        card.querySelector('.sl-att-grid')?.before(note);
+        if(!needsDayAttendance(kind)){
+          const attend=card.querySelector('.sl-att-grid'),attNote=card.querySelector('[data-tl-note]')?.closest('label');
+          if(attend)attend.hidden=true;if(attNote)attNote.hidden=true;
+        }
+      });
       box.querySelectorAll('[data-tl-note]').forEach(input=>input.addEventListener('input',()=>{
         const i=Number(input.dataset.tlNote),r=items[i];if(!r)return;
         states[i].note=input.value;
@@ -1067,12 +1156,33 @@ async function outcomesPage(root){
     try{const days=await result(sb().from('plan_days').select('date_key').eq('circle_id',circle).gte('date_key',date).order('date_key',{ascending:true}).limit(1));nextTeachingDate=days?.[0]?.date_key||''}catch(e){console.warn('تعذر تحديد اليوم التعليمي التالي',e)}
   }
   const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يسمع','لم يحفظ'];
+  // On examination dates, grade prior review ranges independently from the regular lesson plan.
+  const testSnapshots=new Map();
+  for(const item of dayData.testReviews||[]){
+    if(!testSnapshots.has(item.studentId))testSnapshots.set(item.studentId,[]);
+    testSnapshots.get(item.studentId).push(item);
+  }
+  students=students.map(s=>{
+    if(activeKind(s.studentId)!=='test')return s;
+    const prior=testSnapshots.get(s.studentId)||[];
+    const recent=prior.find(x=>x.type==='recent_review');
+    return {...s,memorization:null,
+      recentReview:recent?{planId:recent.planId,planName:recent.name,from:recent.from,to:recent.to,dayId:null,rating:recent.grade}:null,
+      recentReviewRating:recent?.grade||'',
+      reviews:prior.filter(x=>x.type==='review').map(x=>({
+        planId:x.planId,planName:x.name,from:x.from,to:x.to,rating:x.grade,dayId:null
+      }))};
+  });
   const stateBanner=(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
     noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+(nextTeachingDate&&nextTeachingDate!==date?' '+button('عرض اليوم التعليمي التالي: '+nextTeachingDate,'next-planned-day'):'')+'</div>':'')+
     (readOnly?'<div class="sl-outcome-info sl-outcome-readonly" role="status">استعراض فقط: '+esc(sessionInfo?.reason||'جلسة الإدخال غير متاحة الآن')+'. لا يمكن تعديل التقديرات أو الحفظ.</div>':'');
   const metrics=new Map(students.map(s=>[s.studentId,normalizedMetrics(s.recitationMetrics)]));
+  const absences=await result(sb().from('student_attendance').select('student_id,absence_reason')
+     .eq('circle_id',circle).eq('date_key',date));
+  const reasonMap=new Map(absences.map(x=>[x.student_id,x.absence_reason||'']));
   const states=students.map(s=>({
     attendance:s.attendanceStatus||'',
+    absenceReason:reasonMap.get(s.studentId)||'',
     note:s.notes||s.attendanceNote||'',
     ratings:{memorization:s.memorizationRating||'',recentReview:s.recentReviewRating||''},
     reviewPlans:Object.fromEntries((s.reviews||[]).map(r=>[r.planId,r.rating||'']))
