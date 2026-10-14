@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.4.0';
+window.__SanabilLiveBuild='20261015-v13.4.1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -72,7 +72,7 @@ const navigateView=key=>{const label=titles[key],short={dashboard:'الرئيس�
 const button=(label,id='')=>`<button type="button" class="button button-soft" ${id?`data-action="${id}"`:''}>${esc(label)}</button>`;
 const field=(label,name,type='text',value='',extra='')=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const select=(label,name,items,value='',empty='اختر')=>`<label>${esc(label)}<select name="${name}"><option value="">${esc(empty)}</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
-const table=(headers,data)=>`<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${data.length?data.map(row=>`<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}">لا توجد سجلات مطابقة.</td></tr>`}</tbody></table></div>`;
+const table=(headers,data)=>`<div class="table-wrap" role="region" aria-label="جدول بيانات قابل للتمرير أفقيًا" tabindex="0"><table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${data.length?data.map(row=>`<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}">لا توجد سجلات مطابقة.</td></tr>`}</tbody></table></div>`;
 const val=(root,name)=>root.querySelector(`[name="${name}"]`).value;
 const dateText=d=>d?new Date(d).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',dateStyle:'short',timeStyle:'short'}):'—';
 const attendanceAr={present:'حاضر',late:'متأخر',excused:'مستأذن',absent:'غائب'};
@@ -2535,7 +2535,7 @@ const paceTalaqqinStudent=async(root,row,refresh)=>{
  const pacing=row.pacing||{},units=Array.isArray(pacing.units)?pacing.units:[],b=modal('الخطة الشخصية · '+row.fullName);
  const body=units.map(u=>'<tr><td>'+esc(u.unitNo+'. '+u.unitName)+'</td><td>'+esc(u.baselineWeeks)+' أسابيع</td><td><input type="number" name="weeks_'+u.unitNo+'" min="1" max="52" value="'+esc(u.plannedWeeks)+'" required style="width:95px"></td><td><input name="note_'+u.unitNo+'" value="'+esc(u.note||'')+'" placeholder="مثلاً: يحتاج تكرارًا أكثر"></td></tr>').join('');
  b.innerHTML='<form><p>المدة المرجعية للمنهج 50 أسبوعًا. عدّل مدة كل وحدة لهذا الطالب وحده؛ ويمكن أن تصبح الخطة 60 أو 80 أو 90 أسبوعًا أو غير ذلك دون تغيير خطة بقية الطلاب.</p>'+
-   '<div class="table-wrap"><table><thead><tr><th>الوحدة</th><th>المرجعي</th><th>مدة الطالب</th><th>ملاحظة</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+   '<div class="table-wrap" role="region" aria-label="جدول بيانات قابل للتمرير أفقيًا" tabindex="0"><table><thead><tr><th>الوحدة</th><th>المرجعي</th><th>مدة الطالب</th><th>ملاحظة</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
    '<div class="stats-grid" style="margin-top:12px"><article class="stat-card"><span>إجمالي الخطة الشخصية</span><b class="tl-total">'+esc(pacing.totalWeeks||50)+'</b><small>أسبوعًا</small></article><article class="stat-card"><span>الخطة المرجعية</span><b>50</b><small>أسبوعًا</small></article><article class="stat-card"><span>تمديدات دروس بعينها</span><b>'+esc(pacing.extraLessonWeeks||0)+'</b><small>أسبوعًا</small></article></div>'+
    '<label>ملاحظة عامة على خطة الطالب<textarea name="plan_note" rows="3" style="width:100%">'+esc(row.planNote||'')+'</textarea></label>'+
    '<button type="submit" class="button button-primary">حفظ الخطة الشخصية</button></form>';
