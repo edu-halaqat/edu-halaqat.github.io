@@ -267,8 +267,11 @@ async function showTalaqqinOutcomeCard(row,assessment,attendance,date,circleName
   let lessonTitle='';
   if(assessment){
     if(assessment.assessed_on!==date)throw Error('لا توجد حصيلة محفوظة لهذا اليوم.');
-    lessonTitle=row.currentLessonNo===assessment.lesson_no?row.lesson?.title||'':'';
-    if(!lessonTitle&&!assessment.custom_lesson_id&&assessment.lesson_no){
+    // The dated assessment is the source of truth, even after progress advances.
+    if(assessment.custom_lesson_id){
+      const lesson=await result(sb().from('talaqqin_custom_lessons').select('title').eq('id',assessment.custom_lesson_id).maybeSingle());
+      lessonTitle=lesson?.title||'الدرس الخاص';
+    }else if(assessment.lesson_no){
       const lesson=await result(sb().from('talaqqin_lessons').select('lesson_title').eq('lesson_no',assessment.lesson_no).maybeSingle());
       lessonTitle=lesson?.lesson_title||'';
     }
@@ -843,11 +846,12 @@ async function outcomesPage(root){
       box.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">حلقات التلقين</span><h3>جلسة التلقين اليومية</h3><p>اختر تقدير درس نور البيان أمام اسم الطالب، ثم احفظ حصيلته مباشرة. إدارة الخطط والدروس الخاصة من صفحة الخطط.</p></div></section>'+
        '<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الغياب والتأخر والاستئذان.</small></div><div class="sl-bulk-actions">'+button('الجميع حاضر','tl-all-present')+button('حفظ التحضير','tl-save-attendance')+'</div></div><div class="sl-att-summary">'+summary()+'</div>'+
        (items.length?'<div class="sl-student-grid">'+items.map((r,i)=>{
-        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status),mismatch=!!(saved&&!isCustom&&placed&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no));
+        const ll=r.lesson||{},saved=assessmentMap.get(r.studentId),draft=talaqqinDrafts.get(r.studentId)||{},chosen=draft.rating??saved?.rating??'',placed=!!r.placementSet,pg=ll.pageFrom?('صفحة '+ll.pageFrom+(ll.pageTo!==ll.pageFrom?'–'+ll.pageTo:'')):(placed?'القراءة من المصحف':'—'),isCustom=r.lessonSource==='custom',blocked=['absent','excused'].includes(states[i].status),mismatch=!!(saved&&!isCustom&&placed&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no)),savedTitle=saved?(storedTitles.get(saved.lesson_no)||(saved.custom_lesson_id?'الدرس الخاص':'الدرس رقم '+saved.lesson_no)):'',advanced=!!(saved&&!isCustom&&Number(r.currentLessonNo)>Number(saved.lesson_no));
         return '<article class="sl-student-card" data-tl-card="'+i+'"><header><div class="sl-student-no">'+(i+1)+'</div><div><h3>'+esc(r.fullName)+'</h3><small>منهج نور البيان</small></div></header>'+
          '<div class="sl-att-grid">'+attChoices(i,states[i].status)+'</div>'+
          '<label class="sl-note">ملاحظة الحضور<input data-tl-note="'+i+'" value="'+esc(states[i].note)+'" placeholder="ملاحظة اختيارية"></label>'+
-         '<section class="sl-track"><div class="sl-track-head"><div><b>'+(isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—')))+'</span></div></div>'+
+         '<section class="sl-track"><div class="sl-track-head"><div><b>'+(saved?'الدرس الذي سُمِّع في هذا التاريخ':isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(saved?savedTitle:(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—'))))+'</span></div></div>'+
+          (advanced?'<p class="sl-help"><b>الدرس التالي بعد الحصيلة:</b> '+esc(ll.title||('رقم '+r.currentLessonNo))+'</p>':'')+
          '<p class="sl-help">'+(placed?(esc(ll.unitName||'')+' · '+esc(pg)):'حدد موضع بداية الطالب من زر «تحديد موضع البداية» قبل التقييم.')+'</p>'+
          (blocked?'<p class="sl-absence-note">الطالب '+(states[i].status==='absent'?'غائب':'مستأذن')+'؛ لا يسجل له تقييم درس اليوم.</p>':'')+
          (mismatch?'<p class="sl-absence-note" role="alert">تنبيه: حصيلة اليوم محفوظة لدرس «'+esc(storedTitles.get(saved.lesson_no)||('رقم '+saved.lesson_no))+'»، بينما موضع الطالب الحالي «'+esc(ll.title||('رقم '+r.currentLessonNo))+'». يجب تصحيح ارتباط الحصيلة بالدرس قبل التقدير والمشاركة.</p>':'')+
@@ -930,8 +934,11 @@ async function outcomesPage(root){
             .order('created_at',{ascending:false}).limit(1));
           if(!confirmed?.length||confirmed[0].rating!==rating||(confirmed[0].notes||'')!==(notes||''))
             throw Error('تعذر تأكيد التعديل من قاعدة البيانات. راجع السجل قبل محاولة الحفظ مجددًا.');
+          const savedPosition=save.getBoundingClientRect().top;
           talaqqinDrafts.delete(r.studentId);
           await renderTalaqqin();
+          const freshSave=box.querySelector('[data-action="tl-save-'+i+'"]');
+          if(freshSave)window.scrollBy(0,freshSave.getBoundingClientRect().top-savedPosition);
           const progressNote=response?.progressAction==='reverted'?' أُعيد الطالب إلى الدرس لتكراره.':
             response?.progressAction==='advanced'?' تم تحديث تقدم الطالب إلى الدرس التالي.':
             response?.progressAction==='preserved'?' حُفظت الدرجة مع الحفاظ على دروسه اللاحقة.':'';
@@ -956,7 +963,11 @@ async function outcomesPage(root){
         });
         const share=box.querySelector('[data-action="tl-card-'+i+'"]');
         if(share)action(box,share,async()=>{
-          const saved=assessmentMap.get(r.studentId),savedAttendance=attMap.get(r.studentId)?.status||'';
+          const freshRows=await result(sb().from('talaqqin_assessments')
+            .select('id,student_id,lesson_no,custom_lesson_id,rating,notes,assessed_on,updated_at')
+            .eq('student_id',r.studentId).eq('assessed_on',date)
+            .order('updated_at',{ascending:false}).limit(1));
+          const saved=freshRows[0]||null,savedAttendance=attMap.get(r.studentId)?.status||'';
           if(!saved&&!['absent','excused','late'].includes(savedAttendance))
             throw Error('احفظ حصيلة الطالب قبل مشاركتها.');
           if(saved&&!r.completed&&Number(r.currentLessonNo)<Number(saved.lesson_no))throw Error('صحح درس الحصيلة قبل مشاركتها مع ولي الأمر.');
