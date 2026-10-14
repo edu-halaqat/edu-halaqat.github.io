@@ -1,6 +1,10 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.3.0';
+window.__SanabilLiveBuild='20261015-v13.4.0';
+const THEME_KEY='sanabil-theme-v1';
+const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
+  try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
+try{applySanabilTheme(localStorage.getItem(THEME_KEY)==='dark')}catch{}
 const titles={dashboard:'الرئيسية',students:'الطلاب والمعلمون',outcomes:'الحصيلة اليومية',plans:'الخطط التعليمية',attendance:'الحضور والبصمة',tests:'الاختبارات',supervision:'الزيارات الإشرافية',inquiries:'الاستعلامات',reports:'التقارير والإحصاءات',settings:'إعدادات المنصة'};
 const roles={admin:'مدير النظام',manager:'مدير المؤسسة',supervisor:'مشرف مجمع',teacher:'معلم',examiner:'مختبر'};
 const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
@@ -2644,7 +2648,7 @@ async function dashboard(root){
      '</section>';
  }
  const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(a.profile?.display_name||'بك')}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
 
 
  if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
@@ -2662,6 +2666,12 @@ async function dashboard(root){
    });
  }
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
+ const themeButton=root.querySelector('[data-action="toggle-theme"]');
+ if(themeButton)action(root,themeButton,()=>{
+   const dark=document.documentElement.dataset.sanabilTheme!=='dark';
+   applySanabilTheme(dark);
+   themeButton.textContent=dark?'☀️ الوضع الفاتح':'🌙 الوضع الليلي';
+ });
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
