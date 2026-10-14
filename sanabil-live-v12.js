@@ -1827,16 +1827,31 @@ async function plansPage(root){
           if(error)throw Error(error.message);
           const total=count||0,totalPages=Math.max(1,Math.ceil(total/pageSize));
           if(currentPage>=totalPages){currentPage=totalPages-1;return render()}
+          // Holidays remain visible in the plan calendar without being teaching
+          // assignments or being counted as an uncompleted lesson.
+          const first=days?.[0]?.date_key||p.start_date;
+          const last=days?.[days.length-1]?.date_key||p.start_date;
+          const dates=await rpc('get_student_classified_dates_guarded',{
+            p_student_id:p.student_id,
+            p_from:currentPage===0?p.start_date:first,
+            p_to:last
+          });
+          const holidays=(dates||[]).filter(x=>x.type==='holiday').map(x=>({
+            date_key:x.date,specialHoliday:true
+          }));
+          const displayed=[...days,...holidays].sort((a,b)=>
+            String(a.date_key).localeCompare(String(b.date_key))||Number(!!b.specialHoliday)-Number(!!a.specialHoliday));
           const intro=p.type==='recent_review'
             ?'<p class="sl-help">هذه الأيام مشتقة تلقائيًا من نهاية درس الطالب. لا تُستثنى المراجعة الصغرى منفردة؛ عند غياب الطالب أو استثناء يوم الدرس يعيد النظام اشتقاقها من خطة الحفظ.</p>'
             :qpcUnits.has(p.unit)?'<p class="sl-help">المقادير هنا وحدات تحزيب كاملة من المصحف المدني وليست تقديرًا بعدد الصفحات.</p>':'<p>المقرر يعرض مقاطع كل سورة صراحةً.</p>';
           b.innerHTML=intro+'<div class="sl-toolbar"><span>عرض '+(currentPage*pageSize+1)+'–'+Math.min(total,(currentPage+1)*pageSize)+' من '+total+' يوم · الصفحة '+(currentPage+1)+' من '+totalPages+'</span>'
             +'<button type="button" class="button button-soft" data-action="plan-prev" '+(currentPage===0?'disabled':'')+'>السابق</button>'
             +'<button type="button" class="button button-soft" data-action="plan-next" '+(currentPage>=totalPages-1?'disabled':'')+'>التالي</button></div>'
-            +table(['التاريخ','المقرر بالتفصيل','المطلوب','الدورة','المنجز','الحالة','إجراء'],days.map((d,j)=>[
+            +table(['التاريخ','المقرر بالتفصيل','المطلوب','الدورة','المنجز','الحالة','إجراء'],displayed.map(d=>
+            d.specialHoliday?[esc(d.date_key),'إجازة ضمن تقويم الخطة — دون مقرر أو تقصير','—','—','—','إجازة','—']:[
             esc(d.date_key),esc(segmentsOnlyText(d.segments)||(qref(d.target_from)+' ← '+qref(d.target_to))),
             esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit),esc(d.cycle_no||1),esc(d.completed_amount),esc(d.status),
-            p.type==='recent_review'?'يتبع الدرس':d.rating?'تم الرصد':button('استثناء اليوم','x'+j)
+            p.type==='recent_review'?'يتبع الدرس':d.rating?'تم الرصد':button('استثناء اليوم','x'+days.indexOf(d))
           ]));
           action(b,b.querySelector('[data-action="plan-prev"]'),async()=>{if(currentPage>0){currentPage--;await render()}});
           action(b,b.querySelector('[data-action="plan-next"]'),async()=>{if(currentPage<totalPages-1){currentPage++;await render()}});
