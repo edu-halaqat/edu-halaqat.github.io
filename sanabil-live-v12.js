@@ -548,7 +548,7 @@ async function parseEntityDatabaseNative(file){
  return{payload:{complexes:[],mosques:[],circles:[],teachers:[],students},validation:{errors,warnings,counts:{complexes:0,mosques:0,circles:0,teachers:0,students:students.length}},source:{entityName,complex,circleRows:circleRows.length}};
 }
 
-const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261013-v13.2.2'};
+const guardianLink=async studentId=>{const r=await rpc('get_or_create_guardian_access',{p_student_id:studentId});return location.origin+'/guardian.html?code='+encodeURIComponent(r.code)+'&v=20261015-v13.4.0'};
 
 async function shareStudentWeekOnWhatsapp(studentId,studentName,knownPhone=''){
   const popup=window.open('about:blank','_blank');
