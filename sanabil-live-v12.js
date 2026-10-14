@@ -895,6 +895,40 @@ function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,h
   });
 }
 
+
+function showFamilyExcuses(box,requests){
+  box.querySelector('.sl-family-excuses')?.remove();
+  if(!requests?.length)return;
+  const notice=document.createElement('section');notice.className='sl-family-excuses';
+  const display=()=>{
+    notice.innerHTML='<h3>طلبات استئذان أولياء الأمور</h3>'+
+      '<div class="sl-family-excuse-list">'+requests.map((r,i)=>
+      '<article class="sl-family-excuse"><b>'+esc(r.studentName||'الطالب')+'</b>'+
+      '<span>'+esc({health:'ظرف صحي',family:'ظرف عائلي',travel:'سفر',other:'سبب آخر'}[r.reason]||r.reason)+'</span>'+
+      (r.note?'<small>'+esc(r.note)+'</small>':'')+
+      '<span class="sl-family-excuse-state">'+esc({pending:'بانتظار القرار',approved:'معتمد',declined:'غير معتمد'}[r.status]||r.status)+'</span>'+
+      (r.status==='pending'?'<div class="sl-family-excuse-buttons"><button type="button" data-approve-excuse="'+i+'">اعتماد</button>'+
+        '<button type="button" data-decline-excuse="'+i+'">عدم الاعتماد</button></div>':'')+'</article>').join('')+'</div>'+
+      '<p class="sl-help">استئذان الأسرة طلب للمراجعة؛ اعتماد الطلب لا يغيّر التحضير تلقائيًا. حدّد الطالب «مستأذن» أثناء التحضير ثم احفظه.</p>';
+    requests.forEach((r,i)=>['approved','declined'].forEach(kind=>{
+      const button=notice.querySelector('[data-'+(kind==='approved'?'approve':'decline')+'-excuse="'+i+'"]');
+      if(!button)return;
+      button.onclick=async()=>{
+        button.disabled=true;
+        try{
+          const confirmed=await rpc('review_guardian_excuse_guarded',{
+            p_student_id:r.studentId,p_date:r.date,p_decision:kind,p_note:null
+          });
+          r.status=confirmed.status;display();
+          msg(box,'تم تحديث طلب الاستئذان. استكمل حفظ حضور الطالب من بطاقته.');
+        }catch(e){button.disabled=false;msg(box,e.message,true)}
+      };
+    }));
+  };
+  display();
+  box.prepend(notice);
+}
+
 async function outcomesPage(root){
  const l=await lookups();
  const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
@@ -916,6 +950,8 @@ async function outcomesPage(root){
   const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
   const dayData=await rpc('get_day_types_guarded',{p_circle_id:circle,p_date:date});
+  const familyRequests=await rpc('get_guardian_excuses_for_circle_guarded',
+    {p_circle_id:circle,p_date:date}).catch(e=>{console.warn('تعذر قراءة طلبات استئذان الأسر',e);return[]});
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
   const activeKind=id=>effectiveDayKind(dayData,id);
   const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
@@ -1005,6 +1041,7 @@ async function outcomesPage(root){
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
        }).join('')+'</div>':'<p class="sl-message">لا يوجد طلاب نشطون مسندون إلى حلقة التلقين حاليًا.</p>');
+      showFamilyExcuses(box,familyRequests);
       addDayToolbar(box);
       attachStudentDayKindControls(box,items,dayData,{circle,date,reload:reloadDay,hasDrafts:()=>talaqqinDrafts.size>0||attendanceDrafts.size>0});
       installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
@@ -1408,6 +1445,7 @@ async function outcomesPage(root){
 <option value="excused" ${states[i].absenceReason==='excused'?'selected':''}>غياب بعذر</option>
 <option value="unexcused" ${states[i].absenceReason==='unexcused'?'selected':''}>غياب بدون عذر</option>
 </select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}</div>${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+  showFamilyExcuses(box,familyRequests);
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
     hasDrafts:()=>Object.keys(drafts).length>0});
