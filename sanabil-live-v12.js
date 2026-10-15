@@ -845,7 +845,7 @@ const teachersForCircle=(data,circleId)=>{
 const teacherAssignmentInfo=(data,circleId)=>{
  const linked=teacherLinkForCircle(data,circleId),legacy=data.teachers.filter(t=>t.circle_id===circleId);
  return {primary:linked[0]||(legacy.length===1?legacy[0]:null),
-    legacyConflict:legacy.length>1||linked.length>1,
+    legacyConflict:legacy.length>1||linked.length>1||(linked.length>0&&legacy.some(t=>!linked.some(a=>a.id===t.id))),
     mismatches:legacy.filter(t=>linked.length&&!linked.some(a=>a.id===t.id))
  };
 };
@@ -886,7 +886,11 @@ async function studentsPage(root){
    msg(root,'حُفظ إسناد الحلقة بعد التحقق من عدم تعارض الفترات. لم تُحذف بيانات المعلمين أو الطلاب.');
   });
  });
- action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>[x.circle_id,...(l.circleTeachers||[]).filter(link=>link.teacher_id===x.id&&link.active!==false).map(link=>link.circle_id)]).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'غير مسند')]}))});
+ action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>{
+  const assigned=(l.circleTeachers||[]).filter(link=>link.teacher_id===x.id&&link.active!==false).map(link=>link.circle_id);
+  if(x.circle_id&&!teacherLinkForCircle(l,x.circle_id).length&&teachersForCircle(l,x.circle_id).some(t=>t.id===x.id))assigned.push(x.circle_id);
+  return assigned;
+ }).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'لا يوجد إسناد معتمد')]}))});
  action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
  if(canImport)action(root,root.querySelector('[data-action="import-entity-db"]'),()=>{
    const b=modal('استيراد قاعدة بيانات الجهة');
@@ -921,7 +925,11 @@ async function studentsPage(root){
   let q=sb().from('students').select('*').eq('active',true).order('full_name').order('id').range(page*50,page*50+49);
   if(term)q=q.ilike('full_name','%'+term.replace(/[%_]/g,'')+'%');
   if(circleFilter)q=q.eq('circle_id',circleFilter);
-  if(teacherFilter)q=q.eq('teacher_id',teacherFilter);
+  if(teacherFilter){
+   const teacher=l.teachers.find(x=>x.id===teacherFilter);
+   const ids=teacher?.user_id?l.teachers.filter(x=>x.user_id===teacher.user_id).map(x=>x.id):[teacherFilter];
+   if(ids.length>1)q=q.in('teacher_id',ids);else q=q.eq('teacher_id',ids[0]);
+  }
   current=await result(q);
   root.querySelector('.sl-data').innerHTML=table([canMove?'اختيار':'#','الاسم','العمر','المستوى','الحلقة','نوع الحلقة','المعلم','ولي الأمر','الإجراءات'],current.map((s,i)=>[
    canMove?`<input type="checkbox" data-student-select="${esc(s.id)}" ${selected.has(s.id)?'checked':''} aria-label="اختيار ${esc(s.full_name)}">`:esc(i+1),
