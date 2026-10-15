@@ -849,6 +849,30 @@ const teacherAssignmentInfo=(data,circleId)=>{
     mismatches:legacy.filter(t=>linked.length&&!linked.some(a=>a.id===t.id))
  };
 };
+const teacherAssignmentWarnings=data=>{
+ const warnings=[];
+ for(const c of data.circles||[]){
+  const info=teacherAssignmentInfo(data,c.id);
+  if(info.legacyConflict)warnings.push('الحلقة «'+c.name+'»: سجلات معلمين قديمة تخالف المعلم المعتمد؛ يرجى مراجعتها دون حذف السجل التعليمي.');
+ }
+ const groups=new Map();
+ for(const link of data.circleTeachers||[]){
+  if(link.active===false)continue;
+  const c=data.circles.find(x=>x.id===link.circle_id),t=data.teachers.find(x=>x.id===link.teacher_id);
+  if(!c||!t)continue;
+  const key=(t.user_id||t.id)+'::'+(c.session_period||'غير محدد');
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push({circle:c,teacher:t});
+ }
+ for(const group of groups.values()){
+  if(group.length>1)warnings.push('المعلم «'+group[0].teacher.full_name+'» له عدة حلقات في فترة «'+(group[0].circle.session_period||'غير محدد')+'»: '+group.map(x=>x.circle.name).join('، ')+'؛ يلزم التحقق من أيامها الفعلية.');
+ }
+ return [...new Set(warnings)];
+};
+const teacherWarningsHtml=data=>{
+ const w=teacherAssignmentWarnings(data);
+ return w.length?'<section class="sl-assignment-warning" role="note"><strong>إسنادات قائمة تحتاج مراجعة ('+w.length+')</strong><ul>'+w.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p>لم تتغير سجلات الطلاب أو المعلمين تلقائيًا.</p></section>':'';
+};
 function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,teachersForCircle(data,ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
 async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
 async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.')})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
@@ -858,7 +882,7 @@ async function studentsPage(root){
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
  if(canMove)action(root,root.querySelector('[data-action="teacher-assign"]'),()=>{
   const b=modal('إسناد أكثر من حلقة للمعلم');
-  b.innerHTML='<form><p class="sl-help">يسمح بإسناد معلم لعدة حلقات دون تداخل أيام وفترات العمل. لا يتغير معلم الطلاب السابقين تلقائيًا.</p><div class="form-grid two">'+
+  b.innerHTML=teacherWarningsHtml(l)+'<form><p class="sl-help">يسمح بإسناد معلم لعدة حلقات دون تداخل أيام وفترات العمل. لا يتغير معلم الطلاب السابقين تلقائيًا.</p><div class="form-grid two">'+
     select('المعلم','teacher_id',teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name})))+
     select('الحلقة','circle_id',l.circles.map(c=>({id:c.id,name:c.name+' — '+(c.session_period||'دون فترة')})))+
     '</div><p class="sl-help" data-assignment-preview></p><button type="submit" class="button button-primary">اعتماد إسناد الحلقة</button></form>';
@@ -886,12 +910,12 @@ async function studentsPage(root){
    msg(root,'حُفظ إسناد الحلقة بعد التحقق من عدم تعارض الفترات. لم تُحذف بيانات المعلمين أو الطلاب.');
   });
  });
- action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>{
+ action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=teacherWarningsHtml(l)+table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>{
   const assigned=(l.circleTeachers||[]).filter(link=>link.teacher_id===x.id&&link.active!==false).map(link=>link.circle_id);
   if(x.circle_id&&!teacherLinkForCircle(l,x.circle_id).length&&teachersForCircle(l,x.circle_id).some(t=>t.id===x.id))assigned.push(x.circle_id);
   return assigned;
  }).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'لا يوجد إسناد معتمد')]}))});
- action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
+ action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=teacherWarningsHtml(l)+table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
  if(canImport)action(root,root.querySelector('[data-action="import-entity-db"]'),()=>{
    const b=modal('استيراد قاعدة بيانات الجهة');
    b.innerHTML=`<p>اختر ملف قاعدة بيانات الجهة الأصلي كما صدر من نموذج الجمعية. سيقرأ النظام ورقة الطلاب والحلقات، ويسند كل طالب تلقائيًا إلى الحلقة الأساسية لمعلمه.</p><label>ملف قاعدة البيانات<input type="file" name="entity_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div class="sl-import-preview"><p>لم يتم اختيار ملف بعد.</p></div><button type="button" class="button button-primary" data-action="run-import" disabled>استيراد الطلاب إلى المنصة</button>`;
