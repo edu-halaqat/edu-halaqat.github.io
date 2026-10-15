@@ -43,3 +43,11 @@ html[data-sanabil-theme="dark"] .sl-peer-outcome-search input{background:#1b4540
 .sl-peer-panel .sl-peer-header{gap:3px}
 .sl-peer-panel button{font-size:12px}
 }
+
+/* Actionable assignment anomalies, visible in teacher and circle administration. */
+.sl-assignment-warning{border:1px solid #d8bd88;border-inline-start:5px solid #b68b38;border-radius:12px;background:#f9f4e9;color:#493a1c;padding:12px 15px;line-height:1.75;margin:10px 0}
+.sl-assignment-warning strong{font-size:14px}
+.sl-assignment-warning ul{margin:6px 0;padding-inline-start:21px}
+.sl-assignment-warning li{font-size:12px;margin:4px 0}
+.sl-assignment-warning p{font-size:11px;margin:6px 0 0}
+html[data-sanabil-theme="dark"] .sl-assignment-warning{background:#293a35;color:#f7e8c7;border-color:#a59057}
