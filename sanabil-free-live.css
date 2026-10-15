@@ -11,5 +11,10 @@
 .sl-peer-waitrow span{flex:1;min-width:170px}
 html[data-sanabil-theme="dark"] .sl-peer-panel{background:#123235;color:#e5edea;border-color:#446963}
 html[data-sanabil-theme="dark"] .sl-peer-panel button{color:#f4ede2}
-@media(min-width:1050px){.sl-peer-panel{position:sticky;top:8px;z-index:12}}
+@media(min-width:1050px){
+.sl-peer-active{display:grid;grid-template-columns:minmax(300px,41%) minmax(0,1fr);gap:10px;align-items:start}
+.sl-peer-active>.sl-session-head,.sl-peer-active>.sl-session-filter{grid-column:1/-1}
+.sl-peer-active>.sl-peer-panel{grid-column:1;grid-row:3;position:sticky;top:8px;z-index:12}
+.sl-peer-active>.sl-data{grid-column:2;grid-row:3;min-width:0}
+}
 @media(max-width:600px){.sl-peer-panel{padding:8px}.sl-peer-videos video{height:140px}.sl-peer-videos video:nth-child(2){height:110px}}
