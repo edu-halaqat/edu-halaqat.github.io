@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.4.1';
+window.__SanabilLiveBuild='20261015-v13.4.2';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -65,7 +65,22 @@ const ensureCircleSession=async(circle,date,refresh=false)=>{
  return data;
 };
 const rows=async(table,select='*',filters={})=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select(select).order('id').range(offset,offset+499);for(const [k,v] of Object.entries(filters))q=q.eq(k,v);const data=await result(q);all.push(...data);if(data.length<500)return all;}};
-const access=async()=>{const a=await rpc('my_access',{});if(!a?.active)throw Error('الحساب غير نشط؛ راجع مدير النظام.');window.SanabilAccessSync?.(a);flushOfflineQueue().catch(()=>{});return a};
+let accessCached=null,accessAt=0,accessPending=null,accessGeneration=0;
+const access=async()=>{
+ if(accessCached&&Date.now()-accessAt<12000)return accessCached;
+ if(accessPending)return accessPending;
+ const generation=accessGeneration;
+ const pending=rpc('my_access',{}).then(a=>{
+   if(generation!==accessGeneration)throw Error('تغيّرت جلسة الدخول؛ أعد فتح الصفحة.');
+   if(!a?.active)throw Error('الحساب غير نشط؛ راجع مدير النظام.');
+   accessCached=a;accessAt=Date.now();
+   window.SanabilAccessSync?.(a);
+   flushOfflineQueue().catch(()=>{});
+   return a;
+ }).finally(()=>{if(accessPending===pending)accessPending=null});
+ accessPending=pending;
+ return pending;
+};
 const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
 const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;try{await fn()}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false}});return button};
 const navigateView=key=>{const label=titles[key],short={dashboard:'الرئيسية',attendance:'البصمة',outcomes:'الحصيلة',plans:'الخطط',tests:'الاختبارات',students:'الطلاب',supervision:'الإشراف',inquiries:'استعلام',reports:'التقارير',settings:'الإعدادات'}[key];const buttons=[...document.querySelectorAll('.tabs button,.mobile-nav button,.sheet-grid button')],b=buttons.find(x=>x.textContent.trim()===label)||buttons.find(x=>x.textContent.trim()===short);if(b){b.click();return}location.hash='#'+key;location.reload()};
@@ -2595,7 +2610,47 @@ const cancelCustomTalaqqinLesson=async(root,row,refresh)=>{
  if(refresh)await refresh();else await dashboard(root);
 };
 async function dashboard(root){
- const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
+ const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r));
+ const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
+ const profileGreeting=String(a.profile?.display_name||'').trim();
+ const greetingName=profileGreeting&&!profileGreeting.includes('@')?profileGreeting:'بك';
+ root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section><div class="sl-toolbar">${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}</div>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><details class="sl-dashboard-metrics"><summary><span aria-hidden="true">📊</span> المؤشرات والتقارير التفصيلية <small>اضغط للعرض عند الحاجة</small></summary><div class="sl-dashboard-metrics-content"><p class="sl-help">ستُحمّل الإحصائيات عند فتح هذا القسم لتبقى إجراءاتك اليومية أسرع.</p></div></details>`;
+ root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
+ const themeButton=root.querySelector('[data-action="toggle-theme"]');
+ if(themeButton)action(root,themeButton,()=>{
+   const dark=document.documentElement.dataset.sanabilTheme!=='dark';
+   applySanabilTheme(dark);
+   themeButton.textContent=dark?'☀️ الوضع الفاتح':'🌙 الوضع الليلي';
+ });
+ let metricsRequested=false;
+ const metrics=root.querySelector('.sl-dashboard-metrics');
+ metrics.addEventListener('toggle',async()=>{
+   if(!metrics.open||metricsRequested)return;
+   metricsRequested=true;
+   const panel=metrics.querySelector('.sl-dashboard-metrics-content');
+   panel.innerHTML='<p class="sl-help" role="status">جارٍ تحميل الإحصائيات والتقارير…</p>';
+   try{await dashboardDetails(panel,a)}
+   catch(e){metricsRequested=false;panel.innerHTML='<p class="sl-message" role="alert">'+esc(e?.message||'تعذر تحميل المؤشرات. أغلق القسم وافتحه مجددًا.')+'</p>'}
+ });
+  if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
+   const home=document.createElement('section');home.className='sl-dashboard-one-tap';
+   home.innerHTML='<h3>جلسة الحلقة من الرئيسية</h3><p>تحضير الطلاب وتقييم الحفظ والمراجعات والحفظ الفردي في الشاشة نفسها.</p>'+
+     '<div data-home-live-session><p class="sl-help">جارٍ تجهيز الطلاب والمقررات…</p></div>';
+   root.querySelector('.sl-quick-grid')?.insertAdjacentElement('afterend',home);
+   const panel=home.querySelector('[data-home-live-session]');
+   outcomesPage(panel).then(()=>{
+      panel.querySelector('[data-action="load"]')?.click();
+   }).catch(e=>{
+      panel.innerHTML='<p class="sl-message">'+esc(e?.message||'تعذر فتح الجلسة')+'</p>'+
+        '<button type="button" class="button button-primary" data-home-open-outcomes>فتح صفحة الحصيلة</button>';
+      panel.querySelector('[data-home-open-outcomes]').onclick=()=>navigateView('outcomes');
+   });
+ }
+
+ await window.SanabilSupervision?.decorateDashboard?.(root,a);
+}
+async function dashboardDetails(root,a){
+ const rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
  const count=async(table,filters={})=>{let q=sb().from(table).select('id',{count:'exact',head:true});for(const [k,v]of Object.entries(filters))q=q.eq(k,v);const r=await q;if(r.error)throw Error(r.error.message);return r.count||0};
  const [studentsN,teachersN,teacherAttendanceN,quranToday,talaqqinToday,pendingExamN,activePlansN]=await Promise.all([
     count('students',{active:true}),count('teachers',{active:true}),count('attendance',{date_key:today()}),
@@ -2649,33 +2704,9 @@ async function dashboard(root){
        (behindIds.length>16?' · وآخرون':'')+'</p>':'<p>لا توجد مقررات متأخرة ضمن الأيام المعروضة.</p>')+
      '</section>';
  }
- const quick=rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:isSupervisor?[['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء'],['الطلاب','students','المتابعة التعليمية']]:isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:[['الاختبارات','tests','إدارة الاختبارات']];
- const profileGreeting=String(a.profile?.display_name||'').trim();
- const greetingName=profileGreeting&&!profileGreeting.includes('@')?profileGreeting:'بك';
- root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
+ root.innerHTML=`<div class="stats-grid">${cards.map(([k,v])=>`<article class="stat-card"><span>${esc(k)}</span><b>${esc(v)}</b></article>`).join('')}</div>${charts}${announcements.length?'<section class="sl-tasks"><h3>الإعلانات والمناسبات</h3>'+announcements.map(x=>'<article class="sl-announcement"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</section>':''}<section class="sl-tasks"><h3>ما يحتاج الانتباه</h3>${alerts.length?'<ul>'+alerts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>لا توجد تنبيهات تشغيلية ظاهرة الآن.</p>'}</section>${risky.length?'<section class="sl-tasks"><h3>متابعة تعليمية مقترحة</h3>'+table(['الطالب','عدم الإنجاز','أخطاء/شك/تجويد'],risky.map(x=>[esc(x.name),esc(x.fails),esc(x.details)]))+'<p>يظهر الطالب هنا عند تكرر «لم يحفظ/لم يسمع» مرتين أو وصول تفاصيل الأخطاء والتردد والتجويد إلى 5 فأكثر خلال آخر 14 يومًا.</p></section>':''}<div class="sl-toolbar">${canAnnounce?button('إضافة إعلان / مناسبة','announce'):''}${isAdmin?button('إدارة المستخدمين','users'):''}</div><p>آخر تحديث: ${esc(new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh'}))}</p>`;
 
 
- if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
-   const home=document.createElement('section');home.className='sl-dashboard-one-tap';
-   home.innerHTML='<h3>جلسة الحلقة من الرئيسية</h3><p>تحضير الطلاب وتقييم الحفظ والمراجعات والحفظ الفردي في الشاشة نفسها.</p>'+
-     '<div data-home-live-session><p class="sl-help">جارٍ تجهيز الطلاب والمقررات…</p></div>';
-   root.querySelector('.sl-quick-grid')?.insertAdjacentElement('afterend',home);
-   const panel=home.querySelector('[data-home-live-session]');
-   outcomesPage(panel).then(()=>{
-      panel.querySelector('[data-action="load"]')?.click();
-   }).catch(e=>{
-      panel.innerHTML='<p class="sl-message">'+esc(e?.message||'تعذر فتح الجلسة')+'</p>'+
-        '<button type="button" class="button button-primary" data-home-open-outcomes>فتح صفحة الحصيلة</button>';
-      panel.querySelector('[data-home-open-outcomes]').onclick=()=>navigateView('outcomes');
-   });
- }
- await window.SanabilSupervision?.decorateDashboard?.(root,a);
- const themeButton=root.querySelector('[data-action="toggle-theme"]');
- if(themeButton)action(root,themeButton,()=>{
-   const dark=document.documentElement.dataset.sanabilTheme!=='dark';
-   applySanabilTheme(dark);
-   themeButton.textContent=dark?'☀️ الوضع الفاتح':'🌙 الوضع الليلي';
- });
  root.querySelectorAll('[data-trend-day]').forEach(button=>button.addEventListener('click',()=>{
    const day=trendBuckets.find(x=>x.date===button.dataset.trendDay),key=button.dataset.trendType;
    const info=root.querySelector('[data-trend-info]');if(!day||!info)return;
@@ -2683,13 +2714,12 @@ async function dashboard(root){
       ': '+(day[key]===null?'لا توجد سجلات':day[key]+'%')+
       ' · عدد السجلات: '+(key==='attendance'?day.attendanceCount:day.planCount);
  }));
- root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
   if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
   const l=await lookups(),m=modal('إضافة إعلان أو مناسبة');
   m.innerHTML=`<form><div class="form-grid two">${field('العنوان','title','text','','required')}${select('المجمع (فارغ = كل المؤسسة)','complex_id',l.complexes)}${select('الحلقة (اختياري)','circle_id',l.circles)}${field('يبدأ في','starts_on','date',today(),'required')}${field('ينتهي في','ends_on','date','')}</div><label>نص الإعلان<textarea name="body" rows="5" required style="width:100%"></textarea></label><button class="button button-primary" type="submit">نشر الإعلان</button></form>`;
   const form=m.querySelector('form'),cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]');const fillCircles=()=>{ci.innerHTML='<option value="">كل حلقات المجمع</option>'+l.circles.filter(x=>!cx.value||x.complex_id===cx.value).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')};cx.onchange=fillCircles;fillCircles();
-  submit(form,async()=>{const complex=val(form,'complex_id')||null,circle=val(form,'circle_id')||null;if(rolesNow.includes('supervisor')&&!isAdmin&&!isOrgManager&&!complex)throw Error('المشرف ينشر الإعلان داخل مجمعه؛ اختر المجمع.');if(circle&&!complex)throw Error('اختر المجمع قبل الحلقة.');const ends=val(form,'ends_on')||null;if(ends&&ends<val(form,'starts_on'))throw Error('تاريخ النهاية لا يسبق البداية.');await result(sb().from('announcements').insert({org_id:a.org_id,complex_id:complex,circle_id:circle,title:val(form,'title').trim(),body:form.elements.body.value.trim(),starts_on:val(form,'starts_on'),ends_on:ends,active:true}).select('id').single());m.closest('dialog').close();await dashboard(root)})
+  submit(form,async()=>{const complex=val(form,'complex_id')||null,circle=val(form,'circle_id')||null;if(rolesNow.includes('supervisor')&&!isAdmin&&!isOrgManager&&!complex)throw Error('المشرف ينشر الإعلان داخل مجمعه؛ اختر المجمع.');if(circle&&!complex)throw Error('اختر المجمع قبل الحلقة.');const ends=val(form,'ends_on')||null;if(ends&&ends<val(form,'starts_on'))throw Error('تاريخ النهاية لا يسبق البداية.');await result(sb().from('announcements').insert({org_id:a.org_id,complex_id:complex,circle_id:circle,title:val(form,'title').trim(),body:form.elements.body.value.trim(),starts_on:val(form,'starts_on'),ends_on:ends,active:true}).select('id').single());m.closest('dialog').close();await dashboard(root.closest('.sl-dashboard-metrics')?.parentElement||root)})
  })
 }
 async function settingsPage(root){
@@ -2753,7 +2783,7 @@ async function settingsPage(root){
 }
 async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20261002-v13.0.1';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,supervision:window.SanabilSupervision?.page,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await render(b)}catch(e){msg(b,e.message,true)}}
 window.SanabilLive={mount,usersPanel};window.dispatchEvent(new Event("sanabil-live-ready"));
-window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null});
+window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null;accessCached=null;accessAt=0;accessPending=null;accessGeneration++});
 const style=document.createElement('style');style.textContent=`.sl-live{background:white;border:1px solid #dde5df;border-radius:20px;padding:24px;min-height:300px}.sl-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:15px 0}.sl-live label,.sl-dialog label{display:grid;gap:8px;font-weight:600}.sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select{font:inherit;max-width:100%;min-width:0;padding:10px;border:1px solid #bdccc3;border-radius:8px;background:white}.sl-live table,.sl-dialog table{width:100%;border-collapse:collapse}.sl-live th,.sl-live td,.sl-dialog td,.sl-dialog th{padding:12px;text-align:right;border-bottom:1px solid #e2e9e5}.sl-dialog{direction:rtl;width:min(900px,94vw);max-height:90vh;border:0;border-radius:18px;padding:24px;color:#183c33}.sl-dialog::backdrop{background:#002c2580}.sl-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.sl-dialog fieldset{border:1px solid #ddd;border-radius:12px;margin:12px 0}.sl-live .button,.sl-dialog .button{margin:3px}.sl-message{padding:12px;background:#f3f7f4;border-radius:8px}.sl-tasks{margin:18px 0;padding:16px;border:1px solid #dde5df;border-radius:16px;background:#fbfdfc}.sl-announcement{padding:12px 0;border-bottom:1px solid #e2e9e5}.sl-announcement:last-child{border-bottom:0}.sl-announcement b{color:#00808A}.sl-announcement small{color:#63766e}.sl-import-preview{margin:14px 0}.sl-import-warning{margin:12px 0;padding:14px 16px;border:1px solid #e2c56f;background:#fff8df;color:#6b5313;border-radius:12px;font-weight:600}.sl-dialog .form-grid,.sl-live .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.sl-live .table-wrap{overflow:auto}.sl-data input{width:100%;box-sizing:border-box}.sl-live .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:650px){.sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr}.sl-live{padding:14px}.sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.topbar,.tabs,.mobile-nav,.sl-toolbar,button,.more-sheet{display:none!important}.app-content,.sl-live{margin:0!important;padding:0!important;border:0}.table-wrap{overflow:visible!important}thead{display:table-header-group}tr{break-inside:avoid}body{background:white!important}}`;document.head.append(style);
 
  const talaqqinStyle=document.createElement('style');

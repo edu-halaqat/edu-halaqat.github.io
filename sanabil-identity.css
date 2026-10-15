@@ -568,3 +568,15 @@ html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) table :is(button,.butto
 /* Responsive welcome card: do not overflow on long profile names. */
 .sl-dashboard-welcome>div{min-width:0;max-width:100%}
 .sl-dashboard-welcome h2{font-size:clamp(1.35rem,4.3vw,1.8rem);overflow-wrap:anywhere;word-break:break-word}
+
+/* Fast dashboard: immediate daily actions, lazy metrics with a compact disclosure. */
+.sl-dashboard-metrics{margin:12px 0 16px;border:1px solid #dce7e2;background:#f9fcfa;border-radius:16px;overflow:hidden}
+.sl-dashboard-metrics>summary{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:13px 15px;cursor:pointer;color:#075447;font-weight:750;list-style:none}
+.sl-dashboard-metrics>summary::-webkit-details-marker{display:none}
+.sl-dashboard-metrics>summary small{font-weight:400;color:#54756c;font-size:12px}
+.sl-dashboard-metrics-content{padding:12px 14px;border-top:1px solid #dce7e2}
+.sl-dashboard-metrics-content .stats-grid{margin-top:0}
+html[data-sanabil-theme="dark"] .sl-dashboard-metrics{background:#172c27;border-color:#46635a;color:#e7f1ed}
+html[data-sanabil-theme="dark"] .sl-dashboard-metrics>summary{color:#e7f1ed}
+html[data-sanabil-theme="dark"] .sl-dashboard-metrics>summary small{color:#bdd3c8}
+html[data-sanabil-theme="dark"] .sl-dashboard-metrics-content{border-color:#46635a}
