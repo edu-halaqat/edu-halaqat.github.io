@@ -37,6 +37,8 @@ const flushOfflineQueue=async()=>{
  await window.SanabilOffline.flush((name,args)=>rpcDirect(name,args));
 };
 window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
+window.addEventListener('sanabil-offline-retry',()=>flushOfflineQueue().catch(()=>{}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)flushOfflineQueue().catch(()=>{})});
 navigator.serviceWorker?.addEventListener?.('message',event=>{
  if(event.data?.type==='sanabil-offline-flush-request')flushOfflineQueue().catch(()=>{});
 });
@@ -1011,7 +1013,30 @@ async function outcomesPage(root){
  const circleChoices=l.circles.map(c=>({...c,name:c.name+(circleCounts.has(c.id)?' · '+circleCounts.get(c.id)+' طالبًا':' · لا يوجد طلاب')}));
  const selectedSaved=localStorage.getItem(selectedCircleKey);
  const selectedDefault=l.circles.find(c=>c.id===selectedSaved)||l.circles.find(c=>(circleCounts.get(c.id)||0)>0)||l.circles[0];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}</div><div class="sl-data"></div>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تجهيز دون إنترنت','prepare-offline')}</div><div class="sl-data"></div>`;
+ action(root,root.querySelector('[data-action="prepare-offline"]'),async()=>{
+   if(!navigator.onLine)throw Error('اتصل بالإنترنت لتجهيز بيانات الحلقة ثم يمكنك العمل دون اتصال.');
+   const circle=val(root,'circle'),start=val(root,'date');
+   if(!circle||!start)throw Error('اختر الحلقة وتاريخ البدء أولًا.');
+   if(!window.SanabilOffline)throw Error('محرّك التخزين المحلي غير جاهز.');
+   const calls=[];
+   for(let day=0;day<3;day++){
+     const when=new Date(start+'T12:00:00Z');
+     when.setUTCDate(when.getUTCDate()+day);
+     const date=when.toISOString().slice(0,10);
+     for(const [name,args] of [
+        ['circle_session_access',{p_circle_id:circle,p_date:date}],
+        ['get_day_types_guarded',{p_circle_id:circle,p_date:date}],
+        ['get_daily_assignments',{p_circle_id:circle,p_date:date}],
+        ['get_guardian_excuses_for_circle_guarded',{p_circle_id:circle,p_date:date}]
+     ])calls.push(rpc(name,args));
+   }
+   const ready=await Promise.allSettled(calls);
+   const success=ready.filter(x=>x.status==='fulfilled').length;
+   await offlineSw();
+   if(success!==calls.length)throw Error('جهزت '+success+' من '+calls.length+' مجموعات بيانات. يلزم إكمال تنزيل بيانات الحلقة قبل الاعتماد على العمل دون إنترنت.');
+   msg(root,'اكتمل تجهيز بيانات الحلقة لهذا اليوم واليومين التاليين على الجهاز. افتحها لاحقًا من تطبيق سنابل عند عدم الاتصال.');
+ });
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   localStorage.setItem(selectedCircleKey,circle);
@@ -1318,8 +1343,10 @@ async function outcomesPage(root){
     }
     return [s.studentId,m];
   }));
-  const absences=await result(sb().from('student_attendance').select('student_id,absence_reason')
-     .eq('circle_id',circle).eq('date_key',date));
+  const absenceLoader=()=>result(sb().from('student_attendance').select('student_id,absence_reason').eq('circle_id',circle).eq('date_key',date));
+  const absences=await (window.SanabilOffline
+   ?window.SanabilOffline.readThrough('absence-reasons:'+circle+':'+date,absenceLoader).catch(e=>{if(!navigator.onLine)return [];throw e})
+   :absenceLoader());
   const reasonMap=new Map(absences.map(x=>[x.student_id,x.absence_reason||'']));
   const states=students.map(s=>({
     attendance:s.attendanceStatus||'',
