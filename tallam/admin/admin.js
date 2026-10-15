@@ -8,7 +8,8 @@
     revisionEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision-admin",
     exportEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-applications-export",
     firstAdminEmail: "Mad3@tallam.sa",
-    authStorageKey: "tallam-admin-auth-v1"
+    authStorageKey: "tallam-admin-auth-v1",
+    adminRedirectUrl: "https://edu-halaqat.github.io/tallam/admin/"
   });
 
   const statusLabels = {
@@ -225,7 +226,7 @@
     magicLinkBtn.disabled = true;
     magicLinkBtn.textContent = "جارٍ إرسال الرابط…";
     try {
-      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const redirectTo = CONFIG.adminRedirectUrl;
       const { error } = await client.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: redirectTo, shouldCreateUser: false }
@@ -233,7 +234,10 @@
       if (error) throw error;
       message(loginMessage, `أُرسل رابط دخول آمن إلى ${email}. افتح الرسالة واضغط الرابط لإتمام التفعيل.`, "success");
     } catch (error) {
-      message(loginMessage, error?.message || "تعذر إرسال رابط الدخول.");
+      const rateLimited = /email rate limit exceeded|over_email_send_rate_limit|rate limit/i.test(String(error?.message || ""));
+      message(loginMessage, rateLimited
+        ? "تم تجاوز الحد المسموح لإرسال رسائل الدخول. يُرجى الانتظار ثم المحاولة لاحقًا، أو تسجيل الدخول بكلمة المرور."
+        : (error?.message || "تعذر إرسال رابط الدخول."));
     } finally {
       magicLinkBtn.disabled = false;
       magicLinkBtn.textContent = "إرسال رابط دخول إلى البريد";
