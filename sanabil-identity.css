@@ -586,3 +586,252 @@ button.sl-action-pending{cursor:progress!important;position:relative;opacity:.85
 button.sl-action-pending::after{content:"";display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-inline-start:9px;border:2px solid currentColor;border-left-color:transparent;border-radius:50%;animation:sl-action-spinner .65s linear infinite}
 @keyframes sl-action-spinner{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){button.sl-action-pending::after{animation:none}}
+
+
+/* V13.4.4 | complete night-surface correction
+   App-only. The parent portal, printed reports and Quran image previews keep
+   their original presentation. CSS overrides old V8/V11 hard-coded whites. */
+html[data-sanabil-theme="dark"] {
+  color-scheme: dark;
+  --sl-night-bg:#101f1b;
+  --sl-night-card:#19352e;
+  --sl-night-inner:#24473e;
+  --sl-night-border:#47695d;
+  --sl-night-text:#f2faf6;
+  --sl-night-muted:#c2dacd;
+  --sl-night-accent:#9fe8d4;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) {
+  color:var(--sl-night-text)!important;
+  color-scheme:dark;
+}
+/* The white circle/date panel and every existing page's main white cards. */
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-session-filter,.sl-filterbar,.sl-student-card,
+  .sl-student-card.is-absent,.sl-plan-card,.sl-plan-builder,
+  .sl-review-builder,.sl-quick-action,.sl-window-grid article,
+  .sl-tasks,.sl-dashboard-one-tap,.sl-family-excuses,
+  .sl-family-excuse,.sl-inline-lesson-editor,.sl-outcome-session,
+  .sl-outcome-savebar,.sl-savebar,.sl-empty,.sl-student-card-preview,
+  .sl-dashboard-metrics,.sl-stats-detail,.stat-card,
+  .sl-tl-history-row,.sl-student-info,.sl-plan-facts,
+  .sl-student-profile,.sl-details-body,.sl-plan-section
+),
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  .sl-plan-card,.sl-student-card,.sl-tl-history-row,.sl-details-body,
+  .sl-form-card,.sl-card,.sl-plan-facts
+) {
+  background:var(--sl-night-card)!important;
+  background-image:none!important;
+  color:var(--sl-night-text)!important;
+  border-color:var(--sl-night-border)!important;
+}
+/* Nested sections, status tiles, attendance chips, and seemingly-white buttons. */
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-track,.sl-track.is-empty,.sl-plan-facts span,.sl-pick,
+  .sl-plan-type,.sl-plan-status,.sl-cycle-note,.sl-rule-note,
+  .sl-att-summary span,.sl-att-summary span.warn,
+  .sl-choice,.sl-grade-grid .sl-choice,
+  .sl-student-no,.sl-metric-counter,.sl-metric-buttons button,
+  .sl-window,.sl-help,.sl-outcome-info,.sl-outcome-info-empty,
+  .sl-outcome-readonly,.sl-tl-card-preview,.sl-tl-more,
+  .sl-tl-history-editor,.sl-family-excuse-state,.sl-trend-track,
+  .sl-plan-start,.sl-note-panel,.sl-card-actions .button-soft
+),
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  .sl-track,.sl-choice,.sl-help,.sl-rule-note,.sl-plan-facts span,
+  .sl-tl-history-editor,.sl-tl-card-preview
+) {
+  background:var(--sl-night-inner)!important;
+  background-image:none!important;
+  color:var(--sl-night-text)!important;
+  border-color:var(--sl-night-border)!important;
+}
+/* Case shown in the screenshot: all status indicators become dark, readable pills. */
+html[data-sanabil-theme="dark"] .sl-live .sl-att-summary {
+  background:transparent!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-att-summary span {
+  background:#25483e!important;
+  border:1px solid #527a69!important;
+  color:#edf9f2!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-att-summary span.warn {
+  background:#4c4026!important;
+  color:#ffdf9c!important;
+  border-color:#897248!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-att-summary :is(b,strong,small) {
+  color:inherit!important;
+  opacity:1!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-student-no {
+  background:#295449!important;
+  color:#e1fff2!important;
+  border:1px solid #729c89!important;
+}
+/* Light legacy labels and headings must not inherit a pale color on old panels. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+  .sl-student-card h3,.sl-plan-card h3,.sl-plan-card h4,.sl-track h4,
+  .sl-track-head,.sl-track-head span,.sl-plan-facts b,
+  .sl-plan-type,.sl-plan-status,.sl-cycle-note,.sl-rule-note b,
+  .sl-student-no,.sl-outcome-info b,.sl-session-filter label,
+  .sl-filterbar label,.sl-window-grid b,.sl-window-grid span,
+  .sl-window-grid small,.sl-quick-action b,.sl-quick-action span,
+  .sl-student-day-kind,.sl-tl-outcome-heading b,.sl-tl-outcome-heading small,
+  .sl-builder-head h3,.sl-builder-head p,.sl-savebar-copy b,
+  .sl-savebar-copy small,.sl-lesson-title b,.sl-lesson-title small
+) {
+  color:var(--sl-night-text)!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-help,.sl-bulkbar small,.sl-student-card header small,
+  .sl-plan-card header small,.sl-plan-facts span,.sl-dashboard-welcome small,
+  .sl-quick-action span,.sl-student-save-status
+) {
+  color:var(--sl-night-muted)!important;
+  opacity:1!important;
+}
+/* Native date icon and options appear in the correct color scheme, including Android. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(input,select,textarea),
+html[data-sanabil-theme="dark"] .sl-live .sl-outcome-session .sl-metric-buttons input[data-metric-count] {
+  background:#203e35!important;
+  color:#f5fff8!important;
+  border-color:#648577!important;
+  -webkit-text-fill-color:#f5fff8;
+  color-scheme:dark;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(input,select,textarea)::placeholder {
+  color:#bed4c9!important;
+  opacity:1!important;
+  -webkit-text-fill-color:#bed4c9;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(input,select,textarea):disabled {
+  background:#273a33!important;
+  color:#bdcfc4!important;
+  -webkit-text-fill-color:#bdcfc4;
+  opacity:.9!important;
+}
+html[data-sanabil-theme="dark"] .sl-live input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-sanabil-theme="dark"] .sl-dialog input[type="date"]::-webkit-calendar-picker-indicator {
+  filter:invert(1) brightness(1.6);
+  opacity:1;
+  cursor:pointer;
+}
+/* Choice buttons: dark when idle, strong teal only for the chosen answer. */
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-choice,.sl-grade-grid .sl-choice,.sl-att-grid .sl-choice,.sl-tl-grade,
+  .button-soft,.sl-outcome-guardian,.sl-outcome-session .sl-savebar-actions [data-action="close-outcome-session"],
+  .sl-outcome-session .sl-metric-buttons button,.sl-card-actions .button
+):not(.active):not(.button-primary):not(.sl-savebar-submit) {
+  background:#295146!important;
+  background-image:none!important;
+  color:#f1fff6!important;
+  border-color:#678d7d!important;
+  opacity:1!important;
+}
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-choice.active,.sl-tl-grade.active,.button-primary,
+  .sl-outcome-session .sl-savebar-actions .sl-savebar-submit
+) {
+  background:#007d72!important;
+  background-image:none!important;
+  color:#fff!important;
+  border-color:#56ad9c!important;
+}
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-student-card.is-absent,.sl-student-card.is-absent .sl-track
+) {
+  opacity:1!important;
+}
+/* Old notice/metric/score panels have forced #fff and pale-green palettes. */
+html[data-sanabil-theme="dark"] .sl-live .sl-outcome-session :is(
+  .sl-metric-counter,.sl-metric-errors,.sl-metric-doubts,.sl-metric-tajweed,
+  .sl-outcome-savebar,.sl-outcome-info,.sl-outcome-readonly,
+  .sl-outcome-info-empty
+) {
+  background:#203c33!important;
+  color:#f1faf3!important;
+  border-color:#587769!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-outcome-session :is(
+  .sl-metric-counter>span,.sl-metric-title,.sl-savebar-copy b,
+  .sl-savebar-copy small,.sl-metric-buttons input[data-metric-count]
+) {
+  color:#f2fff7!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-outcome-session .sl-metric-buttons button {
+  background:#2a584a!important;
+  color:#f3fff5!important;
+  border-color:#6d9b86!important;
+}
+/* Feedback colors remain meaningful without introducing white backgrounds. */
+html[data-sanabil-theme="dark"] .sl-live :is(
+  .sl-absence-note,.sl-absence-reason
+) {color:#ffd1c2!important;}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-rule-note,.sl-help) {
+  background:#244339!important;
+  color:#d5e9df!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-day-kind-notice {
+  background:#234338!important;
+  color:#e0f6e7!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-teacher-whatsapp {
+  background:#285649!important;
+  color:#e7fff5!important;
+  border-color:#648e7b!important;
+}
+/* Keep system overlays, family request cards and menus in the same theme. */
+html[data-sanabil-theme="dark"] :is(.more-sheet>section,.sl-dialog) {
+  background:#182f29!important;
+  color:#f2fff7!important;
+  border-color:#456958!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-family-excuses {
+  background:#3a3525!important;
+  color:#fff1d0!important;
+  border-color:#857043!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-family-excuse {
+  background:#293d35!important;
+  color:#f2f9ec!important;
+  border-color:#806f48!important;
+}
+html[data-sanabil-theme="dark"] .sl-live .sl-family-excuse :is(b,span,small) {
+  color:#f1f6e9!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+  button,input,select,textarea,a,summary
+):focus-visible {
+  outline:3px solid #d8bd88!important;
+  outline-offset:2px;
+}
+/* Do not paint export/print output dark, nor invert Quran/teacher preview images. */
+@media print {
+  html[data-sanabil-theme="dark"] {
+    color-scheme:light;
+  }
+  html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.sl-live *, .sl-dialog *) {
+    color:#183c33!important;
+  }
+  html[data-sanabil-theme="dark"] .sl-live :is(
+    .sl-session-filter,.sl-filterbar,.sl-student-card,.sl-plan-card,
+    .sl-outcome-savebar,.sl-window-grid article,.sl-track,.sl-tasks,
+    .sl-att-summary span,.sl-outcome-info,.sl-dashboard-one-tap,.sl-student-no
+  ) {
+    background:#fff!important;
+    background-image:none!important;
+    border-color:#cbd9d0!important;
+  }
+  html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(input,select,textarea) {
+    background:#fff!important;
+    color:#183c33!important;
+    -webkit-text-fill-color:#183c33;
+    color-scheme:light;
+  }
+}
