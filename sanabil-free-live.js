@@ -37,7 +37,13 @@ function queueView(s){s.queue.replaceChildren();
 async function stop(){const s=current;if(!s||s.closed)return;
  await publish(s,'ended',{}).catch(()=>{});s.closed=true;
  await disconnect(s);try{await window.supabaseClient.removeChannel(s.channel)}catch{}
- if(s.dockListener){window.removeEventListener('scroll',s.dockListener);window.removeEventListener('resize',s.dockListener)}s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
+ if(s.dockListener){
+  window.removeEventListener('scroll',s.dockListener);
+  document.removeEventListener('scroll',s.dockListener,true);
+  window.removeEventListener('resize',s.dockListener);
+ }
+ if(s.dockFrame!=null)cancelAnimationFrame(s.dockFrame);
+ s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
 }
 async function open(root,{circleId}={}){
  if(!circleId)throw Error('اختر الحلقة أولًا.');
@@ -54,13 +60,26 @@ async function open(root,{circleId}={}){
  const expand=create('button','','المنتظرون');expand.type='button';
  expand.onclick=()=>{s.forceExpanded=!s.forceExpanded;wrap.classList.toggle('sl-peer-expand-details',s.forceExpanded)};
  top.append(expand);
+ const jump=create('button','','الحصيلة ↓');
+ jump.type='button';
+ jump.setAttribute('aria-label','الانتقال إلى تسجيل حصيلة الطلاب دون إيقاف البث');
+ jump.onclick=()=>{
+  const outcome=root.querySelector('.sl-data');
+  if(outcome)outcome.scrollIntoView({behavior:'smooth',block:'start'});
+ };
+ top.append(jump);
  const end=create('button','','إنهاء البث');end.onclick=()=>stop();top.append(end);wrap.append(top);
  wrap.append(create('p','sl-peer-warning','تحذير: نموذج أولي لا يتحقق من هوية الطالب. لا تستخدم طلابًا أو بيانات حقيقية حتى إتمام المصادقة والاختبارات.'));
  const videos=create('div','sl-peer-videos');s.remote=create('video');s.self=create('video');
  for(const v of [s.remote,s.self]){v.autoplay=true;v.playsInline=true;v.controls=false}
  s.self.muted=true;
  s.remote.setAttribute('aria-label','بث الطالب');s.self.setAttribute('aria-label','صورة المعلم');
- videos.append(s.remote,s.self);wrap.append(videos);
+ videos.append(s.remote,s.self);
+ // Keep a normal-sized stage in the document even while its video becomes
+ // a small fixed overlay. This prevents Chrome scroll-anchoring loops.
+ const videoStage=create('div','sl-peer-video-stage');
+ videoStage.append(videos);
+ wrap.append(videoStage);
  const link=location.origin+'/sanabil-free-student.html?room='+encodeURIComponent(token);
  const btn=create('button','','نسخ رابط لقاء تجريبي');btn.onclick=async()=>{try{await navigator.clipboard.writeText(link);status(s,'نسخت رابط الجلسة. شاركه مع جهاز اختبار فقط.')}catch{prompt('الرابط',link)}};
  wrap.append(btn);
@@ -79,12 +98,30 @@ async function open(root,{circleId}={}){
  bar.insertAdjacentElement('afterend',wrap);
  root.classList.add('sl-peer-active');
  s.forceExpanded=false;
+ s.dockFrame=null;
+ const updateDock=()=>{
+  s.dockFrame=null;
+  if(s.closed||!videoStage.isConnected)return;
+  // Never use position:sticky on the entire teacher panel on mobile.
+  // Only float the VIDEO after its original on-page stage was scrolled past.
+  if(window.innerWidth>=900){
+   wrap.classList.remove('sl-peer-floating');
+   videoStage.style.minHeight='';
+   return;
+  }
+  if(!videoStage.style.minHeight){
+   videoStage.style.minHeight=Math.ceil(videoStage.getBoundingClientRect().height)+'px';
+  }
+  const scrolledPastVideo=videoStage.getBoundingClientRect().bottom<72;
+  wrap.classList.toggle('sl-peer-floating',scrolledPastVideo);
+ };
  s.dockListener=()=>{
-  if(s.closed||!wrap.isConnected)return;
-  const dock=window.innerWidth<1050&&wrap.getBoundingClientRect().top<=16;
-  wrap.classList.toggle('sl-peer-compact',dock);
+  if(s.closed||s.dockFrame!==null)return;
+  s.dockFrame=requestAnimationFrame(updateDock);
  };
  window.addEventListener('scroll',s.dockListener,{passive:true});
+ // Some Sanabil views scroll inside a container instead of window.
+ document.addEventListener('scroll',s.dockListener,true);
  window.addEventListener('resize',s.dockListener,{passive:true});
  s.dockListener();
  const ch=sb.channel('sanabil-trial:'+token,{config:{broadcast:{self:false}}});s.channel=ch;
