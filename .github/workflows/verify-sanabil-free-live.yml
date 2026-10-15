@@ -42,3 +42,7 @@ jobs:
           assert(page.includes('noindex,nofollow'));
           console.log('PASS: syntax, restricted preview, student approval, random rooms');
           NODE
+      - name: Install Supabase JavaScript SDK for synthetic signaling check
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @supabase/supabase-js@2.76.1
+      - name: Test public Realtime signaling between synthetic clients
+        run: node tests/sanabil-free-realtime-integration.cjs
