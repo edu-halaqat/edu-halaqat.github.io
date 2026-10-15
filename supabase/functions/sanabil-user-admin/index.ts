@@ -4,7 +4,11 @@ const admin=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{p
 const headers={'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'https://edu-halaqat.github.io','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
 Deno.serve(async(req:Request)=>{
- if(req.method==='OPTIONS')return new Response('ok',{headers});
+ const origin=req.headers.get('Origin');
+ const allowedOrigins=new Set(['https://edu-halaqat.github.io','https://snabilalwahy.com','https://www.snabilalwahy.com']);
+ const responseHeaders={...headers,'Access-Control-Allow-Origin': origin===null?'https://edu-halaqat.github.io':(allowedOrigins.has(origin)?origin:'null'),'Vary':'Origin'};
+ const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:responseHeaders});
+ if(req.method==='OPTIONS')return new Response('ok',{headers:responseHeaders});
  if(req.method!=='POST')return reply({error:'الطريقة غير مسموحة'},405);
  try{
   const token=(req.headers.get('Authorization')||'').replace(/^Bearer /,'');
@@ -33,10 +37,10 @@ Deno.serve(async(req:Request)=>{
   }
   if(!['create','update'].includes(b.action))return reply({error:'طلب غير معروف'},400);
   const role=String(b.role||'');
-  if(!['admin','supervisor','teacher','examiner'].includes(role))throw Error('اختر دورًا صحيحًا');
-  const complex=role==='admin'?null:String(b.complex_id||'');
+  if(!['admin','manager','supervisor','teacher','examiner'].includes(role))throw Error('اختر دورًا صحيحًا');
+  const complex=['admin','manager'].includes(role)?null:String(b.complex_id||'');
   const circle=role==='teacher'?String(b.circle_id||''):null;
-  if(role!=='admin'&&!complex)throw Error('اختر المجمع');
+  if(!['admin','manager'].includes(role)&&!complex)throw Error('اختر المجمع');
   if(role==='teacher'&&!circle)throw Error('اختر حلقة المعلم');
   let uid=String(b.user_id||''),created=false;
   if(b.action==='create'){
