@@ -11,20 +11,34 @@ const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الا�
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
-const rpc=(name,args)=>result(sb().rpc(name,args));
+const rpcDirect=(name,args)=>result(sb().rpc(name,args));
+const rpc=(name,args)=>{
+ if(['my_access','circle_session_access','get_daily_assignments'].includes(name)&&window.SanabilOffline){
+  return window.SanabilOffline.readThrough('rpc:'+name+':'+JSON.stringify(args||{}),()=>rpcDirect(name,args));
+ }
+ return rpcDirect(name,args);
+};
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineRead=()=>{try{const x=JSON.parse(localStorage.getItem(OFFLINE_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return[]}};
-const offlineWrite=x=>{localStorage.setItem(OFFLINE_KEY,JSON.stringify(x));window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail:{count:x.length}}))};
-let offlineSwPromise=null;
-const offlineSw=()=>{if(!('serviceWorker' in navigator))return Promise.resolve(null);if(!offlineSwPromise)offlineSwPromise=navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261002-v13.0.9',{scope:'/'}).then(()=>navigator.serviceWorker.ready).catch(()=>null);return offlineSwPromise};
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261015',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
-const queueOfflineRpc=async(name,args,label)=>{const item={id:crypto.randomUUID(),name,args,label:label||name,queuedAt:new Date().toISOString()},q=offlineRead();q.push(item);offlineWrite(q);try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[name]||name;if(!['save_student_attendance_guarded','save_daily_outcomes_guarded'].includes(guardedName))return{queued:true,saved:Array.isArray(args?.p_rows)?args.p_rows.length:0};const reg=await offlineSw(),session=(await sb().auth.getSession()).data?.session;if(reg?.active&&session?.access_token){reg.active.postMessage({type:'queue',item:{id:item.id,url:'https://fvzoogbdezueswyihxiz.supabase.co/rest/v1/rpc/'+encodeURIComponent(guardedName),headers:{'Content-Type':'application/json','apikey':'sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ','Authorization':'Bearer '+session.access_token,'Prefer':'return=representation'},body:args}})}}catch{}return{queued:true,saved:Array.isArray(args?.p_rows)?args.p_rows.length:0}};
-const networkFailure=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request/i.test(String(e?.message||e||''));
-const rpcOffline=async(name,args,label)=>{if(!navigator.onLine)return await queueOfflineRpc(name,args,label);try{return await rpc(name,args)}catch(e){if(networkFailure(e))return await queueOfflineRpc(name,args,label);throw e}};
-let offlineFlushing=false;
-const flushOfflineQueue=async()=>{if(offlineFlushing||!navigator.onLine)return;let q=offlineRead();if(!q.length)return;offlineFlushing=true;const left=[];try{for(const item of q){try{const guardedName={save_student_attendance_bulk:'save_student_attendance_guarded',save_daily_outcomes_v2:'save_daily_outcomes_guarded'}[item.name]||item.name;await rpc(guardedName,item.args);try{const reg=await offlineSw();reg?.active?.postMessage({type:'ack',id:item.id})}catch{}}catch(e){left.push(item);left.push(...q.slice(q.indexOf(item)+1));break}}offlineWrite(left)}finally{offlineFlushing=false}};
-window.addEventListener('online',()=>{flushOfflineQueue().catch(()=>{});offlineSw().then(r=>r?.active?.postMessage({type:'flush'})).catch(()=>{})});
-navigator.serviceWorker?.addEventListener?.('message',e=>{if(e.data?.type==='sanabil-offline-synced'&&e.data.id)offlineWrite(offlineRead().filter(x=>x.id!==e.data.id))});
+const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
+const queueOfflineRpc=async(name,args,label)=>{
+ if(!window.SanabilOffline)throw Error('ميزة حفظ البيانات المحلي لم تُحمّل؛ أعد فتح التطبيق.');
+ return window.SanabilOffline.queue(name,args,label);
+};
+const rpcOffline=async(name,args,label)=>{
+ if(!navigator.onLine)return queueOfflineRpc(name,args,label);
+ try{return await rpcDirect(name,args)}
+ catch(e){if(networkFailure(e))return queueOfflineRpc(name,args,label);throw e}
+};
+const flushOfflineQueue=async()=>{
+ if(!window.SanabilOffline)return;
+ await window.SanabilOffline.flush((name,args)=>rpcDirect(name,args));
+};
+window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
+navigator.serviceWorker?.addEventListener?.('message',event=>{
+ if(event.data?.type==='sanabil-offline-flush-request')flushOfflineQueue().catch(()=>{});
+});
 const sessionCache=()=>{try{return JSON.parse(localStorage.getItem(SESSION_RULE_KEY)||'{}')||{}}catch{return{}}};
 const cacheSessionRule=(circle,data)=>{const c=sessionCache();c[circle]={...data,cachedAt:new Date().toISOString()};localStorage.setItem(SESSION_RULE_KEY,JSON.stringify(c))};
 const localSessionAllowed=(data,date)=>{
@@ -64,7 +78,16 @@ const ensureCircleSession=async(circle,date,refresh=false)=>{
  if(!check?.allowed)throw Error(check?.reason||'جلسة الحصيلة غير متاحة في هذا الوقت.');
  return data;
 };
-const rows=async(table,select='*',filters={})=>{let all=[];for(let offset=0;;offset+=500){let q=sb().from(table).select(select).order('id').range(offset,offset+499);for(const [k,v] of Object.entries(filters))q=q.eq(k,v);const data=await result(q);all.push(...data);if(data.length<500)return all;}};
+const rows=async(table,select='*',filters={})=>{
+ const load=async()=>{let all=[];for(let offset=0;;offset+=500){
+  let q=sb().from(table).select(select).order('id').range(offset,offset+499);
+  for(const [k,v] of Object.entries(filters))q=q.eq(k,v);
+  const data=await result(q);all.push(...data);if(data.length<500)return all;
+ }};
+ if(window.SanabilOffline&&['attendance','student_attendance','students','circles','complexes','teachers','outcomes','plan_days'].includes(table))
+  return window.SanabilOffline.readThrough('rows:'+table+':'+select+':'+JSON.stringify(filters),load);
+ return load();
+};
 let accessCached=null,accessAt=0,accessPending=null,accessGeneration=0;
 const access=async()=>{
  if(accessCached&&Date.now()-accessAt<12000)return accessCached;
@@ -728,7 +751,7 @@ async function lookups(){if(!lookupPromise||Date.now()-lookupAt>120000){lookupAt
  rows('circles','id,name,complex_id,org_id,mosque_id,circle_type,session_period,declared_student_count,assignment_note',{active:true}),
  rows('teachers','id,full_name,circle_id,complex_id,user_id,phone,job_title,source_ref',{active:true}),
  result(sb().from('circle_teachers').select('circle_id,teacher_id,is_primary,active').eq('active',true).order('circle_id'))
-]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers})).catch(e=>{lookupPromise=null;throw e})}return lookupPromise}
+]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers})).catch(e=>{lookupPromise=null;throw e})}return window.SanabilOffline?window.SanabilOffline.readThrough('lookups',()=>lookupPromise):lookupPromise}
 const teachersForCircle=(data,circleId)=>{const ids=new Set((data.circleTeachers||[]).filter(x=>x.circle_id===circleId&&x.active!==false).map(x=>x.teacher_id));return data.teachers.filter(x=>x.circle_id===circleId||ids.has(x.id))}
 function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,teachersForCircle(data,ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
 async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
@@ -979,7 +1002,7 @@ function showFamilyExcuses(box,requests){
 
 async function outcomesPage(root){
  const l=await lookups();
- const activeUserId=(await sb().auth.getUser()).data?.user?.id||'anonymous';
+ const activeUserId=(navigator.onLine?(await sb().auth.getUser()).data?.user?.id:(await sb().auth.getSession()).data?.session?.user?.id)||'anonymous';
  const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
  const selectedCircleKey='sanabil_outcome_selected_circle_v1:'+activeUserId;
  const circleCounts=new Map();
@@ -2289,7 +2312,19 @@ async function attendancePage(root){
    })
   })
  };
- for(const kind of ['in','out']){const btn=root.querySelector(`[data-action="${kind}"]`);if(btn)action(root,btn,async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');if(val(root,'date')!==today())throw Error('البصمة الجغرافية متاحة لليوم الحالي فقط');const p=await bestGeoPosition();const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
+ for(const kind of ['in','out']){const btn=root.querySelector(`[data-action="${kind}"]`);if(btn)action(root,btn,async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');if(val(root,'date')!==today())throw Error('البصمة الجغرافية متاحة لليوم الحالي فقط');const p=await bestGeoPosition();
+ if(!navigator.onLine){
+  if(!window.SanabilOffline)throw Error('الحفظ المحلي غير متاح.');
+  await window.SanabilOffline.queue('submit_offline_attendance_claim',{
+   p_circle_id:c.id,p_mosque_id:c.mosque_id,
+   p_kind:kind==='in'?'checkIn':'checkOut',
+   p_captured_at:new Date(p.timestamp||Date.now()).toISOString(),
+   p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:p.coords.accuracy
+  },kind==='in'?'طلب حضور دون اتصال':'طلب انصراف دون اتصال');
+  msg(root,'حُفظ موقع ووقت طلب البصمة على الجهاز. سيُرسل تلقائيًا عند عودة الإنترنت للمراجعة، ولا يعتبر حضورًا أو انصرافًا معتمدًا حتى يراجعه المشرف.');
+  return;
+ }
+ const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
  if(manager){
   action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=teachersForCircle(l,c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
   action(root,root.querySelector('[data-action="fingerprint-settings"]'),async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single()),cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{},d=modal('إعدادات بصمة '+m.name),prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];d.innerHTML=`<form><div class="form-grid two">${field('خط العرض','latitude','number',m.latitude,'step="any" required')}${field('خط الطول','longitude','number',m.longitude,'step="any" required')}${field('النطاق بالمتر','radius','number',m.radius_meters||100,'min="20" max="500"')}${select('البداية','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('النهاية','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('الحضور المبكر','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('الانصراف المبكر','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('اعتبار الغياب بعد','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي</button><button type="submit" class="button button-primary">حفظ</button></form>`;const form=d.querySelector('form');action(d,d.querySelector('[data-action="gps"]'),async()=>{const p=await bestGeoPosition();form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={...cfg,action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(cfg.checkoutGraceMinutes??120)};await result(sb().from('mosques').update({latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],updated_at:new Date().toISOString()}).eq('id',m.id).select('id').single());d.closest('dialog').close();await load();msg(root,'تم حفظ إعدادات البصمة لهذا المجمع.')})})
