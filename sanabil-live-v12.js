@@ -12,10 +12,11 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
 const rpcDirect=(name,args)=>result(sb().rpc(name,args));
+const CACHEABLE_RPCS=new Set(['my_access','circle_session_access','get_daily_assignments',
+ 'get_day_types_guarded','get_guardian_excuses_for_circle_guarded','get_talaqqin_dashboard']);
 const rpc=(name,args)=>{
- if(['my_access','circle_session_access','get_daily_assignments'].includes(name)&&window.SanabilOffline){
+ if(CACHEABLE_RPCS.has(name)&&window.SanabilOffline)
   return window.SanabilOffline.readThrough('rpc:'+name+':'+JSON.stringify(args||{}),()=>rpcDirect(name,args));
- }
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
@@ -1002,7 +1003,7 @@ function showFamilyExcuses(box,requests){
 
 async function outcomesPage(root){
  const l=await lookups();
- const activeUserId=(navigator.onLine?(await sb().auth.getUser()).data?.user?.id:(await sb().auth.getSession()).data?.session?.user?.id)||'anonymous';
+ const activeUserId=await window.SanabilOffline?.userId?.().catch(()=>null)||(await sb().auth.getSession()).data?.session?.user?.id||'anonymous';
  const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
  const selectedCircleKey='sanabil_outcome_selected_circle_v1:'+activeUserId;
  const circleCounts=new Map();
@@ -1015,7 +1016,12 @@ async function outcomesPage(root){
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   localStorage.setItem(selectedCircleKey,circle);
   // استعراض الأيام خارج الدوام مسموح دون فتح إمكانية التحرير.
-  const sessionInfo=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});
+  const sessionInfo=await (navigator.onLine
+   ?rpc('circle_session_access',{p_circle_id:circle,p_date:date})
+   :ensureCircleSession(circle,date,true).then(info=>{
+      const local=localSessionAllowed(info,date);
+      return {...info,allowed:local.allowed,reason:local.reason||info?.reason};
+    }));
   const readOnly=!sessionInfo?.allowed;
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
@@ -1298,7 +1304,7 @@ async function outcomesPage(root){
         planId:x.planId,planName:x.name,from:x.from,to:x.to,rating:x.grade,dayId:null
       }))};
   });
-  const stateBanner=(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
+  const stateBanner=(!navigator.onLine?'<div class="sl-outcome-info" role="status">وضع دون اتصال: البيانات محفوظة من آخر فتح؛ تظهر الحصائل الجديدة «معلقة» حتى يؤكدها الخادم.</div>':'')+(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
     noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+(nextTeachingDate&&nextTeachingDate!==date?' '+button('عرض اليوم التعليمي التالي: '+nextTeachingDate,'next-planned-day'):'')+'</div>':'')+
     (readOnly?'<div class="sl-outcome-info sl-outcome-readonly" role="status">استعراض فقط: '+esc(sessionInfo?.reason||'جلسة الإدخال غير متاحة الآن')+'. لا يمكن تعديل التقديرات أو الحفظ.</div>':'');
   const metrics=new Map(students.map(s=>{
@@ -2283,14 +2289,23 @@ async function attendancePage(root){
  const a=await access(),l=await lookups(),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
  root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent')+button('طلبات البصمة المؤجلة','offline-claims'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
  const selected=()=>l.circles.find(c=>c.id===val(root,'circle'));
- const getWindow=async c=>{if(!c?.mosque_id)return null;const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
+ const getWindow=async c=>{
+  if(!c?.mosque_id)return null;
+  const load=async()=>{const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
+  if(!window.SanabilOffline)return load();
+  try{return await window.SanabilOffline.readThrough('fingerprint:window:'+c.id,load)}
+  catch(error){if(!navigator.onLine)return null;throw error}
+ };
  const minuteNow=()=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date),get=t=>p.find(x=>x.type===t)?.value||'0';return Number(get('hour'))*60+Number(get('minute'))};
  const tmin=x=>{const [h,m]=String(x||'00:00').split(':').map(Number);return h*60+m};
  const teacherWhatsAppButton=(i,phone)=>`<button type="button" class="button button-soft sl-teacher-whatsapp" data-action="msg-${i}" ${waPhone(phone).length<10?'disabled title="راجع رقم جوال المعلم في بيانات المعلمين أولًا"':''} aria-label="فتح رسالة واتساب للمعلم"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>`;
  let lastWindow=null,lastAttendance=[];
  const load=async()=>{
   const c=selected(),date=val(root,'date');if(!c||!date){root.querySelector('.sl-data').innerHTML='<p>اختر الحلقة والتاريخ.</p>';return}
-  const [att,win]=await Promise.all([rows('attendance','*',{circle_id:c.id,date_key:date}),getWindow(c)]);lastWindow=win;lastAttendance=att;
+  const [att,win]=await Promise.all([
+   rows('attendance','*',{circle_id:c.id,date_key:date}).catch(e=>{if(!navigator.onLine)return [];throw e}),
+   getWindow(c)
+  ]);lastWindow=win;lastAttendance=att;
   root.querySelector('.sl-window').innerHTML=win?`<div class="sl-window-grid"><article><small>وقت الفترة المعتمد</small><b>${esc(win.period||c.session_period||'الفترة')} · ${esc(win.prayerStart||win.start)} – ${esc(win.prayerEnd||win.end)}</b><span>تُحسب النافذة يوميًا وفق فترة الحلقة وإحداثيات المسجد المعتمدة.</span></article><article><small>تسجيل الحضور</small><b>${esc(win.checkInOpen||win.start)} – ${esc(win.checkInClose||win.end)}</b><span>الحضور المبكر ${esc(win.earlyArrivalMinutes)} د · نهاية سماح التأخير ${esc(win.lateUntil||'—')} · الغياب ${esc(win.absenceAt||'—')}</span></article><article><small>تسجيل الانصراف</small><b>${esc(win.checkOutOpen||'—')} – ${esc(win.checkOutClose||'—')}</b><span>يسمح بالانصراف المبكر قبل نهاية الفترة بـ ${esc(win.earlyLeaveMinutes)} د · مهلة الإغلاق ${esc(win.checkoutGraceMinutes)} د · النطاق ${esc(win.radiusMeters)}م</span></article></div>`:'';
   const teachers=teachersForCircle(l,c.id),day=new Date(date+'T12:00:00+03:00').getDay(),working=win?.weekdays?.map(Number).includes(day);
   const autoAbsent=working&&(date<today()||(date===today()&&minuteNow()>tmin(win.absenceAt||win.checkInClose||win.start)));
@@ -2324,7 +2339,19 @@ async function attendancePage(root){
   msg(root,'حُفظ موقع ووقت طلب البصمة على الجهاز. سيُرسل تلقائيًا عند عودة الإنترنت للمراجعة، ولا يعتبر حضورًا أو انصرافًا معتمدًا حتى يراجعه المشرف.');
   return;
  }
- const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
+ const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){
+  if(networkFailure(error)){
+   await window.SanabilOffline.queue('submit_offline_attendance_claim',{
+    p_circle_id:c.id,p_mosque_id:c.mosque_id,p_kind:kind==='in'?'checkIn':'checkOut',
+    p_captured_at:new Date(p.timestamp||Date.now()).toISOString(),
+    p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:p.coords.accuracy
+   },kind==='in'?'طلب حضور دون اتصال':'طلب انصراف دون اتصال');
+   msg(root,'انقطع الاتصال؛ حُفظ طلب البصمة محليًا للمراجعة دون اعتماده كحضور.');return;
+  }
+  let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}
+  throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)
+ }
+ if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
  if(manager){
   action(root,root.querySelector('[data-action="offline-claims"]'),async()=>{
    const c=selected();if(!c)throw Error('اختر الحلقة أولًا');
