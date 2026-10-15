@@ -15,7 +15,13 @@ const cors={
 const out=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 
 Deno.serve(async(req:Request)=>{
-  if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
+  // Support Sanabil's new domain while preserving existing client compatibility.
+  const requestOrigin=req.headers.get("Origin")||"";
+  const approvedOrigins=new Set(["https://edu-halaqat.github.io","https://snabilalwahy.com","https://www.snabilalwahy.com"]);
+  const responseHeaders={...cors,"Access-Control-Allow-Origin":approvedOrigins.has(requestOrigin)?requestOrigin:"https://edu-halaqat.github.io","Vary":"Origin"};
+  const out=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:responseHeaders});
+
+  if(req.method==="OPTIONS") return new Response("ok",{headers:responseHeaders});
   if(req.method!=="POST") return out({error:"الطريقة غير مدعومة."},405);
   try{
     const body=await req.json().catch(()=>({}));
@@ -35,6 +41,58 @@ Deno.serve(async(req:Request)=>{
     if(se) throw se;
     if(!s||!s.active) return out({error:"سجل الطالب غير متاح."},404);
 
+
+    const operation=String(body.action||"view");
+    if(!["view","ack","excuse"].includes(operation)) return out({error:"العملية غير مدعومة."},400);
+    const nowRiyadh=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+
+    if(operation==="ack"){
+      const noteType=String(body.noteType||""),noteDate=String(body.noteDate||"");
+      if(!["outcome","talaqqin"].includes(noteType)||!/^\d{4}-\d{2}-\d{2}$/.test(noteDate)
+        ||noteDate>nowRiyadh()||noteDate<new Date(Date.now()-120*86400000).toISOString().slice(0,10))
+        return out({error:"الملاحظة المختارة غير متاحة."},400);
+      const query=noteType==="outcome"
+        ?db.from("outcomes").select("notes").eq("student_id",s.id).eq("date_key",noteDate).maybeSingle()
+        :db.from("talaqqin_assessments").select("notes").eq("student_id",s.id).eq("assessed_on",noteDate).order("created_at",{ascending:false}).limit(1).maybeSingle();
+      const {data:noteRow,error:noteError}=await query;
+      if(noteError)throw noteError;
+      if(!String(noteRow?.notes||"").trim())
+        return out({error:"لا توجد ملاحظة معتمدة بهذا التاريخ."},404);
+      const {error:ackError}=await db.from("guardian_note_receipts").upsert({
+        student_id:s.id,note_type:noteType,note_date:noteDate
+      },{onConflict:"student_id,note_type,note_date",ignoreDuplicates:true});
+      if(ackError)throw ackError;
+      return out({ok:true,acknowledged:true});
+    }
+    if(operation==="excuse"){
+      const requestedDate=String(body.date||""),reason=String(body.reason||""),
+        note=String(body.note||"").trim();
+      if(requestedDate!==nowRiyadh())return out({error:"يمكن طلب الاستئذان ليوم الحلقة الحالي فقط."},400);
+      if(!["health","family","travel","other"].includes(reason)||note.length>240)
+        return out({error:"حدد سببًا صحيحًا واختصر الملاحظة إلى 240 حرفًا."},400);
+      const [currentAtt,circleKind,studentKind,existing]=await Promise.all([
+        db.from("student_attendance").select("status").eq("student_id",s.id).eq("date_key",requestedDate).maybeSingle(),
+        db.from("circle_day_types").select("day_type").eq("circle_id",s.circle_id).eq("date_key",requestedDate).maybeSingle(),
+        db.from("student_day_types").select("day_type").eq("student_id",s.id).eq("date_key",requestedDate).maybeSingle(),
+        db.from("guardian_excuse_requests").select("status").eq("student_id",s.id).eq("date_key",requestedDate).maybeSingle()
+      ]);
+      for(const r of [currentAtt,circleKind,studentKind,existing])if(r.error)throw r.error;
+      const type=studentKind.data?.day_type||circleKind.data?.day_type||"study";
+      if(type==="holiday"||type==="unaccounted")
+        return out({error:"هذا اليوم إجازة أو غير محتسب؛ لا يلزم طلب استئذان."},409);
+      if(currentAtt.data)return out({error:"سبق تسجيل حضور الطالب أو غيابه اليوم. تواصل مع معلم الحلقة لتصحيح السجل."},409);
+      if(existing.data)return out({error:"يوجد طلب استئذان سابق لهذا اليوم؛ لا حاجة لإرساله مرة أخرى."},409);
+      const {error:requestError}=await db.from("guardian_excuse_requests").insert({
+        student_id:s.id,circle_id:s.circle_id,date_key:requestedDate,reason,note,status:"pending"
+      });
+      if(requestError){
+        if(requestError.code==="23505")return out({error:"الاستئذان مسجل بالفعل لهذا اليوم."},409);
+        throw requestError;
+      }
+      return out({ok:true,status:"pending",attendanceChanged:false,
+        message:"وصل طلب الاستئذان إلى المعلم للمراجعة، ولم يتغير سجل الحضور تلقائيًا."});
+    }
+
     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     const since=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
     const [
@@ -44,7 +102,7 @@ Deno.serve(async(req:Request)=>{
       s.teacher_id?db.from("teachers").select("full_name").eq("id",s.teacher_id).maybeSingle():Promise.resolve({data:null,error:null}),
       db.from("outcomes").select("date_key,new_lesson,recent_review,review,memorization_rating,recent_review_rating,review_rating,notes,recitation_metrics")
         .eq("student_id",s.id).gte("date_key",since).order("date_key",{ascending:false}).limit(60),
-      db.from("student_attendance").select("date_key,status,note")
+      db.from("student_attendance").select("date_key,status,note,absence_reason")
         .eq("student_id",s.id).gte("date_key",since).order("date_key",{ascending:false}).limit(60),
       db.from("tests").select("performed_at,type,syllabus_snapshot,scores,public_code,notes")
         .eq("student_id",s.id).order("performed_at",{ascending:false}).limit(10),
@@ -66,7 +124,44 @@ Deno.serve(async(req:Request)=>{
       (!a.ends_on||a.ends_on>=today)&&(!a.complex_id||a.complex_id===g.complex_id)&&(!a.circle_id||a.circle_id===g.circle_id)
     );
 
+    const [receipts,requests,latestMemDay]=await Promise.all([
+      db.from("guardian_note_receipts").select("note_type,note_date,acknowledged_at")
+        .eq("student_id",s.id).gte("note_date",since),
+      db.from("guardian_excuse_requests").select("date_key,reason,status,note,submitted_at,teacher_note")
+        .eq("student_id",s.id).gte("date_key",since).order("date_key",{ascending:false}).limit(8),
+      db.from("plan_days").select("plan_id,date_key,target_to,rating")
+        .eq("student_id",s.id).in("rating",["ممتاز","جيد جدًا","جيد"])
+        .order("date_key",{ascending:false}).limit(35)
+    ]);
+    for(const r of [receipts,requests,latestMemDay])if(r.error)throw r.error;
+    let juzProgress:any=null;
+    const memPlan=(plansRes.data||[]).find((x:any)=>x.type==="memorization");
+    const latest=(latestMemDay.data||[]).find((x:any)=>x.plan_id===memPlan?.id);
+    const lastIndex=Number(latest?.target_to?.ayahIndex||0);
+    if(lastIndex>0){
+      const {data:verse,error:verseError}=await db.from("quran_ayahs")
+        .select("juz_no,ayah_index").eq("ayah_index",lastIndex).maybeSingle();
+      if(verseError)throw verseError;
+      if(verse){
+        const [start,end]=await Promise.all([
+          db.from("quran_ayahs").select("ayah_index").eq("juz_no",verse.juz_no)
+            .order("ayah_index",{ascending:true}).limit(1).maybeSingle(),
+          db.from("quran_ayahs").select("ayah_index").eq("juz_no",verse.juz_no)
+            .order("ayah_index",{ascending:false}).limit(1).maybeSingle()
+        ]);
+        if(start.error)throw start.error;
+        if(end.error)throw end.error;
+        const lo=Number(start.data?.ayah_index||0),hi=Number(end.data?.ayah_index||0);
+        const total=hi-lo+1;
+        if(total>0){
+          const reached=memPlan?.direction==="toward_fatiha"?hi-lastIndex+1:lastIndex-lo+1;
+          juzProgress={juz:Number(verse.juz_no),percent:Math.min(100,Math.max(0,Math.round(reached/total*100))),
+            lastCompletedOn:latest.date_key,basis:"موضع آخر درس حفظ مجتاز ضمن الجزء، وليس إثبات ختم الجزء"};
+        }
+      }
+    }
     let talaqqin:any=null;
+    let talaqqinHistory:any[]=[];
     if(circleRes.data?.circle_type==="حلقات التلقين"){
       const {data:st,error:ste}=await db.from("talaqqin_student_state")
         .select("current_lesson_no,current_custom_lesson_id,placement_set,placement_note,completed,completed_at,started_at,lesson_started_on,plan_note")
@@ -95,10 +190,27 @@ Deno.serve(async(req:Request)=>{
         const extraLessonWeeks=(lessonPacing||[]).reduce((sum:number,x:any)=>sum+Number(x.extra_weeks||0),0);
         const currentExtension=(lessonPacing||[]).find((x:any)=>Number(x.lesson_no)===Number(st.current_lesson_no))||null;
         const totalWeeks=baseline.reduce((sum,w,i)=>sum+(paceMap.get(i+1)||w),0)+extraLessonWeeks;
-        const {data:lastAssessment,error:lae}=await db.from("talaqqin_assessments")
-          .select("lesson_no,custom_lesson_id,rating,passed,notes,assessed_on")
-          .eq("student_id",s.id).order("created_at",{ascending:false}).limit(1).maybeSingle();
-        if(lae) throw lae;
+        const {data:assessmentRows,error:historyError}=await db.from("talaqqin_assessments")
+          .select("lesson_no,custom_lesson_id,rating,passed,notes,assessed_on,created_at")
+          .eq("student_id",s.id).order("created_at",{ascending:false}).limit(30);
+        if(historyError) throw historyError;
+        const currentHistory=assessmentRows||[];
+        const lessonNums=[...new Set(currentHistory.map((a:any)=>a.lesson_no).filter(Boolean))];
+        const customIds=[...new Set(currentHistory.map((a:any)=>a.custom_lesson_id).filter(Boolean))];
+        const [lessonTitles,customTitles]=await Promise.all([
+          lessonNums.length?db.from("talaqqin_lessons").select("lesson_no,lesson_title").in("lesson_no",lessonNums):Promise.resolve({data:[],error:null}),
+          customIds.length?db.from("talaqqin_custom_lessons").select("id,title").in("id",customIds):Promise.resolve({data:[],error:null})
+        ]);
+        if(lessonTitles.error) throw lessonTitles.error;
+        if(customTitles.error) throw customTitles.error;
+        const lessonMap=new Map((lessonTitles.data||[]).map((l:any)=>[l.lesson_no,l.lesson_title]));
+        const customMap=new Map((customTitles.data||[]).map((l:any)=>[l.id,l.title]));
+        talaqqinHistory=currentHistory.map((a:any)=>({
+          lessonNo:a.lesson_no,assessedOn:a.assessed_on,rating:a.rating,passed:a.passed,
+          notes:a.notes,lessonTitle:a.custom_lesson_id?(customMap.get(a.custom_lesson_id)||"درس خاص")
+            :(lessonMap.get(a.lesson_no)||"الدرس رقم "+a.lesson_no)
+        }));
+        const lastAssessment=currentHistory[0]||null;
         const current=st.placement_set?(custom?{
           customLessonId:custom.id,lessonNo:lesson?.lesson_no||st.current_lesson_no,
           unitNo:lesson?.unit_no||null,unitName:lesson?.unit_name||"درس خاص",
@@ -161,6 +273,10 @@ Deno.serve(async(req:Request)=>{
       nextAssignments,
       prepAssignments,
       talaqqin,
+      talaqqinHistory,
+      acknowledgements:receipts.data||[],
+      excuseRequests:requests.data||[],
+      juzProgress,
       awards:awardsRes.data||[],
       announcements,
       generatedAt:new Date().toISOString()

@@ -95,7 +95,13 @@ async function resolveGoogleMapUrl(input:string){
 }
 
 Deno.serve(async(req:Request)=>{
-  if(req.method==="OPTIONS")return new Response("ok",{headers});
+  // Support Sanabil's new domain while preserving existing client compatibility.
+  const requestOrigin=req.headers.get("Origin")||"";
+  const approvedOrigins=new Set(["https://edu-halaqat.github.io","https://snabilalwahy.com","https://www.snabilalwahy.com"]);
+  const responseHeaders={...headers,"Access-Control-Allow-Origin":approvedOrigins.has(requestOrigin)?requestOrigin:"https://edu-halaqat.github.io","Vary":"Origin"};
+  const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:responseHeaders});
+
+  if(req.method==="OPTIONS")return new Response("ok",{headers:responseHeaders});
   if(req.method!=="POST")return reply({error:"الطريقة غير مدعومة."},405);
   try{
     const authHeader=req.headers.get("Authorization")||"";
