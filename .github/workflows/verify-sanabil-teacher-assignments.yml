@@ -1,0 +1,26 @@
+name: Verify Sanabil teacher assignments and live layout
+on:
+  push:
+    branches: [feature/sanabil-teacher-assignments-live-ui-20261015]
+  pull_request:
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-free-live.js'
+      - 'sanabil-free-live.css'
+      - 'index.html'
+      - 'tests/sanabil-teacher-assignment-smoke.cjs'
+permissions:
+  contents: read
+jobs:
+  teacher-assignments:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax and assignment rules
+        run: |
+          node --check sanabil-live-v12.js
+          node --check sanabil-free-live.js
+          node tests/sanabil-teacher-assignment-smoke.cjs

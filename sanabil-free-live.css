@@ -1,20 +1,53 @@
-.sl-peer-panel{direction:rtl;margin:12px 0;border:1px solid #789e9a;border-radius:16px;background:var(--card,#fff);color:inherit;padding:12px;max-width:100%;box-shadow:0 5px 22px #0002}
-.sl-peer-panel button{border:1px solid #00808a;background:transparent;color:inherit;border-radius:9px;padding:8px 11px;cursor:pointer;font:inherit;margin:3px}
+/* Snabil visual identity: compact teacher video beside the assessment form. */
+.sl-peer-panel{direction:rtl;margin:8px 0 14px;border:1px solid #a38e5a;border-radius:18px;background:var(--card,#fff);color:inherit;padding:12px;max-width:100%;box-shadow:0 5px 18px #0002;min-width:0}
+.sl-peer-panel button{border:1px solid #00808a;background:transparent;color:inherit;border-radius:11px;padding:7px 10px;cursor:pointer;font:inherit;font-weight:600;margin:3px}
+.sl-peer-panel button:hover{background:rgba(0,128,138,.12)}
 .sl-peer-panel button:disabled{opacity:.4}
-.sl-peer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.sl-peer-warning{font-size:12px;line-height:1.8;color:#ac5221}
-.sl-peer-videos{display:grid;grid-template-columns:3fr 1fr;gap:8px;background:#102e31;padding:9px;border-radius:12px;margin:8px 0}
-.sl-peer-videos video{display:block;width:100%;min-width:0;height:200px;background:#050e10;border-radius:7px;object-fit:contain}
-.sl-peer-videos video:nth-child(2){height:145px}
-.sl-peer-status{font-size:13px;font-weight:600;line-height:1.7}
-.sl-peer-waitrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid #8885}
-.sl-peer-waitrow span{flex:1;min-width:170px}
-html[data-sanabil-theme="dark"] .sl-peer-panel{background:#123235;color:#e5edea;border-color:#446963}
+.sl-peer-header{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;margin-bottom:5px}
+.sl-peer-header strong{font-size:15px}
+.sl-peer-warning{font-size:11px;line-height:1.7;color:#ac5221;margin:4px 0}
+.sl-peer-videos{position:relative;background:#081d1e;border-radius:14px;overflow:hidden;border:2px solid #d8bd88;margin:7px 0;width:100%}
+.sl-peer-videos video:first-child{display:block;width:100%;aspect-ratio:16/9;max-height:280px;min-height:130px;background:#071315;object-fit:contain}
+.sl-peer-videos video:nth-child(2){position:absolute;bottom:9px;inset-inline-end:9px;width:27%;max-width:140px;aspect-ratio:3/4;max-height:130px;object-fit:cover;background:#122c2e;border:2px solid #d8bd88;border-radius:11px;box-shadow:0 4px 16px #0008}
+.sl-peer-status{font-size:12px;font-weight:600;line-height:1.6;margin:4px 0}
+.sl-peer-waitrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #8885}
+.sl-peer-waitrow span{flex:1;min-width:150px;font-size:12px}
+.sl-peer-outcome-search{display:grid;gap:3px;margin:6px 0}
+.sl-peer-outcome-search label{font-size:12px;font-weight:600}
+.sl-peer-outcome-search input{width:100%;min-height:37px;border:1px solid #7ba29b;border-radius:9px;background:transparent;color:inherit;font:inherit;padding:5px 10px}
+html[data-sanabil-theme="dark"] .sl-peer-panel{background:#143633;color:#f1f4eb;border-color:#9d8859}
 html[data-sanabil-theme="dark"] .sl-peer-panel button{color:#f4ede2}
-@media(min-width:1050px){
-.sl-peer-active{display:grid;grid-template-columns:minmax(300px,41%) minmax(0,1fr);gap:10px;align-items:start}
+html[data-sanabil-theme="dark"] .sl-peer-outcome-search input{background:#1b4540;border-color:#598981;color:#fff}
+@media(min-width:900px){
+.sl-peer-active{display:grid;grid-template-columns:minmax(285px,37%) minmax(0,1fr);gap:12px;align-items:start}
 .sl-peer-active>.sl-session-head,.sl-peer-active>.sl-session-filter{grid-column:1/-1}
-.sl-peer-active>.sl-peer-panel{grid-column:1;grid-row:3;position:sticky;top:8px;z-index:12}
+.sl-peer-active>.sl-peer-panel{grid-column:1;grid-row:3;position:sticky;top:10px;z-index:12;max-height:calc(100vh - 28px);overflow-y:auto}
 .sl-peer-active>.sl-data{grid-column:2;grid-row:3;min-width:0}
+.sl-peer-active>.sl-data .sl-student-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
 }
-@media(max-width:600px){.sl-peer-panel{padding:8px}.sl-peer-videos video{height:140px}.sl-peer-videos video:nth-child(2){height:110px}}
+@media(max-width:899px){
+.sl-peer-active>.sl-peer-panel{position:sticky;top:5px;z-index:15;transition:padding .15s ease}
+.sl-peer-panel.sl-peer-compact{padding:6px 9px;background:#143633;color:#fff;box-shadow:0 7px 23px #0006}
+.sl-peer-panel.sl-peer-compact .sl-peer-videos video:first-child{height:104px;min-height:unset;max-height:unset;aspect-ratio:auto}
+.sl-peer-panel.sl-peer-compact .sl-peer-videos video:nth-child(2){width:64px;height:83px}
+.sl-peer-panel.sl-peer-compact .sl-peer-warning,.sl-peer-panel.sl-peer-compact .sl-peer-outcome-search,.sl-peer-panel.sl-peer-compact>.sl-peer-queue,.sl-peer-panel.sl-peer-compact>h4{display:none}
+.sl-peer-panel.sl-peer-compact:not(.sl-peer-expand-details) .sl-peer-status{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-peer-panel.sl-peer-compact.sl-peer-expand-details .sl-peer-queue,.sl-peer-panel.sl-peer-compact.sl-peer-expand-details>h4{display:block}
+.sl-peer-panel.sl-peer-compact .sl-peer-header strong{font-size:12px}
+.sl-peer-panel.sl-peer-compact>button{padding:5px 7px;font-size:12px}
+}
+@media(max-width:520px){
+.sl-peer-panel{padding:8px}
+.sl-peer-videos video:first-child{min-height:120px;max-height:220px}
+.sl-peer-videos video:nth-child(2){width:25%;max-width:95px}
+.sl-peer-panel .sl-peer-header{gap:3px}
+.sl-peer-panel button{font-size:12px}
+}
+
+/* Actionable assignment anomalies, visible in teacher and circle administration. */
+.sl-assignment-warning{border:1px solid #d8bd88;border-inline-start:5px solid #b68b38;border-radius:12px;background:#f9f4e9;color:#493a1c;padding:12px 15px;line-height:1.75;margin:10px 0}
+.sl-assignment-warning strong{font-size:14px}
+.sl-assignment-warning ul{margin:6px 0;padding-inline-start:21px}
+.sl-assignment-warning li{font-size:12px;margin:4px 0}
+.sl-assignment-warning p{font-size:11px;margin:6px 0 0}
+html[data-sanabil-theme="dark"] .sl-assignment-warning{background:#293a35;color:#f7e8c7;border-color:#a59057}
