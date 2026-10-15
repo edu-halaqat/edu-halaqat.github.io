@@ -1,0 +1,48 @@
+{
+  "name": "سنابل الوحي | إدارة الحلقات القرآنية",
+  "short_name": "سنابل الوحي",
+  "description": "الحضور والحصائل والخطط التعليمية لحلقات القرآن الكريم",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/?source=installed",
+  "scope": "/",
+  "id": "/sanabil-app",
+  "display": "standalone",
+  "background_color": "#073F42",
+  "theme_color": "#00808A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/assets/logo-sanabil-icon-v6.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "الحصيلة اليومية",
+      "short_name": "الحصيلة",
+      "url": "/?source=installed#outcomes",
+      "icons": [
+        {
+          "src": "/assets/logo-sanabil-icon-v6.png",
+          "sizes": "any",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "الحضور والبصمة",
+      "short_name": "البصمة",
+      "url": "/?source=installed#attendance",
+      "icons": [
+        {
+          "src": "/assets/logo-sanabil-icon-v6.png",
+          "sizes": "any",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
