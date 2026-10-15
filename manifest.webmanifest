@@ -13,10 +13,22 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "/assets/logo-sanabil-icon-v6.png",
-      "sizes": "any",
+      "src": "/assets/sanabil-app-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/assets/sanabil-app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/sanabil-app-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -26,8 +38,8 @@
       "url": "/?source=installed#outcomes",
       "icons": [
         {
-          "src": "/assets/logo-sanabil-icon-v6.png",
-          "sizes": "any",
+          "src": "/assets/sanabil-app-192.png",
+          "sizes": "192x192",
           "type": "image/png"
         }
       ]
@@ -38,11 +50,16 @@
       "url": "/?source=installed#attendance",
       "icons": [
         {
-          "src": "/assets/logo-sanabil-icon-v6.png",
-          "sizes": "any",
+          "src": "/assets/sanabil-app-192.png",
+          "sizes": "192x192",
           "type": "image/png"
         }
       ]
     }
-  ]
+  ],
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "prefer_related_applications": false
 }
