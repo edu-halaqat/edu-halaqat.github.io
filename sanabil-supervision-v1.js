@@ -448,15 +448,38 @@ async function certificateDialog(a,sc){
 }
 
 async function decorateDashboard(root,a){
- try{
-   const now=new Date().toISOString(),until=new Date(Date.now()+14*86400000).toISOString();
-   const visits=await res(sb().from('supervision_visits').select('id,teacher_id,circle_id,scheduled_at,visit_type,status,score,rating').gte('scheduled_at',now).lte('scheduled_at',until).neq('status','cancelled').order('scheduled_at').limit(10));
-   if(!visits.length)return;
-   const sc=await scopes(),tm=Object.fromEntries(sc.teachers.map(x=>[x.id,x.full_name])),cm=Object.fromEntries(sc.circles.map(x=>[x.id,x.name]));
-   const sec=document.createElement('section');sec.className='sl-tasks sv-dashboard-alert';sec.innerHTML='<h3>الزيارات الإشرافية القادمة</h3><div class="sv-upcoming-list">'+visits.map(v=>'<article><b>'+esc(tm[v.teacher_id]||'زيارة إشرافية')+'</b><span>'+esc(cm[v.circle_id]||'')+' · '+esc(arDate(v.scheduled_at))+' · '+esc(v.visit_type)+'</span></article>').join('')+'</div>'+btn('فتح الزيارات الإشرافية','go-supervision');
-   const hero=root.querySelector('.sl-session-head');if(hero)hero.insertAdjacentElement('afterend',sec);else root.prepend(sec);
-   action(sec,'[data-sv-action="go-supervision"]',()=>{location.hash='#supervision';location.reload()})
- }catch{}
+ // Keep daily actions at the top. Upcoming supervision visits belong in a
+ // collapsed notification area at the bottom, fetched only when expanded.
+ if(root.querySelector('.sv-dashboard-notifications'))return;
+ const sec=document.createElement('section');
+ sec.className='sl-tasks sv-dashboard-notifications';
+ sec.setAttribute('aria-label','الإشعارات');
+ sec.innerHTML='<details class="sv-notifications-details"><summary><span class="sv-notification-bell" aria-hidden="true">🔔</span><span class="sv-notification-label"><strong>الإشعارات</strong><small>الزيارات الإشرافية القادمة</small></span><span class="sv-notification-state">عرض</span></summary><div class="sv-notifications-body"><p class="sl-help">تُعرض المواعيد عند فتح الإشعارات.</p></div></details>';
+ root.appendChild(sec);
+ const details=sec.querySelector('details'),body=sec.querySelector('.sv-notifications-body'),state=sec.querySelector('.sv-notification-state');
+ let loaded=false,loading=false;
+ details.addEventListener('toggle',async()=>{
+   state.textContent=details.open?'إخفاء':'عرض';
+   if(!details.open||loaded||loading)return;
+   loading=true;
+   body.innerHTML='<p class="sl-help" role="status">جارٍ تحميل الزيارات الإشرافية القادمة…</p>';
+   try{
+     const now=new Date().toISOString(),until=new Date(Date.now()+14*86400000).toISOString();
+     const visits=await res(sb().from('supervision_visits').select('id,teacher_id,circle_id,scheduled_at,visit_type,status,score,rating').gte('scheduled_at',now).lte('scheduled_at',until).neq('status','cancelled').order('scheduled_at').limit(10));
+     let list='';
+     if(visits.length){
+       const sc=await scopes(),tm=Object.fromEntries(sc.teachers.map(x=>[x.id,x.full_name])),cm=Object.fromEntries(sc.circles.map(x=>[x.id,x.name]));
+       list='<div class="sv-upcoming-list">'+visits.map(v=>'<article><b>'+esc(tm[v.teacher_id]||'زيارة إشرافية')+'</b><span>'+esc(cm[v.circle_id]||'')+' · '+esc(arDate(v.scheduled_at))+' · '+esc(v.visit_type)+'</span></article>').join('')+'</div>';
+     }else{
+       list='<p class="sl-help">لا توجد زيارات إشرافية قادمة خلال 14 يومًا.</p>';
+     }
+     body.innerHTML=list+btn('فتح الزيارات الإشرافية','go-supervision');
+     action(sec,'[data-sv-action="go-supervision"]',()=>{location.hash='#supervision';location.reload()});
+     loaded=true;
+   }catch(e){
+     body.innerHTML='<p class="sl-message" role="alert">تعذر تحميل الإشعارات. أغلق القسم وافتحه لإعادة المحاولة.</p>';
+   }finally{loading=false}
+ });
 }
 
 async function page(root){
@@ -479,6 +502,25 @@ async function page(root){
  done.forEach((v,i)=>action(main,'[data-sv-action="result-'+i+'"]',()=>showVisitResult(v,sc)));
 }
 
-const style=document.createElement('style');style.textContent='.sv-page-head,.sv-form-hero,.sv-result-hero,.sv-builder-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.sv-page-head{background:linear-gradient(135deg,#073c34,#08776d);color:white;border-radius:20px;padding:20px;margin-bottom:16px}.sv-page-head h2{margin:5px 0}.sv-panel{border:1px solid #dce6e1;border-radius:18px;padding:16px;margin:14px 0;background:#fbfdfc}.sv-form-hero{background:linear-gradient(135deg,#073c34,#00808a);color:white;border-radius:18px;padding:18px;margin-bottom:15px}.sv-live-score{text-align:center;background:#ffffff14;border:1px solid #d8bd88aa;border-radius:14px;padding:10px 18px;min-width:150px}.sv-live-score span{color:#fff;font-weight:700}.sv-live-score b{font-size:32px;display:block;color:#d8bd88!important;font-weight:800;direction:ltr;unicode-bidi:isolate;line-height:1.25;text-shadow:0 1px 0 #00000022}.sv-live-score small{display:block;color:#fff;font-weight:700}.sv-analytics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px}.sv-analytics article{border:1px solid #dfe8e3;background:#f7faf8;border-radius:12px;padding:10px}.sv-analytics span{font-size:11px;color:#667a72;display:block}.sv-analytics b{font-size:14px}.sv-rating-note{background:#fff8e7;border:1px solid #e6d19c;border-radius:11px;padding:10px;margin:10px 0}.sv-eval-table select{min-width:120px}.sv-eval-table [data-nonexec-reason]{min-width:220px;opacity:.55;background:#f5f7f6}.sv-eval-table [data-nonexec-reason]:enabled{opacity:1;background:#fff8e7;border-color:#d8bd88}.sv-eval-table .sv-reason-active{background:#fffaf0}.sv-student-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.sv-student-check{border:1px solid #dbe6e1;border-radius:15px;padding:14px;background:#f9fbfa}.sv-student-progress{background:#eef7f4;border-radius:10px;padding:10px;margin:10px 0;line-height:1.8}.sv-treatment-row{display:grid;grid-template-columns:2fr 1fr 1fr .8fr .9fr auto;gap:8px;align-items:center;margin:8px 0}.sv-readbox{white-space:pre-wrap;border:1px solid #dce6e1;border-radius:12px;padding:12px;background:#f9fbfa}.sv-result-hero{background:#f2f8f5;border:1px solid #d9e7e1;border-radius:16px;padding:15px}.sv-result-hero>div:last-child{text-align:center}.sv-result-hero>div:last-child b{display:block;font-size:30px}.sv-result-hero>div:last-child span{display:block}.sv-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.sv-template-grid article{border:1px solid #dce6e1;border-radius:14px;padding:10px;display:grid;gap:7px}.sv-template-grid img{width:100%;aspect-ratio:210/297;object-fit:cover;border-radius:8px;border:1px solid #eee}.sv-days{display:flex;flex-wrap:wrap;gap:10px}.sv-capacity-note{margin:10px 0;padding:11px 13px;border-radius:12px;font-weight:700;line-height:1.7}.sv-capacity-note.ok{background:#eaf7f1;border:1px solid #abd5c3;color:#07543f}.sv-capacity-note.warn{background:#fff6df;border:1px solid #e1c77d;color:#7b5a0b}.sv-teacher-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;max-height:320px;overflow:auto;border:1px solid #dce6e1;border-radius:12px;padding:10px}.sv-teacher-pick label{display:flex;align-items:center;gap:8px;padding:7px;border-radius:9px;background:#f7faf8}.sv-upcoming-list{display:grid;gap:7px}.sv-upcoming-list article{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #e2e9e5;padding:8px 0}.sv-upcoming-list span{color:#667a72}.sv-actions{display:flex;gap:6px;flex-wrap:wrap}.sv-manage-card{display:grid;gap:6px;border:1px solid #dce6e1;background:#f7faf8;border-radius:14px;padding:13px;margin-bottom:12px}.sv-manage-card b{font-size:18px}.sv-manage-card span{color:#667a72}.sv-manage-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.sv-manage-actions .button{width:100%;min-height:48px}@media(max-width:760px){.sv-student-checks{grid-template-columns:1fr}.sv-treatment-row{grid-template-columns:1fr}.sv-upcoming-list article{display:grid}.sv-manage-actions{grid-template-columns:1fr}.sv-actions{display:grid;grid-template-columns:1fr}.sv-actions .button{width:100%}.sv-panel .table-wrap{overflow-x:auto}}';document.head.append(style);
+const style=document.createElement('style');style.textContent='.sv-page-head,.sv-form-hero,.sv-result-hero,.sv-builder-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.sv-page-head{background:linear-gradient(135deg,#073c34,#08776d);color:white;border-radius:20px;padding:20px;margin-bottom:16px}.sv-page-head h2{margin:5px 0}.sv-panel{border:1px solid #dce6e1;border-radius:18px;padding:16px;margin:14px 0;background:#fbfdfc}.sv-form-hero{background:linear-gradient(135deg,#073c34,#00808a);color:white;border-radius:18px;padding:18px;margin-bottom:15px}.sv-live-score{text-align:center;background:#ffffff14;border:1px solid #d8bd88aa;border-radius:14px;padding:10px 18px;min-width:150px}.sv-live-score span{color:#fff;font-weight:700}.sv-live-score b{font-size:32px;display:block;color:#d8bd88!important;font-weight:800;direction:ltr;unicode-bidi:isolate;line-height:1.25;text-shadow:0 1px 0 #00000022}.sv-live-score small{display:block;color:#fff;font-weight:700}.sv-analytics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px}.sv-analytics article{border:1px solid #dfe8e3;background:#f7faf8;border-radius:12px;padding:10px}.sv-analytics span{font-size:11px;color:#667a72;display:block}.sv-analytics b{font-size:14px}.sv-rating-note{background:#fff8e7;border:1px solid #e6d19c;border-radius:11px;padding:10px;margin:10px 0}.sv-eval-table select{min-width:120px}.sv-eval-table [data-nonexec-reason]{min-width:220px;opacity:.55;background:#f5f7f6}.sv-eval-table [data-nonexec-reason]:enabled{opacity:1;background:#fff8e7;border-color:#d8bd88}.sv-eval-table .sv-reason-active{background:#fffaf0}.sv-student-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.sv-student-check{border:1px solid #dbe6e1;border-radius:15px;padding:14px;background:#f9fbfa}.sv-student-progress{background:#eef7f4;border-radius:10px;padding:10px;margin:10px 0;line-height:1.8}.sv-treatment-row{display:grid;grid-template-columns:2fr 1fr 1fr .8fr .9fr auto;gap:8px;align-items:center;margin:8px 0}.sv-readbox{white-space:pre-wrap;border:1px solid #dce6e1;border-radius:12px;padding:12px;background:#f9fbfa}.sv-result-hero{background:#f2f8f5;border:1px solid #d9e7e1;border-radius:16px;padding:15px}.sv-result-hero>div:last-child{text-align:center}.sv-result-hero>div:last-child b{display:block;font-size:30px}.sv-result-hero>div:last-child span{display:block}.sv-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.sv-template-grid article{border:1px solid #dce6e1;border-radius:14px;padding:10px;display:grid;gap:7px}.sv-template-grid img{width:100%;aspect-ratio:210/297;object-fit:cover;border-radius:8px;border:1px solid #eee}.sv-days{display:flex;flex-wrap:wrap;gap:10px}.sv-capacity-note{margin:10px 0;padding:11px 13px;border-radius:12px;font-weight:700;line-height:1.7}.sv-capacity-note.ok{background:#eaf7f1;border:1px solid #abd5c3;color:#07543f}.sv-capacity-note.warn{background:#fff6df;border:1px solid #e1c77d;color:#7b5a0b}.sv-teacher-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;max-height:320px;overflow:auto;border:1px solid #dce6e1;border-radius:12px;padding:10px}.sv-teacher-pick label{display:flex;align-items:center;gap:8px;padding:7px;border-radius:9px;background:#f7faf8}.sv-upcoming-list{display:grid;gap:7px}.sv-upcoming-list article{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #e2e9e5;padding:8px 0}.sv-upcoming-list span{color:#667a72}.sv-actions{display:flex;gap:6px;flex-wrap:wrap}.sv-manage-card{display:grid;gap:6px;border:1px solid #dce6e1;background:#f7faf8;border-radius:14px;padding:13px;margin-bottom:12px}.sv-manage-card b{font-size:18px}.sv-manage-card span{color:#667a72}.sv-manage-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.sv-manage-actions .button{width:100%;min-height:48px}@media(max-width:760px){.sv-student-checks{grid-template-columns:1fr}.sv-treatment-row{grid-template-columns:1fr}.sv-upcoming-list article{display:grid}.sv-manage-actions{grid-template-columns:1fr}.sv-actions{display:grid;grid-template-columns:1fr}.sv-actions .button{width:100%}.sv-panel .table-wrap{overflow-x:auto}}';
+style.textContent += [
+  '.sv-dashboard-notifications{margin-top:18px}',
+  '.sv-dashboard-notifications .sv-notifications-details{border:1px solid #dce6e1;border-radius:14px;background:#fbfdfc;overflow:hidden;color:#183c33}',
+  '.sv-dashboard-notifications summary{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;list-style:none}',
+  '.sv-dashboard-notifications summary::-webkit-details-marker{display:none}',
+  '.sv-notification-bell{font-size:20px;flex:none}',
+  '.sv-notification-label{display:grid;gap:2px;flex:1;min-width:0}',
+  '.sv-notification-label strong{font-size:16px}',
+  '.sv-notification-label small{font-size:12px;color:#55756a}',
+  '.sv-notification-state{font-size:12px;color:#006b74;border:1px solid currentColor;border-radius:999px;padding:3px 10px;flex:none}',
+  '.sv-notifications-body{padding:2px 15px 15px;border-top:1px solid #dce6e1}',
+  '.sv-notifications-body .sv-upcoming-list article{align-items:flex-start}',
+  '.sv-notifications-body [data-sv-action="go-supervision"]{margin-top:12px}',
+  'html[data-sanabil-theme="dark"] .sv-dashboard-notifications .sv-notifications-details{background:#172e2a!important;color:#e6f3ec!important;border-color:#46665c!important}',
+  'html[data-sanabil-theme="dark"] .sv-dashboard-notifications :is(.sv-notifications-body,.sv-upcoming-list article){border-color:#46665c!important}',
+  'html[data-sanabil-theme="dark"] .sv-notification-label small,html[data-sanabil-theme="dark"] .sv-upcoming-list span{color:#bdd5c8!important}',
+  'html[data-sanabil-theme="dark"] .sv-notification-state{color:#d8bd88}'
+].join('');
+document.head.append(style);
 window.SanabilSupervision={page,decorateDashboard,getTemplate,printShell,openTemplates:async root=>templatesPanel(root,await scopes(),await access()),openCertificate:async()=>certificateDialog(await access(),await scopes())};
 })();
