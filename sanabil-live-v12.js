@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.6.0-pilot';
+window.__SanabilLiveBuild='20261015-v13.6.1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -821,16 +821,73 @@ async function autoPrepareSanabilOffline({manualCircle='',anchor='',force=false}
  }finally{sanabilAutoPrepareBusy=false}
 }
 window.SanabilAutoOffline={refresh:autoPrepareSanabilOffline};
-const teachersForCircle=(data,circleId)=>{const ids=new Set((data.circleTeachers||[]).filter(x=>x.circle_id===circleId&&x.active!==false).map(x=>x.teacher_id));return data.teachers.filter(x=>x.circle_id===circleId||ids.has(x.id))}
+const teacherDirectory=teachers=>{
+ const used=new Set();
+ return teachers.filter(t=>{
+  const identity=t.user_id?'user:'+t.user_id:'teacher:'+t.id;
+  if(used.has(identity))return false;
+  used.add(identity);return true;
+ });
+};
+const teacherLinkForCircle=(data,circleId)=>{
+ const links=(data.circleTeachers||[]).filter(x=>x.circle_id===circleId&&x.active!==false)
+    .sort((a,b)=>Number(b.is_primary===true)-Number(a.is_primary===true));
+ return links.map(x=>data.teachers.find(t=>t.id===x.teacher_id)).filter(Boolean);
+};
+const teachersForCircle=(data,circleId)=>{
+ // The explicit link table is authoritative. A legacy teacher.circle_id is
+ // only considered when the circle has no active explicit link.
+ const linked=teacherLinkForCircle(data,circleId);
+ if(linked.length)return teacherDirectory(linked.slice(0,1));
+ const legacy=data.teachers.filter(x=>x.circle_id===circleId);
+ return legacy.length===1?legacy:[];
+};
+const teacherAssignmentInfo=(data,circleId)=>{
+ const linked=teacherLinkForCircle(data,circleId),legacy=data.teachers.filter(t=>t.circle_id===circleId);
+ return {primary:linked[0]||(legacy.length===1?legacy[0]:null),
+    legacyConflict:legacy.length>1||linked.length>1,
+    mismatches:legacy.filter(t=>linked.length&&!linked.some(a=>a.id===t.id))
+ };
+};
 function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,teachersForCircle(data,ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
 async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
 async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.')})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
 async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin');
- root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...l.teachers.map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
- action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=table(['المعلم','المسمى','الجوال','الحلقات'],l.teachers.map(t=>{const ids=new Set([t.circle_id,...(l.circleTeachers||[]).filter(x=>x.teacher_id===t.id&&x.active!==false).map(x=>x.circle_id)].filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'غير مسند')]}))});
- action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const ts=teachersForCircle(l,ci.id).map(t=>t.full_name).join('، ');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
+ if(canMove)action(root,root.querySelector('[data-action="teacher-assign"]'),()=>{
+  const b=modal('إسناد أكثر من حلقة للمعلم');
+  b.innerHTML='<form><p class="sl-help">يسمح بإسناد معلم لعدة حلقات دون تداخل أيام وفترات العمل. لا يتغير معلم الطلاب السابقين تلقائيًا.</p><div class="form-grid two">'+
+    select('المعلم','teacher_id',teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name})))+
+    select('الحلقة','circle_id',l.circles.map(c=>({id:c.id,name:c.name+' — '+(c.session_period||'دون فترة')})))+
+    '</div><p class="sl-help" data-assignment-preview></p><button type="submit" class="button button-primary">اعتماد إسناد الحلقة</button></form>';
+  const form=b.querySelector('form'),preview=b.querySelector('[data-assignment-preview]');
+  const render=()=>{
+    const ci=l.circles.find(x=>x.id===form.elements.circle_id.value);
+    const t=l.teachers.find(x=>x.id===form.elements.teacher_id.value);
+    const current=ci?teacherAssignmentInfo(l,ci.id).primary:null;
+    const linked=(l.circleTeachers||[]).filter(x=>x.active!==false&&x.teacher_id===t?.id)
+      .map(x=>l.circles.find(c=>c.id===x.circle_id)).filter(Boolean);
+    preview.textContent='المعلم الحالي للحلقة: '+(current?.full_name||'لا يوجد')+
+      ' · الفترة: '+(ci?.session_period||'غير محددة')+
+      (linked.length?' · حلقات هذا المعلم: '+linked.map(x=>x.name+' ('+x.session_period+')').join('، '):'');
+  };
+  form.elements.teacher_id.onchange=render;form.elements.circle_id.onchange=render;render();
+  submit(form,async()=>{
+   const circle=form.elements.circle_id.value,teacher=form.elements.teacher_id.value;
+   if(!circle||!teacher)throw Error('اختر المعلم والحلقة.');
+   const original=teacherAssignmentInfo(l,circle).primary;
+   const replace=original&&original.id!==teacher;
+   if(replace&&!confirm('الحلقة مسندة حاليًا إلى «'+original.full_name+'». هل تريد اعتماد المعلم الجديد دون تغيير بيانات الطلاب السابقة؟'))return;
+   const output=await rpc('assign_circle_teacher_guarded',{p_circle_id:circle,p_teacher_id:teacher,p_replace:!!replace});
+   if(!output?.ok)throw Error('تعذر اعتماد الإسناد.');
+   b.closest('dialog').close();lookupPromise=null;await studentsPage(root);
+   msg(root,'حُفظ إسناد الحلقة بعد التحقق من عدم تعارض الفترات. لم تُحذف بيانات المعلمين أو الطلاب.');
+  });
+ });
+ action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>[x.circle_id,...(l.circleTeachers||[]).filter(link=>link.teacher_id===x.id&&link.active!==false).map(link=>link.circle_id)]).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'غير مسند')]}))});
+ action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
  if(canImport)action(root,root.querySelector('[data-action="import-entity-db"]'),()=>{
    const b=modal('استيراد قاعدة بيانات الجهة');
    b.innerHTML=`<p>اختر ملف قاعدة بيانات الجهة الأصلي كما صدر من نموذج الجمعية. سيقرأ النظام ورقة الطلاب والحلقات، ويسند كل طالب تلقائيًا إلى الحلقة الأساسية لمعلمه.</p><label>ملف قاعدة البيانات<input type="file" name="entity_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div class="sl-import-preview"><p>لم يتم اختيار ملف بعد.</p></div><button type="button" class="button button-primary" data-action="run-import" disabled>استيراد الطلاب إلى المنصة</button>`;
@@ -888,14 +945,42 @@ async function studentsPage(root){
  };
  const edit=s=>{
   const b=modal(s?'تعديل بيانات الطالب':'إضافة طالب');
-  b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('المستوى/المقدار السابق','memorization_level','text',s?.memorization_level||s?.evaluation||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',l.teachers.map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
+  b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('المستوى/المقدار السابق','memorization_level','text',s?.memorization_level||s?.evaluation||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',teachersForCircle(l,s?.circle_id||'').map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
   const form=b.querySelector('form');bindScope(form,l,s||{});
+  // A student's teacher is derived from the circle's explicit ACTIVE assignment.
+  // Preserve old mismatching links only while the record is being reviewed.
+  const ci=form.elements.circle_id,cx=form.elements.complex_id,te=form.elements.teacher_id;
+  const hint=document.createElement('p');hint.className='sl-help sl-teacher-auto-hint';
+  te.closest('label')?.insertAdjacentElement('afterend',hint);
+  const updateTeacher=()=>{
+   const circle=l.circles.find(c=>c.id===ci.value);
+   const list=teachersForCircle(l,ci.value);
+   if(circle&&cx.value!==circle.complex_id)cx.value=circle.complex_id;
+   te.replaceChildren();
+   const blank=document.createElement('option');blank.value='';blank.textContent='يُحدد من إسناد الحلقة';te.append(blank);
+   for(const t of list){const option=document.createElement('option');option.value=t.id;option.textContent=t.full_name;te.append(option)}
+   const preserve=s&&ci.value===s.circle_id&&!list.some(t=>t.id===s.teacher_id);
+   if(preserve&&s.teacher_id){const original=l.teachers.find(x=>x.id===s.teacher_id);const option=document.createElement('option');option.value=s.teacher_id;option.textContent=(original?.full_name||'المعلم السابق')+' (إسناد قديم للمراجعة)';te.append(option)}
+   te.value=preserve?s.teacher_id||'':list[0]?.id||'';
+   const info=teacherAssignmentInfo(l,ci.value);
+   hint.textContent=!circle?'اختر الحلقة لربط المعلم تلقائيًا.':!list.length?'هذه الحلقة ليس لها إسناد معلم معتمد؛ افتح «إسناد حلقات للمعلم» أولًا.':
+      preserve?'هذا الطالب مرتبط بمعلم سابق مختلف عن المعتمد؛ لن نغيّر ارتباطه دون مراجعة.':
+      'المعلم المعتمد للحلقة: '+list[0].full_name+(info.legacyConflict?' · توجد سجلات إسناد قديمة بحاجة مراجعة':'');
+  };
+  const oldCi=ci.onchange;ci.onchange=e=>{if(oldCi)oldCi(e);updateTeacher()};
+  const oldCx=cx.onchange;cx.onchange=e=>{if(oldCx)oldCx(e);updateTeacher()};
+  updateTeacher();
   submit(form,async()=>{
    const row=Object.fromEntries(new FormData(form));if(row.full_name.trim().split(/\s+/).length<3)throw Error('أدخل الاسم الثلاثي');if(!row.circle_id||!row.complex_id)throw Error('اختر المجمع والحلقة');
    for(const k of ['student_phone','guardian_phone']){row[k]=row[k].replace(/[\s()-]/g,'');if(row[k]&&!/^(?:05\d{8}|(?:\+?966)5\d{8}|\d{9,15})$/.test(row[k]))throw Error('رقم الجوال غير صحيح')}
    for(const k of Object.keys(row))if(row[k]==='')row[k]=null;
    row.full_name=row.full_name.trim();row.full_name_normalized=row.full_name.replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
-   const circle=l.circles.find(c=>c.id===row.circle_id);if(!circle)throw Error('الحلقة غير موجودة');row.org_id=circle.org_id;row.circle_name=circle.name;row.teacher_name=l.teachers.find(t=>t.id===row.teacher_id)?.full_name||null;
+   const circle=l.circles.find(c=>c.id===row.circle_id);if(!circle)throw Error('الحلقة غير موجودة');
+   const permittedTeacher=teachersForCircle(l,row.circle_id);
+   const unchangedLegacy=s&&s.circle_id===row.circle_id&&s.teacher_id===row.teacher_id;
+   if(!permittedTeacher.some(x=>x.id===row.teacher_id)&&!unchangedLegacy)
+      throw Error('لا يمكن حفظ الطالب دون معلم معتمد لهذه الحلقة. راجع إسناد المعلمين.');
+   row.org_id=circle.org_id;row.circle_name=circle.name;row.teacher_name=l.teachers.find(t=>t.id===row.teacher_id)?.full_name||null;
    let moved=false;
    if(s&&(s.circle_id!==row.circle_id||s.teacher_id!==row.teacher_id)){await rpc('move_student_with_history',{p_student_id:s.id,p_circle_id:row.circle_id,p_teacher_id:row.teacher_id});moved=s.circle_id!==row.circle_id}
    if(s)await result(sb().from('students').update(row).eq('id',s.id).select('id').single());else await result(sb().from('students').insert({...row,id:crypto.randomUUID(),active:true}).select('id').single());
