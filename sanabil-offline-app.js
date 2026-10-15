@@ -35,10 +35,10 @@ async function session(){
 async function userId(){const s=await session();if(!s?.user?.id)throw Error('سجّل دخولك مرة واحدة بالإنترنت قبل استخدام الحفظ دون اتصال.');return s.user.id}
 let active=false,lastFlushError='';
 async function count(){const uid=await userId().catch(()=>null);const data=await list(OPS).catch(()=>[]);return data.filter(x=>x.userId===uid).length}
-async function status(){
+async function status(silent=false){
  const cnt=await count(),legacy=JSON.parse(localStorage.getItem(LEGACY)||'[]');
  const detail={count:cnt,legacyCount:Array.isArray(legacy)?legacy.length:0,online:navigator.onLine,flushing:active,error:lastFlushError};
- window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail}));return detail;
+ if(!silent)window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail}));return detail;
 }
 async function queue(name,args,label){
  const uid=await userId(),allowed=new Set(['save_daily_outcomes_guarded','save_student_attendance_guarded','submit_offline_attendance_claim']);
@@ -112,7 +112,7 @@ window.addEventListener('appinstalled',()=>{deferredInstall=null;updateUi()});
 function uiRoot(){let root=document.getElementById('sanabil-pwa-offline');if(!root){root=document.createElement('div');root.id='sanabil-pwa-offline';root.className='sanabil-install-pill';root.setAttribute('role','status');root.setAttribute('aria-live','polite');document.body.appendChild(root)}return root}
 async function updateUi(){
  if(!document.body)return;
- const root=uiRoot(),s=await status().catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
+ const root=uiRoot(),s=await status(true).catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
  root.replaceChildren();
  const img=document.createElement('img');img.src='/assets/logo-sanabil-icon-v6.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
  root.append(img);
