@@ -580,3 +580,9 @@ html[data-sanabil-theme="dark"] .sl-dashboard-metrics{background:#172c27;border-
 html[data-sanabil-theme="dark"] .sl-dashboard-metrics>summary{color:#e7f1ed}
 html[data-sanabil-theme="dark"] .sl-dashboard-metrics>summary small{color:#bdd3c8}
 html[data-sanabil-theme="dark"] .sl-dashboard-metrics-content{border-color:#46635a}
+
+/* Immediate feedback during async actions; prevent apparent unresponsive buttons. */
+button.sl-action-pending{cursor:progress!important;position:relative;opacity:.85}
+button.sl-action-pending::after{content:"";display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-inline-start:9px;border:2px solid currentColor;border-left-color:transparent;border-radius:50%;animation:sl-action-spinner .65s linear infinite}
+@keyframes sl-action-spinner{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){button.sl-action-pending::after{animation:none}}
