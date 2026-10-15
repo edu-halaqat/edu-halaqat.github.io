@@ -26,7 +26,8 @@ assert(src.includes("assign_circle_teacher_guarded"),'explicit guarded assignmen
 assert(src.includes("تعارض")||src.includes("التعارض"),'conflict handling should be visible');
 assert(src.includes("الطالب مرتبط بمعلم سابق")||src.includes("هذا الطالب مرتبط بمعلم سابق"),'legacy student link must be protected');
 const css=fs.readFileSync('sanabil-free-live.css','utf8');
-assert(css.includes('sl-peer-compact')&&css.includes('position:sticky'),'mobile persistent video required');
+assert(css.includes('sl-peer-floating')&&css.includes('pointer-events:none'),'the video itself should float without intercepting touch scrolling');
+assert(!css.includes('.sl-peer-panel.sl-peer-compact'),'entire call card must no longer collapse on mobile');
 assert(css.includes('sl-peer-videos video:nth-child(2)'),'teacher picture in picture required');
 assert(src.includes('freeLiveDemoEnabled'),'video must remain admin-only until student identity verification');
 console.log('PASS: canonical teacher source, safe legacy handling, deduplication by account, assignment guard and mobile video layout');
