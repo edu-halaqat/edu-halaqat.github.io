@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.5.0';
+window.__SanabilLiveBuild='20261015-v13.5.1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -37,6 +37,7 @@ const flushOfflineQueue=async()=>{
  await window.SanabilOffline.flush((name,args)=>rpcDirect(name,args));
 };
 window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
+window.addEventListener('online',()=>{if(window.SanabilOffline)access().then(a=>{if(a?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh()}).catch(()=>{})});
 window.addEventListener('sanabil-offline-retry',()=>flushOfflineQueue().catch(()=>{}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)flushOfflineQueue().catch(()=>{})});
 navigator.serviceWorker?.addEventListener?.('message',event=>{
@@ -92,6 +93,14 @@ const rows=async(table,select='*',filters={})=>{
  return load();
 };
 let accessCached=null,accessAt=0,accessPending=null,accessGeneration=0;
+let sanabilAutoOfflineTimer=null;
+const scheduleSanabilOfflineRefresh=()=>{
+ if(!navigator.onLine||!window.SanabilOffline||sanabilAutoOfflineTimer!==null)return;
+ sanabilAutoOfflineTimer=setTimeout(()=>{
+  sanabilAutoOfflineTimer=null;
+  autoPrepareSanabilOffline().catch(e=>console.warn('تعذر التحديث المحلي التلقائي:',e?.message||e));
+ },1300);
+};
 const access=async()=>{
  if(accessCached&&Date.now()-accessAt<12000)return accessCached;
  if(accessPending)return accessPending;
@@ -102,6 +111,7 @@ const access=async()=>{
    accessCached=a;accessAt=Date.now();
    window.SanabilAccessSync?.(a);
    flushOfflineQueue().catch(()=>{});
+   if(a?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh();
    return a;
  }).finally(()=>{if(accessPending===pending)accessPending=null});
  accessPending=pending;
@@ -755,6 +765,61 @@ async function lookups(){if(!lookupPromise||Date.now()-lookupAt>120000){lookupAt
  rows('teachers','id,full_name,circle_id,complex_id,user_id,phone,job_title,source_ref',{active:true}),
  result(sb().from('circle_teachers').select('circle_id,teacher_id,is_primary,active').eq('active',true).order('circle_id'))
 ]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers})).catch(e=>{lookupPromise=null;throw e})}return window.SanabilOffline?window.SanabilOffline.readThrough('lookups',()=>lookupPromise):lookupPromise}
+let sanabilAutoPrepareBusy=false;
+const SANABIL_AUTO_PREP_DAYS=9; // Yesterday, today, and seven following dates.
+const riyadhDate=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const addUtcDays=(ymd,n)=>{const d=new Date(ymd+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+async function autoPrepareSanabilOffline({manualCircle='',anchor='',force=false}={}){
+ if(!navigator.onLine||!window.SanabilOffline)return {total:0,loaded:0,offline:true};
+ if(sanabilAutoPrepareBusy)return {busy:true};
+ const uid=await window.SanabilOffline.userId(),l=await lookups();
+ const selected=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid)||'';
+ const teacherIds=new Set((l.teachers||[]).filter(t=>t.user_id===uid).map(t=>t.id));
+ const assigned=new Set((l.teachers||[]).filter(t=>t.user_id===uid&&t.circle_id).map(t=>t.circle_id));
+ for(const link of l.circleTeachers||[])if(link.active!==false&&teacherIds.has(link.teacher_id))assigned.add(link.circle_id);
+ const choices=[];
+ const eligible=id=>(l.circles||[]).some(c=>c.id===id);
+ const append=id=>{if(id&&eligible(id)&&!choices.includes(id))choices.push(id)};
+ if(manualCircle)append(manualCircle);
+ else{
+  append(selected);
+  for(const c of l.circles||[])if(assigned.has(c.id))append(c.id);
+ }
+ if(!choices.length)return {total:0,loaded:0,reason:'لم تُحدَّد حلقة لإعدادها محليًا.'};
+ const circles=manualCircle?choices:choices.slice(0,5);
+ const base=anchor||riyadhDate();
+ const dayOffsets=manualCircle?[0,1,2,3,4,5,6,7]:[-1,0,1,2,3,4,5,6,7];
+ let loaded=0,total=0;
+ sanabilAutoPrepareBusy=true;
+ try{
+  for(const circle of circles){
+   const stampKey='sanabil-auto-offline-v1:'+uid+':'+circle+':'+base;
+   let stamp={};
+   try{stamp=JSON.parse(localStorage.getItem(stampKey)||'{}')||{}}catch{}
+   // A completed cache gets refreshed every 12h, failures retry after 30min.
+   const age=Date.now()-Number(stamp.at||0);
+   if(!force && age<(stamp.complete?12*3600000:30*60000))continue;
+   let circleLoaded=0,circleTotal=0;
+   for(const n of dayOffsets){
+    if(!navigator.onLine)break;
+    const date=addUtcDays(base,n);
+    const operations=[
+     ['circle_session_access',{p_circle_id:circle,p_date:date}],
+     ['get_day_types_guarded',{p_circle_id:circle,p_date:date}],
+     ['get_daily_assignments',{p_circle_id:circle,p_date:date}]
+    ];
+    const done=await Promise.allSettled(operations.map(([name,args])=>rpc(name,args)));
+    circleTotal+=done.length;circleLoaded+=done.filter(x=>x.status==='fulfilled').length;
+   }
+   loaded+=circleLoaded;total+=circleTotal;
+   // Stamp even failed attempts to prevent a flood when returning to the dashboard.
+   localStorage.setItem(stampKey,JSON.stringify({at:Date.now(),complete:circleLoaded===dayOffsets.length*3,count:circleLoaded,expected:dayOffsets.length*3}));
+   if(!navigator.onLine)break;
+  }
+  return {total,loaded,circles:circles.length,complete:total>0&&total===loaded};
+ }finally{sanabilAutoPrepareBusy=false}
+}
+window.SanabilAutoOffline={refresh:autoPrepareSanabilOffline};
 const teachersForCircle=(data,circleId)=>{const ids=new Set((data.circleTeachers||[]).filter(x=>x.circle_id===circleId&&x.active!==false).map(x=>x.teacher_id));return data.teachers.filter(x=>x.circle_id===circleId||ids.has(x.id))}
 function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,teachersForCircle(data,ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
 async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
@@ -1013,33 +1078,19 @@ async function outcomesPage(root){
  const circleChoices=l.circles.map(c=>({...c,name:c.name+(circleCounts.has(c.id)?' · '+circleCounts.get(c.id)+' طالبًا':' · لا يوجد طلاب')}));
  const selectedSaved=localStorage.getItem(selectedCircleKey);
  const selectedDefault=l.circles.find(c=>c.id===selectedSaved)||l.circles.find(c=>(circleCounts.get(c.id)||0)>0)||l.circles[0];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تجهيز دون إنترنت','prepare-offline')}</div><div class="sl-data"></div>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تحديث البيانات المحلية','prepare-offline')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="prepare-offline"]'),async()=>{
-   if(!navigator.onLine)throw Error('اتصل بالإنترنت لتجهيز بيانات الحلقة ثم يمكنك العمل دون اتصال.');
-   const circle=val(root,'circle'),start=val(root,'date');
-   if(!circle||!start)throw Error('اختر الحلقة وتاريخ البدء أولًا.');
-   if(!window.SanabilOffline)throw Error('محرّك التخزين المحلي غير جاهز.');
-   const calls=[];
-   for(let day=0;day<3;day++){
-     const when=new Date(start+'T12:00:00Z');
-     when.setUTCDate(when.getUTCDate()+day);
-     const date=when.toISOString().slice(0,10);
-     for(const [name,args] of [
-        ['circle_session_access',{p_circle_id:circle,p_date:date}],
-        ['get_day_types_guarded',{p_circle_id:circle,p_date:date}],
-        ['get_daily_assignments',{p_circle_id:circle,p_date:date}],
-        ['get_guardian_excuses_for_circle_guarded',{p_circle_id:circle,p_date:date}]
-     ])calls.push(rpc(name,args));
-   }
-   const ready=await Promise.allSettled(calls);
-   const success=ready.filter(x=>x.status==='fulfilled').length;
-   await offlineSw();
-   if(success!==calls.length)throw Error('جهزت '+success+' من '+calls.length+' مجموعات بيانات. يلزم إكمال تنزيل بيانات الحلقة قبل الاعتماد على العمل دون إنترنت.');
-   msg(root,'اكتمل تجهيز بيانات الحلقة لهذا اليوم واليومين التاليين على الجهاز. افتحها لاحقًا من تطبيق سنابل عند عدم الاتصال.');
+  if(!navigator.onLine)throw Error('التحديث اليدوي يحتاج اتصالًا بالإنترنت. يمكن متابعة العمل بالبيانات المحفوظة سابقًا.');
+  const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ.');
+  const report=await autoPrepareSanabilOffline({manualCircle:circle,anchor:date,force:true});
+  if(report.busy)throw Error('يجري الآن تجهيز الحلقات تلقائيًا؛ انتظر اكتمال التحديث.');
+  if(!report.complete)throw Error('تم تحديث '+report.loaded+' من '+report.total+' مجموعة. احتفظ بالإنترنت لاستكمال تجهيز بقية الأيام.');
+  msg(root,'بيانات الحلقة متاحة محليًا لهذه الأيام الثمانية. يحدثها التطبيق تلقائيًا عندما يتوفر الإنترنت.');
  });
  action(root,root.querySelector('[data-action="load"]'),async()=>{
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   localStorage.setItem(selectedCircleKey,circle);
+  if(navigator.onLine)scheduleSanabilOfflineRefresh();
   // استعراض الأيام خارج الدوام مسموح دون فتح إمكانية التحرير.
   const sessionInfo=await (navigator.onLine
    ?rpc('circle_session_access',{p_circle_id:circle,p_date:date})
