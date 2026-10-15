@@ -905,3 +905,94 @@ html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
     color:#183c33!important;
   }
 }
+
+
+/* V13.4.4 | supervisory and global statistic surfaces.
+   Supervision is built by a separate module and previously bypassed the theme. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+  .sv-panel,.sv-analytics article,.sv-readbox,.sv-student-check,
+  .sv-student-progress,.sv-manage-card,.sv-result-hero,
+  .sv-rating-note,.sv-template-grid article,
+  .sv-teacher-pick label,.sv-capacity-note,.sv-capacity-note.ok,
+  .sv-capacity-note.warn,.sv-eval-table .sv-reason-active,
+  .sv-upcoming-list article,.sv-notifications-details,
+  .stat-card,.stats-grid .stat-card,.sl-stats .stat-card,
+  .sl-stats-detail .stat-card,.sl-stats-grid article,
+  .sl-quick-grid article,.sl-window-grid article
+) {
+  background:#1b382f!important;
+  background-image:none!important;
+  color:#f1faf5!important;
+  border-color:#537567!important;
+  box-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+  .sv-panel,.sv-analytics article,.sv-readbox,.sv-student-check,
+  .sv-student-progress,.sv-manage-card,.sv-result-hero,
+  .sv-rating-note,.sv-template-grid article,
+  .sv-teacher-pick label,.sv-upcoming-list article,
+  .stat-card,.stats-grid .stat-card,.sl-window-grid article
+) :is(h2,h3,h4,p,b,strong,small,span,label,legend) {
+  color:#f2faf5!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+  .sv-panel,.stat-card,.sv-analytics article,.sl-window-grid article
+) > :is(h2,h3,h4,p,span,small) {
+  color:#effbf4!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+  .sv-panel,.sv-manage-card,.sv-student-check,.sv-readbox
+) :is(input,textarea,select) {
+  background:#25463c!important;
+  color:#f5fff8!important;
+  border-color:#648c7a!important;
+  color-scheme:dark;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) .sv-page-head {
+  color:#fff!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) .sv-page-head :is(h2,p,span) {
+  color:#fff!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) .sv-form-hero :is(h2,p,span) {
+  color:#fff!important;
+}
+/* Supervisory tables, wherever mounted, never have a white outer frame. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) .sv-panel .table-wrap {
+  background:#172d28!important;
+  border:1px solid #456758!important;
+  border-radius:12px;
+}
+/* The application shell may render admin statistic cards outside .sl-live. */
+html[data-sanabil-theme="dark"] .app-content :is(
+  .card,.panel,.stat-card,.stats-card,.summary-card,.summary-tile,
+  .metric-card,.kpi-card,.dashboard-card,.info-card
+) {
+  background:#1c382f!important;
+  background-image:none!important;
+  border-color:#557567!important;
+  color:#f1faf5!important;
+}
+html[data-sanabil-theme="dark"] .app-content :is(
+  .card,.panel,.stat-card,.stats-card,.summary-card,.summary-tile,
+  .metric-card,.kpi-card,.dashboard-card,.info-card
+) :is(h2,h3,h4,p,b,strong,small,span,label) {
+  color:#f1faf5!important;
+  opacity:1!important;
+}
+/* Re-establish print-friendly supervisor documents after visual overrides. */
+@media print {
+  html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+    .sv-panel,.sv-analytics article,.sv-readbox,.sv-student-check,
+    .sv-result-hero,.sv-template-grid article,.stat-card,.stats-card,.metric-card
+  ){
+    background:#fff!important;
+    color:#183c33!important;
+    border-color:#c7d4cd!important;
+  }
+  html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog,.app-content) :is(
+    .sv-panel,.stat-card,.sv-readbox,.sv-result-hero
+  ) :is(h2,h3,h4,p,b,span,small,strong) {color:#183c33!important;}
+}
