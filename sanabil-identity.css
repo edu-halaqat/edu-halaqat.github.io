@@ -564,3 +564,7 @@ html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) table :is(button,.butto
     color:#183c33!important;
   }
 }
+
+/* Responsive welcome card: do not overflow on long profile names. */
+.sl-dashboard-welcome>div{min-width:0;max-width:100%}
+.sl-dashboard-welcome h2{font-size:clamp(1.35rem,4.3vw,1.8rem);overflow-wrap:anywhere;word-break:break-word}
