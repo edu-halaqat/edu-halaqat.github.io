@@ -38,6 +38,7 @@ const flushOfflineQueue=async()=>{
 };
 window.addEventListener('online',()=>flushOfflineQueue().catch(()=>{}));
 window.addEventListener('online',()=>{if(window.SanabilOffline)access().then(a=>{if(a?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh()}).catch(()=>{})});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine&&accessCached?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh()});
 window.addEventListener('sanabil-offline-retry',()=>flushOfflineQueue().catch(()=>{}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)flushOfflineQueue().catch(()=>{})});
 navigator.serviceWorker?.addEventListener?.('message',event=>{
@@ -767,7 +768,7 @@ async function lookups(){if(!lookupPromise||Date.now()-lookupAt>120000){lookupAt
 ]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers})).catch(e=>{lookupPromise=null;throw e})}return window.SanabilOffline?window.SanabilOffline.readThrough('lookups',()=>lookupPromise):lookupPromise}
 let sanabilAutoPrepareBusy=false;
 const SANABIL_AUTO_PREP_DAYS=9; // Yesterday, today, and seven following dates.
-const riyadhDate=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const riyadhDate=()=>{const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),p=t=>parts.find(x=>x.type===t)?.value||'';return p('year')+'-'+p('month')+'-'+p('day')};
 const addUtcDays=(ymd,n)=>{const d=new Date(ymd+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 async function autoPrepareSanabilOffline({manualCircle='',anchor='',force=false}={}){
  if(!navigator.onLine||!window.SanabilOffline)return {total:0,loaded:0,offline:true};
