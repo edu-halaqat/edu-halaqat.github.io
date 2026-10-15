@@ -45,6 +45,7 @@ async function open(root,{circleId}={}){
  if(!navigator.onLine)throw Error('يحتاج الاتصال المرئي إلى إنترنت.');
  const sb=window.supabaseClient;if(!sb)throw Error('لم يجهز اتصال سنابل بالسحابة.');
  const user=await sb.auth.getUser();if(!user.data?.user||user.error)throw Error('الرجاء الدخول بحساب المعلم.');
+ const verify=await sb.rpc('my_access',{});if(verify.error||!verify.data?.roles?.includes('admin'))throw Error('التجربة محصورة حاليًا في حساب مدير النظام حتى إكمال التحقق من الطلاب.');
  if(current){if(current.circleId===circleId){current.wrap.scrollIntoView();return}await stop()}
  const token='snp'+random(),s={circleId,token,closed:false,ready:false,waiting:new Map(),active:null,pc:null,media:null,iceQueue:[]};
  const wrap=create('section','sl-peer-panel');s.wrap=wrap;
