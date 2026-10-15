@@ -25,7 +25,7 @@ const list=store=>op(store,'readonly','getAll',[]);
 const del=(store,id)=>op(store,'readwrite','delete',[id]);
 async function session(){
  const sdk=window.supabaseClient;
- try{const response=await sdk?.auth?.getSession();if(response?.data?.session?.user?.id)return response.data.session}catch{}
+ try{if(navigator.onLine){const response=await sdk?.auth?.getSession();if(response?.data?.session?.user?.id)return response.data.session}}catch{}
  for(const st of [localStorage,sessionStorage]){
   try{const obj=JSON.parse(st.getItem('sanabil-auth-session-v2')||'null');
    const id=obj?.user?.id||obj?.user_id;if(id)return {user:{id}};}catch{}
@@ -36,7 +36,7 @@ async function userId(){const s=await session();if(!s?.user?.id)throw Error('س�
 let active=false,lastFlushError='';
 async function count(){const uid=await userId().catch(()=>null);const data=await list(OPS).catch(()=>[]);return data.filter(x=>x.userId===uid).length}
 async function status(silent=false){
- const cnt=await count(),legacy=JSON.parse(localStorage.getItem(LEGACY)||'[]');
+ const cnt=await count();let legacy=[];try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'[]')}catch{}
  const detail={count:cnt,legacyCount:Array.isArray(legacy)?legacy.length:0,online:navigator.onLine,flushing:active,error:lastFlushError};
  if(!silent)window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail}));return detail;
 }
@@ -72,7 +72,7 @@ async function flush(callRpc){
     let result;
     if(item.name==='submit_offline_attendance_claim'){
       result=await callRpc(item.name,item.args);
-      if(result?.status!=='pending_review'&&result?.status!=='already_pending')throw Error('لم يؤكد الخادم استلام طلب البصمة للمراجعة');
+      if(!['pending_review','already_pending','approved','rejected'].includes(result?.status))throw Error('لم يؤكد الخادم استلام طلب البصمة للمراجعة');
     }else{
       result=await callRpc('apply_offline_operation',{p_operation_id:item.id,p_rpc_name:item.name,p_payload:item.args});
       if(result?.ok!==true)throw Error('لم يؤكد الخادم حفظ العملية');
@@ -104,7 +104,7 @@ async function importLegacy(){
  localStorage.removeItem(LEGACY);await status();return raw.length;
 }
 const style=document.createElement('style');
-style.textContent=`.sanabil-install-pill{position:fixed;bottom:12px;inset-inline-start:12px;z-index:2147483200;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 12px;background:#073f42;color:#fff;border:1px solid #d8bd88;border-radius:15px;box-shadow:0 3px 18px #0005;font:600 13px/1.6 system-ui;direction:rtl}.sanabil-install-pill button{border:1px solid #d8bd88;background:#d8bd88;color:#073f42;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit}.sanabil-install-pill a{color:#fff}`;
+style.textContent=`.sanabil-install-pill{position:fixed;bottom:88px;inset-inline-start:12px;z-index:2147483200;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 12px;background:#073f42;color:#fff;border:1px solid #d8bd88;border-radius:15px;box-shadow:0 3px 18px #0005;font:600 13px/1.6 system-ui;direction:rtl}.sanabil-install-pill button{border:1px solid #d8bd88;background:#d8bd88;color:#073f42;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit}.sanabil-install-pill a{color:#fff}`;
 document.head.appendChild(style);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;updateUi()});
@@ -114,7 +114,7 @@ async function updateUi(){
  if(!document.body)return;
  const root=uiRoot(),s=await status(true).catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
  root.replaceChildren();
- const img=document.createElement('img');img.src='/assets/logo-sanabil-icon-v6.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
+ const img=document.createElement('img');img.src='/assets/sanabil-app-192.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
  root.append(img);
  const text=document.createElement('span');text.textContent=s.online?(s.count?'بانتظار مزامنة '+s.count+' عملية':'سنابل الوحي · متصل'):'سنابل الوحي · يعمل دون اتصال'+(s.count?' · '+s.count+' معلّقة':'');root.append(text);
  if(s.legacyCount){const btn=document.createElement('button');btn.textContent='سجلات سابقة ('+s.legacyCount+')';btn.onclick=async()=>{
@@ -122,12 +122,12 @@ async function updateUi(){
   try{await importLegacy();updateUi()}catch(error){alert(error.message)}
  };root.append(btn)}
  if(deferredInstall&&!window.matchMedia('(display-mode: standalone)').matches){const b=document.createElement('button');b.textContent='تثبيت التطبيق';b.onclick=async()=>{const event=deferredInstall;deferredInstall=null;await event.prompt();await event.userChoice.catch(()=>null);updateUi()};root.append(b)}
- if(s.error){root.title='آخر خطأ في المزامنة: '+s.error}
+ if(s.error){root.title='آخر خطأ في المزامنة: '+s.error;const retry=document.createElement('button');retry.textContent='تعذر إرسال سجل · إعادة المحاولة';retry.onclick=()=>window.dispatchEvent(new Event('sanabil-offline-retry'));root.append(retry)}
 }
 window.addEventListener('online',()=>updateUi());
 window.addEventListener('offline',()=>updateUi());
 window.addEventListener('sanabil-offline-queue',()=>{if(document.body)updateUiPending()});
 let renderQueued=false;function updateUiPending(){if(renderQueued)return;renderQueued=true;queueMicrotask(()=>{renderQueued=false;updateUi().catch(()=>{})})}
 document.addEventListener('DOMContentLoaded',()=>updateUi().catch(()=>{}));
-window.SanabilOffline={queue,flush,readThrough,count,status,importLegacy,networkError,updateUi};
+window.SanabilOffline={queue,flush,readThrough,count,status,importLegacy,networkError,updateUi,userId};
 })();
