@@ -37,7 +37,7 @@ function queueView(s){s.queue.replaceChildren();
 async function stop(){const s=current;if(!s||s.closed)return;
  await publish(s,'ended',{}).catch(()=>{});s.closed=true;
  await disconnect(s);try{await window.supabaseClient.removeChannel(s.channel)}catch{}
- s.wrap.remove();if(current===s)current=null;
+ s.wrap.remove();const root=s.wrap.parentElement||s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
 }
 async function open(root,{circleId}={}){
  if(!circleId)throw Error('اختر الحلقة أولًا.');
@@ -48,7 +48,7 @@ async function open(root,{circleId}={}){
  const verify=await sb.rpc('my_access',{});if(verify.error||!verify.data?.roles?.includes('admin'))throw Error('التجربة محصورة حاليًا في حساب مدير النظام حتى إكمال التحقق من الطلاب.');
  if(current){if(current.circleId===circleId){current.wrap.scrollIntoView();return}await stop()}
  const token='snp'+random(),s={circleId,token,closed:false,ready:false,waiting:new Map(),active:null,pc:null,media:null,iceQueue:[]};
- const wrap=create('section','sl-peer-panel');s.wrap=wrap;
+ const wrap=create('section','sl-peer-panel');s.wrap=wrap;s.root=root;
  const top=create('div','sl-peer-header');top.append(create('strong','','التسميع المرئي المجاني — اختبار فقط'));
  const end=create('button','','إنهاء البث');end.onclick=()=>stop();top.append(end);wrap.append(top);
  wrap.append(create('p','sl-peer-warning','تحذير: نموذج أولي لا يتحقق من هوية الطالب. لا تستخدم طلابًا أو بيانات حقيقية حتى إتمام المصادقة والاختبارات.'));
@@ -63,6 +63,7 @@ async function open(root,{circleId}={}){
  wrap.append(create('h4','','المنتظرون للموافقة'));s.queue=create('div','sl-peer-queue');wrap.append(s.queue);
  const bar=root.querySelector('.sl-session-filter');if(!bar)throw Error('صفحة الحصيلة غير جاهزة.');
  bar.insertAdjacentElement('afterend',wrap);
+ root.classList.add('sl-peer-active');
  const ch=sb.channel('sanabil-trial:'+token,{config:{broadcast:{self:false}}});s.channel=ch;
  ch.on('broadcast',{event:'knock'},e=>{if(s.closed)return;const d=e.payload||{};
   if(typeof d.id!=='string'||!(/^[a-f0-9-]{36}$/i).test(d.id)||typeof d.name!=='string')return;
