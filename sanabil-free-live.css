@@ -25,17 +25,57 @@ html[data-sanabil-theme="dark"] .sl-peer-outcome-search input{background:#1b4540
 .sl-peer-active>.sl-data{grid-column:2;grid-row:3;min-width:0}
 .sl-peer-active>.sl-data .sl-student-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
 }
+/* The original video stays in a height-preserving stage while docked.
+   DO NOT make the entire panel sticky: it captures the viewport and
+   collapses repeatedly during scroll on Chrome Android. */
+.sl-peer-video-stage{display:flow-root;min-width:0}
+.sl-peer-active>.sl-data{scroll-margin-top:12px}
 @media(max-width:899px){
-.sl-peer-active>.sl-peer-panel{position:sticky;top:5px;z-index:15;transition:padding .15s ease}
-.sl-peer-panel.sl-peer-compact{padding:6px 9px;background:#143633;color:#fff;box-shadow:0 7px 23px #0006}
-.sl-peer-panel.sl-peer-compact .sl-peer-videos video:first-child{height:104px;min-height:unset;max-height:unset;aspect-ratio:auto}
-.sl-peer-panel.sl-peer-compact .sl-peer-videos video:nth-child(2){width:64px;height:83px}
-.sl-peer-panel.sl-peer-compact .sl-peer-warning,.sl-peer-panel.sl-peer-compact .sl-peer-outcome-search,.sl-peer-panel.sl-peer-compact>.sl-peer-queue,.sl-peer-panel.sl-peer-compact>h4{display:none}
-.sl-peer-panel.sl-peer-compact:not(.sl-peer-expand-details) .sl-peer-status{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sl-peer-panel.sl-peer-compact.sl-peer-expand-details .sl-peer-queue,.sl-peer-panel.sl-peer-compact.sl-peer-expand-details>h4{display:block}
-.sl-peer-panel.sl-peer-compact .sl-peer-header strong{font-size:12px}
-.sl-peer-panel.sl-peer-compact>button{padding:5px 7px;font-size:12px}
+ .sl-peer-active>.sl-peer-panel{position:relative;top:auto;z-index:auto;overflow:visible}
+ .sl-peer-active>.sl-data{position:relative;scroll-margin-top:12px}
+ .sl-peer-floating .sl-peer-videos{
+   position:fixed;
+   inset-inline-end:10px;
+   bottom:calc(102px + env(safe-area-inset-bottom, 0px));
+   width:clamp(136px,40vw,188px);
+   max-width:calc(100vw - 24px);
+   margin:0;
+   z-index:120;
+   pointer-events:none;
+   border-radius:12px;
+   box-shadow:0 6px 20px #0009;
+ }
+ .sl-peer-floating .sl-peer-videos video:first-child{
+   display:block;
+   width:100%;
+   height:auto;
+   aspect-ratio:16 / 9;
+   min-height:0;
+   max-height:none;
+   object-fit:cover;
+ }
+ .sl-peer-floating .sl-peer-videos video:nth-child(2){
+   width:28%;
+   max-width:55px;
+   max-height:58px;
+   bottom:4px;
+   inset-inline-end:4px;
+   border-width:1px;
+ }
+ .sl-peer-floating .sl-peer-videos:after{
+   content:'تسميع مباشر';
+   position:absolute;
+   top:3px;
+   inset-inline-start:5px;
+   padding:1px 5px;
+   border-radius:5px;
+   background:#092323cf;
+   color:#fff;
+   font-size:9px;
+   font-weight:600;
+ }
 }
+
 @media(max-width:520px){
 .sl-peer-panel{padding:8px}
 .sl-peer-videos video:first-child{min-height:120px;max-height:220px}
