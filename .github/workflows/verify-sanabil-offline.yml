@@ -1,0 +1,45 @@
+name: Verify Sanabil offline app
+on:
+  push:
+    branches: [feature/sanabil-offline-pwa-20261015]
+  pull_request:
+    paths:
+      - 'sanabil-offline-app.js'
+      - 'sanabil-offline-sw.js'
+      - 'sanabil-live-v12.js'
+      - 'manifest.webmanifest'
+      - 'index.html'
+      - 'tests/sanabil-offline-smoke.cjs'
+permissions:
+  contents: read
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check sanabil-live-v12.js
+          node --check sanabil-offline-app.js
+          node --check sanabil-offline-sw.js
+      - name: Validate manifest, icons and app references
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert');
+          const m=JSON.parse(fs.readFileSync('manifest.webmanifest'));
+          const h=fs.readFileSync('index.html','utf8');
+          for (const sz of ['192x192','512x512'])assert(m.icons.some(x=>x.sizes===sz));
+          assert(m.icons.some(x=>x.purpose==='maskable'));
+          for (const item of m.icons)assert(fs.existsSync('.'+item.src),'Missing '+item.src);
+          assert(h.includes('rel="manifest"'));
+          assert(h.includes('/sanabil-offline-app.js'));
+          assert(fs.readFileSync('sanabil-offline-sw.js','utf8').includes("self.addEventListener('fetch'"));
+          console.log('PASS: manifest, 192/512 PNGs, install entry and offline worker');
+          NODE
+      - name: Install test-only IndexedDB polyfill
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
+      - name: Exercise offline persistence and queue
+        run: node tests/sanabil-offline-smoke.cjs
