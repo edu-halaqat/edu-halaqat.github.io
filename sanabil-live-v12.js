@@ -2281,7 +2281,7 @@ async function plansPage(root){
 
 async function attendancePage(root){
  const a=await access(),l=await lookups(),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
- root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent')+button('طلبات البصمة المؤجلة','offline-claims'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
  const selected=()=>l.circles.find(c=>c.id===val(root,'circle'));
  const getWindow=async c=>{if(!c?.mosque_id)return null;const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
  const minuteNow=()=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date),get=t=>p.find(x=>x.type===t)?.value||'0';return Number(get('hour'))*60+Number(get('minute'))};
@@ -2325,6 +2325,56 @@ async function attendancePage(root){
   return;
  }
  const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:kind==='in'?'checkIn':'checkOut',mosqueId:c.mosque_id,circleId:c.id,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy}});if(error){let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)}if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
+ if(manager){
+  action(root,root.querySelector('[data-action="offline-claims"]'),async()=>{
+   const c=selected();if(!c)throw Error('اختر الحلقة أولًا');
+   const data=await rpcDirect('list_offline_attendance_claims',{p_circle_id:c.id,p_days:45});
+   const dialog=document.createElement('dialog');
+   dialog.dir='rtl';dialog.style.cssText='border:2px solid #d8bd88;border-radius:15px;background:#073f42;color:#fff;padding:18px;max-width:min(92vw,760px);max-height:82vh;overflow:auto;box-shadow:0 10px 40px #0007';
+   const header=document.createElement('h2');header.textContent='طلبات البصمة المرسلة بعد انقطاع الإنترنت';dialog.append(header);
+   const info=document.createElement('p');info.textContent='الطلبات أدناه ليست بصمات حضور أو انصراف معتمدة. تحقق من توقيت الالتقاط والموقع قبل اتخاذ قرارك.';dialog.append(info);
+   const requests=data?.claims||[];
+   if(!requests.length){const p=document.createElement('p');p.textContent='لا توجد طلبات خلال الفترة المحددة.';dialog.append(p)}
+   for(const claim of requests){
+    const card=document.createElement('section');
+    card.style.cssText='margin:12px 0;padding:12px;border:1px solid #d8bd88;border-radius:10px';
+    const title=document.createElement('div');title.style.fontWeight='bold';
+    title.textContent=(claim.teacher_name||'معلم')+' · '+(claim.action==='checkIn'?'طلب حضور':'طلب انصراف');
+    card.append(title);
+    const details=document.createElement('p');details.style.fontSize='13px';
+    details.textContent='التقاط الجهاز: '+new Date(claim.captured_at).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'})
+      +' | دقة الموقع: '+Math.round(Number(claim.accuracy_m||0))+' متر | الحالة: '+claim.status;
+    card.append(details);
+    const coords=document.createElement('p');coords.style.fontSize='12px';
+    coords.textContent='إحداثيات الالتقاط: '+Number(claim.latitude).toFixed(5)+', '+Number(claim.longitude).toFixed(5);
+    card.append(coords);
+    if(claim.status==='pending_review'){
+     for(const [decision,label] of [['approve','اعتماد بعد التحقق'],['reject','رفض الطلب']]){
+      const btn=document.createElement('button');btn.type='button';btn.textContent=label;
+      btn.style.cssText='margin:4px;padding:7px 12px;border:1px solid #d8bd88;border-radius:8px;background:'+(decision==='approve'?'#d8bd88':'#a52835')+';color:'+(decision==='approve'?'#073f42':'#fff')+';cursor:pointer';
+      btn.onclick=async()=>{
+       const question=decision==='approve'?'اعتماد هذه البصمة سيؤثر في سجل حضور المعلم الرسمي. هل تحققت من صحة الموقع والوقت؟':'هل ترغب في رفض هذا الطلب؟';
+       if(!confirm(question))return;
+       const note=prompt(decision==='approve'?'ملاحظة الاعتماد (اختيارية):':'سبب الرفض (مطلوب):','');
+       if(note===null||decision==='reject'&&!note.trim())return;
+       btn.disabled=true;
+       try{
+        await rpcDirect('review_offline_attendance_claim',{p_claim_id:claim.id,p_decision:decision,p_note:note||null});
+        dialog.close();dialog.remove();await load();
+        msg(root,decision==='approve'?'اعتُمدت البصمة بعد مراجعة المشرف.':'رُفض طلب البصمة مع حفظ القرار.');
+       }catch(error){alert(error.message)}finally{btn.disabled=false}
+      };card.append(btn);
+     }
+    }
+    dialog.append(card);
+   }
+   const close=document.createElement('button');close.type='button';close.textContent='إغلاق';
+   close.style.cssText='margin-top:12px;padding:7px 14px;border:1px solid #d8bd88;border-radius:8px;background:#d8bd88;color:#073f42';
+   close.onclick=()=>dialog.close();dialog.append(close);
+   dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+   document.body.append(dialog);dialog.showModal();
+  });
+ }
  if(manager){
   action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=teachersForCircle(l,c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
   action(root,root.querySelector('[data-action="fingerprint-settings"]'),async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single()),cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{},d=modal('إعدادات بصمة '+m.name),prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];d.innerHTML=`<form><div class="form-grid two">${field('خط العرض','latitude','number',m.latitude,'step="any" required')}${field('خط الطول','longitude','number',m.longitude,'step="any" required')}${field('النطاق بالمتر','radius','number',m.radius_meters||100,'min="20" max="500"')}${select('البداية','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('النهاية','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('الحضور المبكر','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('الانصراف المبكر','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('اعتبار الغياب بعد','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي</button><button type="submit" class="button button-primary">حفظ</button></form>`;const form=d.querySelector('form');action(d,d.querySelector('[data-action="gps"]'),async()=>{const p=await bestGeoPosition();form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={...cfg,action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(cfg.checkoutGraceMinutes??120)};await result(sb().from('mosques').update({latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],updated_at:new Date().toISOString()}).eq('id',m.id).select('id').single());d.closest('dialog').close();await load();msg(root,'تم حفظ إعدادات البصمة لهذا المجمع.')})})
