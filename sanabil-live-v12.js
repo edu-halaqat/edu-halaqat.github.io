@@ -1018,7 +1018,7 @@ async function outcomesPage(root){
   // استعراض الأيام خارج الدوام مسموح دون فتح إمكانية التحرير.
   const sessionInfo=await (navigator.onLine
    ?rpc('circle_session_access',{p_circle_id:circle,p_date:date})
-   :ensureCircleSession(circle,date,true).then(info=>{
+   :rpc('circle_session_access',{p_circle_id:circle,p_date:date}).then(info=>{
       const local=localSessionAllowed(info,date);
       return {...info,allowed:local.allowed,reason:local.reason||info?.reason};
     }));
