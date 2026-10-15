@@ -996,3 +996,51 @@ html[data-sanabil-theme="dark"] .app-content :is(
     .sv-panel,.stat-card,.sv-readbox,.sv-result-hero
   ) :is(h2,h3,h4,p,b,span,small,strong) {color:#183c33!important;}
 }
+
+
+/* V13.4.6 · persistent night appearance across route-mounted supervision and cards.
+   Scope the overrides to the application, not printable reports or Quran previews. */
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) :is(
+ .sv-panel,.sv-analytics article,.sv-readbox,.sv-student-check,.sv-student-progress,
+ .sv-manage-card,.sv-result-hero,.sv-rating-note,.sv-template-grid article,
+ .sv-teacher-pick,.sv-teacher-pick label,.sv-capacity-note,
+ .sv-dashboard-notifications .sv-notifications-details,
+ .sv-eval-table .sv-reason-active,.sv-eval-table [data-nonexec-reason],
+ .sv-template-grid article,.sv-upcoming-list article
+){
+ background:#19352e!important;
+ background-image:none!important;
+ color:#f2faf6!important;
+ border-color:#47695d!important;
+ box-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) :is(.sv-panel,.sv-manage-card,.sv-student-check,.sv-result-hero,.sv-readbox) :is(h2,h3,h4,b,strong,p,small,span,label){
+ color:#eaf9f1!important;
+ opacity:1!important;
+}
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) :is(.sv-panel,.sv-manage-card,.sv-student-check,.sv-result-hero,.sv-readbox) :is(input,select,textarea){
+ background:#25463c!important;color:#f5fff8!important;border-color:#648c7a!important;color-scheme:dark;
+}
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) .sv-panel :is(.table-wrap,table,tbody,tr,td){
+ background:#19352e!important;color:#effbf4!important;border-color:#47695d!important;
+}
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) .sv-panel :is(thead,th){
+ background:#275347!important;color:#f6fff9!important;border-color:#648c7a!important;
+}
+html[data-sanabil-theme="dark"] body:has(.sv-page-head) :is(.sv-page-head,.sv-form-hero) :is(h2,h3,p,span){
+ color:#fff!important;
+}
+html[data-sanabil-theme="dark"] .sl-live :is(
+ .sl-dashboard-one-tap,.sl-trend-card,.sl-dashboard-metrics,.sl-dashboard-notifications,
+ .sl-session-head,.sl-toolbar,.sl-filterbar,.sl-day-kind-toolbar
+){
+ background-color:#19352e!important;color:#f2faf6!important;border-color:#47695d!important;
+}
+html[data-sanabil-theme="dark"] .sl-live :is(.sl-quick-action,.sl-trend-card,.sl-window-grid article,.stat-card) :is(svg,svg path){
+ color:#d5f5e7;
+}
+@media print{
+ html[data-sanabil-theme="dark"] body:has(.sv-page-head) :is(.sv-panel,.sv-readbox,.sv-result-hero,.sv-student-check,table,th,td){
+  background:#fff!important;color:#183c33!important;border-color:#dce6e1!important;
+ }
+}
