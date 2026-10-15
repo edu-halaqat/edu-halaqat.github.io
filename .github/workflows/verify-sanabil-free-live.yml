@@ -1,0 +1,48 @@
+name: Verify free WebRTC pilot (admin only)
+on:
+  push:
+    branches: [feature/sanabil-free-webrtc-pilot-20261015]
+  pull_request:
+    paths:
+      - 'sanabil-free-live.js'
+      - 'sanabil-free-student.html'
+      - 'sanabil-free-live.css'
+      - 'sanabil-live-v12.js'
+      - 'index.html'
+permissions:
+  contents: read
+jobs:
+  verify-free-pilot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate pilot and existing JavaScript
+        run: |
+          node --check sanabil-free-live.js
+          node --check sanabil-live-v12.js
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert'),vm=require('vm');
+          const page=fs.readFileSync('sanabil-free-student.html','utf8');
+          const script=/<script>\s*([\s\S]*?)<\/script>/g;
+          const snippets=[...page.matchAll(script)];
+          assert.equal(snippets.length,1,'Expected one non-external student script');
+          new vm.Script(snippets[0][1],{filename:'student.html:inline'});
+          const teacher=fs.readFileSync('sanabil-free-live.js','utf8');
+          const live=fs.readFileSync('sanabil-live-v12.js','utf8');
+          const home=fs.readFileSync('index.html','utf8');
+          assert(teacher.includes('getRandomValues(new Uint8Array(24))'),'Room nonce must be cryptographically random');
+          assert(teacher.includes("roles?.includes('admin')"),'Pilot restricted to admin');
+          assert(live.includes('freeLiveDemoEnabled'),'Pilot hidden from ordinary teachers');
+          assert(page.includes('teacher')&&page.includes('admission'),'Student admission flow is required');
+          assert(teacher.includes('RTCPeerConnection')&&page.includes('RTCPeerConnection'));
+          assert(home.includes('sanabil-free-live.js')&&home.includes('sanabil-free-live.css'));
+          assert(page.includes('noindex,nofollow'));
+          console.log('PASS: syntax, restricted preview, student approval, random rooms');
+          NODE
+      - name: Install Supabase JavaScript SDK for synthetic signaling check
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @supabase/supabase-js@2.76.1
+      - name: Test public Realtime signaling between synthetic clients
+        run: node tests/sanabil-free-realtime-integration.cjs

@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.5.1';
+window.__SanabilLiveBuild='20261015-v13.6.0-pilot';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1071,6 +1071,7 @@ function showFamilyExcuses(box,requests){
 
 async function outcomesPage(root){
  const l=await lookups();
+ const freeLiveDemoEnabled=(await access().catch(()=>({})))?.roles?.includes('admin')===true;
  const activeUserId=await window.SanabilOffline?.userId?.().catch(()=>null)||(await sb().auth.getSession()).data?.session?.user?.id||'anonymous';
  const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
  const selectedCircleKey='sanabil_outcome_selected_circle_v1:'+activeUserId;
@@ -1079,7 +1080,13 @@ async function outcomesPage(root){
  const circleChoices=l.circles.map(c=>({...c,name:c.name+(circleCounts.has(c.id)?' · '+circleCounts.get(c.id)+' طالبًا':' · لا يوجد طلاب')}));
  const selectedSaved=localStorage.getItem(selectedCircleKey);
  const selectedDefault=l.circles.find(c=>c.id===selectedSaved)||l.circles.find(c=>(circleCounts.get(c.id)||0)>0)||l.circles[0];
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تحديث البيانات المحلية','prepare-offline')}</div><div class="sl-data"></div>`;
+ root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تحديث البيانات المحلية','prepare-offline')}${freeLiveDemoEnabled?button('تجربة التسميع المرئي المجاني','free-live-demo'):''}</div><div class="sl-data"></div>`;
+ action(root,root.querySelector('[data-action="free-live-demo"]'),async()=>{
+   const circle=val(root,'circle');
+   if(!circle)throw Error('اختر الحلقة قبل بدء التجربة.');
+   if(!window.SanabilFreeLive)throw Error('لم تُحمّل وحدة التسميع المجانية. أعد تحديث الصفحة.');
+   await window.SanabilFreeLive.open(root,{circleId:circle});
+ });
  action(root,root.querySelector('[data-action="prepare-offline"]'),async()=>{
   if(!navigator.onLine)throw Error('التحديث اليدوي يحتاج اتصالًا بالإنترنت. يمكن متابعة العمل بالبيانات المحفوظة سابقًا.');
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ.');
