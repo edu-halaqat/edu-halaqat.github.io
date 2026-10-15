@@ -1,0 +1,43 @@
+name: Generate Sanabil PWA icons
+on:
+  push:
+    branches:
+      - feature/sanabil-offline-pwa-20261015
+    paths:
+      - tools/build_sanabil_pwa_icons.py
+      - .github/workflows/generate-sanabil-pwa-icons.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  branded-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image dependency
+        run: python -m pip install 'Pillow==11.3.0'
+      - name: Render branded 192 and 512 PNG icons
+        run: python tools/build_sanabil_pwa_icons.py
+      - name: Verify dimensions and valid PNG
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          for path,size in [('assets/sanabil-app-192.png',192),('assets/sanabil-app-512.png',512),('assets/sanabil-app-maskable-512.png',512)]:
+            with Image.open(path) as im:
+              assert im.size==(size,size), (path,im.size)
+              im.verify()
+          PY
+      - name: Commit generated icons to feature branch
+        run: |
+          git config user.name "Sanabil Build Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/sanabil-app-192.png assets/sanabil-app-512.png assets/sanabil-app-maskable-512.png
+          if ! git diff --cached --quiet; then
+            git commit -m "build(pwa): render official Sanabil app icons"
+            git push
+          fi

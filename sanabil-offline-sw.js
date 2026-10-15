@@ -1,50 +1,89 @@
 'use strict';
-const DB='sanabil-offline-v1',STORE='queue';
+/* Sanabil PWA shell. Never replay private POST requests from the service worker:
+   auth tokens expire, 2xx alone does not guarantee domain-level acceptance,
+   and only a signed-in foreground page may confirm cloud persistence. */
+const SHELL='sanabil-shell-20261015-v1';
 const NOOR_SOURCE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
-const NOOR_CACHE='sanabil-noor-bayan-v1';
-const NOOR_KEY='/noor-bayan.pdf';
-let noorCaching=null;
-async function cacheNoorBook(){
-  if(noorCaching)return noorCaching;
-  noorCaching=(async()=>{
-    try{
-      const cache=await caches.open(NOOR_CACHE);
-      const exists=await cache.match(NOOR_KEY);
-      if(exists)return true;
-      const r=await fetch(NOOR_SOURCE,{mode:'cors',cache:'force-cache'});
-      if(!r.ok)throw new Error('book-fetch');
-      await cache.put(NOOR_KEY,r.clone());
-      const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-      for(const client of clients)client.postMessage({type:'sanabil-noor-cached'});
-      return true;
-    }catch{return false}
-    finally{noorCaching=null}
-  })();
-  return noorCaching;
+const NOOR_CACHE='sanabil-noor-bayan-v1',NOOR_KEY='/noor-bayan.pdf';
+const LEGACY_DB='sanabil-offline-v1',LEGACY_STORE='queue';
+const basic=['/index.html','/','/manifest.webmanifest','/assets/logo-sanabil-icon-v6.png','/assets/logo-sanabil-v6.png','/auth-gate.js','/sanabil-offline-app.js'];
+const isAsset=p=>/\.(?:js|css|png|jpe?g|webp|svg|woff2?|ico)(?:$|\?)/i.test(p);
+const openLegacy=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(LEGACY_DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(LEGACY_STORE))r.result.createObjectStore(LEGACY_STORE,{keyPath:'id'})};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+const legacyDelete=async id=>{const db=await openLegacy();try{await new Promise((resolve,reject)=>{const t=db.transaction(LEGACY_STORE,'readwrite');t.objectStore(LEGACY_STORE).delete(id);t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}finally{db.close()}};
+const legacyPut=async item=>{const db=await openLegacy();try{await new Promise((resolve,reject)=>{const t=db.transaction(LEGACY_STORE,'readwrite');t.objectStore(LEGACY_STORE).put(item);t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}finally{db.close()}};
+async function warmShell(){
+ const cache=await caches.open(SHELL);let paths=[...basic];
+ try{
+  const response=await fetch('/index.html',{cache:'reload'});
+  if(response.ok){await cache.put('/index.html',response.clone());await cache.put('/',response.clone());
+   const html=await response.text();
+   for(const match of html.matchAll(/(?:src|href)="([^"]+)"/g)){
+     const path=match[1];if(path.startsWith('/')&&isAsset(path))paths.push(path);
+   }
+  }
+ }catch{}
+ paths=[...new Set(paths)].slice(0,75);
+ await Promise.allSettled(paths.map(async path=>{
+  if(await cache.match(path))return;
+  const response=await fetch(path,{cache:'reload'});
+  if(response.ok&&response.type==='basic')await cache.put(path,response);
+ }));
 }
-const openDb=()=>new Promise((ok,fail)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:'id'})};r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)});
-const withStore=(mode,fn)=>openDb().then(db=>new Promise((ok,fail)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);fn(s);t.oncomplete=()=>ok();t.onerror=()=>fail(t.error)}));
-const put=x=>withStore('readwrite',s=>s.put(x));
-const del=id=>withStore('readwrite',s=>s.delete(id));
-const all=()=>openDb().then(db=>new Promise((ok,fail)=>{const r=db.transaction(STORE,'readonly').objectStore(STORE).getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>fail(r.error)}));
-async function flush(){for(const x of await all()){try{const r=await fetch(x.url,{method:'POST',headers:x.headers,body:JSON.stringify(x.body)});if(r.ok){await del(x.id);const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});for(const client of clients)client.postMessage({type:'sanabil-offline-synced',id:x.id})}else if([401,403,408,429].includes(r.status)||r.status>=500)break;else await del(x.id)}catch{break}}}
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('message',e=>{const d=e.data||{};if(d.type==='queue'&&d.item)e.waitUntil((async()=>{await put(d.item);try{await self.registration.sync.register('sanabil-sync')}catch{}await flush()})());if(d.type==='flush')e.waitUntil(flush());if(d.type==='ack'&&d.id)e.waitUntil(del(d.id));if(d.type==='CACHE_NOOR_BAYAN')e.waitUntil(cacheNoorBook())});
-self.addEventListener('sync',e=>{if(e.tag==='sanabil-sync')e.waitUntil(flush())});
-
-self.addEventListener('fetch',e=>{
-  try{
-    const u=new URL(e.request.url);
-    if(u.origin===self.location.origin&&u.pathname===NOOR_KEY){
-      e.respondWith((async()=>{
-        const cache=await caches.open(NOOR_CACHE);
-        const hit=await cache.match(NOOR_KEY);
-        if(hit)return hit;
-        const r=await fetch(NOOR_SOURCE,{mode:'cors',cache:'force-cache'});
-        if(r.ok)await cache.put(NOOR_KEY,r.clone());
-        return r;
-      })());
-    }
-  }catch{}
+async function noorBook(){
+ const cache=await caches.open(NOOR_CACHE);
+ if(await cache.match(NOOR_KEY))return true;
+ const response=await fetch(NOOR_SOURCE,{mode:'cors'});
+ if(!response.ok)return false;
+ await cache.put(NOOR_KEY,response.clone());
+ const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+ for(const client of clients)client.postMessage({type:'sanabil-noor-cached'});
+ return true;
+}
+self.addEventListener('install',event=>event.waitUntil(warmShell().then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{
+ const keys=await caches.keys();
+ await Promise.all(keys.filter(k=>k.startsWith('sanabil-shell-')&&k!==SHELL).map(k=>caches.delete(k)));
+ await self.clients.claim();
+})()));
+self.addEventListener('message',event=>{
+ const data=event.data||{};
+ if(data.type==='CACHE_NOOR_BAYAN')event.waitUntil(noorBook().catch(()=>false));
+ if(data.type==='ack'&&data.id)event.waitUntil(legacyDelete(data.id).catch(()=>{}));
+ // Compatibility with older tabs: retain old submissions but do not replay them
+ // with bearer tokens embedded in stored requests. New app migrates local drafts.
+ if(data.type==='queue'&&data.item)event.waitUntil(legacyPut(data.item).catch(()=>{}));
+ if(data.type==='flush')event.waitUntil(Promise.resolve().then(async()=>{
+  const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  clients.forEach(client=>client.postMessage({type:'sanabil-offline-flush-request'}));
+ }));
+});
+self.addEventListener('sync',event=>{
+ if(event.tag==='sanabil-sync')event.waitUntil(Promise.resolve().then(async()=>{
+  const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  clients.forEach(client=>client.postMessage({type:'sanabil-offline-flush-request'}));
+ }));
+});
+self.addEventListener('fetch',event=>{
+ const req=event.request;if(req.method!=='GET')return;
+ const url=new URL(req.url);
+ if(url.origin===self.location.origin&&url.pathname===NOOR_KEY){
+  event.respondWith((async()=>{const c=await caches.open(NOOR_CACHE),hit=await c.match(NOOR_KEY);if(hit)return hit;const response=await fetch(NOOR_SOURCE,{mode:'cors'});if(response.ok)await c.put(NOOR_KEY,response.clone());return response})());
+  return;
+ }
+ if(url.origin!==self.location.origin)return; // Never cache Supabase or other-origin responses.
+ if(req.mode==='navigate'){
+  if(url.pathname!=='/'&&url.pathname!=='/index.html')return;
+  event.respondWith((async()=>{
+   const cache=await caches.open(SHELL);
+   try{const res=await fetch(req);if(res.ok)await cache.put('/index.html',res.clone());return res}
+   catch{const hit=await cache.match('/index.html');return hit||new Response('المنصة لم تُجهّز بعد للعمل دون اتصال. افتحها مرة واحدة مع الإنترنت.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}})}
+  })());return;
+ }
+ if(!isAsset(url.pathname))return;
+ event.respondWith((async()=>{
+  const cache=await caches.open(SHELL),immutable=url.pathname.startsWith('/_next/static/');
+  if(immutable){const hit=await cache.match(req);if(hit)return hit}
+  try{const res=await fetch(req);if(res.ok&&res.type==='basic')await cache.put(req,res.clone());return res}
+  catch{const hit=await cache.match(req);return hit||Response.error()}
+ })());
 });
