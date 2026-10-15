@@ -1,7 +1,7 @@
 (() => {
   const SUPABASE_URL = "https://fvzoogbdezueswyihxiz.supabase.co";
   const PUBLISHABLE_KEY = "sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ";
-  const RESET_URL = "https://edu-halaqat.github.io/reset-password.html";
+  const RESET_URL = `${location.origin}/reset-password.html`;
   const RECOVERY_COOLDOWN_MS = 60_000;
 
   const message = (text) => {
