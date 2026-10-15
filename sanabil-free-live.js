@@ -37,7 +37,7 @@ function queueView(s){s.queue.replaceChildren();
 async function stop(){const s=current;if(!s||s.closed)return;
  await publish(s,'ended',{}).catch(()=>{});s.closed=true;
  await disconnect(s);try{await window.supabaseClient.removeChannel(s.channel)}catch{}
- s.wrap.remove();const root=s.wrap.parentElement||s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
+ if(s.dockListener){window.removeEventListener('scroll',s.dockListener);window.removeEventListener('resize',s.dockListener)}s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
 }
 async function open(root,{circleId}={}){
  if(!circleId)throw Error('اختر الحلقة أولًا.');
@@ -49,21 +49,44 @@ async function open(root,{circleId}={}){
  if(current){if(current.circleId===circleId){current.wrap.scrollIntoView();return}await stop()}
  const token='snp'+random(),s={circleId,token,closed:false,ready:false,waiting:new Map(),active:null,pc:null,media:null,iceQueue:[]};
  const wrap=create('section','sl-peer-panel');s.wrap=wrap;s.root=root;
- const top=create('div','sl-peer-header');top.append(create('strong','','التسميع المرئي المجاني — اختبار فقط'));
+ const top=create('div','sl-peer-header');
+ const headerTitle=create('strong','','سنابل المباشر · تسميع تجريبي');top.append(headerTitle);
+ const expand=create('button','','المنتظرون');expand.type='button';
+ expand.onclick=()=>{s.forceExpanded=!s.forceExpanded;wrap.classList.toggle('sl-peer-expand-details',s.forceExpanded)};
+ top.append(expand);
  const end=create('button','','إنهاء البث');end.onclick=()=>stop();top.append(end);wrap.append(top);
  wrap.append(create('p','sl-peer-warning','تحذير: نموذج أولي لا يتحقق من هوية الطالب. لا تستخدم طلابًا أو بيانات حقيقية حتى إتمام المصادقة والاختبارات.'));
  const videos=create('div','sl-peer-videos');s.remote=create('video');s.self=create('video');
  for(const v of [s.remote,s.self]){v.autoplay=true;v.playsInline=true;v.controls=false}
  s.self.muted=true;
+ s.remote.setAttribute('aria-label','بث الطالب');s.self.setAttribute('aria-label','صورة المعلم');
  videos.append(s.remote,s.self);wrap.append(videos);
  const link=location.origin+'/sanabil-free-student.html?room='+encodeURIComponent(token);
  const btn=create('button','','نسخ رابط لقاء تجريبي');btn.onclick=async()=>{try{await navigator.clipboard.writeText(link);status(s,'نسخت رابط الجلسة. شاركه مع جهاز اختبار فقط.')}catch{prompt('الرابط',link)}};
  wrap.append(btn);
+ const studentSearch=create('div','sl-peer-outcome-search');
+ const searchLabel=create('label','','الوصول السريع لحصيلة الطالب');
+ const searchInput=create('input');searchInput.type='search';
+ searchInput.placeholder='ابحث عن الطالب في الحصيلة';searchInput.setAttribute('aria-label','البحث داخل الحصيلة');
+ searchInput.addEventListener('input',()=>{
+  const outcome=root.querySelector('#sl-outcome-search-input');
+  if(outcome){outcome.value=searchInput.value;outcome.dispatchEvent(new Event('input',{bubbles:true}))}
+ });
+ studentSearch.append(searchLabel,searchInput);wrap.append(studentSearch);
  s.status=create('p','sl-peer-status','جارٍ إعداد الجلسة…');wrap.append(s.status);
  wrap.append(create('h4','','المنتظرون للموافقة'));s.queue=create('div','sl-peer-queue');wrap.append(s.queue);
  const bar=root.querySelector('.sl-session-filter');if(!bar)throw Error('صفحة الحصيلة غير جاهزة.');
  bar.insertAdjacentElement('afterend',wrap);
  root.classList.add('sl-peer-active');
+ s.forceExpanded=false;
+ s.dockListener=()=>{
+  if(s.closed||!wrap.isConnected)return;
+  const dock=window.innerWidth<1050&&wrap.getBoundingClientRect().top<=16;
+  wrap.classList.toggle('sl-peer-compact',dock);
+ };
+ window.addEventListener('scroll',s.dockListener,{passive:true});
+ window.addEventListener('resize',s.dockListener,{passive:true});
+ s.dockListener();
  const ch=sb.channel('sanabil-trial:'+token,{config:{broadcast:{self:false}}});s.channel=ch;
  ch.on('broadcast',{event:'knock'},e=>{if(s.closed)return;const d=e.payload||{};
   if(typeof d.id!=='string'||!(/^[a-f0-9-]{36}$/i).test(d.id)||typeof d.name!=='string')return;
