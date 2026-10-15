@@ -718,7 +718,7 @@ html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(input,select,textar
 }
 html[data-sanabil-theme="dark"] .sl-live input[type="date"]::-webkit-calendar-picker-indicator,
 html[data-sanabil-theme="dark"] .sl-dialog input[type="date"]::-webkit-calendar-picker-indicator {
-  filter:invert(1) brightness(1.6);
+  filter:brightness(0) invert(1);
   opacity:1;
   cursor:pointer;
 }
@@ -833,5 +833,75 @@ html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
     color:#183c33!important;
     -webkit-text-fill-color:#183c33;
     color-scheme:light;
+  }
+}
+
+/* The tab bar / More sheet live outside .sl-live in the Next.js shell. */
+html[data-sanabil-theme="dark"] :is(.mobile-nav,.tabs,.bottom-nav,.more-sheet>section) {
+  background:#172e29!important;
+  color:#f1faf5!important;
+  border-color:#43685b!important;
+  box-shadow:0 -2px 14px #08151170!important;
+}
+html[data-sanabil-theme="dark"] :is(
+  .mobile-nav button,.tabs button,.bottom-nav button,.sheet-grid button
+) {
+  background:#203d35!important;
+  color:#d2e7db!important;
+  border-color:#365a4e!important;
+}
+html[data-sanabil-theme="dark"] :is(
+  .mobile-nav button.active,.mobile-nav button[aria-current="page"],
+  .mobile-nav button[aria-selected="true"],.tabs button.active,
+  .bottom-nav button.active,.sheet-grid button.active
+) {
+  background:#125d52!important;
+  color:#fff!important;
+  border-color:#4ca393!important;
+}
+html[data-sanabil-theme="dark"] :is(
+  .mobile-nav button,.tabs button,.bottom-nav button,.sheet-grid button
+) :is(svg,span,small) {
+  color:inherit!important;
+  opacity:1!important;
+}
+html[data-sanabil-theme="dark"] :is(
+  .mobile-nav,.tabs,.bottom-nav,.more-sheet
+) :is(button,a):focus-visible {
+  outline:3px solid #d8bd88!important;
+  outline-offset:2px;
+}
+/* Ancillary card implementations across screens, including feature plug-ins. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+  .sl-card,.sl-panel,.sl-stat-card,.sl-stats-card,
+  .dashboard-card,.summary-card,.sl-info-card,.sl-report-card,
+  .sl-profile-card,.sl-history-card,.sl-plans-list article
+) {
+  background:#1c3730!important;
+  background-image:none!important;
+  border-color:#486c5e!important;
+  color:#eef9f2!important;
+}
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+  .sl-card,.sl-panel,.sl-stat-card,.sl-stats-card,
+  .dashboard-card,.summary-card,.sl-info-card,.sl-report-card,
+  .sl-profile-card,.sl-history-card
+) :is(h2,h3,h4,b,small,span,label,p) {
+  color:#e9f8f0!important;
+  opacity:1!important;
+}
+/* Dark status surfaces remain readable in all cards and drawers. */
+html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+  .sl-message,.sl-empty,.sl-att-summary span,.sl-save-status,.sl-plan-facts span,
+  .sl-outcome-student-search,.sl-day-kind-toolbar,.sl-trend-card
+) {
+  border-color:#507467!important;
+}
+@media print {
+  html[data-sanabil-theme="dark"] :is(.sl-live,.sl-dialog) :is(
+    .sl-card,.sl-panel,.sl-report-card,.sl-profile-card
+  ) {
+    background:#fff!important;
+    color:#183c33!important;
   }
 }
