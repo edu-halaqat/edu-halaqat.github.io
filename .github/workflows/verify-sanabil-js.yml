@@ -1,0 +1,22 @@
+name: Verify Sanabil frontend JavaScript
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-supervision-v1.js'
+      - 'sanabil-v13-enhancements.js'
+      - '.github/workflows/verify-sanabil-js.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  javascript-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript parseability
+        run: |
+          node --check sanabil-live-v12.js
+          node --check sanabil-supervision-v1.js
+          node --check sanabil-v13-enhancements.js
