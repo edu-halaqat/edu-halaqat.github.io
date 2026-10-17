@@ -116,7 +116,7 @@ const intentOf=(raw,studentNames=[])=>{
   if(!amounts||!amounts.length)return {type:'unknown',reason:'اذكر العدد بوضوح بجوار الأخطاء أو الشكوك.'};
   return amounts.length===1?{type:'metric',kind,...amounts[0]}:{type:'metrics',kind,changes:amounts};
  }
- const forced=/^(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب|الطالب|الطالبه)\b/u.test(cmd);
+ const forced=/^(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب|الطالب|الطالبه)(?:\s|$)/u.test(cmd);
  const name=studentNameFrom(cmd);
  if(forced&&name.length>=2)return {type:'navigate',name};
  if(Array.isArray(studentNames)&&name.length>=3){
