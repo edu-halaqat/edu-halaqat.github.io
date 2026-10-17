@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.0';
+window.__SanabilLiveBuild='20261017-v13.8.1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1244,14 +1244,21 @@ function showFamilyExcuses(box,requests){
   box.prepend(notice);
 }
 
+async function loadSessionAbsences(circle,date){
+ return measure('session:absences',async()=>{
+  const loader=()=>result(sb().from('student_attendance').select('student_id,absence_reason').eq('circle_id',circle).eq('date_key',date));
+  return window.SanabilOffline?window.SanabilOffline.readThrough('absence-reasons:'+circle+':'+date,loader).catch(e=>{if(!navigator.onLine)return [];throw e}):loader();
+ });
+}
 async function loadCircleSessionData(circle,date,talaqqin){
  const args={p_circle_id:circle,p_date:date};
- const [dayData,familyRequests,assignments]=await Promise.all([
+ const [dayData,familyRequests,assignments,absences]=await Promise.all([
   rpc('get_day_types_guarded',args),
   rpc('get_guardian_excuses_for_circle_guarded',args).catch(()=>[]),
-  talaqqin?Promise.resolve(null):rpc('get_daily_assignments',args)
+  talaqqin?Promise.resolve(null):rpc('get_daily_assignments',args),
+  talaqqin?Promise.resolve([]):loadSessionAbsences(circle,date)
  ]);
- return {dayData,familyRequests,assignments};
+ return {dayData,familyRequests,assignments,absences};
 }
 async function outcomesPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);
@@ -1294,7 +1301,7 @@ async function outcomesPage(root){
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
-  const {dayData,familyRequests,assignments}=await loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين');
+  const {dayData,familyRequests,assignments,absences}=await loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين');
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
   const activeKind=id=>effectiveDayKind(dayData,id);
   const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
@@ -1584,10 +1591,6 @@ async function outcomesPage(root){
     }
     return [s.studentId,m];
   }));
-  const absenceLoader=()=>result(sb().from('student_attendance').select('student_id,absence_reason').eq('circle_id',circle).eq('date_key',date));
-  const absences=await (window.SanabilOffline
-   ?window.SanabilOffline.readThrough('absence-reasons:'+circle+':'+date,absenceLoader).catch(e=>{if(!navigator.onLine)return [];throw e})
-   :absenceLoader());
   const reasonMap=new Map(absences.map(x=>[x.student_id,x.absence_reason||'']));
   const states=students.map(s=>({
     attendance:s.attendanceStatus||'',
@@ -1757,7 +1760,7 @@ async function outcomesPage(root){
     });
   };
   const renderSummary=()=>{const counts={present:0,late:0,excused:0,absent:0,unset:0};states.forEach((x,i)=>{if(!needsDayAttendance(activeKind(students[i].studentId)))return;Object.prototype.hasOwnProperty.call(counts,x.attendance)&&x.attendance!=='unset'?counts[x.attendance]++:counts.unset++});const el=box.querySelector('.sl-att-summary');if(el)el.innerHTML=`<span>حاضر <b>${counts.present}</b></span><span>متأخر <b>${counts.late}</b></span><span>مستأذن <b>${counts.excused}</b></span><span>غائب <b>${counts.absent}</b></span>${counts.unset?`<span class="warn">غير محضر <b>${counts.unset}</b></span>`:''}`};
-  const syncCard=i=>{
+  const syncCard=(i,refreshSummary=true)=>{
     const st=states[i],card=box.querySelector(`[data-student-card="${i}"]`),blocked=['absent','excused'].includes(st.attendance);if(!card)return;
     card.dataset.attendance=st.attendance||'unset';
     const kind=activeKind(students[i].studentId);
@@ -1769,7 +1772,7 @@ async function outcomesPage(root){
     const note=card.querySelector('.sl-absence-note');if(note)note.textContent=blocked?'لن يُحتسب مقرر هذا اليوم، وسيعاد توزيع كل خطة متأثرة تلقائيًا.':'';
     if(blocked){st.ratings={memorization:'',recentReview:''};st.reviewPlans={};card.querySelectorAll('[data-grade-student]').forEach(b=>b.classList.remove('active'))}
     card.querySelectorAll('[data-metric-count],[data-metric-step]').forEach(b=>b.disabled=blocked);
-    renderSummary();
+    if(refreshSummary)renderSummary();
   };
   const studentTracks=(s,i)=>{
     const kind=activeKind(s.studentId);
@@ -1941,7 +1944,7 @@ async function outcomesPage(root){
   if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   renderSummary();
   students.forEach((s,i)=>{
-    syncCard(i);
+    syncCard(i,false);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
     for(const [id,a] of mushafAssignments){
       const btn=box.querySelector(`[data-action="mushaf-${id}"]`);if(btn)btn.onclick=()=>openMushaf(a);
@@ -3105,12 +3108,37 @@ async function dashboardDetails(root,a){
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
  root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس سرعة الاستجابة','performance')}${button('استيراد / تصدير Excel','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
- action(root,root.querySelector('[data-action="performance"]'),()=>{
-  const b=modal('قياس سرعة الاستجابة');
-  const data=window.SanabilPerformance?.summary()||[];
-  b.innerHTML='<p>قياسات هذا الجهاز خلال الجلسة الحالية. الهدف أقل من ثانيتين لـ95% من المحاولات الناجحة. يلزم 20 عينة على الأقل لكل عملية لتقييم أولي؛ هذه القياسات لا تشمل الأجهزة الأخرى.</p>'+
-   table(['العملية','العينات الناجحة','الأخطاء','زمن 95% (ثانية)','أقل من ثانيتين','التقييم'],data.map(x=>[esc(({dashboard:'الرئيسية',students:'الطلاب',outcomes:'الحصيلة',attendance:'الحضور',plans:'الخطط',tests:'الاختبارات',reports:'التقارير',settings:'الإعدادات',lookups:'القوائم الأساسية',my_access:'التحقق من الصلاحيات',get_daily_assignments:'جلب مقررات الحلقة',get_day_types_guarded:'نوع اليوم التعليمي',circle_session_access:'صلاحية جلسة الحلقة',get_guardian_excuses_for_circle_guarded:'طلبات استئذان الطلاب',form:'حفظ النموذج'}[x.name.split(':')[1]])||'إجراء '+x.name.split(':')[1]),x.count,x.errors,x.p95===null?'—':(x.p95/1000).toFixed(2),x.under2s===null?'—':x.under2s+'%',x.count<20?'عينات غير كافية':x.p95<2000?'ضمن الهدف':'تحتاج تحسينًا']))+
-   '<p>زمن الصفحة لا يشمل تسجيل الدخول. زمن الحفظ يشمل انتظار تأكيد العملية؛ العمليات المحفوظة دون اتصال تبقى معلقة للمزامنة.</p>';
+ action(root,root.querySelector('[data-action="performance"]'),async()=>{
+  const b=modal('اختبار سرعة الاستجابة المباشر');
+  b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
+  try{
+   const l=await lookups();if(!b.isConnected)return;
+   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك، دون الاعتماد على النسخ المحلية. ثلاث محاولات لكل عملية؛ النتائج تشخيص أولي وليست ضمانًا لزمن فتح الصفحة أو الحفظ.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><div data-session-times></div>';
+   const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
+   let controller;
+   b.closest('dialog').addEventListener('close',()=>controller?.abort(),{once:true});
+   const run=async()=>{
+    if(!navigator.onLine){b.querySelector('[data-progress]').textContent='يتطلب الاختبار اتصالًا بالإنترنت.';return}
+    controller=new AbortController();rerun.disabled=select.disabled=dateInput.disabled=true;
+    const args={p_circle_id:select.value,p_date:dateInput.value};
+    const probe=(name)=>signal=>result(sb().rpc(name,name==='my_access'?{}:args).abortSignal(signal));
+    const tasks=[{name:'التحقق من الصلاحيات',run:probe('my_access')}];
+    if(select.value&&dateInput.value)tasks.push(
+     {name:'نوع اليوم التعليمي',run:probe('get_day_types_guarded')},
+     {name:'مقررات الحلقة',run:probe('get_daily_assignments')},
+     {name:'طلبات الاستئذان',run:probe('get_guardian_excuses_for_circle_guarded')},
+     {name:'أسباب الغياب',run:signal=>result(sb().from('student_attendance').select('student_id,absence_reason').eq('circle_id',args.p_circle_id).eq('date_key',args.p_date).abortSignal(signal))});
+    try{await window.SanabilPerformance.runProbes(tasks,{signal:controller.signal,onUpdate:(data,done,total)=>{
+     if(!b.isConnected)return;
+     b.querySelector('[data-progress]').textContent=(done===total?'اكتمل الاختبار':'جارٍ الاختبار')+' — '+done+' / '+total;
+     b.querySelector('[data-results]').innerHTML=table(['العملية','ناجحة','أخطاء','المتوسط (ث)','الأبطأ (ث)','أقل من ثانيتين'],data.map(x=>[esc(x.name),x.count,x.errors,x.mean===null?'—':(x.mean/1000).toFixed(2),x.max===null?'—':(x.max/1000).toFixed(2),x.count?x.under2s+'%':'—']));
+    }});}catch(e){if(b.isConnected)b.querySelector('[data-progress]').textContent='تعذر إكمال الاختبار: '+e.message}
+    finally{rerun.disabled=select.disabled=dateInput.disabled=false}
+   };
+   const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences'].includes(x.name));
+   b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[x.name==='action:load'?'فتح البيانات والعرض كاملًا':'جلب أسباب الغياب',x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
+   rerun.onclick=run;await run();
+  }catch(e){b.textContent='تعذر تجهيز الاختبار: '+e.message}
  });
 
  action(root,root.querySelector('[data-action="users"]'),async()=>{const b=modal('الحسابات والصلاحيات');await usersPanel(b)});

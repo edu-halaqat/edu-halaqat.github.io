@@ -3,7 +3,7 @@ const src=fs.readFileSync(process.argv[2]||'sanabil-live-v12.js','utf8');
 const helper=src.slice(src.indexOf('async function loadCircleSessionData'),src.indexOf('async function outcomesPage'));
 (async()=>{
  let started=[],finish=[];
- const context={rpc:(name,args)=>new Promise((resolve,reject)=>{started.push(name);finish.push(()=>resolve(name))})};
+ const context={loadSessionAbsences:()=>Promise.resolve([]),rpc:(name,args)=>new Promise((resolve,reject)=>{started.push(name);finish.push(()=>resolve(name))})};
  vm.createContext(context);vm.runInContext(helper,context);
  const pending=context.loadCircleSessionData('test-circle','2026-10-17',false);
  assert.equal(started.length,3,'independent reads must start before any completes');
@@ -14,10 +14,16 @@ const helper=src.slice(src.indexOf('async function loadCircleSessionData'),src.i
  assert.equal((await context.loadCircleSessionData('test','date',false)).familyRequests.length,0);
  context.rpc=()=>Promise.reject(Error('denied'));await assert.rejects(context.loadCircleSessionData('test','date',false));
  const listeners={},w={addEventListener:(n,f)=>listeners[n]=f};
- vm.runInNewContext(fs.readFileSync(process.argv[3]||'sanabil-performance.js','utf8'),{window:w,performance});
+ vm.runInNewContext(fs.readFileSync(process.argv[3]||'sanabil-performance.js','utf8'),{window:w,performance,AbortController,setTimeout,clearTimeout});
  const perf=w.SanabilPerformance;assert.equal(await perf.track('test',async()=>42),42);
  await assert.rejects(perf.track('failed',async()=>{throw Error('failure')}));
  assert.equal(perf.summary().find(x=>x.name==='failed').errors,1);
  listeners['sanabil-session-changed']();assert.equal(perf.summary().length,0);
+ let calls=0,last;
+ await perf.runProbes([{name:'ok',run:async()=>{calls++;return 'data'}},{name:'bad',run:async()=>{calls++;throw Error('denied')}}],{onUpdate:r=>{last=r}});
+ assert.equal(calls,6);assert.equal(last[0].count,3);assert.equal(last[1].errors,3);
+ await perf.runProbes([{name:'timeout',run:()=>new Promise(()=>{})}],{rounds:1,timeout:5,onUpdate:r=>{last=r}});
+ assert.equal(last[0].errors,1);
+ const stop=new AbortController();stop.abort();await perf.runProbes([{name:'cancel',run:()=>{throw Error('must not run')}}],{signal:stop.signal});
  console.log('PASS: concurrent reads, talaqqin isolation, critical error propagation, timing results and session isolation');
 })().catch(e=>{console.error(e);process.exit(1)});
