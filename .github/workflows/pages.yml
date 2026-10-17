@@ -43,6 +43,8 @@ jobs:
           node tests/sanabil-student-float-nav.cjs
           node --check sanabil-voice.js
           node tests/sanabil-voice-nomination.cjs
+          node --check sanabil-updater.js
+          node tests/sanabil-update-voice-entry.cjs
 
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
@@ -129,6 +131,10 @@ jobs:
                   assert 'data-real-results' in js
                   assert 'data-outcome-float-nav' in js
                   assert 'sanabil-voice.js' in html
+                  assert 'sanabil-updater.js' in html
+                  assert 'sanabil-update-prompt-v3' in read('/sanabil-updater.js').decode()
+                  assert 'function showLauncher()' in read('/sanabil-voice.js').decode()
+                  assert 'window.SanabilVoice?.showLauncher?.()' in js
                   assert 'SanabilVoice' in read('/sanabil-voice.js').decode()
                   assert 'data-outcome-student-id' in read('/sanabil-free-live.js').decode()
                   assert 'tl-nominate-' in js and 'nominate-' in js
