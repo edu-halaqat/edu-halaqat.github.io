@@ -1057,3 +1057,78 @@ html[data-sanabil-theme="dark"] .sl-live :is(.sl-quick-action,.sl-trend-card,.sl
 html[data-sanabil-theme="dark"] .sl-performance-real{background:#18352e;color:#e4f0e8;border-color:#44695b}
 html[data-sanabil-theme="dark"] .sl-outcome-student-nav>span{color:#e0eee4}
 @media(max-width:560px){.sl-outcome-student-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sl-outcome-student-nav>span{grid-column:1/-1}.sl-outcome-student-nav button{min-width:0;width:100%;white-space:normal}.sl-performance-real{padding:12px}}
+
+
+/* 13.8.11 · fixed, one-thumb student navigation across Quran and talaqqin sessions */
+.sl-outcome-float-nav{
+ position:fixed!important;
+ z-index:1100;
+ inset-inline-end:auto;
+ left:max(7px,env(safe-area-inset-left,0px));
+ top:50%;
+ transform:translateY(-50%);
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ gap:5px;
+ padding:7px 5px;
+ width:58px;
+ border:1px solid #7caa98;
+ border-radius:21px;
+ color:#f5fff9;
+ background:#153e36;
+ box-shadow:0 8px 28px rgba(0,0,0,.24);
+ direction:ltr;
+}
+.sl-outcome-float-nav[hidden]{display:none!important}
+.sl-outcome-float-nav button{
+ display:grid!important;place-items:center!important;
+ flex:none;
+ width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;
+ margin:0!important;padding:0!important;border:1px solid #679b88!important;
+ border-radius:12px!important;background:#275f52!important;color:#f6fff9!important;
+ cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+ font-family:Alyamama,Tahoma,sans-serif!important;
+}
+.sl-outcome-float-nav button:not(:disabled):active{background:#00808a!important}
+.sl-outcome-float-nav button:focus-visible{outline:3px solid #d8bd88!important;outline-offset:2px}
+.sl-outcome-float-nav button:disabled{opacity:.4!important;cursor:default}
+.sl-outcome-float-nav button svg{
+ width:24px;height:24px;
+ fill:none;stroke:currentColor;stroke-width:2.4;
+ stroke-linecap:round;stroke-linejoin:round;
+}
+.sl-outcome-float-nav output{
+ display:block;width:100%;min-height:22px;
+ font:700 12px/1.7 Alyamama,Tahoma,sans-serif;
+ text-align:center;white-space:nowrap;direction:ltr;color:#fff;
+}
+.sl-outcome-student-search .sl-student-grid{scroll-margin-top:85px}
+.sl-student-card{scroll-margin-top:clamp(65px,11vh,112px)}
+html[data-sanabil-theme="light"] .sl-outcome-float-nav{
+ background:#e8f5ef;color:#174b3d;border-color:#8aac9d;box-shadow:0 8px 24px #173e3727;
+}
+html[data-sanabil-theme="light"] .sl-outcome-float-nav button{
+ background:#d8eee4!important;border-color:#9abdae!important;color:#124b3e!important;
+}
+html[data-sanabil-theme="light"] .sl-outcome-float-nav output{color:#124b3e}
+@media(max-width:600px){
+ .sl-outcome-float-nav{
+  left:max(4px,env(safe-area-inset-left,0px));
+  width:51px;gap:4px;padding:5px 3px;border-radius:16px;
+  top:52%;
+ }
+ .sl-outcome-float-nav button{
+  width:43px!important;height:43px!important;
+  min-width:43px!important;min-height:43px!important;border-radius:10px!important;
+ }
+ .sl-outcome-float-nav button svg{width:23px;height:23px}
+ .sl-outcome-float-nav output{font-size:11px}
+}
+@media(max-height:490px){
+ .sl-outcome-float-nav{top:53%;gap:2px;padding:3px;width:48px}
+ .sl-outcome-float-nav button{height:38px!important;min-height:38px!important;width:40px!important;min-width:40px!important}
+ .sl-outcome-float-nav button svg{width:20px;height:20px}
+}
+@media print{.sl-outcome-float-nav{display:none!important}}
