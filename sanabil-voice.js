@@ -114,7 +114,8 @@ const intentOf=(raw,studentNames=[])=>{
  }
  if(kind&&metricMention){
   if(!amounts||!amounts.length)return {type:'unknown',reason:'اذكر العدد بوضوح بجوار الأخطاء أو الشكوك.'};
-  return amounts.length===1?{type:'metric',kind,...amounts[0]}:{type:'metrics',kind,changes:amounts};
+  const mode=/(?:^|\s)(?:اضف|زد|زود|زياده)(?=\s|$)/u.test(cmd)?'add':'set';
+  return amounts.length===1?{type:'metric',kind,mode,...amounts[0]}:{type:'metrics',kind,mode,changes:amounts};
  }
  const forced=/^(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب|الطالب|الطالبه)(?:\s|$)/u.test(cmd);
  const name=studentNameFrom(cmd);
@@ -128,8 +129,8 @@ const intentOf=(raw,studentNames=[])=>{
 };
 const labelOf=i=>i.type==='navigate'?'الانتقال إلى '+i.name
  :i.type==='grade'?'تسجيل '+i.grade+' في '+({memorization:'الحفظ',recentReview:'المراجعة الصغرى',review:'المراجعة الكبرى'}[i.kind])
- :i.type==='metrics'?'إضافة '+i.changes.map(c=>c.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[c.metric])).join(' و')
- :i.type==='metric'?'إضافة '+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
+ :i.type==='metrics'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.changes.map(c=>c.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[c.metric])).join(' و')
+ :i.type==='metric'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
  :i.type==='save'?(i.share?'حفظ الحصيلة ثم مشاركة ولي الأمر':'حفظ الحصيلة')
  :i.type==='share'?'فتح مشاركة الحصيلة لولي الأمر':'لم أتعرف على أمر محدد';
 // The microphone entry is visible on the authenticated home screen, even
@@ -299,7 +300,9 @@ function mount(box,{cards,names,ids=[]}={}){
      const pendingInputs=changes.map(item=>{
       const input=[...card.querySelectorAll('[data-metric-count]')].find(b=>b.dataset.metricKey===key&&b.dataset.metricField===item.metric);
       if(!input||input.disabled)throw Error('خانة '+item.metric+' غير متاحة لهذا المقرر.');
-      return {input,value:Math.min(100,Number(input.value||0)+item.count)};
+      const current=Number(input.value||0);
+      const value=i.mode==='add'?current+item.count:item.count;
+      return {input,value:Math.min(100,Math.max(0,value))};
      });
      // Prevalidate all targets before editing any field.
      pendingInputs.forEach(item=>{item.input.value=String(item.value);item.input.dispatchEvent(new Event('change',{bubbles:true}))});
