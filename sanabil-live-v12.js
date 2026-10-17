@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.15';
+window.__SanabilLiveBuild='20261018-v13.8.16';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3267,20 +3267,11 @@ async function dashboard(root){
    try{await dashboardDetails(panel,a)}
    catch(e){metricsRequested=false;panel.innerHTML='<p class="sl-message" role="alert">'+esc(e?.message||'تعذر تحميل المؤشرات. أغلق القسم وافتحه مجددًا.')+'</p>'}
  });
-  if(rolesNow.includes('teacher')&&!isAdmin&&!isSupervisor){
-   const home=document.createElement('section');home.className='sl-dashboard-one-tap';
-   home.innerHTML='<h3>جلسة الحلقة من الرئيسية</h3><p>تحضير الطلاب وتقييم الحفظ والمراجعات والحفظ الفردي في الشاشة نفسها.</p>'+
-     '<div data-home-live-session><p class="sl-help">جارٍ تجهيز الطلاب والمقررات…</p></div>';
-   root.querySelector('.sl-quick-grid')?.insertAdjacentElement('afterend',home);
-   const panel=home.querySelector('[data-home-live-session]');
-   outcomesPage(panel).then(()=>{
-      panel.querySelector('[data-action="load"]')?.click();
-   }).catch(e=>{
-      panel.innerHTML='<p class="sl-message">'+esc(e?.message||'تعذر فتح الجلسة')+'</p>'+
-        '<button type="button" class="button button-primary" data-home-open-outcomes>فتح صفحة الحصيلة</button>';
-      panel.querySelector('[data-home-open-outcomes]').onclick=()=>navigateView('outcomes');
-   });
- }
+  // Teachers enter today's outcomes only on their dedicated page.
+  // Eagerly loading 27+ student cards from the home screen delayed dashboard
+  // rendering and leaked classroom floating navigation into the main menu.
+  // The «ابدأ جلسة الحلقة» quick action above is the intentional entry point.
+
 
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
 }
