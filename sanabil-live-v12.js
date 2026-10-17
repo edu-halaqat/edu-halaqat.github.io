@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.9';
+window.__SanabilLiveBuild='20261018-v13.8.10';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -121,7 +121,7 @@ const access=async()=>{
  return pending;
 };
 const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
-const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');button.classList.add('sl-action-pending');try{await measure('action:'+String(button.dataset.action||'button').replace(/\d+/g,'#'),fn)}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false;button.removeAttribute('aria-busy');button.classList.remove('sl-action-pending')}});return button};
+const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;const started=performance.now();button.disabled=true;button.setAttribute('aria-busy','true');button.classList.add('sl-action-pending');try{await measure('action:'+String(button.dataset.action||'button').replace(/\d+/g,'#'),fn);if(button.dataset.action==='load'&&root.querySelector('.sl-data .sl-student-card'))window.SanabilPerformance?.afterPaintActual('open',started,()=>root.isConnected&&!!root.querySelector('.sl-data .sl-student-card'))}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false;button.removeAttribute('aria-busy');button.classList.remove('sl-action-pending')}});return button};
 const navigateView=key=>{const label=titles[key],short={dashboard:'الرئيسية',attendance:'البصمة',outcomes:'الحصيلة',plans:'الخطط',tests:'الاختبارات',students:'الطلاب',supervision:'الإشراف',inquiries:'استعلام',reports:'التقارير',settings:'الإعدادات'}[key];const buttons=[...document.querySelectorAll('.tabs button,.mobile-nav button,.sheet-grid button')],b=buttons.find(x=>x.textContent.trim()===label)||buttons.find(x=>x.textContent.trim()===short);if(b){b.click();return}location.hash='#'+key;location.reload()};
 const button=(label,id='')=>`<button type="button" class="button button-soft" ${id?`data-action="${id}"`:''}>${esc(label)}</button>`;
 const field=(label,name,type='text',value='',extra='')=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
@@ -1221,6 +1221,24 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
  mount.parentElement.insertBefore(search,mount);
  const input=search.querySelector('input'),clear=search.querySelector('[data-outcome-search-clear]'),
    counter=search.querySelector('[data-outcome-search-count]');
+ const navigation=document.createElement('div');navigation.className='sl-outcome-student-nav';
+ navigation.innerHTML='<span>التنقل الفعلي بين الطلاب</span><button type="button" class="button button-soft" data-real-prev>الطالب السابق</button><button type="button" class="button button-soft" data-real-next>الطالب التالي</button>';
+ search.append(navigation);
+ const prevButton=navigation.querySelector('[data-real-prev]'),nextButton=navigation.querySelector('[data-real-next]');
+ let activeCard=-1;
+ const moveToCard=direction=>{
+  const visible=cards.map((card,i)=>({card,i})).filter(row=>!row.card.hidden);
+  if(!visible.length)return;
+  const oldIndex=visible.findIndex(row=>row.i===activeCard);
+  const next=oldIndex<0?(direction>0?0:visible.length-1):(oldIndex+direction+visible.length)%visible.length;
+  const target=visible[next];if(!target||!target.card.isConnected)return;
+  const started=performance.now();activeCard=target.i;
+  target.card.scrollIntoView({behavior:'auto',block:'center'});
+  window.SanabilPerformance?.afterPaintActual('switch',started,()=>target.card.isConnected&&!target.card.hidden);
+  navigation.querySelector('span').textContent='البطاقة '+(next+1)+' من '+visible.length;
+ };
+ prevButton.addEventListener('click',()=>moveToCard(-1));
+ nextButton.addEventListener('click',()=>moveToCard(1));
  const normalize=value=>String(value||'').normalize('NFKC')
    .replace(/[\u064B-\u065F\u0670\u0640]/g,'')
    .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
@@ -1235,6 +1253,8 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
      if(match)visible++;
    });
    clear.disabled=!value;
+   if(!cards[activeCard]||cards[activeCard].hidden)activeCard=-1;
+   prevButton.disabled=nextButton.disabled=visible===0;
    counter.textContent=terms.length
      ?'النتائج: '+visible.toLocaleString('ar-SA')+' من '+names.length.toLocaleString('ar-SA')+' طالبًا'+(visible?'':' — لا يوجد طالب مطابق')
      :'جميع الطلاب: '+names.length.toLocaleString('ar-SA')+' · البحث للعرض فقط ولا يؤثر في الحفظ الجماعي';
@@ -1584,6 +1604,7 @@ async function outcomesPage(root){
         };
         const save=box.querySelector('[data-action="tl-save-'+i+'"]');
         if(save)action(box,save,async()=>{
+          const realSaveStarted=performance.now();
           const rating=selectedGrade(),notes=noteBox?.value.trim()||null,saved=assessmentMap.get(r.studentId);
           if(!rating)throw Error('اختر أحد تقديرات الدرس أولًا.');
           if(saved&&!r.completed&&r.lessonSource!=='custom'&&Number(r.currentLessonNo)<Number(saved.lesson_no))throw Error('الحصيلة مرتبطة بدرس آخر؛ اضغط «تصحيح درس الحصيلة» أولًا.');
@@ -1610,6 +1631,7 @@ async function outcomesPage(root){
           const progressNote=response?.progressAction==='reverted'?' أُعيد الطالب إلى الدرس لتكراره.':
             response?.progressAction==='advanced'?' تم تحديث تقدم الطالب إلى الدرس التالي.':
             response?.progressAction==='preserved'?' حُفظت الدرجة مع الحفاظ على دروسه اللاحقة.':'';
+          window.SanabilPerformance?.recordActual('save_talaqqin',performance.now()-realSaveStarted);
           msg(box,(saved?'تم تحديث':'تم حفظ')+' حصيلة '+r.fullName+' والتحقق منها في قاعدة البيانات.'+progressNote);
         });
         const correction=box.querySelector('[data-action="tl-correct-lesson-'+i+'"]');
@@ -2025,6 +2047,7 @@ async function outcomesPage(root){
   action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{if(!needsDayAttendance(activeKind(students[i].studentId)))return;x.attendance='present';x.absenceReason='';syncCard(i);persistDraft(i)});msg(box,'تم تحديد الجميع حاضرين؛ عدّل الغائب والمتأخر والمستأذن فقط.')});
   action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
+    const realSaveStarted=performance.now();
     const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
     validateRow(s,x);await ensureCircleSession(circle,date,true);
     // ثبِّت المسودة قبل الإرسال حتى لا تضيع إذا اكتمل الحفظ بينما تغيرت الصفحة.
@@ -2044,7 +2067,7 @@ async function outcomesPage(root){
       throw Error('أُرسل طلب الحفظ، ولكن التحقق من البيانات لم يكتمل: '+err.message+' المسودة محفوظة على الجهاز.');
     }
     const unchanged=JSON.stringify(drafts[s.studentId]||null)===before;
-    if(unchanged)clearDraft(i);
+    if(unchanged){clearDraft(i);window.SanabilPerformance?.recordActual('save_student',performance.now()-realSaveStarted)}
     if(status){status.textContent=unchanged?'تم الحفظ والتحقق من الخادم':'حُفظت نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft'}
     msg(box,unchanged?'تم حفظ حصيلة '+s.fullName+' والتأكد من مطابقة التقديرات والعدادات في قاعدة البيانات.':'تم حفظ نسخة سابقة من حصيلة '+s.fullName+'، لكن توجد تعديلات أحدث لم تُحفظ بعد.');
   }));
@@ -2098,6 +2121,7 @@ async function outcomesPage(root){
     box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
   submit(form,async()=>{
+    const realSaveStarted=performance.now();
     validateAttendance();
     const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
       const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
@@ -2127,6 +2151,7 @@ async function outcomesPage(root){
     });
     if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');return}
     localStorage.removeItem(activeSessionKey);
+    window.SanabilPerformance?.recordActual('save_all',performance.now()-realSaveStarted);
     box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
   });
   window.SanabilPerformance?.record('session:render',performance.now()-renderStarted);
