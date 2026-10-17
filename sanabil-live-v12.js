@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.11';
+window.__SanabilLiveBuild='20261018-v13.8.12';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1199,7 +1199,7 @@ async function studentsPage(root){
 
 /* Local-only filtering of the current outcome session. Never fetch, remove,
    reorder or re-render student cards while the teacher enters unsaved grades. */
-function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
+function installOutcomeStudentSearch(box,names,initialValue='',onChange=null,studentIds=[]){
  const grid=box.querySelector('.sl-student-grid');
  if(!grid||!names?.length)return;
  const cards=[...grid.children].filter(el=>el.classList?.contains('sl-student-card'));
@@ -1207,6 +1207,9 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
    console.warn('تعذر تفعيل البحث: عدد الطلاب لا يطابق عدد بطاقات الحصيلة.');
    return;
  }
+ cards.forEach((card,i)=>{
+  if(studentIds[i]){card.dataset.outcomeStudentId=studentIds[i];card.tabIndex=-1}
+ });
  const search=document.createElement('section');
  search.className='sl-outcome-student-search';
  search.setAttribute('role','search');
@@ -1340,6 +1343,15 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
  };
  input.value=initialValue||'';
  input.addEventListener('input',apply);
+ const pending=box.closest('.sl-content')?.dataset.videoOutcomeTarget;
+ if(pending){
+  const card=cards.find(c=>c.dataset.outcomeStudentId===pending);
+  if(card){
+   delete box.closest('.sl-content').dataset.videoOutcomeTarget;
+   setTimeout(()=>{if(card.isConnected){card.scrollIntoView({behavior:'smooth',block:'start'});card.focus({preventScroll:true})}},0);
+  }
+ }
+ if(window.SanabilVoice?.mount)window.SanabilVoice.mount(box,{cards,names,ids:studentIds});
  // The memorization cards live inside a submission form. Search Enter must not save it.
  input.addEventListener('keydown',event=>{
    if(event.key==='Enter')event.preventDefault();
@@ -1546,7 +1558,7 @@ async function outcomesPage(root){
           return '<article class="sl-student-card"><h3>'+esc(r.fullName)+'</h3><p>الدرس رقم '+esc(a.lesson_no)+' · التقدير: '+esc(a.rating)+'</p>'
             +button('تعديل الحصيلة السابقة','tl-old-'+i)+'</article>';
         }).join('')+'</div>':'<p class="sl-message">لم تُحفظ حصائل تلقين لهذا التاريخ ضمن الحلقة المختارة.</p>');
-      installOutcomeStudentSearch(box,found.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
+      installOutcomeStudentSearch(box,found.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value},found.map(r=>r.studentId));
       addDayToolbar(box);
       attachStudentDayKindControls(box,found,dayData,{circle,date,reload:reloadDay});
       found.forEach((r,i)=>action(box,box.querySelector('[data-action="tl-old-'+i+'"]'),
@@ -1610,7 +1622,7 @@ async function outcomesPage(root){
       showFamilyExcuses(box,familyRequests);
       addDayToolbar(box);
       attachStudentDayKindControls(box,items,dayData,{circle,date,reload:reloadDay,hasDrafts:()=>talaqqinDrafts.size>0||attendanceDrafts.size>0});
-      installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value});
+      installOutcomeStudentSearch(box,items.map(r=>r.fullName),studentSearchText,value=>{studentSearchText=value},items.map(r=>r.studentId));
 
       items.forEach((r,i)=>{
         const kind=activeKind(r.studentId),card=box.querySelector('[data-tl-card="'+i+'"]');
@@ -2014,7 +2026,7 @@ async function outcomesPage(root){
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
     hasDrafts:()=>Object.keys(drafts).length>0});
-  installOutcomeStudentSearch(box,students.map(s=>s.fullName),studentSearchText,value=>{studentSearchText=value});
+  installOutcomeStudentSearch(box,students.map(s=>s.fullName),studentSearchText,value=>{studentSearchText=value},students.map(s=>s.studentId));
   const form=box.querySelector('form');
   students.forEach((s,i)=>{
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
