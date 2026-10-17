@@ -130,7 +130,7 @@ async function open(root,{circleId,restored=null}={}){
  jump.type='button';
  jump.setAttribute('aria-label','الانتقال إلى تسجيل حصيلة الطلاب دون إيقاف البث');
  jump.onclick=()=>{
-  const outcome=root.querySelector('.sl-data');
+  const outcome=s.root.querySelector('.sl-data');
   if(outcome)outcome.scrollIntoView({behavior:'smooth',block:'start'});
  };
  top.append(jump);
@@ -188,7 +188,7 @@ async function open(root,{circleId,restored=null}={}){
  const searchInput=create('input');searchInput.type='search';
  searchInput.placeholder='ابحث عن الطالب في الحصيلة';searchInput.setAttribute('aria-label','البحث داخل الحصيلة');
  searchInput.addEventListener('input',()=>{
-  const outcome=root.querySelector('#sl-outcome-search-input');
+  const outcome=s.root.querySelector('#sl-outcome-search-input');
   if(outcome){outcome.value=searchInput.value;outcome.dispatchEvent(new Event('input',{bubbles:true}))}
  });
  studentSearch.append(searchLabel,searchInput);wrap.append(studentSearch);
