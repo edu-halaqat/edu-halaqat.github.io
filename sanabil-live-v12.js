@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.1';
+window.__SanabilLiveBuild='20261017-v13.8.2';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1290,18 +1290,19 @@ async function outcomesPage(root){
   const circle=val(root,'circle'),date=val(root,'date');if(!circle||!date)throw Error('اختر الحلقة والتاريخ');
   localStorage.setItem(selectedCircleKey,circle);
   if(navigator.onLine)scheduleSanabilOfflineRefresh();
-  // استعراض الأيام خارج الدوام مسموح دون فتح إمكانية التحرير.
-  const sessionInfo=await (navigator.onLine
-   ?rpc('circle_session_access',{p_circle_id:circle,p_date:date})
-   :rpc('circle_session_access',{p_circle_id:circle,p_date:date}).then(info=>{
-      const local=localSessionAllowed(info,date);
-      return {...info,allowed:local.allowed,reason:local.reason||info?.reason};
-    }));
+  // Each data RPC enforces its own server-side scope. Do not render until access resolves.
+  const circleMeta=l.circles.find(x=>x.id===circle);
+  const [sessionInfo,{dayData,familyRequests,assignments,absences}]=await Promise.all([
+   measure('session:permission',async()=>{
+    const info=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});
+    if(navigator.onLine)return info;
+    const local=localSessionAllowed(info,date);return {...info,allowed:local.allowed,reason:local.reason||info?.reason};
+   }),
+   measure('session:data',()=>loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين'))
+  ]);
   const readOnly=!sessionInfo?.allowed;
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
-  const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
-  const {dayData,familyRequests,assignments,absences}=await loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين');
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
   const activeKind=id=>effectiveDayKind(dayData,id);
   const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
@@ -1555,10 +1556,7 @@ async function outcomesPage(root){
   }
   let students=assignments;
   const noScheduledAssignments=students.length>0&&students.every(s=>!s.memorization&&!s.recentReview&&!(s.reviews||[]).length)&&!(dayData.testReviews||[]).length;
-  let nextTeachingDate='';
-  if(noScheduledAssignments){
-    try{const days=await result(sb().from('plan_days').select('date_key').eq('circle_id',circle).gte('date_key',date).order('date_key',{ascending:true}).limit(1));nextTeachingDate=days?.[0]?.date_key||''}catch(e){console.warn('تعذر تحديد اليوم التعليمي التالي',e)}
-  }
+  const renderStarted=performance.now();
   const box=root.querySelector('.sl-data'),gradeItems=['ممتاز','جيد جدًا','جيد','لم يسمع','لم يحفظ'];
   // On examination dates, grade prior review ranges independently from the regular lesson plan.
   const testSnapshots=new Map();
@@ -1578,7 +1576,7 @@ async function outcomesPage(root){
       }))};
   });
   const stateBanner=(!navigator.onLine?'<div class="sl-outcome-info" role="status">وضع دون اتصال: البيانات محفوظة من آخر فتح؛ تظهر الحصائل الجديدة «معلقة» حتى يؤكدها الخادم.</div>':'')+(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
-    noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+(nextTeachingDate&&nextTeachingDate!==date?' '+button('عرض اليوم التعليمي التالي: '+nextTeachingDate,'next-planned-day'):'')+'</div>':'')+
+    noScheduledAssignments?'<div class="sl-outcome-info" role="status">لا توجد مقررات مجدولة بتاريخ '+esc(date)+'؛ قد يكون يوم إجازة وفق الخطط. الطلاب وخططهم لم يُحذفوا.'+'</div>':'')+
     (readOnly?'<div class="sl-outcome-info sl-outcome-readonly" role="status">استعراض فقط: '+esc(sessionInfo?.reason||'جلسة الإدخال غير متاحة الآن')+'. لا يمكن تعديل التقديرات أو الحفظ.</div>':'');
   const metrics=new Map(students.map(s=>{
     const m=normalizedMetrics(s.recitationMetrics);
@@ -1806,10 +1804,6 @@ async function outcomesPage(root){
     if(drafts[s.studentId]){status.textContent='مسودة محلية لم تُؤكَّد بعد';status.dataset.saved='draft'}
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
   });
-  if(nextTeachingDate&&nextTeachingDate!==date)action(box,box.querySelector('[data-action="next-planned-day"]'),()=>{
-    root.querySelector('[name="date"]').value=nextTeachingDate;
-    root.querySelector('[data-action="load"]')?.click();
-  });
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,absenceReason:st.attendance==='absent'?st.absenceReason||'':null,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
   const persistDraft=i=>{const s=students[i],x=rowData(s,i);
     drafts[s.studentId]={attendance:x.att,absenceReason:x.absenceReason,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
@@ -2018,6 +2012,17 @@ async function outcomesPage(root){
     localStorage.removeItem(activeSessionKey);
     box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
   });
+  window.SanabilPerformance?.record('session:render',performance.now()-renderStarted);
+  // Optional navigation must never delay opening attendance or outcome controls.
+  if(noScheduledAssignments){
+   const owner=box.querySelector('.sl-outcome-session');
+   measure('session:next-day',()=>result(sb().from('plan_days').select('date_key').eq('circle_id',circle).gte('date_key',date).order('date_key',{ascending:true}).limit(1)))
+    .then(days=>{const next=days?.[0]?.date_key;if(!next||next===date||!owner?.isConnected)return;
+     const target=box.querySelector('.sl-outcome-info');if(!target)return;
+     const btn=document.createElement('button');btn.type='button';btn.className='button button-soft';btn.textContent='عرض اليوم التعليمي التالي: '+next;
+     btn.onclick=()=>{root.querySelector('[name="date"]').value=next;root.querySelector('[data-action="load"]')?.click()};target.append(btn);
+    }).catch(e=>console.warn('تعذر تحديد اليوم التعليمي التالي',e));
+  }
  })
  let pendingRefreshObserver=null;
  const refreshSelection=()=>{
@@ -3115,6 +3120,8 @@ async function settingsPage(root){
    const l=await lookups();if(!b.isConnected)return;
    b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك، دون الاعتماد على النسخ المحلية. ثلاث محاولات لكل عملية؛ النتائج تشخيص أولي وليست ضمانًا لزمن فتح الصفحة أو الحفظ.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><div data-session-times></div>';
    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
+   const uid=(await sb().auth.getSession()).data?.session?.user?.id;
+   if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
    let controller;
    b.closest('dialog').addEventListener('close',()=>controller?.abort(),{once:true});
    const run=async()=>{
@@ -3124,6 +3131,7 @@ async function settingsPage(root){
     const probe=(name)=>signal=>result(sb().rpc(name,name==='my_access'?{}:args).abortSignal(signal));
     const tasks=[{name:'التحقق من الصلاحيات',run:probe('my_access')}];
     if(select.value&&dateInput.value)tasks.push(
+     {name:'صلاحية فتح الجلسة',run:probe('circle_session_access')},
      {name:'نوع اليوم التعليمي',run:probe('get_day_types_guarded')},
      {name:'مقررات الحلقة',run:probe('get_daily_assignments')},
      {name:'طلبات الاستئذان',run:probe('get_guardian_excuses_for_circle_guarded')},
@@ -3135,8 +3143,8 @@ async function settingsPage(root){
     }});}catch(e){if(b.isConnected)b.querySelector('[data-progress]').textContent='تعذر إكمال الاختبار: '+e.message}
     finally{rerun.disabled=select.disabled=dateInput.disabled=false}
    };
-   const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences'].includes(x.name));
-   b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[x.name==='action:load'?'فتح البيانات والعرض كاملًا':'جلب أسباب الغياب',x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
+   const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences','session:permission','session:data','session:render','session:next-day'].includes(x.name));
+   b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[({'action:load':'فتح البيانات والعرض كاملًا','session:absences':'جلب أسباب الغياب','session:permission':'انتظار صلاحية الجلسة','session:data':'انتظار جميع بيانات الجلسة','session:render':'تجهيز بطاقات الطلاب','session:next-day':'البحث عن اليوم التالي (في الخلفية)'})[x.name],x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
    rerun.onclick=run;await run();
   }catch(e){b.textContent='تعذر تجهيز الاختبار: '+e.message}
  });

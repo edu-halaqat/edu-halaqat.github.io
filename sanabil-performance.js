@@ -32,6 +32,6 @@ async function runProbes(tasks,{signal,onUpdate=()=>{},rounds=3,timeout=12000}={
   done++;onUpdate(results.map(({values,...r})=>({...r})),done,total);
  }
 }
-window.SanabilPerformance={track,summary,runProbes,backgroundReady:()=>active===0&&performance.now()-lastInput>5000};
+window.SanabilPerformance={record:(name,ms)=>{samples.push({name,ms:Math.round(ms),ok:true});if(samples.length>200)samples.shift()},track,summary,runProbes,backgroundReady:()=>active===0&&performance.now()-lastInput>5000};
 window.addEventListener('sanabil-session-changed',()=>{generation++;samples.length=0});
 })();
