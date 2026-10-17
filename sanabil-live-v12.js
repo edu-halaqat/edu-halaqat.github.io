@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.10';
+window.__SanabilLiveBuild='20261018-v13.8.11';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1221,24 +1221,102 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
  mount.parentElement.insertBefore(search,mount);
  const input=search.querySelector('input'),clear=search.querySelector('[data-outcome-search-clear]'),
    counter=search.querySelector('[data-outcome-search-count]');
- const navigation=document.createElement('div');navigation.className='sl-outcome-student-nav';
- navigation.innerHTML='<span>التنقل الفعلي بين الطلاب</span><button type="button" class="button button-soft" data-real-prev>الطالب السابق</button><button type="button" class="button button-soft" data-real-next>الطالب التالي</button>';
- search.append(navigation);
- const prevButton=navigation.querySelector('[data-real-prev]'),nextButton=navigation.querySelector('[data-real-next]');
- let activeCard=-1;
+ // Independent floating controls remain in reach while the teacher scrolls.
+ // No card is re-rendered or mutated, so unsaved grades/notes are preserved.
+ document.querySelector('[data-outcome-float-nav]')?.remove();
+ const navigation=document.createElement('nav');
+ navigation.className='sl-outcome-float-nav';
+ navigation.dataset.outcomeFloatNav='true';
+ navigation.setAttribute('aria-label','التنقل بين بطاقات الطلاب وأطراف الصفحة');
+ navigation.innerHTML=
+  '<button type="button" data-float-top aria-label="بداية الصفحة" title="بداية الصفحة"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14M6 15l6-6 6 6M6 20l6-6 6 6"/></svg></button>'+
+  '<button type="button" data-real-prev aria-label="الطالب السابق" title="الطالب السابق"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7"/></svg></button>'+
+  '<output data-float-count aria-live="off" aria-label="موقع الطالب">—</output>'+
+  '<button type="button" data-real-next aria-label="الطالب التالي" title="الطالب التالي"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg></button>'+
+  '<button type="button" data-float-bottom aria-label="نهاية الصفحة" title="نهاية الصفحة"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 4 6 6 6-6M6 9l6 6 6-6M5 20h14"/></svg></button>';
+ document.body.append(navigation);
+ const prevButton=navigation.querySelector('[data-real-prev]'),nextButton=navigation.querySelector('[data-real-next]'),
+  topButton=navigation.querySelector('[data-float-top]'),bottomButton=navigation.querySelector('[data-float-bottom]'),
+  count=navigation.querySelector('[data-float-count]');
+ const visibleCards=()=>cards.filter(card=>card.isConnected&&!card.hidden);
+ const motion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+ let activeCard=-1,movingUntil=0,frame=0,removed=false;
+ // Current card follows the viewport after manual scrolling, instead of
+ // returning the user to whichever card was selected several minutes ago.
+ const activePosition=visible=>{
+  if(!visible.length)return -1;
+  const anchor=Math.min(Math.max(window.innerHeight*.38,100),440);
+  const first=visible[0].getBoundingClientRect();
+  const last=visible[visible.length-1].getBoundingClientRect();
+  if(first.top>anchor)return -1; // before the first student
+  if(last.bottom<anchor)return visible.length-1; // after the last student
+  let best=0,distance=Infinity;
+  for(let i=0;i<visible.length;i++){
+   const r=visible[i].getBoundingClientRect();
+   if(r.top<=anchor&&r.bottom>=anchor)return i;
+   const d=r.top>anchor?r.top-anchor:anchor-r.bottom;
+   if(d<distance){distance=d;best=i}
+  }
+  return best;
+ };
+ const currentPosition=visible=>performance.now()<movingUntil&&activeCard>=0
+  ?visible.findIndex(card=>cards.indexOf(card)===activeCard):activePosition(visible);
+ const updateFloatingStatus=()=>{
+  if(removed)return;
+  if(!grid.isConnected){cleanup();return}
+  const visible=visibleCards(),n=visible.length,index=currentPosition(visible);
+  navigation.hidden=!n;
+  if(!n)return;
+  const position=index<0?0:index+1;
+  count.textContent=position+' / '+n;
+  count.setAttribute('aria-label','البطاقة '+position+' من '+n);
+  prevButton.disabled=index<=0;
+  nextButton.disabled=index>=n-1;
+  topButton.disabled=(window.scrollY||document.scrollingElement?.scrollTop||0)<4;
+  const page=document.scrollingElement||document.documentElement;
+  bottomButton.disabled=(window.scrollY||page.scrollTop||0)+window.innerHeight>=page.scrollHeight-4;
+ };
+ const updateLater=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;updateFloatingStatus()})};
  const moveToCard=direction=>{
-  const visible=cards.map((card,i)=>({card,i})).filter(row=>!row.card.hidden);
-  if(!visible.length)return;
-  const oldIndex=visible.findIndex(row=>row.i===activeCard);
-  const next=oldIndex<0?(direction>0?0:visible.length-1):(oldIndex+direction+visible.length)%visible.length;
-  const target=visible[next];if(!target||!target.card.isConnected)return;
-  const started=performance.now();activeCard=target.i;
-  target.card.scrollIntoView({behavior:'auto',block:'center'});
-  window.SanabilPerformance?.afterPaintActual('switch',started,()=>target.card.isConnected&&!target.card.hidden);
-  navigation.querySelector('span').textContent='البطاقة '+(next+1)+' من '+visible.length;
+  const visible=visibleCards();if(!visible.length)return;
+  const index=currentPosition(visible);
+  const next=Math.max(0,Math.min(visible.length-1,index+direction));
+  if(index===next)return;
+  const target=visible[next];if(!target)return;
+  const started=performance.now();activeCard=cards.indexOf(target);movingUntil=started+750;
+  target.scrollIntoView({behavior:motion(),block:'start'});
+  window.SanabilPerformance?.afterPaintActual('switch',started,()=>target.isConnected&&!target.hidden);
+  updateFloatingStatus();
  };
  prevButton.addEventListener('click',()=>moveToCard(-1));
  nextButton.addEventListener('click',()=>moveToCard(1));
+ topButton.addEventListener('click',()=>{
+  activeCard=-1;movingUntil=0;window.scrollTo({top:0,behavior:motion()});updateLater();
+ });
+ bottomButton.addEventListener('click',()=>{
+  const page=document.scrollingElement||document.documentElement;
+  activeCard=-1;movingUntil=0;
+  window.scrollTo({top:page.scrollHeight,behavior:motion()});updateLater();
+ });
+ const onScroll=()=>updateLater();
+ document.addEventListener('scroll',onScroll,{capture:true,passive:true});
+ window.addEventListener('resize',onScroll,{passive:true});
+ window.addEventListener('hashchange',onScroll);
+ const observer=new MutationObserver(()=>{
+  if(!grid.isConnected)cleanup();
+ });
+ // The route may replace the whole session; remove its detached floating toolbar.
+ observer.observe(document.querySelector('.sl-live')||document.body,{childList:true,subtree:true});
+ function cleanup(){
+  if(removed)return;
+  removed=true;observer.disconnect();
+  document.removeEventListener('scroll',onScroll,true);
+  window.removeEventListener('resize',onScroll);
+  window.removeEventListener('hashchange',onScroll);
+  if(frame)cancelAnimationFrame(frame);
+  navigation.remove();
+ }
+
  const normalize=value=>String(value||'').normalize('NFKC')
    .replace(/[\u064B-\u065F\u0670\u0640]/g,'')
    .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
@@ -1253,8 +1331,8 @@ function installOutcomeStudentSearch(box,names,initialValue='',onChange=null){
      if(match)visible++;
    });
    clear.disabled=!value;
-   if(!cards[activeCard]||cards[activeCard].hidden)activeCard=-1;
-   prevButton.disabled=nextButton.disabled=visible===0;
+   if(!cards[activeCard]||cards[activeCard].hidden){activeCard=-1;movingUntil=0}
+   updateFloatingStatus();
    counter.textContent=terms.length
      ?'النتائج: '+visible.toLocaleString('ar-SA')+' من '+names.length.toLocaleString('ar-SA')+' طالبًا'+(visible?'':' — لا يوجد طالب مطابق')
      :'جميع الطلاب: '+names.length.toLocaleString('ar-SA')+' · البحث للعرض فقط ولا يؤثر في الحفظ الجماعي';
