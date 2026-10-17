@@ -1,37 +1,214 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
-<title>التسميع المرئي — سنابل الوحي</title>
-<link rel="icon" href="/assets/sanabil-app-192.png">
+<html lang="ar" dir="rtl" data-sanabil-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#00808A">
+<meta name="description" content="صفحة الطالب للتسميع المرئي في منصة سنابل الوحي.">
+<title>التسميع المرئي | سنابل الوحي</title>
+<link rel="icon" href="/assets/logo-sanabil-icon-v6.png">
+<link rel="apple-touch-icon" href="/assets/logo-sanabil-icon-v6.png">
+<script>
+(()=>{'use strict';try{
+ document.documentElement.dataset.sanabilTheme=localStorage.getItem('sanabil-theme-v1')==='dark'?'dark':'light';
+}catch{document.documentElement.dataset.sanabilTheme='light'}})();
+</script>
 <style>
-:root{color-scheme:light dark;font-family:system-ui,sans-serif}
-body{background:#f2f7f4;color:#153d39;margin:0;padding:16px}
-main{max-width:680px;margin:12px auto;background:#fff;border:1px solid #adcac1;border-radius:17px;padding:18px;box-shadow:0 8px 30px #0001}
-h1{font-size:21px;margin:4px 0 15px}
-.note{font-size:13px;line-height:1.8;color:#a44a19}
-input{width:100%;padding:12px;border-radius:10px;border:1px solid #8bada5;box-sizing:border-box;font:inherit}
-button{font:inherit;cursor:pointer;background:#006c71;color:#fff;padding:10px 16px;border:0;border-radius:10px;margin:8px 0}
-button:disabled{opacity:.5}
-.videos{display:grid;grid-template-columns:2fr 1fr;gap:8px;background:#183e3b;padding:8px;border-radius:10px}
-video{width:100%;height:180px;border-radius:6px;background:#061112;object-fit:contain}
-#state{font-weight:600;line-height:1.8}
-@media(max-width:430px){video{height:120px}}
+@font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:Alyamama;src:url('/assets/fonts/Alyamama-Bold.ttf') format('truetype');font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:Doran;src:url('/assets/fonts/Doran-Bold.woff') format('woff');font-style:normal;font-weight:700;font-display:swap}
+:root{
+ color-scheme:light;
+ --bg:#f3f8f5;--card:#ffffff;--card-soft:#f7fbf9;--text:#173f36;--heading:#083c38;
+ --muted:#55736a;--line:#d6e6dc;--brand:#00808a;--brand-dark:#006b72;
+ --gold:#d8bd88;--gold-ink:#87652b;--video:#061819;--video-frame:#153b39;
+ --shadow:0 14px 45px rgba(10,69,56,.08);--status-bg:#ecf6f3;--status-text:#175c50;
+}
+html[data-sanabil-theme="dark"]{
+ color-scheme:dark;
+ --bg:#0c1918;--card:#152b27;--card-soft:#1c3630;--text:#eaf5ef;--heading:#f0f9f3;
+ --muted:#bdcfc6;--line:#33544a;--brand:#32b6ba;--brand-dark:#008c91;
+ --gold:#d8bd88;--gold-ink:#eed4a4;--video:#050f10;--video-frame:#1a403b;
+ --shadow:0 20px 46px rgba(0,0,0,.2);--status-bg:#1a3d37;--status-text:#def5e9;
+}
+*{box-sizing:border-box}
+html{min-height:100%;scroll-behavior:smooth}
+body{
+ margin:0;min-height:100dvh;background:var(--bg);color:var(--text);
+ font-family:Alyamama,Tahoma,Arial,sans-serif;line-height:1.85;
+ -webkit-font-smoothing:antialiased;text-align:right;
+}
+button{font:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+button:disabled{cursor:not-allowed;opacity:.55}
+.page-shell{width:min(1150px,100%);padding:clamp(14px,3vw,32px);margin:0 auto}
+.topbar{
+ display:flex;align-items:center;justify-content:space-between;gap:16px;
+ padding:12px 18px;background:var(--card);border:1px solid var(--line);
+ border-top:4px solid var(--brand);border-radius:18px;box-shadow:var(--shadow);
+}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand img{width:clamp(102px,14vw,145px);height:65px;object-fit:contain;flex:none}
+.brand-title{min-width:0}
+.eyebrow{font-size:12px;line-height:1.7;color:var(--muted);font-weight:700}
+h1,h2,p{margin-top:0}
+h1,h2{font-family:Doran,Alyamama,Tahoma,sans-serif;color:var(--heading);font-weight:700}
+h1{font-size:clamp(21px,2.5vw,29px);line-height:1.5;margin:2px 0}
+h2{font-size:clamp(21px,2.3vw,29px);line-height:1.55;margin:6px 0 12px}
+.top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.private-label{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 11px;background:var(--card-soft);border:1px solid var(--line);color:var(--muted);font-size:12px;white-space:nowrap}
+.private-label svg{width:14px;height:14px;color:var(--brand);flex:none}
+.theme-switch{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 11px;font-size:12px;min-height:40px;white-space:nowrap}
+.theme-switch:hover{background:var(--card-soft)}
+.layout{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:18px;margin-top:18px;align-items:start}
+.panel{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.intro-panel{padding:clamp(18px,2.7vw,28px)}
+.section-kicker{color:var(--brand);font-size:12px;letter-spacing:.02em;font-weight:700}
+.intro-copy{font-size:14px;color:var(--muted);line-height:2;margin:0 0 22px}
+.steps-label{margin:0 0 9px;font-size:13px;color:var(--heading);font-weight:700}
+.steps{list-style:none;padding:0;margin:0 0 20px;display:grid;gap:10px}
+.steps li{display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.75;color:var(--text)}
+.steps li span{
+ flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:10px;
+ background:var(--card-soft);border:1px solid var(--line);color:var(--brand);font-weight:700;
+}
+.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:18px 0}
+.actions button{min-height:51px;padding:11px 18px;border-radius:12px;font-weight:700;transition:background .15s ease}
+#join{background:var(--brand-dark);border:1px solid var(--brand-dark);color:#fff;box-shadow:0 5px 14px rgba(0,128,138,.16)}
+#join:not(:disabled):hover{background:#005b60}
+#quit{background:var(--card-soft);border:1px solid var(--line);color:var(--text)}
+#state{
+ padding:13px 14px;margin:0;border-radius:12px;background:var(--status-bg);
+ color:var(--status-text);border-inline-start:4px solid var(--brand);
+ font-size:13px;line-height:1.9;font-weight:700;min-height:67px;
+}
+#state[data-state="connected"]{border-inline-start-color:#2ca36f}
+#state[data-state="error"]{border-inline-start-color:#bb6548;background:var(--card-soft);color:var(--text)}
+.privacy-note{display:flex;gap:9px;align-items:start;margin:19px 0 0;padding:13px 12px;border-radius:12px;background:var(--card-soft);color:var(--muted);font-size:12px;line-height:1.9}
+.privacy-note svg{flex:none;width:18px;height:18px;margin-top:3px;color:var(--gold-ink)}
+.video-panel{padding:16px}
+.video-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+.video-head h2{font-family:Alyamama,Tahoma,sans-serif;font-size:17px;margin:0}
+.video-head span{color:var(--muted);font-size:12px}
+.video-stage{position:relative;aspect-ratio:16/9;min-height:210px;overflow:hidden;border:2px solid var(--gold);border-radius:16px;background:var(--video)}
+#teacher{display:block;width:100%;height:100%;background:var(--video);object-fit:contain}
+.video-placeholder{pointer-events:none;position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;background:var(--video);color:#d9e9e2;padding:12px}
+.video-placeholder svg{width:42px;height:42px;opacity:.62}
+.video-placeholder strong{font-size:15px;color:#eef7f0}
+.video-placeholder small{color:#aac4bd;font-size:12px}
+body.has-remote-video .video-placeholder{display:none}
+.mini-preview{
+ position:absolute;bottom:13px;inset-inline-end:13px;width:27%;min-width:85px;
+ aspect-ratio:4/3;overflow:hidden;border:2px solid var(--gold);border-radius:12px;
+ background:var(--video-frame);box-shadow:0 5px 25px rgba(0,0,0,.4);
+}
+#mine{display:block;width:100%;height:100%;object-fit:cover;background:var(--video-frame);transform:scaleX(-1)}
+.mini-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#d8e8df;font-size:12px;font-weight:700;background:var(--video-frame);text-align:center;padding:7px}
+body.has-local-video .mini-placeholder{display:none}
+.mini-label{position:absolute;inset-inline-start:6px;bottom:5px;border-radius:6px;background:rgba(4,24,23,.75);color:white;padding:0 6px;font-size:10px;line-height:1.9}
+.video-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--muted);font-size:12px;padding:12px 2px 2px}
+.video-footer p{margin:0}
+.footer{text-align:center;color:var(--muted);font-size:12px;line-height:1.9;margin:20px 0 5px}
+@media(max-width:860px){
+ .layout{grid-template-columns:minmax(0,1fr)}
+ .intro-panel{padding:18px}
+ .steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .steps li{align-items:flex-start;flex-direction:column;font-size:12px}
+ .video-panel{padding:12px}
+}
+@media(max-width:530px){
+ .page-shell{padding:10px}
+ .topbar{padding:10px 12px;gap:9px;border-radius:14px}
+ .brand{gap:8px}
+ .brand img{width:72px;height:52px}
+ .brand .eyebrow{font-size:10px}
+ h1{font-size:19px}
+ h2{font-size:23px}
+ .private-label{display:none}
+ .theme-switch{font-size:11px;padding:5px 8px;min-height:37px}
+ .layout{margin-top:10px;gap:11px}
+ .intro-panel{padding:17px 15px}
+ .intro-copy{font-size:13px;margin-bottom:13px}
+ .steps{grid-template-columns:1fr;gap:7px;margin-bottom:14px}
+ .steps li{flex-direction:row;align-items:center;font-size:12px}
+ .steps li span{width:26px;height:26px}
+ .actions{grid-template-columns:1fr auto;gap:6px;margin:12px 0}
+ .actions button{font-size:12px;min-height:49px;padding:9px 12px}
+ .video-stage{min-height:174px}
+ .video-placeholder svg{width:28px;height:28px}
+ .video-placeholder strong{font-size:12px}
+ .video-placeholder small{font-size:10px;max-width:165px}
+ .mini-preview{width:28%;min-width:81px;bottom:7px;inset-inline-end:7px}
+ .video-head h2{font-size:15px}
+ .video-footer{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.actions button{transition:none}}
 </style>
 </head>
 <body>
-<main>
-<h1>سنابل الوحي — التسميع المرئي</h1>
-<p class="note">هذا رابط شخصي للتسميع مع معلم الحلقة، للحضور عن بُعد أو عند تعذر اللقاء الحضوري. لا تشاركه مع الآخرين. يبدأ الصوت والصورة بعد موافقة المعلم، وقد لا تدعم بعض الشبكات الاتصال المباشر.</p>
-<p>الدخول بالدعوة الشخصية المرسلة من المعلم أو ولي الأمر.</p>
-<p><button id="join">طلب الانضمام إلى التسميع</button> <button id="quit" disabled>مغادرة</button></p>
-<p id="state" role="status" aria-live="polite">اضغط طلب الانضمام وانتظر موافقة المعلم.</p>
-<section class="videos">
-<video id="teacher" autoplay playsinline></video>
-<video id="mine" autoplay playsinline muted></video>
-</section>
-<p style="font-size:12px">يبدأ المعلم البث من صفحة الحصيلة داخل سنابل. لا تُرسل الحصائل عبر الاتصال المرئي.</p>
-</main>
+<div class="page-shell">
+ <header class="topbar">
+  <div class="brand">
+   <img src="/assets/logo-sanabil-v6.png" alt="شعار منصة سنابل الوحي" width="145" height="67">
+   <div class="brand-title">
+    <span class="eyebrow">منصة سنابل الوحي التعليمية</span>
+    <h1>التسميع المرئي</h1>
+   </div>
+  </div>
+  <div class="top-actions">
+   <span class="private-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>دعوة شخصية خاصة</span>
+   <button id="theme-switch" class="theme-switch" type="button" aria-label="تبديل الوضع الليلي">الوضع الليلي</button>
+  </div>
+ </header>
+ <main class="layout">
+  <section class="panel intro-panel" aria-labelledby="intro-title">
+   <span class="section-kicker">لقاؤك القرآني</span>
+   <h2 id="intro-title">مرحبًا بك في التسميع</h2>
+   <p class="intro-copy">تواصل مباشرة مع معلم الحلقة للاستماع إلى تلاوتك، سواء كانت الحلقة عن بُعد أو تعذّر حضورك إلى المسجد.</p>
+   <p class="steps-label">خطوات الانضمام</p>
+   <ol class="steps">
+    <li><span>١</span>اضغط «طلب الانضمام»</li>
+    <li><span>٢</span>انتظر موافقة المعلم</li>
+    <li><span>٣</span>ابدأ التلاوة بعد الاتصال</li>
+   </ol>
+   <div class="actions">
+    <button id="join" type="button">طلب الانضمام للتسميع</button>
+    <button id="quit" type="button" disabled>مغادرة</button>
+   </div>
+   <p id="state" role="status" aria-live="polite" data-state="waiting">اضغط «طلب الانضمام» وانتظر موافقة المعلم.</p>
+   <div class="privacy-note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+    <span>هذا الرابط مخصص لك ولا ينبغي مشاركته. يبدأ الصوت والصورة بعد موافقة المعلم، ولا تُسجَّل المكالمة داخل المنصة.</span>
+   </div>
+  </section>
+  <section class="panel video-panel" aria-labelledby="video-title">
+   <div class="video-head">
+    <h2 id="video-title">نافذة الاتصال المباشر</h2>
+    <span>الصوت والصورة بعد الموافقة</span>
+   </div>
+   <div class="video-stage">
+    <video id="teacher" autoplay playsinline aria-label="بث المعلم"></video>
+    <div class="video-placeholder" aria-hidden="true">
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>
+     <strong>بث المعلم</strong>
+     <small>سيظهر المعلم هنا بعد قبول طلبك</small>
+    </div>
+    <div class="mini-preview">
+     <video id="mine" autoplay playsinline muted aria-label="معاينة كاميرا الطالب"></video>
+     <div class="mini-placeholder" aria-hidden="true">صورتك هنا</div>
+     <span class="mini-label">أنت</span>
+    </div>
+   </div>
+   <div class="video-footer">
+    <p>التسميع المرئي لا يغيّر حضورك تلقائيًا.</p>
+    <p>يحفظ المعلم حصيلتك من منصة سنابل الوحي.</p>
+   </div>
+  </section>
+ </main>
+ <footer class="footer">سنابل الوحي | بيئة آمنة لخدمة تعليم القرآن الكريم</footer>
+</div>
 <script src="/sanabil-video-crypto.js?v=1"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.78.0/dist/umd/supabase.min.js"></script>
 <script>
@@ -45,9 +222,13 @@ const ok=/^snv[a-f0-9]{48}$/.test(room)&&id.length>0&&id.length<150&&/^[A-Za-z0-
 const seen=new Set();let key=null,inbox=Promise.resolve();
 const state=document.getElementById('state'),join=document.getElementById('join'),quit=document.getElementById('quit');
 const remote=document.getElementById('teacher'),self=document.getElementById('mine');
-const set=s=>state.textContent=s;
-if(!ok){join.disabled=true;set('رابط اللقاء غير صالح أو ناقص. احصل على رابط جديد من المعلم.');return}
-if(!window.supabase?.createClient){join.disabled=true;set('تعذر تحميل مكتبة الاتصال. تحقق من الإنترنت ثم أعد المحاولة.');return}
+const set=(message,kind='waiting')=>{state.textContent=message;state.dataset.state=kind};
+const themeSwitch=document.getElementById('theme-switch');
+const refreshThemeLabel=()=>{const dark=document.documentElement.dataset.sanabilTheme==='dark';themeSwitch.textContent=dark?'الوضع الفاتح':'الوضع الليلي';themeSwitch.setAttribute('aria-label',dark?'تفعيل الوضع الفاتح':'تفعيل الوضع الليلي')};
+refreshThemeLabel();
+themeSwitch.addEventListener('click',()=>{const dark=document.documentElement.dataset.sanabilTheme!=='dark';document.documentElement.dataset.sanabilTheme=dark?'dark':'light';try{localStorage.setItem('sanabil-theme-v1',dark?'dark':'light')}catch{}refreshThemeLabel()});
+if(!ok){join.disabled=true;set('رابط اللقاء غير صالح أو ناقص. احصل على رابط جديد من المعلم.','error');return}
+if(!window.supabase?.createClient){join.disabled=true;set('تعذر تحميل مكتبة الاتصال. تحقق من الإنترنت ثم أعد المحاولة.','error');return}
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 const ice={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
 let channel=null,pc=null,media=null,pending=[],timer=null,approved=false,ready=false,closed=false,accepting=null;
@@ -58,19 +239,19 @@ const on=(event,handler)=>channel.on('broadcast',{event},e=>{
 const knock=()=>{if(Date.now()>expires){leave().then(()=>set('انتهت صلاحية الدعوة؛ اطلب رابطًا جديدًا.'));return}if(!approved&&!closed)send('knock',{id}).catch(()=>{})};
 async function localMedia(){if(media)return media;try{media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:{width:640,height:360}})}
 catch{media=await navigator.mediaDevices.getUserMedia({audio:true,video:false})}
-self.srcObject=media;return media}
+self.srcObject=media;document.body.classList.add('has-local-video');return media}
 async function accept(){if(pc)return;const stream=await localMedia();pc=new RTCPeerConnection(ice);
 stream.getTracks().forEach(t=>pc.addTrack(t,stream));
-pc.ontrack=e=>{remote.srcObject=e.streams[0]||new MediaStream([e.track]);remote.play().catch(()=>{})};
+pc.ontrack=e=>{remote.srcObject=e.streams[0]||new MediaStream([e.track]);document.body.classList.add('has-remote-video');remote.play().catch(()=>{})};
 pc.onicecandidate=e=>{if(e.candidate)send('signal',{from:id,to:'host',kind:'candidate',data:e.candidate.toJSON()}).catch(()=>{})};
-pc.onconnectionstatechange=()=>{if(!pc)return;if(pc.connectionState==='connected')set('اتصلت بالمعلم؛ يمكنك القراءة الآن.');
-else if(['failed','disconnected'].includes(pc.connectionState))set('تعذّر الاتصال المباشر بهذه الشبكة. جرّب شبكة أخرى ثم أعد المحاولة.')};
+pc.onconnectionstatechange=()=>{if(!pc)return;if(pc.connectionState==='connected')set('اتصلت بالمعلم؛ يمكنك البدء في التلاوة الآن.','connected');
+else if(['failed','disconnected'].includes(pc.connectionState))set('تعذّر الاتصال المباشر بهذه الشبكة. جرّب شبكة أخرى ثم أعد المحاولة.','error')};
 }
 async function leave(){if(closed)return;await send('signal',{from:id,to:'host',kind:'hangup'}).catch(()=>{});closed=true;
 if(timer)clearInterval(timer);if(pc){pc.close();pc=null}
 if(media){media.getTracks().forEach(t=>t.stop());media=null}
-remote.srcObject=null;self.srcObject=null;if(channel)await sb.removeChannel(channel).catch(()=>{});
-ready=false;approved=false;pending=[];join.disabled=false;quit.disabled=true;set('غادرت اللقاء. يمكنك طلب الانضمام مجددًا ما دام الرابط ساريًا.')}
+remote.srcObject=null;self.srcObject=null;document.body.classList.remove('has-local-video','has-remote-video');if(channel)await sb.removeChannel(channel).catch(()=>{});
+ready=false;approved=false;pending=[];join.disabled=false;quit.disabled=true;set('غادرت اللقاء. يمكنك طلب الانضمام مجددًا ما دام الرابط ساريًا.','waiting')}
 join.addEventListener('click',async()=>{join.disabled=true;try{
  if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection)throw Error('المتصفح لا يدعم المكالمات المباشرة.');
  if(Date.now()>expires)throw Error('انتهت صلاحية الدعوة؛ اطلب رابطًا جديدًا.');
@@ -94,7 +275,7 @@ join.addEventListener('click',async()=>{join.disabled=true;try{
  channel.subscribe((x,error)=>{if(x==='SUBSCRIBED'){ready=true;set('أُرسل طلبك للمعلم، انتظر الموافقة.');knock();timer=setInterval(knock,7000)}
  else if(x==='CHANNEL_ERROR'||x==='TIMED_OUT')set('لم يستجب خادم الإشارة: '+(error?.message||x))});
  quit.disabled=false
- }catch(err){await leave().catch(()=>{});join.disabled=false;set('تعذر طلب الانضمام: '+err.message)}});
+ }catch(err){await leave().catch(()=>{});join.disabled=false;set('تعذر طلب الانضمام: '+err.message,'error')}});
 quit.onclick=()=>leave().catch(()=>{});
 addEventListener('pagehide',()=>{leave().catch(()=>{})});
 })();
