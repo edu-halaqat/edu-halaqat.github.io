@@ -1666,7 +1666,7 @@ async function outcomesPage(root){
       });
       items.forEach((r,i)=>{
         const nomination=box.querySelector('[data-action="tl-nominate-'+i+'"]');
-        if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+r.fullName+' للاختبار');await requestPanel(panel,{studentId:r.studentId})});
+        if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+r.fullName+' للاختبار');await requestPanel(panel,{studentId:r.studentId,onCreated:()=>msg(box,'تم تسجيل ترشيح '+r.fullName+' للاختبار وسيصل لمشرف المجمع في سنابل الوحي.')})});
         const ll=r.lesson||{},savedStatus=attMap.get(r.studentId)?.status||'';
         const draftFor=()=>talaqqinDrafts.get(r.studentId)||{};
         const updateDraft=patch=>talaqqinDrafts.set(r.studentId,{...draftFor(),...patch});
@@ -2032,7 +2032,7 @@ async function outcomesPage(root){
   const form=box.querySelector('form');
   students.forEach((s,i)=>{
     const nomination=box.querySelector('[data-action="nominate-'+i+'"]');
-    if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId})});
+    if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId,onCreated:()=>msg(box,'تم تسجيل ترشيح '+s.fullName+' للاختبار وسيصل لمشرف المجمع في سنابل الوحي.')})});
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
     if(drafts[s.studentId]){status.textContent='مسودة محلية لم تُؤكَّد بعد';status.dataset.saved='draft'}
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
@@ -2966,6 +2966,7 @@ async function requestPanel(root,options={}){
    id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
    type:syllabusData?.mode==='full'||/^(كامل القرآن|القرآن الكريم كامل[ًاا]?)$/.test(String(syllabusData.label).trim())?'full':'custom',syllabus:syllabusData,question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
   }).select('id').single());
+  if(options.studentId){await options.onCreated?.(s);root.closest('dialog')?.close();return}
   form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
  });
  await refresh()
