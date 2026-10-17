@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.2';
+window.__SanabilLiveBuild='20261017-v13.8.3';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -935,9 +935,112 @@ const userWhatsAppButton=i=>'<button type="button" class="button button-soft" da
 
 async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active?userWhatsAppButton(i):'')+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${field('رقم الجوال / واتساب','phone','tel',u?.phone||'','autocomplete="tel"')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{const invitation=u?null:{display_name:val(f,'display_name'),email:val(f,'email'),phone:val(f,'phone'),active:f.elements.active.checked};let temporaryPassword=u?'':val(f,'password');await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,phone:val(f,'phone'),display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.');if(invitation?.active){userWhatsAppDialog(invitation,temporaryPassword)}temporaryPassword='';})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="user-wa-${i}"]`),()=>userWhatsAppDialog(u));action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
 async function studentsPage(root){
- const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin');
- root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','supervisor'].includes(r));
+ root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إضافة معلم','add-teacher')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
+
+ if(supervisorOperations){
+  const reloadDirectory=async(message)=>{
+   lookupPromise=null;lookupAt=0;
+   await studentsPage(root);
+   if(message)msg(root,message);
+  };
+  action(root,root.querySelector('[data-action="add-teacher"]'),()=>{
+   const b=modal('إضافة معلم إلى المجمع');
+   b.innerHTML='<form><p class="sl-help">يمكن إضافة المعلم إلى السجل فقط، أو إنشاء حساب دخول له عند إدخال البريد وكلمة مرور مؤقتة. لا يُغيَّر معلم الحلقة الحالي تلقائيًا.</p><div class="form-grid two">'+
+    select('المجمع','complex_id',l.complexes)+select('الحلقة','circle_id',[])+
+    field('اسم المعلم الكامل','full_name','text','','required maxlength="150"')+
+    field('رقم الجوال','phone','tel','','autocomplete="tel"')+
+    field('البريد الإلكتروني لحساب الدخول (اختياري)','email','email','','autocomplete="email"')+
+    field('كلمة المرور المؤقتة (عند إنشاء حساب)','password','password','','minlength="10" autocomplete="new-password"')+
+    '</div><button type="submit" class="button button-primary">إضافة المعلم</button></form>';
+   const f=b.querySelector('form'),cx=f.elements.complex_id,ci=f.elements.circle_id;
+   if(l.complexes.length===1)cx.value=l.complexes[0].id;
+   const circles=()=>{
+    const scoped=l.circles.filter(c=>c.complex_id===cx.value);
+    ci.innerHTML='<option value="">اختر الحلقة</option>'+scoped.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+' — '+esc(c.session_period||'')+'</option>').join('');
+    if(scoped.length===1)ci.value=scoped[0].id;
+   };
+   cx.onchange=circles;circles();
+   submit(f,async()=>{
+    const complexId=cx.value,circleId=ci.value,name=val(f,'full_name').trim(),phone=val(f,'phone').trim();
+    const email=val(f,'email').trim().toLowerCase(),password=val(f,'password');
+    const circle=l.circles.find(c=>c.id===circleId&&c.complex_id===complexId);
+    if(!l.complexes.some(c=>c.id===complexId)||!circle)throw Error('اختر مجمعك وحلقة تابعة له.');
+    if(name.split(/\s+/).length<2)throw Error('اكتب اسم المعلم الكامل.');
+    if(phone&&!/^(?:05\d{8}|\+?9665\d{8}|\d{9,15})$/.test(phone.replace(/[\s()-]/g,'')))throw Error('رقم الجوال غير صحيح.');
+    if(!!email!==!!password)throw Error('لإنشاء حساب دخول أدخل البريد وكلمة المرور معًا، أو اتركهما فارغين لإضافة سجل فقط.');
+    if(email&&password.length<10)throw Error('كلمة المرور المؤقتة لا تقل عن 10 أحرف.');
+    const primary=teacherAssignmentInfo(l,circleId).primary;
+    if(primary&&!confirm('الحلقة مسندة حاليًا إلى «'+primary.full_name+'». سيُضاف المعلم الجديد دون إلغاء إسناد المعلم الحالي. متابعة؟'))return;
+    let notice='تمت إضافة المعلم إلى سجل المجمع.';
+    if(email){
+     const response=await adminCall('create_teacher',{display_name:name,phone,email,password,role:'teacher',complex_id:complexId,circle_id:circleId});
+     if(!response?.ok)throw Error('تعذر إنشاء حساب المعلم.');
+     notice=response.primary?'أُنشئ حساب المعلم وأُسند إلى الحلقة.':'أُنشئ حساب المعلم، ويمكن إسناده من زر إسناد حلقات للمعلم.';
+    }else{
+     const teacherId='teacher-'+crypto.randomUUID();
+     await result(sb().from('teachers').insert({id:teacherId,org_id:a.org_id,complex_id:complexId,circle_id:primary?null:circleId,full_name:name,phone:phone||null,active:true}).select('id').single());
+     if(!primary){
+      try{
+       const assignment=await rpc('assign_circle_teacher_guarded',{p_circle_id:circleId,p_teacher_id:teacherId,p_replace:false});
+       if(assignment?.ok)notice='تمت إضافة المعلم وإسناده إلى الحلقة.';
+      }catch(e){notice='تمت إضافة المعلم دون إسناد الحلقة: '+e.message+'؛ استخدم زر إسناد حلقات للمعلم.';}
+     }
+    }
+    b.closest('dialog').close();
+    await reloadDirectory(notice);
+    if(email)userWhatsAppDialog({display_name:name,email,phone,active:true},password);
+   });
+  });
+  action(root,root.querySelector('[data-action="add-circle"]'),async()=>{
+   const mosques=await result(sb().from('mosques').select('id,name,complex_id').eq('active',true).order('name'));
+   const b=modal('إنشاء حلقة في المجمع');
+   const kinds=[{id:'حلقة حفظ',name:'حلقة حفظ'},{id:'حلقات التلقين',name:'حلقات التلقين'},{id:'حلقة إجازة',name:'حلقة إجازة'},{id:'حلقة تصحيح التلاوة فقط',name:'حلقة تصحيح التلاوة فقط'}];
+   const periods=[{id:'الفجر',name:'الفجر'},{id:'الظهر',name:'الظهر'},{id:'العصر',name:'العصر'},{id:'المغرب',name:'المغرب'},{id:'العشاء',name:'العشاء'},{id:'وقت مرن (عن بعد)',name:'وقت مرن (عن بعد)'}];
+   b.innerHTML='<form><p class="sl-help">إنشاء الحلقات دون حد عددي ثابت، داخل المجمع والمساجد المصرح لك بها.</p><div class="form-grid two">'+
+    select('المجمع','complex_id',l.complexes)+select('المسجد','mosque_id',[])+
+    field('اسم الحلقة','name','text','','required maxlength="150"')+
+    select('نوع الحلقة','circle_type',kinds,'حلقة حفظ')+select('الفترة','session_period',periods,'العصر')+
+    '</div><button type="submit" class="button button-primary">حفظ الحلقة الجديدة</button></form>';
+   const f=b.querySelector('form'),cx=f.elements.complex_id,mo=f.elements.mosque_id;
+   if(l.complexes.length===1)cx.value=l.complexes[0].id;
+   const fill=()=>{
+    const available=mosques.filter(m=>m.complex_id===cx.value);
+    mo.innerHTML='<option value="">اختر المسجد</option>'+available.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>').join('');
+    if(available.length===1)mo.value=available[0].id;
+   };
+   cx.onchange=fill;fill();
+   submit(f,async()=>{
+    const mosque=mosques.find(m=>m.id===mo.value&&m.complex_id===cx.value);
+    const name=val(f,'name').trim();
+    if(!l.complexes.some(c=>c.id===cx.value)||!mosque)throw Error('اختر مسجدًا في مجمعك. إذا لم يوجد، استخدم زر إضافة مسجد.');
+    if(!name)throw Error('اسم الحلقة مطلوب.');
+    await result(sb().from('circles').insert({id:'circle-'+crypto.randomUUID(),org_id:a.org_id,complex_id:cx.value,mosque_id:mosque.id,name,circle_type:val(f,'circle_type'),session_period:val(f,'session_period'),active:true}).select('id').single());
+    b.closest('dialog').close();await reloadDirectory('تم إنشاء الحلقة بنجاح. أضف معلمًا ثم استوعب الطلاب أو أضفهم يدويًا.');
+   });
+  });
+  action(root,root.querySelector('[data-action="add-mosque"]'),()=>{
+   const b=modal('إضافة مسجد إلى المجمع');
+   b.innerHTML='<form><p class="sl-help">حدد موقع المسجد بدقة ليُستخدم مع ضوابط حضور المعلمين. النطاق الافتراضي 100 متر.</p><div class="form-grid two">'+
+    select('المجمع','complex_id',l.complexes)+field('اسم المسجد','name','text','','required maxlength="150"')+
+    field('خط العرض','latitude','number','','required step="any" min="-90" max="90"')+
+    field('خط الطول','longitude','number','','required step="any" min="-180" max="180"')+
+    '</div><button type="button" class="button button-soft" data-action="current-gps">استخدام موقعي الحالي</button><button type="submit" class="button button-primary">إضافة المسجد</button></form>';
+   const f=b.querySelector('form');if(l.complexes.length===1)f.elements.complex_id.value=l.complexes[0].id;
+   action(b,b.querySelector('[data-action="current-gps"]'),async()=>{
+    const pos=await bestGeoPosition();f.elements.latitude.value=pos.coords.latitude;f.elements.longitude.value=pos.coords.longitude;
+   });
+   submit(f,async()=>{
+    if(!l.complexes.some(c=>c.id===val(f,'complex_id')))throw Error('اختر مجمعك.');
+    const latitude=Number(val(f,'latitude')),longitude=Number(val(f,'longitude')),name=val(f,'name').trim();
+    if(!name||!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)throw Error('أدخل اسم المسجد وإحداثيات صحيحة.');
+    const config={kind:'config',period:null,action:'both',weekdays:['0','1','2','3','4'],startPrayer:'Asr',endPrayer:'Maghrib',durationMinutes:0,lateAllowMinutes:15,earlyArrivalMinutes:15,earlyLeaveMinutes:15,absenceAfterMinutes:60,checkoutGraceMinutes:120};
+    await result(sb().from('mosques').insert({id:'mosque-'+crypto.randomUUID(),org_id:a.org_id,complex_id:val(f,'complex_id'),name,latitude,longitude,radius_meters:100,attendance_windows:[config],timezone:'Asia/Riyadh',active:true}).select('id').single());
+    b.closest('dialog').close();await reloadDirectory('أُضيف المسجد بنطاق بصمة 100 متر. يمكنك الآن إنشاء حلقاته.');
+   });
+  });
+ }
  if(canMove)action(root,root.querySelector('[data-action="teacher-assign"]'),()=>{
   const b=modal('إسناد أكثر من حلقة للمعلم');
   b.innerHTML=teacherWarningsHtml(l)+'<form><p class="sl-help">يسمح بإسناد معلم لعدة حلقات دون تداخل أيام وفترات العمل. لا يتغير معلم الطلاب السابقين تلقائيًا.</p><div class="form-grid two">'+
