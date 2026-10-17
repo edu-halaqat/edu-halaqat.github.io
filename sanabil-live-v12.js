@@ -1614,7 +1614,7 @@ async function outcomesPage(root){
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
-           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+
+           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+button('ترشيح للاختبار','tl-nominate-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
@@ -1665,6 +1665,8 @@ async function outcomesPage(root){
         msg(box,rr.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':'تم حفظ تحضير '+rr.saved+' طالبًا.');if(!rr.queued){attendanceDrafts.clear();await renderTalaqqin();}
       });
       items.forEach((r,i)=>{
+        const nomination=box.querySelector('[data-action="tl-nominate-'+i+'"]');
+        if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+r.fullName+' للاختبار');await requestPanel(panel,{studentId:r.studentId})});
         const ll=r.lesson||{},savedStatus=attMap.get(r.studentId)?.status||'';
         const draftFor=()=>talaqqinDrafts.get(r.studentId)||{};
         const updateDraft=patch=>talaqqinDrafts.set(r.studentId,{...draftFor(),...patch});
@@ -2021,7 +2023,7 @@ async function outcomesPage(root){
 <option value="">اختر نوع الغياب</option>
 <option value="excused" ${states[i].absenceReason==='excused'?'selected':''}>غياب بعذر</option>
 <option value="unexcused" ${states[i].absenceReason==='unexcused'?'selected':''}>غياب بدون عذر</option>
-</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}</div></div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}${outcomeAction('ترشيح للاختبار','nominate-'+i,'guardian','sl-outcome-secondary')}</div></div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
   showFamilyExcuses(box,familyRequests);
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
@@ -2029,6 +2031,8 @@ async function outcomesPage(root){
   installOutcomeStudentSearch(box,students.map(s=>s.fullName),studentSearchText,value=>{studentSearchText=value},students.map(s=>s.studentId));
   const form=box.querySelector('form');
   students.forEach((s,i)=>{
+    const nomination=box.querySelector('[data-action="nominate-'+i+'"]');
+    if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId})});
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
     if(drafts[s.studentId]){status.textContent='مسودة محلية لم تُؤكَّد بعد';status.dataset.saved='draft'}
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
