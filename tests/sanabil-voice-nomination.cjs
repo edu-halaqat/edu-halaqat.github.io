@@ -9,7 +9,7 @@ assert(video.includes('const targetId=s.active||s.selectedStudentId'),'video mus
 assert(video.includes("querySelectorAll('[data-outcome-student-id]')"),'student identity used for actual card');
 assert(video.includes("dataset.videoOutcomeTarget=targetId"),'if missing, pending target survives data load');
 assert(video.includes("data-return-to-video"),'one-tap return control in student card');
-assert(main.includes('data.outcomeStudentId=studentIds[i]'),'outcome cards must carry student identity');
+assert(main.includes('card.dataset.outcomeStudentId=studentIds[i]'),'outcome cards must carry student identity');
 assert(main.includes('requestPanel(panel,{studentId:'),'test nominations pinned to actual student');
 assert(main.includes('value="jadeer" disabled'),'do not falsely claim external Jadeer delivery');
 assert(!/fetch\(|\.rpc\(|\.insert\(|\.update\(/.test(voice),'speech module must only use existing user interface actions');
