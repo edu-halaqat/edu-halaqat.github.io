@@ -18,7 +18,12 @@ vm.runInNewContext(fs.readFileSync(process.argv[2]||'sanabil-video-crypto.js','u
  assert(!teacher.includes("circle_type==="),'no in-person/remote exclusion');
  const html=fs.readFileSync(process.argv[4]||'sanabil-free-student.html','utf8');
  const scripts=[...html.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)];
- assert.equal(scripts.length,1);new vm.Script(scripts[0][1]);
+ assert.equal(scripts.length,2,'theme bootstrap and student signaling scripts');
+ for(const script of scripts)new vm.Script(script[1]);
+ assert(html.includes("font-family:Alyamama")&&html.includes("font-family:Doran"),'shared Arabic typography');
+ assert(html.includes('data-sanabil-theme')&&html.includes('sanabil-theme-v1'),'light and dark theme persistence');
+ assert(html.includes('class="mini-preview"')&&html.includes('class="video-placeholder"'),'responsive teacher/student video hierarchy');
+ for(const id of ['join','quit','teacher','mine','state'])assert(html.includes('id="'+id+'"'),'student controls preserved: '+id);
  assert(!html.includes('student-name'),'student cannot claim another name');
  console.log('PASS: encrypted invitations, replay/expiry/event/room protection, scope gate and both circle modes');
 })().catch(e=>{console.error(e);process.exit(1)});
