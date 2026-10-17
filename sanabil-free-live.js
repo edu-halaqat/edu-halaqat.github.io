@@ -90,7 +90,7 @@ async function stop(){const s=current;if(!s||s.closed)return;
  }
  if(s.dockFrame!=null)cancelAnimationFrame(s.dockFrame);
  if(s.watchdog)clearInterval(s.watchdog);s.invites.clear();
- s.root?.querySelectorAll('[data-return-to-video]').forEach(button=>button.remove());
+ s.root?.querySelectorAll?.('[data-return-to-video]')?.forEach(button=>button.remove());
  s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;forget();
 }
 async function open(root,{circleId,restored=null}={}){
