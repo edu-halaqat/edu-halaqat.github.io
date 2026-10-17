@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.8';
+window.__SanabilLiveBuild='20261018-v13.8.9';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3242,12 +3242,12 @@ async function settingsPage(root){
   b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
   try{
    const l=await lookups();if(!b.isConnected)return;
-   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك، دون الاعتماد على النسخ المحلية. ثلاث محاولات لكل عملية؛ النتائج تشخيص أولي وليست ضمانًا لزمن فتح الصفحة أو الحفظ.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><div data-session-times></div>';
+   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><div data-session-times></div>';
    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
    const uid=(await sb().auth.getSession()).data?.session?.user?.id;
    if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
-   let controller;
-   b.closest('dialog').addEventListener('close',()=>controller?.abort(),{once:true});
+   let controller,deepController,lastDeep=null;
+   b.closest('dialog').addEventListener('close',()=>{controller?.abort();deepController?.abort()},{once:true});
    const run=async()=>{
     if(!navigator.onLine){b.querySelector('[data-progress]').textContent='يتطلب الاختبار اتصالًا بالإنترنت.';return}
     controller=new AbortController();rerun.disabled=select.disabled=dateInput.disabled=true;
@@ -3266,6 +3266,58 @@ async function settingsPage(root){
      b.querySelector('[data-results]').innerHTML=table(['العملية','ناجحة','أخطاء','المتوسط (ث)','الأبطأ (ث)','أقل من ثانيتين'],data.map(x=>[esc(x.name),x.count,x.errors,x.mean===null?'—':(x.mean/1000).toFixed(2),x.max===null?'—':(x.max/1000).toFixed(2),x.count?x.under2s+'%':'—']));
     }});}catch(e){if(b.isConnected)b.querySelector('[data-progress]').textContent='تعذر إكمال الاختبار: '+e.message}
     finally{rerun.disabled=select.disabled=dateInput.disabled=false}
+   };
+   const deepButton=b.querySelector('[data-deep]'),copyButton=b.querySelector('[data-deep-copy]');
+   const fmt=ms=>ms===null||!Number.isFinite(ms)?'—':(ms/1000).toFixed(2);
+   const formatDeep=data=>{
+    const rows=[
+     ['فتح بيانات الجلسة + قائمة تشخيصية',data.metrics.open],
+     ['التنقل المحلي بين البطاقات (محاكاة)',data.metrics.switch],
+     ['كتابة اختبارية تُلغى (ليست حفظ حصيلة)',data.metrics.write]
+    ];
+    const complete=data.rounds===20&&!data.cancelled;
+    const passing=complete&&data.metrics.open.count===20&&data.metrics.open.errors===0&&data.metrics.open.p95<2000;
+    const verdict=!complete?'اختبار غير مكتمل':passing?'حقق هدف P95 أقل من ثانيتين في تحميل البيانات التشخيصية':'لم يتحقق الهدف أو لم تكتمل المحاولات الناجحة';
+    return '<h4>'+esc(verdict)+'</h4>'+
+     table(['العملية','ناجحة','أخطاء','المتوسط (ث)','P95 (ث)','الأبطأ (ث)','أقل من ثانيتين'],rows.map(([name,m])=>[
+      esc(name),m.count,m.errors,fmt(m.mean),fmt(m.p95),fmt(m.max),m.under2s===null?'—':m.under2s+'%'
+     ]))+
+     (data.lastError?'<p role="alert">آخر خطأ: '+esc(data.lastError)+'</p>':'')+
+     (data.readOnly?'<p>تنبيه: جلسة الحلقة للقراءة فقط في التاريخ المختار؛ اختبار الكتابة التشخيصية لا يمثل صلاحية حفظ الحصيلة.</p>':'')+
+     '<p>القياسات من المتصفح والجهاز الحالي فقط. لا يمكن تعميم نتيجتها على جميع الأجهزة أو الشبكات، ولا تشمل زمن الرسم الكامل للحصيلة.</p>';
+   };
+   deepButton.onclick=async()=>{
+    if(!window.SanabilDeepPerformance){b.querySelector('[data-deep-progress]').textContent='وحدة الاختبار الموسع غير محملة؛ حدّث المنصة.';return}
+    if(!select.value||!dateInput.value){b.querySelector('[data-deep-progress]').textContent='اختر الحلقة والتاريخ.';return}
+    if(deepController&&!deepController.signal.aborted)return;
+    deepController=new AbortController();lastDeep=null;
+    deepButton.disabled=rerun.disabled=select.disabled=dateInput.disabled=copyButton.disabled=true;
+    b.querySelector('[data-deep-results]').replaceChildren();
+    b.querySelector('[data-deep-progress]').textContent='جارٍ تشغيل اختبار 20 محاولة. لا تغلق الصفحة حتى يكتمل.';
+    try{
+     lastDeep=await window.SanabilDeepPerformance.run({
+      circleId:select.value,date:dateInput.value,signal:deepController.signal,
+      onUpdate:progress=>{
+       if(!b.isConnected)return;
+       b.querySelector('[data-deep-progress]').textContent='جارٍ الاختبار الموسع — '+progress.rounds+' / '+progress.total;
+       if(progress.rounds===20||progress.rounds%5===0)b.querySelector('[data-deep-results]').innerHTML=formatDeep(progress);
+      }
+     });
+     if(b.isConnected){
+      b.querySelector('[data-deep-progress]').textContent=lastDeep.cancelled?'أُلغي الاختبار':'اكتمل الاختبار الموسع — '+lastDeep.rounds+' / 20';
+      b.querySelector('[data-deep-results]').innerHTML=formatDeep(lastDeep);
+      copyButton.disabled=lastDeep.rounds===0;
+     }
+    }catch(error){if(b.isConnected)b.querySelector('[data-deep-progress]').textContent='تعذر الاختبار الموسع: '+(error.message||error)}
+    finally{deepController=null;if(b.isConnected)deepButton.disabled=rerun.disabled=select.disabled=dateInput.disabled=false}
+   };
+   copyButton.onclick=async()=>{
+    if(!lastDeep)return;
+    const compact={testedAt:lastDeep.endedAt,device:lastDeep.client,rounds:lastDeep.rounds,
+     target:'فتح بيانات الجلسة التشخيصية P95 أقل من ثانيتين',
+     metrics:lastDeep.metrics,errors:lastDeep.lastError,notes:lastDeep.notes};
+    await navigator.clipboard.writeText(JSON.stringify(compact,null,2));
+    b.querySelector('[data-deep-progress]').textContent='نُسخت نتائج القياس دون أسماء الطلاب أو بياناتهم.';
    };
    const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences','session:permission','session:data','session:render','session:next-day'].includes(x.name));
    b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[({'action:load':'فتح البيانات والعرض كاملًا','session:absences':'جلب أسباب الغياب','session:permission':'انتظار صلاحية الجلسة','session:data':'انتظار جميع بيانات الجلسة','session:render':'تجهيز بطاقات الطلاب','session:next-day':'البحث عن اليوم التالي (في الخلفية)'})[x.name],x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
