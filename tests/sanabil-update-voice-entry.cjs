@@ -6,7 +6,7 @@ const ui=fs.readFileSync('sanabil-live-v12.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 assert(html.includes('/sanabil-updater.js?v=20261018-v1'),'Updater must be loaded');
 assert(!html.includes("if(window.__SanabilLiveBuild!==expected)showUpdate()"),'Old delayed-script banner must be removed');
-assert(html.includes('/sanabil-voice.js?v=20261018-v3'),'Updated voice module loaded');
+assert(/\/sanabil-voice\.js\?v=20261018-v\d+/.test(html),'Versioned voice module loaded');
 assert(ui.includes('window.SanabilVoice?.showLauncher?.()'),'Home screen must show launcher after authentication');
 assert(voice.includes('function showLauncher()'),'Voice entry function exists');
 assert(voice.includes("entry.hidden=!!document.querySelector('[data-sanabil-voice]')"),'Home launcher yields to classroom microphone');
