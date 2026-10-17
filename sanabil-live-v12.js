@@ -3267,7 +3267,7 @@ async function settingsPage(root){
   b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
   try{
    const l=await lookups();if(!b.isConnected)return;
-   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><div data-session-times></div>';
+   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
    const uid=(await sb().auth.getSession()).data?.session?.user?.id;
    if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
@@ -3346,6 +3346,46 @@ async function settingsPage(root){
    };
    const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences','session:permission','session:data','session:render','session:next-day'].includes(x.name));
    b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[({'action:load':'فتح البيانات والعرض كاملًا','session:absences':'جلب أسباب الغياب','session:permission':'انتظار صلاحية الجلسة','session:data':'انتظار جميع بيانات الجلسة','session:render':'تجهيز بطاقات الطلاب','session:next-day':'البحث عن اليوم التالي (في الخلفية)'})[x.name],x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
+   const realNames={
+    open:'فتح الجلسة حتى ظهور البطاقات على الشاشة',
+    switch:'التنقل الفعلي إلى بطاقة الطالب',
+    save_student:'حفظ حصيلة طالب وتأكيدها',
+    save_all:'حفظ حصيلة الحلقة كاملة وتأكيدها',
+    save_talaqqin:'حفظ حصيلة التلقين وتأكيدها'
+   };
+   const actualNode=b.querySelector('[data-real-results]');
+   const renderActual=()=>{
+    if(!b.isConnected)return;
+    const entries=window.SanabilPerformance?.actualSummary?.()||[];
+    const total=entries.reduce((sum,row)=>sum+row.count,0);
+    const rows=entries.map(row=>{
+     const verdict=row.count<20?'بحاجة إلى '+(20-row.count)+' عملية أخرى':row.p95<2000?'اجتاز الهدف':'تجاوز هدف الثانيتين';
+     return [esc(realNames[row.kind]||row.kind),row.count,fmt(row.mean),fmt(row.p95),fmt(row.max),
+      row.under2s===null?'—':row.under2s+'%',esc(verdict)];
+    });
+    actualNode.innerHTML=(total?'<p>هذه النتائج من إجراءات حقيقية على هذا الجهاز، لا من المحاكاة.</p>':'<p>لم تُسجّل إجراءات فعلية بعد على هذا الجهاز. ابدأ من صفحة الحصيلة.</p>')+
+     table(['العملية','محاولات','المتوسط (ث)','P95 (ث)','الأبطأ (ث)','أقل من ثانيتين','الحالة'],rows);
+   };
+   b.querySelector('[data-real-refresh]').onclick=renderActual;
+   b.querySelector('[data-real-reset]').onclick=()=>{
+    if(!confirm('سيُمسح سجل قياسات الأداء الموجود على هذا الجهاز فقط، ولن تتغير بيانات الطلاب أو الحصائل. متابعة؟'))return;
+    window.SanabilPerformance?.clearActual?.();
+    renderActual();
+   };
+   b.querySelector('[data-real-copy]').onclick=async()=>{
+    const rows=window.SanabilPerformance?.actualSummary?.()||[];
+    const body={measuredAt:new Date().toISOString(),device:/Android|iPhone|iPad/i.test(navigator.userAgent)?'جوال أو تابلت':'كمبيوتر',
+     network:navigator.connection?.effectiveType||'غير متاح',
+     target:'20 إجراء فعلي لكل نوع وP95 أقل من ثانيتين',source:'real_teacher_actions',
+     metrics:rows,notes:'الحفظ محسوب بعد التأكيد من الخادم. لا تُدرج أسماء الطلاب أو الدرجات.'};
+    try{await navigator.clipboard.writeText(JSON.stringify(body,null,2));
+     b.querySelector('[data-progress]').textContent='تم نسخ تقرير الاستخدام الفعلي دون بيانات الطلاب.'}
+    catch{b.querySelector('[data-progress]').textContent='تعذر النسخ من المتصفح؛ استخدم لقطة شاشة للجدول.'}
+   };
+   const actualListener=()=>renderActual();
+   window.addEventListener('sanabil-real-performance-updated',actualListener);
+   b.closest('dialog').addEventListener('close',()=>window.removeEventListener('sanabil-real-performance-updated',actualListener),{once:true});
+   renderActual();
    rerun.onclick=run;await run();
   }catch(e){b.textContent='تعذر تجهيز الاختبار: '+e.message}
  });
