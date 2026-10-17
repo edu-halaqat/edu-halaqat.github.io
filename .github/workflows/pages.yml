@@ -33,6 +33,7 @@ jobs:
           node --check sanabil-excel-v11.js
           node --check sanabil-offline-app.js
           node tests/sanabil-performance.cjs
+          node tests/sanabil-video-invitations.cjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -77,6 +78,9 @@ jobs:
                   js=read(script).decode()
                   assert 'userWhatsAppDialog' in js and expected in js
                   assert 'loadCircleSessionData' in js
+                  assert 'التسميع المرئي' in js
+                  assert 'createInvite' in read('/sanabil-free-live.js?v=approved1').decode()
+                  assert 'AES-GCM' in read('/sanabil-video-crypto.js?v=1').decode()
                   assert 'SanabilPerformance' in read('/sanabil-performance.js').decode()
                   assert 'cdn.jsdelivr.net/npm/exceljs' not in html
                   assert "register('/sanabil-offline-sw.js" in js

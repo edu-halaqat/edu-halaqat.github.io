@@ -1,0 +1,24 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),{webcrypto}=require('node:crypto');
+const context={window:{},crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,Date,Set,JSON,btoa,atob};
+vm.runInNewContext(fs.readFileSync(process.argv[2]||'sanabil-video-crypto.js','utf8'),context);
+(async()=>{
+ const C=context.window.SanabilVideoCrypto,key=await C.importKey(C.random()),other=await C.importKey(C.random()),expiry=Date.now()+120000;
+ const payload={from:'host',to:'synthetic-student',kind:'offer',data:{sdp:'synthetic-only'}};
+ const sealed=await C.pack(key,'room-a','signal',payload),seen=new Set();
+ assert.equal((await C.unpack(key,'room-a','signal',sealed,seen,expiry)).kind,'offer');
+ assert.equal(await C.unpack(key,'room-a','signal',sealed,seen,expiry),null,'replay rejected');
+ assert.equal(await C.unpack(other,'room-a','signal',sealed,new Set(),expiry),null,'another student key rejected');
+ assert.equal(await C.unpack(key,'room-b','signal',sealed,new Set(),expiry),null,'cross-room reuse rejected');
+ assert.equal(await C.unpack(key,'room-a','admission',sealed,new Set(),expiry),null,'event substitution rejected');
+ assert.equal(await C.unpack(key,'room-a','signal',sealed,new Set(),Date.now()-1),null,'expired invite rejected');
+ const teacher=fs.readFileSync(process.argv[3]||'sanabil-free-live.js','utf8');
+ new vm.Script(teacher);
+ assert(teacher.includes("['admin','manager','supervisor','teacher']"));
+ assert(teacher.includes('scopeResult.error'));
+ assert(!teacher.includes("circle_type==="),'no in-person/remote exclusion');
+ const html=fs.readFileSync(process.argv[4]||'sanabil-free-student.html','utf8');
+ const scripts=[...html.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)];
+ assert.equal(scripts.length,1);new vm.Script(scripts[0][1]);
+ assert(!html.includes('student-name'),'student cannot claim another name');
+ console.log('PASS: encrypted invitations, replay/expiry/event/room protection, scope gate and both circle modes');
+})().catch(e=>{console.error(e);process.exit(1)});
