@@ -81,7 +81,7 @@ const labelOf=i=>i.type==='navigate'?'الانتقال إلى '+i.name
 // before a circle is opened. Detailed student commands need a loaded session.
 let entryObserver=null;
 function showLauncher(){
- if(!document.body||!document.querySelector('.sl-live'))return null;
+ if(!document.body||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return null;
  let entry=document.getElementById('sanabil-voice-entry');
  if(!entry){
   entry=document.createElement('aside');entry.id='sanabil-voice-entry';
@@ -108,6 +108,7 @@ function showLauncher(){
    const active=document.querySelector('[data-sanabil-voice] button[aria-label="تشغيل الموجه الصوتي"]');
    if(active){active.click();return}
    guidance.hidden=!guidance.hidden;
+   if(!guidance.hidden)guidance.querySelector('button')?.focus?.({preventScroll:true});
   };
  }
  entry.hidden=!!document.querySelector('[data-sanabil-voice]');
@@ -120,7 +121,9 @@ function showLauncher(){
     scheduled=false;
     const current=document.getElementById('sanabil-voice-entry');
     if(!current)return;
-    if(!document.querySelector('.sl-live')){
+    // React replaces the .sl-live view while loading and switching tabs.
+    // Only remove the launcher after the authenticated app shell itself exits.
+    if(!document.querySelector('.app-content,.mobile-nav,.sl-live')){
      current.remove();entryObserver.disconnect();entryObserver=null;return;
     }
     current.hidden=!!document.querySelector('[data-sanabil-voice]');
@@ -143,11 +146,21 @@ function mount(box,{cards,names,ids=[]}={}){
  const detail=document.createElement('div');detail.className='sl-voice-command';
  const close=document.createElement('button');close.type='button';close.className='sl-voice-close';close.textContent='✕';
  close.setAttribute('aria-label','إغلاق نافذة الموجه الصوتي');
- panel.append(launcher,close,status,detail);
+ const manual=document.createElement('form');manual.className='sl-voice-manual';
+ const manualInput=document.createElement('input');manualInput.type='text';manualInput.dir='rtl';
+ manualInput.setAttribute('aria-label','اكتب أمرًا للمنصة');
+ manualInput.placeholder='أو اكتب: انتقل إلى الطالب أحمد…';
+ const manualGo=document.createElement('button');manualGo.type='submit';manualGo.className='button button-primary';
+ manualGo.textContent='تنفيذ الأمر المكتوب';
+ manual.append(manualInput,manualGo);
+ panel.append(launcher,close,status,manual,detail);
  const search=box.querySelector('.sl-outcome-student-search')||box;
  search.append(panel);
  const entry=document.getElementById('sanabil-voice-entry');if(entry)entry.hidden=true;
- if(!Recognition){launcher.textContent='🎙 الموجه غير مدعوم';launcher.title='المتصفح الحالي لا يدعم تحويل الكلام إلى أوامر؛ استخدم Chrome أو Edge بإذن الميكروفون.';launcher.disabled=true;return}
+ if(!Recognition){
+  launcher.title='التعرف الصوتي غير مدعوم في هذا المتصفح؛ يمكنك كتابة الأمر من النافذة نفسها.';
+  status.textContent='التعرف على الصوت غير مدعوم هنا. اكتب الأمر أدناه، أو جرّب Chrome مع إذن الميكروفون.';
+ }
  let active=-1,recognition=null,pending=null;
  close.onclick=()=>{if(recognition)recognition.stop();pending=null;detail.replaceChildren();panel.classList.remove('sl-voice-open')};
  const shownCards=()=>cards.filter(c=>c.isConnected&&!c.hidden);
@@ -245,8 +258,19 @@ function mount(box,{cards,names,ids=[]}={}){
   };
   status.textContent='راجع الأمر ثم اضغط تأكيد التنفيذ. لا تستخدم الأوامر الصوتية وحدها للتحقق من صحة الدرجات.';
  };
+ manual.addEventListener('submit',event=>{
+  event.preventDefault();panel.classList.add('sl-voice-open');
+  const text=manualInput.value.trim();
+  if(!text){status.textContent='اكتب أمرًا قبل التنفيذ.';manualInput.focus();return}
+  status.textContent='الأمر المكتوب: '+text;
+  prepare(intentOf(text));
+ });
  launcher.onclick=()=>{
   panel.classList.add('sl-voice-open');
+  if(!Recognition){
+   status.textContent='يمكنك إدخال الأمر كتابةً. الميكروفون لا يدعم التعرف الصوتي في هذا المتصفح.';
+   manualInput.focus();return;
+  }
   if(recognition){recognition.stop();return}
   recognition=new Recognition();recognition.lang='ar-SA';recognition.continuous=false;recognition.interimResults=false;
   launcher.textContent='إيقاف الاستماع';status.textContent='أستمع لأمر واحد الآن…';
