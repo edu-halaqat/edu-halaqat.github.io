@@ -45,7 +45,7 @@ const categoryOf=value=>{
   return 'recentReview';
  if(/المراجعه الكبري|مراجعه كبري|الكبري|المراجعه الكبيره|مراجعه كبيره/.test(s))
   return 'review';
- if(/الحفظ|الدرس الجديد|الدرس|الجديد/.test(s))
+ if(/الحفظ|(?:^|\s)حفظ(?=\s|$)|الدرس الجديد|الدرس|الجديد/.test(s))
   return 'memorization';
  // Unqualified review means MAJOR review, not the nearby review.
  if(/مراجعه|مراجعات|المراجعه|المراجعات/.test(s))return 'review';
@@ -93,6 +93,24 @@ const metricParts=cmd=>{
  if(new Set(hits.map(h=>h.metric)).size!==hits.length)return null;
  return hits.map(({metric,count})=>({metric,count}));
 };
+const matchingStudents=(studentNames,rawName)=>{
+ const name=normalize(rawName);
+ const removePatronymic=val=>normalize(val).split(' ').filter(w=>!['بن','ابن','بنت'].includes(w)).join(' ');
+ const compact=removePatronymic(name),parts=compact.split(' ').filter(Boolean);
+ if(!compact||!parts.length)return [];
+ const indexed=(studentNames||[]).map((n,i)=>({name:normalize(n),compact:removePatronymic(n),i}));
+ const exact=indexed.filter(row=>row.name===name||row.compact===compact);
+ if(exact.length)return exact;
+ const contiguous=indexed.filter(row=>row.name.includes(name)||row.compact.includes(compact));
+ if(contiguous.length)return contiguous;
+ // A known student can be recognized despite a spoken "بن"/"ابن" in the full name.
+ return parts.length>=2?indexed.filter(row=>{
+  const words=row.compact.split(' ');
+  let pos=0;
+  for(const part of parts){const next=words.findIndex((w,i)=>i>=pos&&w===part);if(next<0)return false;pos=next+1}
+  return true;
+ }):[];
+};
 const studentNameFrom=cmd=>{
  const name=normalize(cmd).replace(/^(?:(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب)(?:\s+لي)?(?:\s+الي|\s+عند|\s+ل)?\s*)/,'')
   .replace(/^(?:حصيله\s+)?(?:الطالب|الطالبه)\s+/,'')
@@ -122,7 +140,7 @@ const intentOf=(raw,studentNames=[])=>{
  if(forced&&name.length>=2)return {type:'navigate',name};
  if(Array.isArray(studentNames)&&name.length>=3){
   const token=normalize(name);
-  const hits=studentNames.filter(n=>normalize(n).includes(token));
+  const hits=matchingStudents(studentNames,token);
   if(hits.length)return {type:'navigate',name};
  }
  return {type:'unknown'};
@@ -254,9 +272,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const matchStudent=name=>{
   const token=normalize(name).replace(/(?:من فضلك|لو سمحت|الان)$/,'').trim();
   if(token.length<2)return null;
-  const exact=names.map((n,i)=>({n:normalize(n),i})).filter(x=>x.n===token);
-  if(exact.length===1)return exact[0].i;
-  const matches=names.map((n,i)=>({n:normalize(n),i})).filter(x=>x.n.includes(token));
+  const matches=matchingStudents(names,token);
   return matches.length===1?matches[0].i:null;
  };
  const targetKey=(card,kind)=>{
@@ -291,8 +307,13 @@ function mount(box,{cards,names,ids=[]}={}){
    try{
     const i=interpretation;pending=null;
     if(i.type==='grade'){
-     const key=targetKey(card,i.kind);
-     const button=[...card.querySelectorAll('[data-grade-key]')].find(b=>b.dataset.gradeKey===key&&normalize(b.dataset.gradeValue)===normalize(i.grade));
+     const gradeButtons=[...card.querySelectorAll('[data-grade-key]')];
+     const talqeenButtons=!gradeButtons.length&&i.kind==='memorization'
+      ?[...card.querySelectorAll('[data-tl-grade-student]')]:[];
+     const key=gradeButtons.length?targetKey(card,i.kind):null;
+     const button=gradeButtons.length
+      ?gradeButtons.find(b=>b.dataset.gradeKey===key&&normalize(b.dataset.gradeValue)===normalize(i.grade))
+      :talqeenButtons.find(b=>normalize(b.dataset.tlGradeValue)===normalize(i.grade));
      if(!button||button.disabled)throw Error('خانة التقدير غير متاحة لهذا الطالب أو اليوم.');
      button.click();status.textContent='سُجل التقدير في المسودة. احفظ الحصيلة لتثبيته.';
     }else if(i.type==='metric'||i.type==='metrics'){
