@@ -90,6 +90,7 @@ async function stop(){const s=current;if(!s||s.closed)return;
  }
  if(s.dockFrame!=null)cancelAnimationFrame(s.dockFrame);
  if(s.watchdog)clearInterval(s.watchdog);s.invites.clear();
+ s.root?.querySelectorAll('[data-return-to-video]').forEach(button=>button.remove());
  s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;forget();
 }
 async function open(root,{circleId,restored=null}={}){
@@ -137,6 +138,11 @@ async function open(root,{circleId,restored=null}={}){
   if(card){
    const search=outcome.querySelector('#sl-outcome-search-input');
    if(search?.value){search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}
+   outcome.querySelectorAll('[data-return-to-video]').forEach(button=>button.remove());
+   const back=document.createElement('button');back.type='button';back.className='button button-soft sl-return-video';
+   back.dataset.returnToVideo='true';back.textContent='↖ العودة إلى التسميع المرئي';
+   back.onclick=()=>{if(!s.closed&&s.wrap.isConnected)s.wrap.scrollIntoView({behavior:'smooth',block:'start'})};
+   card.prepend(back);
    card.scrollIntoView({behavior:'smooth',block:'start'});
    card.focus({preventScroll:true});
    status(s,'تم الوصول إلى حصيلة الطالب دون إيقاف البث.');
