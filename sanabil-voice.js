@@ -93,7 +93,7 @@ function mount(box,{cards,names,ids=[]}={}){
  panel.append(launcher,close,status,detail);
  const search=box.querySelector('.sl-outcome-student-search')||box;
  search.append(panel);
- if(!Recognition){launcher.disabled=true;panel.classList.add('sl-voice-open');return}
+ if(!Recognition){launcher.textContent='🎙 الموجه غير مدعوم';launcher.title='المتصفح الحالي لا يدعم تحويل الكلام إلى أوامر؛ استخدم Chrome أو Edge بإذن الميكروفون.';launcher.disabled=true;return}
  let active=-1,recognition=null,pending=null;
  close.onclick=()=>{if(recognition)recognition.stop();pending=null;detail.replaceChildren();panel.classList.remove('sl-voice-open')};
  const shownCards=()=>cards.filter(c=>c.isConnected&&!c.hidden);
