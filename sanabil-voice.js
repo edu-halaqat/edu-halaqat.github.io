@@ -77,6 +77,59 @@ const labelOf=i=>i.type==='navigate'?'الانتقال إلى '+i.name
  :i.type==='metric'?'إضافة '+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
  :i.type==='save'?(i.share?'حفظ الحصيلة ثم مشاركة ولي الأمر':'حفظ الحصيلة')
  :i.type==='share'?'فتح مشاركة الحصيلة لولي الأمر':'لم أتعرف على أمر محدد';
+// The microphone entry is visible on the authenticated home screen, even
+// before a circle is opened. Detailed student commands need a loaded session.
+let entryObserver=null;
+function showLauncher(){
+ if(!document.body||!document.querySelector('.sl-live'))return null;
+ let entry=document.getElementById('sanabil-voice-entry');
+ if(!entry){
+  entry=document.createElement('aside');entry.id='sanabil-voice-entry';
+  entry.dir='rtl';entry.className='sl-voice-entry';
+  const trigger=document.createElement('button');trigger.type='button';
+  trigger.className='button button-soft';trigger.textContent='🎙 الموجه الصوتي';
+  trigger.setAttribute('aria-label','فتح الموجه الصوتي');
+  const guidance=document.createElement('section');guidance.className='sl-voice-entry-help';guidance.hidden=true;
+  guidance.setAttribute('role','region');guidance.setAttribute('aria-label','الموجه الصوتي');
+  const info=document.createElement('p');info.textContent='الموجه الصوتي متاح أثناء جلسة الحصيلة لتحديد الطالب وإدخال التقديرات. افتح الحصيلة واختر الحلقة ثم افتح جلستها.';
+  const goto=document.createElement('button');goto.type='button';
+  goto.className='button button-primary';goto.textContent='انتقل إلى الحصيلة اليومية';
+  goto.onclick=()=>{
+   const candidates=[...document.querySelectorAll('button,[role="tab"],a')];
+   const tab=candidates.find(node=>/^\s*الحصيلة اليومية\s*$/.test(node.textContent||''));
+   if(tab){guidance.hidden=true;tab.click()}
+   else info.textContent='افتح تبويب «الحصيلة اليومية» من الشريط العلوي، ثم اختر الحلقة واضغط فتح الجلسة.';
+  };
+  const close=document.createElement('button');close.type='button';
+  close.className='button button-soft';close.textContent='إغلاق';
+  close.onclick=()=>{guidance.hidden=true};
+  guidance.append(info,goto,close);entry.append(trigger,guidance);document.body.append(entry);
+  trigger.onclick=()=>{
+   const active=document.querySelector('[data-sanabil-voice] button[aria-label="تشغيل الموجه الصوتي"]');
+   if(active){active.click();return}
+   guidance.hidden=!guidance.hidden;
+  };
+ }
+ entry.hidden=!!document.querySelector('[data-sanabil-voice]');
+ if(!entryObserver&&window.MutationObserver){
+  let scheduled=false;
+  entryObserver=new MutationObserver(()=>{
+   if(scheduled)return;scheduled=true;
+   // Defer to avoid reacting to intermediate DOM removal during a rerender.
+   Promise.resolve().then(()=>{
+    scheduled=false;
+    const current=document.getElementById('sanabil-voice-entry');
+    if(!current)return;
+    if(!document.querySelector('.sl-live')){
+     current.remove();entryObserver.disconnect();entryObserver=null;return;
+    }
+    current.hidden=!!document.querySelector('[data-sanabil-voice]');
+   });
+  });
+  entryObserver.observe(document.body,{childList:true,subtree:true});
+ }
+ return entry;
+}
 function mount(box,{cards,names,ids=[]}={}){
  if(!box?.isConnected||!cards?.length)return;
  const existing=box.querySelector('[data-sanabil-voice]');
@@ -93,6 +146,7 @@ function mount(box,{cards,names,ids=[]}={}){
  panel.append(launcher,close,status,detail);
  const search=box.querySelector('.sl-outcome-student-search')||box;
  search.append(panel);
+ const entry=document.getElementById('sanabil-voice-entry');if(entry)entry.hidden=true;
  if(!Recognition){launcher.textContent='🎙 الموجه غير مدعوم';launcher.title='المتصفح الحالي لا يدعم تحويل الكلام إلى أوامر؛ استخدم Chrome أو Edge بإذن الميكروفون.';launcher.disabled=true;return}
  let active=-1,recognition=null,pending=null;
  close.onclick=()=>{if(recognition)recognition.stop();pending=null;detail.replaceChildren();panel.classList.remove('sl-voice-open')};
@@ -202,5 +256,5 @@ function mount(box,{cards,names,ids=[]}={}){
   try{recognition.start()}catch(e){recognition=null;launcher.textContent='🎙 الموجه الصوتي';status.textContent='لم يتوفر الميكروفون: '+e.message}
  };
 }
-window.SanabilVoice={mount,intentOf,normalize,countOf};
+window.SanabilVoice={mount,showLauncher,intentOf,normalize,countOf};
 })();
