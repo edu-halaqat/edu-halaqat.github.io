@@ -108,7 +108,7 @@ function showLauncher(){
    const active=document.querySelector('[data-sanabil-voice] button[aria-label="تشغيل الموجه الصوتي"]');
    if(active){active.click();return}
    guidance.hidden=!guidance.hidden;
-   if(!guidance.hidden)guidance.querySelector('button')?.focus?.({preventScroll:true});
+   if(!guidance.hidden)guidance.querySelector?.('button')?.focus?.({preventScroll:true});
   };
  }
  entry.hidden=!!document.querySelector('[data-sanabil-voice]');
