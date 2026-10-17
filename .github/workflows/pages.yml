@@ -40,6 +40,7 @@ jobs:
           node tests/sanabil-performance-deep.cjs
           node --check sanabil-performance.js
           node tests/sanabil-performance-real.cjs
+          node tests/sanabil-student-float-nav.cjs
 
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
@@ -124,6 +125,9 @@ jobs:
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
                   assert 'data-real-results' in js
+                  assert 'data-outcome-float-nav' in js
+                  assert 'data-float-top' in js and 'data-float-bottom' in js
+                  assert '.sl-outcome-float-nav' in read('/sanabil-identity.css').decode()
                   assert "recordActual('save_student'" in js
                   assert 'afterPaintActual' in read('/sanabil-performance.js').decode()
                   assert 'cdn.jsdelivr.net/npm/exceljs' not in html
