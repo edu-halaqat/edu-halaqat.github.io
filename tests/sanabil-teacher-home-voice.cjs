@@ -1,0 +1,27 @@
+'use strict';
+/* Teacher home must never eagerly start outcomes; microphone must be compact. */
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const main=fs.readFileSync('sanabil-live-v12.js','utf8');
+const voice=fs.readFileSync('sanabil-voice.js','utf8');
+const css=fs.readFileSync('sanabil-identity.css','utf8');
+const html=fs.readFileSync('index.html','utf8');
+const start=main.indexOf('async function dashboard(root)');
+const end=main.indexOf('async function dashboardDetails(root,a)',start);
+assert(start!==-1&&end>start,'dashboard section exists');
+const dashboard=main.slice(start,end);
+assert(dashboard.includes("'ابدأ جلسة الحلقة','outcomes'"),'teacher retains fast route into outcomes');
+assert(!dashboard.includes('outcomesPage(panel)'), 'teacher home must not fetch/render outcome session');
+assert(!dashboard.includes('data-home-live-session'),'teacher home must not contain duplicate outcome form');
+assert(voice.includes("const manual=document.createElement('div')"),'typed command cannot nest a form');
+assert(voice.includes("manualGo.type='button'"),'typed command button cannot submit grades');
+assert(voice.includes("manualGo.addEventListener('click',submitWrittenCommand)"),'typed button must respond');
+assert(voice.includes("manualInput.addEventListener('keydown'"),'Enter activates typed command');
+assert(voice.includes('const collapse=()=>'), 'explicit collapse state');
+assert(voice.includes("close.onclick=collapse"),'close button really collapses');
+assert(voice.includes("if(panel.classList.contains('sl-voice-open')){collapse();return}"),'mic toggles');
+assert(css.includes('v13.8.16 — one compact bottom-right voice action'),'position fix bundled');
+assert(css.includes('.sl-voice-panel:not(.sl-voice-open)>.sl-voice-manual{display:none!important}'),'typed controls hidden when collapsed');
+assert(css.includes('bottom:calc(91px + env(safe-area-inset-bottom,0px))'),'voice above bottom tabs');
+assert(css.includes('right:max(10px,env(safe-area-inset-right,0px))'),'voice right anchored');
+assert(html.includes('/sanabil-voice.js'),'voice script deployed');
+console.log('PASS: teacher home lightweight; classroom only outcomes; bottom-right mic collapsed; typed commands isolated from save');
