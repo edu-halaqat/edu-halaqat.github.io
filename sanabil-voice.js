@@ -10,11 +10,11 @@ const normalize=value=>String(value||'').normalize('NFKC')
  .replace(/[٠-٩]/g,n=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(n)))
  .replace(/[۰-۹]/g,n=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(n)))
  .replace(/\s+/g,' ').trim();
-const words={صفر:0,واحد:1,واحدة:1,اثنان:2,اثنين:2,اثنتان:2,اثنتين:2,
- ثلاث:3,ثلاثة:3,اربع:4,اربعة:4,خمس:5,خمسة:5,ست:6,ستة:6,
- سبع:7,سبعة:7,ثمان:8,ثمانية:8,تسع:9,تسعة:9,عشر:10,عشرة:10};
+const words={صفر:0,واحد:1,واحده:1,اثنان:2,اثنين:2,اثنتان:2,اثنتين:2,
+ ثلاث:3,ثلاثه:3,اربع:4,اربعه:4,خمس:5,خمسه:5,ست:6,سته:6,
+ سبع:7,سبعه:7,ثمان:8,ثمانيه:8,تسع:9,تسعه:9,عشر:10,عشره:10};
 const countOf=phrase=>{
- const m=normalize(phrase).match(/(?:^|\s)([0-9]{1,2}|صفر|واحد|واحدة|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة)(?=\s|$)/u);
+ const m=normalize(phrase).match(/(?:^|\s)([0-9]{1,2}|صفر|واحد|واحده|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثه|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تسع|تسعه|عشر|عشره)(?=\s|$)/u);
  if(!m)return null;
  const n=/^\d+$/.test(m[1])?Number(m[1]):words[m[1]];
  return Number.isInteger(n)&&n>=0&&n<=20?n:null;
@@ -25,14 +25,14 @@ const gradeOf=cmd=>{
  if(s.includes('ممتاز'))return 'ممتاز';
  if(s.includes('لم يحفظ'))return 'لم يحفظ';
  if(s.includes('لم يسمع'))return 'لم يسمع';
- if(s.includes('يحتاج اعادة'))return 'يحتاج إعادة';
+ if(s.includes('يحتاج اعاده'))return 'يحتاج إعادة';
  if(s.includes('جيد'))return 'جيد';
  return null;
 };
 const categoryOf=text=>{
  const s=normalize(text);
- if(/المراجعه الكبرى|مراجعه كبرى|الكبرى/.test(s))return 'review';
- if(/المراجعه الصغرى|مراجعه صغرى|الصغرى|الصوره|القريبه/.test(s))return 'recentReview';
+ if(/المراجعه الكبري|مراجعه كبري|الكبري/.test(s))return 'review';
+ if(/المراجعه الصغري|مراجعه صغري|الصغري|الصوره|القريبه/.test(s))return 'recentReview';
  if(/الحفظ|الدرس الجديد|الجديد/.test(s))return 'memorization';
  return null;
 };
@@ -54,8 +54,8 @@ const intentOf=raw=>{
  if(kind&&/(?:اضف|زد|زياده|سجل|ضع)/.test(cmd)){
   // Multiple counts must be associated with their own named metrics.
   // Never apply "3 errors and 4 doubts" as "3 doubts".
-  const changes=[],quantity='[0-9]{1,2}|صفر|واحد|واحدة|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة';
-  const pattern=new RegExp('(?:^|\\s)('+quantity+')\\s+(اخطاء|خطا|اخطاءات|شكوك|شك|تردد|اخطاء التجويد|تجويد)(?=\\s|$)','gu');
+  const changes=[],quantity='[0-9]{1,2}|صفر|واحد|واحده|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثه|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تسع|تسعه|عشر|عشره';
+  const pattern=new RegExp('(?:^|\\s)و?('+quantity+')\\s+(اخطاء|خطا|اخطاءات|شكوك|شك|تردد|اخطاء التجويد|تجويد)(?=\\s|$)','gu');
   for(const match of cmd.matchAll(pattern)){
    const metric=metricOf(match[2]);
    const count=countOf(match[1]);
