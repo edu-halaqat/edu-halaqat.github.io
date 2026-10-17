@@ -35,6 +35,7 @@ jobs:
           node tests/sanabil-performance.cjs
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
+          node tests/sanabil-install.cjs
 
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
