@@ -1150,3 +1150,27 @@ html[data-sanabil-theme="light"] .sl-outcome-float-nav output{color:#124b3e}
 html[data-sanabil-theme="dark"] .sl-return-video{background:#17493f!important;color:#f2fff7!important;border-color:#d8bd88!important}
 html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] .sl-exam-destination{background:#183b32!important;color:#e4f4eb!important;border-color:#467965!important}
 @media(max-width:600px){.sl-voice-panel{padding:10px}.sl-return-video{width:100%}.sl-voice-command button{flex:1}}
+
+
+/* Voice command dock: mic visible across the full classroom scroll range. */
+.sl-voice-panel{
+ position:fixed!important;z-index:1202;
+ right:max(8px,env(safe-area-inset-right,0px))!important;
+ bottom:max(12px,env(safe-area-inset-bottom,0px))!important;
+ width:min(350px,calc(100vw - 78px))!important;
+ max-height:min(70dvh,470px);overflow:auto;
+ padding:13px!important;box-shadow:0 12px 35px #0004;
+}
+.sl-voice-panel:not(.sl-voice-open){
+ width:max-content!important;max-width:calc(100vw - 76px);
+ padding:0!important;margin:0!important;border:0!important;
+ background:transparent!important;box-shadow:none!important;overflow:visible;
+}
+.sl-voice-panel:not(.sl-voice-open)>.sl-voice-close,
+.sl-voice-panel:not(.sl-voice-open)>p,
+.sl-voice-panel:not(.sl-voice-open)>.sl-voice-command{display:none!important}
+.sl-voice-panel>button:first-child{background:#00808a!important;color:#fff!important;border:1px solid #d8bd88!important;border-radius:999px!important;min-height:49px!important;padding:9px 15px!important;box-shadow:0 5px 18px #0002}
+.sl-voice-panel>.sl-voice-close{position:absolute;top:8px;left:9px;border:0;background:transparent;color:inherit;padding:4px 10px!important;font:700 18px/1 Alyamama,Tahoma,sans-serif;cursor:pointer}
+.sl-voice-panel.sl-voice-open{padding-top:12px!important}
+.sl-voice-panel>p{padding-inline-start:34px}
+@media(max-width:600px){.sl-voice-panel{width:min(340px,calc(100vw - 69px))!important}.sl-voice-panel>.sl-voice-close{top:10px}}
