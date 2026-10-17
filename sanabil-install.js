@@ -1,7 +1,7 @@
 /* Sanabil PWA: persistent dashboard install action and honest cross-browser detection. */
 (()=>{'use strict';if(window.SanabilInstaller)return;
 const APP_ID='https://snabilalwahy.com/sanabil-app';
-let deferred=null,justInstalled=false,checkPending=null;
+let deferred=null,justInstalled=false,installedAt=0,checkPending=null;
 const buttons=new Set();
 const isAppWindow=()=>Boolean(
  (typeof window.matchMedia==='function'&&(
@@ -25,17 +25,22 @@ const render=installed=>{
  }
 };
 async function check(){
- if(isAppWindow()||justInstalled){render(true);return true}
+ if(isAppWindow()){render(true);return true}
  if(checkPending)return checkPending;
  checkPending=(async()=>{
-  let installed=false;
+  let installed=false,verified=false;
   if(typeof navigator.getInstalledRelatedApps==='function'){
    try{
     installed=hasRelatedApp(await navigator.getInstalledRelatedApps());
+    verified=true;
    }catch{/* Lack of API support must not hide the install help. */}
   }
-  render(installed||justInstalled||isAppWindow());
-  return installed;
+  // appinstalled can arrive before the operating system's app registry updates.
+  // Later successful checks can notice actual removal without a permanent flag.
+  if(verified&&justInstalled&&!installed&&Date.now()-installedAt>30000)justInstalled=false;
+  const visibleInstalled=installed||justInstalled;
+  render(visibleInstalled);
+  return visibleInstalled;
  })().finally(()=>{checkPending=null});
  return checkPending;
 }
@@ -82,7 +87,7 @@ async function install(){
   const decision=await event.userChoice;
   if(decision?.outcome==='accepted'){
    // Browsers may dispatch appinstalled after the prompt resolves.
-   justInstalled=true;
+   justInstalled=true;installedAt=Date.now();
    render(true);
   }else render(false);
  }catch{
@@ -102,7 +107,7 @@ window.addEventListener('beforeinstallprompt',event=>{
  check().catch(()=>render(false));
 });
 window.addEventListener('appinstalled',()=>{
- deferred=null;justInstalled=true;render(true);
+ deferred=null;justInstalled=true;installedAt=Date.now();render(true);
 });
 window.addEventListener('pageshow',()=>{check().catch(()=>{})});
 window.addEventListener('focus',()=>{check().catch(()=>{})});
