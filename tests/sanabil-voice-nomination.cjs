@@ -11,7 +11,8 @@ assert(video.includes("dataset.videoOutcomeTarget=targetId"),'if missing, pendin
 assert(video.includes("data-return-to-video"),'one-tap return control in student card');
 assert(main.includes('card.dataset.outcomeStudentId=studentIds[i]'),'outcome cards must carry student identity');
 assert(main.includes('requestPanel(panel,{studentId:'),'test nominations pinned to actual student');
-assert(main.includes('value="jadeer" disabled'),'do not falsely claim external Jadeer delivery');
+assert(main.includes('value="jadeer" ${jadeerReady'),'Jadeer selection must be conditional on a verified receiver');
+assert(main.includes('window.SanabilJadeer.send(sb(),newRequestId)'),'Jadeer delivery requires remote acknowledgement');
 assert(!/fetch\(|\.rpc\(|\.insert\(|\.update\(/.test(voice),'speech module must only use existing user interface actions');
 const sandbox={window:{},document:{},console};
 vm.runInNewContext(voice,sandbox);
