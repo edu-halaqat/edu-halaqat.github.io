@@ -207,7 +207,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const manual=document.createElement('div');manual.className='sl-voice-manual';
  const manualInput=document.createElement('input');manualInput.type='text';manualInput.dir='rtl';
  manualInput.setAttribute('aria-label','اكتب أمرًا للمنصة');
- manualInput.placeholder='أو اكتب: انتقل إلى الطالب أحمد…';
+ manualInput.placeholder='مثال: أحمد دحمان، أو الحفظ ممتاز…';
  const manualGo=document.createElement('button');manualGo.type='button';manualGo.className='button button-primary';
  manualGo.textContent='تنفيذ الأمر المكتوب';
  manual.append(manualInput,manualGo);
@@ -324,7 +324,7 @@ function mount(box,{cards,names,ids=[]}={}){
     detail.replaceChildren();
    }catch(e){status.textContent=e.message||'تعذر تنفيذ الأمر. راجع الخانة المطلوبة.'}
   };
-  status.textContent='راجع الأمر ثم اضغط تأكيد التنفيذ. لا تستخدم الأوامر الصوتية وحدها للتحقق من صحة الدرجات.';
+  status.textContent='تحقق من اسم الطالب والتقدير أو العدد قبل التأكيد. يمكنك الاكتفاء بالاسم أو عبارة مثل «الحفظ ممتاز».';
  };
  const submitWrittenCommand=event=>{
   event?.preventDefault?.();event?.stopPropagation?.();
