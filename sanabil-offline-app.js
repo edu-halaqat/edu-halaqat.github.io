@@ -110,7 +110,12 @@ function uiRoot(){let root=document.getElementById('sanabil-pwa-offline');if(!ro
 async function updateUi(){
  if(!document.body)return;
  const root=uiRoot(),s=await status(true).catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
+ // Online + synced is the normal state and needs no permanent screen overlay.
+ // Keep the status visible for offline/pending/failed operations only.
+ const needsAttention=!s.online||s.count>0||s.legacyCount>0||s.flushing||!!s.error;
+ root.hidden=!needsAttention;
  root.replaceChildren();
+ if(!needsAttention)return;
  const img=document.createElement('img');img.src='/assets/sanabil-app-visible-192.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
  root.append(img);
  const text=document.createElement('span');text.textContent=s.online?(s.count?'بانتظار مزامنة '+s.count+' عملية':'سنابل الوحي · متصل'):'سنابل الوحي · يعمل دون اتصال'+(s.count?' · '+s.count+' معلّقة':'');root.append(text);
