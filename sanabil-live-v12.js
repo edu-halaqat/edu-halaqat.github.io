@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.6';
+window.__SanabilLiveBuild='20261017-v13.8.7';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3119,8 +3119,11 @@ async function dashboard(root){
  const quick=isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:isSupervisor?[['إدارة مجمعي','students','إضافة المعلمين والحلقات والمساجد واستيعاب الطلاب'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء']]:rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:[['الاختبارات','tests','إدارة الاختبارات']];
  const profileGreeting=String(a.profile?.display_name||'').trim();
  const greetingName=profileGreeting&&!profileGreeting.includes('@')?profileGreeting:'بك';
- root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section><div class="sl-toolbar">${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}</div>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><details class="sl-dashboard-metrics"><summary><span aria-hidden="true">📊</span> المؤشرات والتقارير التفصيلية <small>اضغط للعرض عند الحاجة</small></summary><div class="sl-dashboard-metrics-content"><p class="sl-help">ستُحمّل الإحصائيات عند فتح هذا القسم لتبقى إجراءاتك اليومية أسرع.</p></div></details>`;
+ root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section><div class="sl-toolbar sl-dashboard-actions"><button type="button" class="button button-primary sl-install-cta" data-action="install-pwa" hidden>⬇ تثبيت تطبيق سنابل الوحي</button>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}</div>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><details class="sl-dashboard-metrics"><summary><span aria-hidden="true">📊</span> المؤشرات والتقارير التفصيلية <small>اضغط للعرض عند الحاجة</small></summary><div class="sl-dashboard-metrics-content"><p class="sl-help">ستُحمّل الإحصائيات عند فتح هذا القسم لتبقى إجراءاتك اليومية أسرع.</p></div></details>`;
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
+ const installButton=root.querySelector('[data-action="install-pwa"]');
+ if(window.SanabilInstaller?.bind)window.SanabilInstaller.bind(installButton);
+ else if(installButton)installButton.remove();
  const themeButton=root.querySelector('[data-action="toggle-theme"]');
  if(themeButton)action(root,themeButton,()=>{
    const dark=document.documentElement.dataset.sanabilTheme!=='dark';
