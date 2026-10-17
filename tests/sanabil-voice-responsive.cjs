@@ -10,7 +10,7 @@ assert(css.includes('.mobile-nav>button svg'),'mobile navigation icons normalize
 assert(offline.includes('root.hidden=!needsAttention'),'redundant connected badge must disappear');
 assert(html.includes('/sanabil-voice.js'),'voice module loaded on all authenticated views');
 class E{
- constructor(tag,doc){this.tag=tag;this.doc=doc;this.children=[];this.events={};this.dataset={};this.attributes={};this.className='';this.style={};this.hidden=false;this.isConnected=true;this.classList={add:x=>{this.className+=' '+x},remove:x=>{this.className=this.className.replace(x,'')}};}
+ constructor(tag,doc){this.tag=tag;this.doc=doc;this.children=[];this.events={};this.dataset={};this.attributes={};this.className='';this.style={};this.hidden=false;this.isConnected=true;this.classList={add:x=>{this.className+=' '+x},remove:x=>{this.className=this.className.replace(x,'')},contains:x=>this.className.split(/\s+/).includes(x)};}
  append(...args){for(const child of args){child.parentElement=this;this.children.push(child);if(child.id)this.doc.ids.set(child.id,child)}}
  replaceChildren(...args){this.children=[];this.append(...args)}
  setAttribute(name,value){this.attributes[name]=value}
@@ -63,10 +63,18 @@ Promise.resolve().then(()=>{
  assert(panel.className.includes('sl-voice-open'),'tap opens command input if native speech recognition unavailable');
  const manual=panel.children.find(c=>c.className==='sl-voice-manual');
  assert(manual,'typed command fallback exists');
- const [input]=manual.children;
+ const [input,go]=manual.children;
+ assert.equal(manual.tag,'div','nested forms must not exist in outcomes');
+ assert.equal(go.tag,'button','typed command is a direct button action');
+ assert.equal(go.type,'button','must never submit classroom save form');
  input.value='انتقل إلى الطالب خالد';
- manual.events.submit({preventDefault(){}});
+ assert.equal(typeof go.events.click,'function','typed command has actual click listener');
+ go.events.click({preventDefault(){},stopPropagation(){}});
  assert(cards[1].scrolled,'typed voice fallback navigates correct student');
+ panel.children[1].onclick();
+ assert(!panel.classList.contains('sl-voice-open'),'voice panel stays collapsed after close');
+ assert.equal(panel.dataset.expanded,'false','collapse is explicit');
+ assert(!panel.children[3].hidden,'typed control stays available after reopening');
  assert.equal(cards[0].scrolled,undefined);
  session=false;doc.panel=null;
  observers.filter(o=>o.active).forEach(o=>o.cb());
