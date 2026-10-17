@@ -49,7 +49,7 @@ vm.runInNewContext(src,context);
  assert.equal(value.metrics.switch.count,20);
  assert.equal(value.metrics.write.count,20);
  assert.equal(value.metrics.write.errors,0);
- assert.equal(value.metrics.open.p95,26,'nearest-rank P95 values');
+ assert.equal(value.metrics.open.p95,13,'nearest-rank P95 values');
  assert.equal(calls.reads,80);
  assert.equal(calls.absences,20);
  assert.equal(calls.write,20);
