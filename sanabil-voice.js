@@ -51,13 +51,29 @@ const intentOf=raw=>{
  if(/(?:ارسل|شارك).*(?:ولي الامر|واتساب|الحصيله)/.test(cmd))return {type:'share'};
  const kind=categoryOf(cmd),grade=gradeOf(cmd);
  if(kind&&grade&&/تقدير|ضع|سجل|قيم|اعط/.test(cmd))return {type:'grade',kind,grade};
- const metric=metricOf(cmd),count=countOf(cmd);
- if(kind&&metric!==null&&count!==null&&/(?:اضف|زد|زياده|سجل|ضع)/.test(cmd))
-  return {type:'metric',kind,metric,count};
+ if(kind&&/(?:اضف|زد|زياده|سجل|ضع)/.test(cmd)){
+  // Multiple counts must be associated with their own named metrics.
+  // Never apply "3 errors and 4 doubts" as "3 doubts".
+  const changes=[],quantity='[0-9]{1,2}|صفر|واحد|واحدة|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة';
+  const pattern=new RegExp('(?:^|\\s)('+quantity+')\\s+(اخطاء|خطا|اخطاءات|شكوك|شك|تردد|اخطاء التجويد|تجويد)(?=\\s|$)','gu');
+  for(const match of cmd.matchAll(pattern)){
+   const metric=metricOf(match[2]);
+   const count=countOf(match[1]);
+   if(count!==null&&metric)changes.push({metric,count});
+  }
+  if(changes.length>1){
+   const countsOfMetrics=(cmd.match(/(?:شكوك|شك|تردد|اخطاء|خطا|تجويد)/g)||[]).length;
+   if(countsOfMetrics!==changes.length)return {type:'unknown'};
+   return {type:'metrics',kind,changes};
+  }
+  const metric=metricOf(cmd),count=changes[0]?.count??(/شكين|شكتين/.test(cmd)?2:countOf(cmd));
+  if(metric&&count!==null)return {type:'metric',kind,metric,count};
+ }
  return {type:'unknown'};
 };
 const labelOf=i=>i.type==='navigate'?'الانتقال إلى '+i.name
  :i.type==='grade'?'تسجيل '+i.grade+' في '+({memorization:'الحفظ',recentReview:'المراجعة الصغرى',review:'المراجعة الكبرى'}[i.kind])
+ :i.type==='metrics'?'إضافة '+i.changes.map(c=>c.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[c.metric])).join(' و')
  :i.type==='metric'?'إضافة '+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
  :i.type==='save'?(i.share?'حفظ الحصيلة ثم مشاركة ولي الأمر':'حفظ الحصيلة')
  :i.type==='share'?'فتح مشاركة الحصيلة لولي الأمر':'لم أتعرف على أمر محدد';
@@ -143,13 +159,16 @@ function mount(box,{cards,names,ids=[]}={}){
      const button=[...card.querySelectorAll('[data-grade-key]')].find(b=>b.dataset.gradeKey===key&&normalize(b.dataset.gradeValue)===normalize(i.grade));
      if(!button||button.disabled)throw Error('خانة التقدير غير متاحة لهذا الطالب أو اليوم.');
      button.click();status.textContent='سُجل التقدير في المسودة. احفظ الحصيلة لتثبيته.';
-    }else if(i.type==='metric'){
-     const key=targetKey(card,i.kind);
-     const input=[...card.querySelectorAll('[data-metric-count]')].find(b=>b.dataset.metricKey===key&&b.dataset.metricField===i.metric);
-     if(!input||input.disabled)throw Error('هذه الخانة غير متاحة لهذا المقرر.');
-     const value=Math.min(100,Number(input.value||0)+i.count);
-     input.value=String(value);input.dispatchEvent(new Event('change',{bubbles:true}));
-     status.textContent='تم تعديل العدّاد في مسودة الطالب. الحفظ لم يبدأ.';
+    }else if(i.type==='metric'||i.type==='metrics'){
+     const key=targetKey(card,i.kind),changes=i.type==='metrics'?i.changes:[{metric:i.metric,count:i.count}];
+     const pendingInputs=changes.map(item=>{
+      const input=[...card.querySelectorAll('[data-metric-count]')].find(b=>b.dataset.metricKey===key&&b.dataset.metricField===item.metric);
+      if(!input||input.disabled)throw Error('خانة '+item.metric+' غير متاحة لهذا المقرر.');
+      return {input,value:Math.min(100,Number(input.value||0)+item.count)};
+     });
+     // Prevalidate all targets before editing any field.
+     pendingInputs.forEach(item=>{item.input.value=String(item.value);item.input.dispatchEvent(new Event('change',{bubbles:true}))});
+     status.textContent='تم تعديل العدّادات في مسودة الطالب. الحفظ لم يبدأ.';
     }else if(i.type==='save'){
      const btn=card.querySelector('[data-action^="save-student-"],[data-action^="tl-save-"]');
      if(!btn||btn.disabled)throw Error('الحفظ غير متاح؛ تحقق من الحضور والتقديرات.');
