@@ -88,11 +88,14 @@ function mount(box,{cards,names,ids=[]}={}){
  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
  status.textContent=Recognition?'اضغط الميكروفون ثم قل أمرًا واحدًا. لن يُحفظ أو يُرسل شيء دون تأكيد.':'التعرف الصوتي غير مدعوم في هذا المتصفح. استخدم أزرار الحصيلة المعتادة.';
  const detail=document.createElement('div');detail.className='sl-voice-command';
- panel.append(launcher,status,detail);
+ const close=document.createElement('button');close.type='button';close.className='sl-voice-close';close.textContent='✕';
+ close.setAttribute('aria-label','إغلاق نافذة الموجه الصوتي');
+ panel.append(launcher,close,status,detail);
  const search=box.querySelector('.sl-outcome-student-search')||box;
  search.append(panel);
- if(!Recognition){launcher.disabled=true;return}
+ if(!Recognition){launcher.disabled=true;panel.classList.add('sl-voice-open');return}
  let active=-1,recognition=null,pending=null;
+ close.onclick=()=>{if(recognition)recognition.stop();pending=null;detail.replaceChildren();panel.classList.remove('sl-voice-open')};
  const shownCards=()=>cards.filter(c=>c.isConnected&&!c.hidden);
  const selectCard=index=>{
   if(index<0||!cards[index]?.isConnected)return false;
@@ -189,6 +192,7 @@ function mount(box,{cards,names,ids=[]}={}){
   status.textContent='راجع الأمر ثم اضغط تأكيد التنفيذ. لا تستخدم الأوامر الصوتية وحدها للتحقق من صحة الدرجات.';
  };
  launcher.onclick=()=>{
+  panel.classList.add('sl-voice-open');
   if(recognition){recognition.stop();return}
   recognition=new Recognition();recognition.lang='ar-SA';recognition.continuous=false;recognition.interimResults=false;
   launcher.textContent='إيقاف الاستماع';status.textContent='أستمع لأمر واحد الآن…';
