@@ -10,7 +10,7 @@ const index=fs.readFileSync('index.html','utf8');
 class Element{
  constructor(tag='div'){
   this.tagName=tag;this.hidden=false;this.disabled=false;this.isConnected=true;
-  this.style={};this.attributes={};this.callbacks={};this.children=[];
+  this.style={};this.attributes={};this.callbacks={};this.children=[];this.dataset={};
  }
  setAttribute(name,value){this.attributes[name]=String(value)}
  addEventListener(name,callback){(this.callbacks[name]??=[]).push(callback)}
@@ -24,6 +24,8 @@ async function run(){
  assert(manifest.related_applications?.some(x=>x.platform==='webapp'&&x.id==='https://snabilalwahy.com/sanabil-app'),'self-related manifest declared');
  assert(index.includes('/sanabil-install.js'),'installer loaded into main platform');
  assert(live.includes('data-action="install-pwa"'),'button appears in dashboard markup');
+ assert(!live.includes('data-action="install-pwa" hidden'),'install button must not start hidden');
+ assert(!live.includes('else if(installButton)installButton.remove()'),'missing installer must not delete CTA');
  assert(live.includes('SanabilInstaller.bind(installButton)'),'dashboard button binds to installer');
  assert(!offline.includes("window.addEventListener('beforeinstallprompt'"),'old install handler does not consume event');
  const listeners={};const nodes={};
@@ -61,7 +63,9 @@ async function run(){
  const installer=window.SanabilInstaller;
  assert(installer,'installer module initialized');
  const button=new Element('button');
+ button.hidden=true;
  installer.bind(button);
+ assert.equal(button.hidden,false,'install button appears synchronously before any browser API settles');
  await installer.check();
  assert.equal(button.hidden,false,'browser homepage always offers install when not installed');
  await installer.install();
