@@ -104,6 +104,15 @@ jobs:
                   assert 'userWhatsAppDialog' in js and expected in js
                   assert 'loadCircleSessionData' in js
                   assert 'التسميع المرئي' in js
+                  # Confirm the actual published release includes the permanent
+                  # installation action and that it is not initially hidden.
+                  assert 'data-action="install-pwa"' in js
+                  assert 'data-action="install-pwa" hidden' not in js
+                  install_script=re.search(r'src="(/sanabil-install\.js[^"]*)"',html)
+                  assert install_script, 'Installer script missing from published HTML'
+                  install_js=read(install_script.group(1)).decode()
+                  assert 'SanabilInstaller={bind,check,install,isAppWindow}' in install_js
+                  assert 'render(isAppWindow()||justInstalled)' in install_js
                   assert 'createInvite' in read('/sanabil-free-live.js?v=approved1').decode()
                   assert 'AES-GCM' in read('/sanabil-video-crypto.js?v=1').decode()
                   assert 'SanabilPerformance' in read('/sanabil-performance.js').decode()
