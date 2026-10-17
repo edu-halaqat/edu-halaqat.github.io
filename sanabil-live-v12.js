@@ -2921,7 +2921,9 @@ async function requestPanel(root,options={}){
  const a=await access(),canSchedule=options.canSchedule??a.roles.some(r=>['admin','manager','supervisor'].includes(r));
  const students=await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name',{active:true});
  const examiners=options.examiners??(canSchedule?await rows('examiners','id,full_name,complex_id',{active:true}):[]);
- root.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})))}${select('النوع','type',[{id:'custom',name:'مخصص'},{id:'full',name:'كامل القرآن'}],'custom')}${field('المقرر المطلوب','syllabus','text','','required')}${field('عدد الأسئلة','count','number',3,'min="2" max="10" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="10" required')}</div><button type="submit" class="button button-primary">إرسال طلب الاختبار</button></form><div class="sl-requests"></div>`;
+ root.innerHTML=`<form><p class="sl-help">حدد الطالب ومقدار القرآن المطلوب اختبارُه، دون اختيار نوع اختبار منفصل. يُستنتج نوع الاختبار من المقرر.</p><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})),options.studentId||'')}<input type="hidden" name="type" value="custom">${field('المقرر المطلوب (جزء، سورة، نطاق آيات، أو كامل القرآن)','syllabus','text','','required maxlength="220"')}${field('عدد الأسئلة','count','number',3,'min="2" max="10" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="10" required')}</div><fieldset class="sl-exam-destination"><legend>وجهة ترشيح الطالب</legend><label><input type="radio" name="destination" value="snabil" checked> سنابل الوحي — يُرسل إلى مشرف المجمع</label><label><input type="radio" name="destination" value="jadeer" disabled> جدير — الربط المباشر لم يُفعّل بعد</label><small>لن نعرض الطلب على أنه وصل إلى جدير دون تأكيد الاستلام من خادمه.</small></fieldset><button type="submit" class="button button-primary">إرسال الترشيح إلى سنابل الوحي</button></form><div class="sl-requests"></div>`;
+ if(options.studentId&&students.some(x=>x.id===options.studentId)){const input=root.querySelector('[name="student"]');if(input){input.value=options.studentId;input.closest('label').hidden=true}}
+
  const scheduleRequest=async req=>{
   const s=students.find(x=>x.id===req.student_id);if(!s)throw Error('بيانات الطالب غير متاحة.');
   const m=modal('جدولة طلب اختبار - '+s.full_name);
@@ -2953,11 +2955,12 @@ async function requestPanel(root,options={}){
  const form=root.querySelector('form');
  submit(form,async()=>{
   const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
+  if(form.querySelector('[name="destination"]:checked')?.value==='jadeer')throw Error('تعذر الإحالة إلى جدير لأن الربط الآمن لم يفعّل؛ لم يُرسل الطلب.');
   const syllabusData=typeof form.__v13GetSyllabus==='function'?form.__v13GetSyllabus():{label:val(form,'syllabus')};
   if(!syllabusData?.label)throw Error('حدد مقرر الاختبار بدقة.');
   await result(sb().from('exam_requests').insert({
    id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
-   type:val(form,'type'),syllabus:syllabusData,question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
+   type:syllabusData?.mode==='full'||/^(كامل القرآن|القرآن الكريم كامل[ًاا]?)$/.test(String(syllabusData.label).trim())?'full':'custom',syllabus:syllabusData,question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
   }).select('id').single());
   form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
  });
