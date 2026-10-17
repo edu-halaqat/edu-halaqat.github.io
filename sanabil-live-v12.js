@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.8.4';
+window.__SanabilLiveBuild='20261017-v13.8.5';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1375,6 +1375,20 @@ async function outcomesPage(root){
  const selectedSaved=localStorage.getItem(selectedCircleKey);
  const selectedDefault=l.circles.find(c=>c.id===selectedSaved)||l.circles.find(c=>(circleCounts.get(c.id)||0)>0)||l.circles[0];
  root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">جلسة الحلقة اليومية</span><h2>التحضير والحصيلة</h2><p>حضّر الطلاب جماعيًا، ثم قيّم كل مسار على حدة. إذا تعددت المراجعات الكبرى فلكل خطة تقدير مستقل وترحيل مستقل.</p></div></section><div class="sl-toolbar sl-session-filter">${select('الحلقة','circle',circleChoices,selectedDefault?.id||'')}${field('التاريخ','date','date',today())}${button('فتح جلسة اليوم','load')}${button('تحديث البيانات المحلية','prepare-offline')}${freeLiveDemoEnabled?button('التسميع المرئي','free-live-demo'):''}</div><div class="sl-data"></div>`;
+ // Restore an active visual-recitation invitation after returning from WhatsApp,
+ // even if Android rebuilt the daily outcomes page or reloaded the PWA tab.
+ if(freeLiveDemoEnabled&&window.SanabilFreeLive?.restore){
+  const restoredButton=root.querySelector('[data-action="free-live-demo"]');
+  if(restoredButton)restoredButton.disabled=true;
+  window.SanabilFreeLive.restore(root).then(restored=>{
+   if(restored){
+    const selected=root.querySelector('[name="circle"]')?.value;
+    if(selected)localStorage.setItem(selectedCircleKey,selected);
+   }
+  }).catch(e=>{
+   if(root.isConnected)msg(root,'يمكن إعادة فتح التسميع المرئي: '+(e?.message||'تعذرت استعادة الرابط.'),true);
+  }).finally(()=>{if(restoredButton?.isConnected)restoredButton.disabled=false});
+ }
  action(root,root.querySelector('[data-action="free-live-demo"]'),async()=>{
    const circle=val(root,'circle');
    if(!circle)throw Error('اختر الحلقة قبل بدء التجربة.');
