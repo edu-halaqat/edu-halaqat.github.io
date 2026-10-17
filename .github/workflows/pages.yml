@@ -34,6 +34,7 @@ jobs:
           node --check sanabil-offline-app.js
           node tests/sanabil-performance.cjs
           node tests/sanabil-video-invitations.cjs
+          node tests/sanabil-video-return.cjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
