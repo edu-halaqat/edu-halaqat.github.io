@@ -1666,7 +1666,7 @@ async function outcomesPage(root){
       });
       items.forEach((r,i)=>{
         const nomination=box.querySelector('[data-action="tl-nominate-'+i+'"]');
-        if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+r.fullName+' للاختبار');await requestPanel(panel,{studentId:r.studentId,onCreated:()=>msg(box,'تم تسجيل ترشيح '+r.fullName+' للاختبار وسيصل لمشرف المجمع في سنابل الوحي.')})});
+        if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+r.fullName+' للاختبار');await requestPanel(panel,{studentId:r.studentId,onCreated:(_student,dest)=>msg(box,dest==='jadeer'?'أكد جدير استلام ترشيح '+r.fullName:'تم تسجيل ترشيح '+r.fullName+' وسيصل لمشرف المجمع في سنابل الوحي.')})});
         const ll=r.lesson||{},savedStatus=attMap.get(r.studentId)?.status||'';
         const draftFor=()=>talaqqinDrafts.get(r.studentId)||{};
         const updateDraft=patch=>talaqqinDrafts.set(r.studentId,{...draftFor(),...patch});
@@ -2032,7 +2032,7 @@ async function outcomesPage(root){
   const form=box.querySelector('form');
   students.forEach((s,i)=>{
     const nomination=box.querySelector('[data-action="nominate-'+i+'"]');
-    if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId,onCreated:()=>msg(box,'تم تسجيل ترشيح '+s.fullName+' للاختبار وسيصل لمشرف المجمع في سنابل الوحي.')})});
+    if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId,onCreated:(_student,dest)=>msg(box,dest==='jadeer'?'أكد جدير استلام ترشيح '+s.fullName:'تم تسجيل ترشيح '+s.fullName+' وسيصل لمشرف المجمع في سنابل الوحي.')})});
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
     if(drafts[s.studentId]){status.textContent='مسودة محلية لم تُؤكَّد بعد';status.dataset.saved='draft'}
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
@@ -2925,7 +2925,8 @@ async function requestPanel(root,options={}){
  const a=await access(),canSchedule=options.canSchedule??a.roles.some(r=>['admin','manager','supervisor'].includes(r));
  const students=await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name',{active:true});
  const examiners=options.examiners??(canSchedule?await rows('examiners','id,full_name,complex_id',{active:true}):[]);
- root.innerHTML=`<form><p class="sl-help">حدد الطالب ومقدار القرآن المطلوب اختبارُه، دون اختيار نوع اختبار منفصل. يُستنتج نوع الاختبار من المقرر.</p><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})),options.studentId||'')}<input type="hidden" name="type" value="custom">${field('المقرر المطلوب (جزء، سورة، نطاق آيات، أو كامل القرآن)','syllabus','text','','required maxlength="220"')}${field('عدد الأسئلة','count','number',3,'min="2" max="10" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="10" required')}</div><fieldset class="sl-exam-destination"><legend>وجهة ترشيح الطالب</legend><label><input type="radio" name="destination" value="snabil" checked> سنابل الوحي — يُرسل إلى مشرف المجمع</label><label><input type="radio" name="destination" value="jadeer" disabled> جدير — الربط المباشر لم يُفعّل بعد</label><small>لن نعرض الطلب على أنه وصل إلى جدير دون تأكيد الاستلام من خادمه.</small></fieldset><button type="submit" class="button button-primary">إرسال الترشيح إلى سنابل الوحي</button></form><div class="sl-requests"></div>`;
+ const jadeerReady=window.SanabilJadeer?await window.SanabilJadeer.available(sb()):false;
+ root.innerHTML=`<form><p class="sl-help">حدد الطالب ومقدار القرآن المطلوب اختبارُه، دون اختيار نوع اختبار منفصل. يُستنتج نوع الاختبار من المقرر.</p><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})),options.studentId||'')}<input type="hidden" name="type" value="custom">${field('المقرر المطلوب (جزء، سورة، نطاق آيات، أو كامل القرآن)','syllabus','text','','required maxlength="220"')}${field('عدد الأسئلة','count','number',3,'min="2" max="10" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="10" required')}</div><fieldset class="sl-exam-destination"><legend>وجهة ترشيح الطالب</legend><label><input type="radio" name="destination" value="snabil" checked> سنابل الوحي — يُرسل إلى مشرف المجمع</label><label><input type="radio" name="destination" value="jadeer" ${jadeerReady?'':'disabled'}> جدير — ${jadeerReady?'إرسال مباشر بعد تأكيد الاستلام':'الربط المباشر غير متاح حتى يكتمل تفويض جدير'}</label><small>لن نعرض الطلب على أنه وصل إلى جدير دون تأكيد الاستلام من خادمه.</small></fieldset><button type="submit" class="button button-primary">إرسال الترشيح إلى سنابل الوحي</button></form><div class="sl-requests"></div>`;
  if(options.studentId&&students.some(x=>x.id===options.studentId)){const input=root.querySelector('[name="student"]');if(input){input.value=options.studentId;input.closest('label').hidden=true}}
 
  const scheduleRequest=async req=>{
@@ -2949,25 +2950,38 @@ async function requestPanel(root,options={}){
  };
  const refresh=async()=>{
   const list=await rows('exam_requests');list.sort((x,y)=>String(y.requested_at).localeCompare(String(x.requested_at)));
-  root.querySelector('.sl-requests').innerHTML=table(['الطالب','المقرر','الأسئلة','تاريخ الطلب','الحالة','إجراء'],list.map((r,i)=>[
-   esc(students.find(s=>s.id===r.student_id)?.full_name||r.student_id),esc(r.syllabus?.label||r.type),esc(r.question_count),
+  root.querySelector('.sl-requests').innerHTML=table(['الطالب','الوجهة','المقرر','الأسئلة','تاريخ الطلب','الحالة','إجراء'],list.map((r,i)=>[
+   esc(students.find(s=>s.id===r.student_id)?.full_name||r.student_id),
+   esc(r.destination==='jadeer'?'جدير — يلزم تأكيد الاستلام':'سنابل الوحي'),esc(r.syllabus?.label||r.type),esc(r.question_count),
    esc(dateText(r.requested_at)),esc({pending:'قيد المراجعة',approved:'مقبول',scheduled:'مجدول',rejected:'مرفوض',cancelled:'ملغي'}[r.status]||r.status),
-   canSchedule&&['pending','approved'].includes(r.status)?button('جدولة','schedule-'+i):'—'
+   r.destination==='jadeer'?button('التحقق / إعادة الإرسال','deliver-jadeer-'+i):canSchedule&&['pending','approved'].includes(r.status)?button('جدولة','schedule-'+i):'—'
   ]));
-  if(canSchedule)list.forEach((r,i)=>{const btn=root.querySelector(`[data-action="schedule-${i}"]`);if(btn)action(root,btn,()=>scheduleRequest(r))})
+  if(canSchedule)list.forEach((r,i)=>{const btn=root.querySelector(`[data-action="schedule-${i}"]`);if(btn)action(root,btn,()=>scheduleRequest(r))});
+  list.forEach((r,i)=>{if(r.destination!=='jadeer')return;const btn=root.querySelector(`[data-action="deliver-jadeer-${i}"]`);if(btn)action(root,btn,async()=>{if(!window.SanabilJadeer)throw Error('وحدة الاتصال بجدير غير متاحة.');const ack=await window.SanabilJadeer.send(sb(),r.id);msg(root,'أكد جدير استلام الطلب: '+ack.remoteId);await refresh()})})
  };
  const form=root.querySelector('form');
  submit(form,async()=>{
   const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
-  if(form.querySelector('[name="destination"]:checked')?.value==='jadeer')throw Error('تعذر الإحالة إلى جدير لأن الربط الآمن لم يفعّل؛ لم يُرسل الطلب.');
+  const destination=form.querySelector('[name="destination"]:checked')?.value==='jadeer'?'jadeer':'snabil';
+  if(destination==='jadeer'&&!jadeerReady)throw Error('تعذر إرسال الطلب إلى جدير لأن خدمة الاستلام لم تُفَعّل.');
   const syllabusData=typeof form.__v13GetSyllabus==='function'?form.__v13GetSyllabus():{label:val(form,'syllabus')};
   if(!syllabusData?.label)throw Error('حدد مقرر الاختبار بدقة.');
+  const newRequestId=crypto.randomUUID();
   await result(sb().from('exam_requests').insert({
-   id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
+   id:newRequestId,destination,org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
    type:syllabusData?.mode==='full'||/^(كامل القرآن|القرآن الكريم كامل[ًاا]?)$/.test(String(syllabusData.label).trim())?'full':'custom',syllabus:syllabusData,question_count:Number(val(form,'count')),lines_per_question:Number(val(form,'lines')),status:'pending'
   }).select('id').single());
-  if(options.studentId){await options.onCreated?.(s);root.closest('dialog')?.close();return}
-  form.reset();await refresh();msg(root,'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
+  if(destination==='jadeer'){
+   try{const ack=await window.SanabilJadeer.send(sb(),newRequestId);msg(root,'أكد جدير استلام الطلب برقم '+ack.remoteId)}
+   catch(error){
+    form.querySelector('[type="submit"]').disabled=true;
+    await refresh();
+    msg(root,'حُفظ الترشيح في سنابل، لكن جدير لم يؤكد استلامه. لا تعِد إنشاء الطلب؛ استخدم زر التحقق / إعادة الإرسال في القائمة. '+(error?.message||''));
+    return;
+   }
+  }
+  if(options.studentId){await options.onCreated?.(s,destination);root.closest('dialog')?.close();return}
+  form.reset();await refresh();msg(root,destination==='jadeer'?'تم تأكيد وصول الترشيح إلى جدير.':'تم تسجيل طلب الاختبار وسيظهر للمشرف مباشرة.');
  });
  await refresh()
 }
