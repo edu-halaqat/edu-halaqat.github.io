@@ -4,70 +4,125 @@
  * Saving and WhatsApp remain deliberate user-confirmed actions.
  */
 (()=>{'use strict';if(window.SanabilVoice)return;
+// Natural Arabic commands: infer the action from a known student name,
+// a track label and a grade/count, without requiring an imperative verb.
 const normalize=value=>String(value||'').normalize('NFKC')
  .replace(/[\u064B-\u065F\u0670\u0640]/g,'')
  .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
  .replace(/[٠-٩]/g,n=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(n)))
  .replace(/[۰-۹]/g,n=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(n)))
+ .replace(/[،؛:؟!….,()[\]{}"“”«»]/g,' ')
  .replace(/\s+/g,' ').trim();
 const words={صفر:0,واحد:1,واحده:1,اثنان:2,اثنين:2,اثنتان:2,اثنتين:2,
  ثلاث:3,ثلاثه:3,اربع:4,اربعه:4,خمس:5,خمسه:5,ست:6,سته:6,
  سبع:7,سبعه:7,ثمان:8,ثمانيه:8,تسع:9,تسعه:9,عشر:10,عشره:10};
+const numericToken=token=>{
+ let t=normalize(token);
+ if(Object.prototype.hasOwnProperty.call(words,t))return words[t];
+ if(/^\d{1,2}$/.test(t))return Number(t);
+ if(t[0]==='و'&&(Object.prototype.hasOwnProperty.call(words,t.slice(1))||/^\d{1,2}$/.test(t.slice(1))))return numericToken(t.slice(1));
+ return null;
+};
 const countOf=phrase=>{
- const m=normalize(phrase).match(/(?:^|\s)([0-9]{1,2}|صفر|واحد|واحده|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثه|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تسع|تسعه|عشر|عشره)(?=\s|$)/u);
- if(!m)return null;
- const n=/^\d+$/.test(m[1])?Number(m[1]):words[m[1]];
- return Number.isInteger(n)&&n>=0&&n<=20?n:null;
+ const number=normalize(phrase).split(' ').map(numericToken).find(n=>n!==null);
+ return Number.isInteger(number)&&number>=0&&number<=20?number:null;
 };
 const gradeOf=cmd=>{
  const s=normalize(cmd);
- if(s.includes('جيد جدا'))return 'جيد جدًا';
- if(s.includes('ممتاز'))return 'ممتاز';
- if(s.includes('لم يحفظ'))return 'لم يحفظ';
- if(s.includes('لم يسمع'))return 'لم يسمع';
- if(s.includes('يحتاج اعاده'))return 'يحتاج إعادة';
- if(s.includes('جيد'))return 'جيد';
+ if(/(?:لم يحفظ|ما حفظ)/.test(s))return 'لم يحفظ';
+ if(/(?:لم يسمع|ما سمع)/.test(s))return 'لم يسمع';
+ if(/(?:جيد جدا|جيد جداا)/.test(s))return 'جيد جدًا';
+ if(/يحتاج اعاده/.test(s))return 'يحتاج إعادة';
+ if(/ممتاز/.test(s))return 'ممتاز';
+ if(/(?:^|\s)جيد(?:\s|$)/.test(s))return 'جيد';
  return null;
 };
-const categoryOf=text=>{
- const s=normalize(text);
- if(/المراجعه الكبري|مراجعه كبري|الكبري/.test(s))return 'review';
- if(/المراجعه الصغري|مراجعه صغري|الصغري|الصوره|القريبه/.test(s))return 'recentReview';
- if(/الحفظ|الدرس الجديد|الجديد/.test(s))return 'memorization';
+const categoryOf=value=>{
+ const s=normalize(value);
+ // The four names in local Quran-teaching usage refer to the same field.
+ // Specific review terminology MUST take precedence over bare "المراجعة".
+ if(/جنب الدرس|جنبدرس|التثبيت|تثبيت|المراجعه الصغري|مراجعه صغري|الصغري|المراجعه القريبه|مراجعه قريبه|القريبه|المراجعه الصوره|مراجعه الصوره|الصوره|المراجعه الصغيره/.test(s))
+  return 'recentReview';
+ if(/المراجعه الكبري|مراجعه كبري|الكبري|المراجعه الكبيره|مراجعه كبيره/.test(s))
+  return 'review';
+ if(/الحفظ|الدرس الجديد|الدرس|الجديد/.test(s))
+  return 'memorization';
+ // Unqualified review means MAJOR review, not the nearby review.
+ if(/مراجعه|مراجعات|المراجعه|المراجعات/.test(s))return 'review';
  return null;
 };
-const metricOf=text=>{
- const s=normalize(text);
- if(/شك|شكوك|تردد/.test(s))return 'doubts';
- if(/تجويد/.test(s))return 'tajweed';
- if(/خطا|اخطاء|غلط/.test(s))return 'errors';
+const metricOf=value=>{
+ const s=normalize(value);
+ if(/التجويد|تجويد/.test(s))return 'tajweed';
+ if(/شك|شكوك|شكين|شكتين|تردد/.test(s))return 'doubts';
+ if(/اخطاء|الاخطاء|خطا|خطاين|خطاين|غلط|اغلاط/.test(s))return 'errors';
  return null;
 };
-const intentOf=raw=>{
+const NUMBER='(?:[0-9]{1,2}|صفر|واحد|واحده|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثه|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تسع|تسعه|عشر|عشره)';
+const METRIC='(?:اخطاء\\s+التجويد|اخطاءات|الاخطاء|اخطاء|خطاين|خطا|اغلاط|غلط|شكوك|شكتين|شكين|الشكوك|شك|تردد|التجويد|تجويد)';
+const metricParts=cmd=>{
+ const normalized=normalize(cmd),hits=[],used=[];
+ const pairs=[
+  new RegExp('(?:^|\\s)(و?'+NUMBER+')\\s+('+METRIC+')(?=\\s|$)','gu'),
+  new RegExp('(?:^|\\s)('+METRIC+')\\s+(و?'+NUMBER+')(?=\\s|$)','gu')
+ ];
+ for(let phase=0;phase<pairs.length;phase++){
+  for(const m of normalized.matchAll(pairs[phase])){
+   const token=phase===0?m[1]:m[2],text=phase===0?m[2]:m[1];
+   const count=numericToken(token),metric=metricOf(text);
+   if(count===null||count<0||count>20||!metric)return null;
+   if(used.some(range=>m.index<range.end&&m.index+m[0].length>range.start))continue;
+   used.push({start:m.index,end:m.index+m[0].length});
+   hits.push({metric,count,offset:m.index});
+  }
+ }
+ // The Arabic dual can imply two without an explicit numeral.
+ const duals=[...normalized.matchAll(/(?:^|\s)(شكين|شكتين|خطاين)(?=\s|$)/gu)];
+ for(const m of duals){
+  if(!used.some(x=>m.index<x.end&&m.index+m[0].length>x.start)){
+   hits.push({metric:metricOf(m[1]),count:2,offset:m.index});
+   used.push({start:m.index,end:m.index+m[0].length});
+  }
+ }
+ const all=[...normalized.matchAll(new RegExp('(?:^|\\s)('+METRIC+')(?=\\s|$)','gu'))];
+ // Do not silently apply an incomplete compound instruction to the wrong field.
+ if(all.length!==hits.length)return null;
+ hits.sort((a,b)=>a.offset-b.offset);
+ if(hits.some(x=>!x.metric))return null;
+ // Two separate amounts for the same metric in one utterance are ambiguous.
+ if(new Set(hits.map(h=>h.metric)).size!==hits.length)return null;
+ return hits.map(({metric,count})=>({metric,count}));
+};
+const studentNameFrom=cmd=>{
+ const name=normalize(cmd).replace(/^(?:(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب)(?:\s+لي)?(?:\s+الي|\s+عند|\s+ل)?\s*)/,'')
+  .replace(/^(?:حصيله\s+)?(?:الطالب|الطالبه)\s+/,'')
+  .replace(/\s+(?:من فضلك|لو سمحت|الان)$/,'').trim();
+ return name;
+};
+const intentOf=(raw,studentNames=[])=>{
  const cmd=normalize(raw);
- if(/(?:انتقل|اذهب|افتح|اعرض|روح).*(?:الطالب|حصيله)/.test(cmd))
-  return {type:'navigate',name:cmd.replace(/^.*?(?:الطالب|حصيله الطالب)\s*/,'').trim()};
- if(/(?:احفظ|حفظ).*(?:الحصيله|التقدير)/.test(cmd))return {type:'save',share:/واتساب|ارسل|شارك/.test(cmd)};
- if(/(?:ارسل|شارك).*(?:ولي الامر|واتساب|الحصيله)/.test(cmd))return {type:'share'};
+ if(!cmd)return {type:'unknown'};
+ if(/(?:احفظ|حفظ)\s+(?:الحصيله|حصيله|التقدير)/.test(cmd))
+  return {type:'save',share:/واتساب|ارسل|شارك/.test(cmd)};
+ if(/(?:ارسل|شارك)\s+.*(?:ولي الامر|واتساب|الحصيله)/.test(cmd))
+  return {type:'share'};
  const kind=categoryOf(cmd),grade=gradeOf(cmd);
- if(kind&&grade&&/تقدير|ضع|سجل|قيم|اعط/.test(cmd))return {type:'grade',kind,grade};
- if(kind&&/(?:اضف|زد|زياده|سجل|ضع)/.test(cmd)){
-  // Multiple counts must be associated with their own named metrics.
-  // Never apply "3 errors and 4 doubts" as "3 doubts".
-  const changes=[],quantity='[0-9]{1,2}|صفر|واحد|واحده|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثه|اربع|اربعه|خمس|خمسه|ست|سته|سبع|سبعه|ثمان|ثمانيه|تسع|تسعه|عشر|عشره';
-  const pattern=new RegExp('(?:^|\\s)و?('+quantity+')\\s+(اخطاء|خطا|اخطاءات|شكوك|شك|تردد|اخطاء التجويد|تجويد)(?=\\s|$)','gu');
-  for(const match of cmd.matchAll(pattern)){
-   const metric=metricOf(match[2]);
-   const count=countOf(match[1]);
-   if(count!==null&&metric)changes.push({metric,count});
-  }
-  if(changes.length>1){
-   const countsOfMetrics=(cmd.match(/(?:شكوك|شك|تردد|اخطاء|خطا|تجويد)/g)||[]).length;
-   if(countsOfMetrics!==changes.length)return {type:'unknown'};
-   return {type:'metrics',kind,changes};
-  }
-  const metric=metricOf(cmd),count=changes[0]?.count??(/شكين|شكتين/.test(cmd)?2:countOf(cmd));
-  if(metric&&count!==null)return {type:'metric',kind,metric,count};
+ const metricMention=metricOf(cmd),amounts=kind&&metricMention?metricParts(cmd):null;
+ if(kind&&grade){
+  if(metricMention)return {type:'unknown',reason:'اطلب التقدير والعدادات في أمرين منفصلين لتجنب الخلط.'};
+  return {type:'grade',kind,grade};
+ }
+ if(kind&&metricMention){
+  if(!amounts||!amounts.length)return {type:'unknown',reason:'اذكر العدد بوضوح بجوار الأخطاء أو الشكوك.'};
+  return amounts.length===1?{type:'metric',kind,...amounts[0]}:{type:'metrics',kind,changes:amounts};
+ }
+ const forced=/^(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب|الطالب|الطالبه)\b/u.test(cmd);
+ const name=studentNameFrom(cmd);
+ if(forced&&name.length>=2)return {type:'navigate',name};
+ if(Array.isArray(studentNames)&&name.length>=3){
+  const token=normalize(name);
+  const hits=studentNames.filter(n=>normalize(n).includes(token));
+  if(hits.length)return {type:'navigate',name};
  }
  return {type:'unknown'};
 };
@@ -215,7 +270,7 @@ function mount(box,{cards,names,ids=[]}={}){
  };
  const prepare=interpretation=>{
   pending=interpretation;detail.replaceChildren();
-  if(interpretation.type==='unknown'){status.textContent='لم أتعرف على الأمر. جرّب «انتقل إلى الطالب…» أو «ضع تقدير ممتاز للحفظ الجديد».';return}
+  if(interpretation.type==='unknown'){status.textContent=interpretation.reason||'لم أتعرف على الأمر. جرّب «أحمد دحمان» أو «الحفظ ممتاز» أو «جنب الدرس 5 شكوك».';pending=null;return}
   if(interpretation.type==='navigate'){
    const index=matchStudent(interpretation.name);
    if(index===null){status.textContent='الاسم غير محدد أو يطابق أكثر من طالب؛ انطق الاسم الكامل بوضوح.';return}
@@ -274,7 +329,7 @@ function mount(box,{cards,names,ids=[]}={}){
   if(!text){status.textContent='اكتب أمرًا قبل التنفيذ.';manualInput.focus();return}
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   status.textContent='الأمر المكتوب: '+text;
-  prepare(intentOf(text));
+  prepare(intentOf(text,names));
  };
  manualGo.addEventListener('click',submitWrittenCommand);
  manualInput.addEventListener('keydown',event=>{
@@ -291,7 +346,7 @@ function mount(box,{cards,names,ids=[]}={}){
   if(recognition){recognition.stop();return}
   recognition=new Recognition();recognition.lang='ar-SA';recognition.continuous=false;recognition.interimResults=false;
   launcher.textContent='إيقاف الاستماع';status.textContent='أستمع لأمر واحد الآن…';
-  recognition.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';status.textContent='الأمر الذي سمعته: '+transcript;prepare(intentOf(transcript))};
+  recognition.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';status.textContent='الأمر الذي سمعته: '+transcript;prepare(intentOf(transcript,names))};
   recognition.onerror=e=>{status.textContent=e.error==='not-allowed'?'يجب السماح للمتصفح باستخدام الميكروفون.':'تعذر التعرف على الصوت. حاول ثانية أو استخدم الأزرار.'};
   recognition.onend=()=>{recognition=null;launcher.textContent='🎙 الموجه الصوتي'};
   try{recognition.start()}catch(e){recognition=null;launcher.textContent='🎙 الموجه الصوتي';status.textContent='لم يتوفر الميكروفون: '+e.message}
