@@ -53,7 +53,7 @@ async function readThrough(key,loader){
  const uid=await userId();
  const id=uid+':'+key;
  if(navigator.onLine){
-  try{const value=await loader();await put(SNAP,{id,userId:uid,capturedAt:now(),value});return value}
+  try{const value=await loader();put(SNAP,{id,userId:uid,capturedAt:now(),value}).catch(()=>window.dispatchEvent(new CustomEvent('sanabil-offline-snapshot-error')));return value}
   catch(e){if(!networkError(e))throw e}
  }
  const saved=await get(SNAP,id);

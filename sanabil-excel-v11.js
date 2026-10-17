@@ -34,6 +34,20 @@ const dayMap={الأحد:'0',الاحد:'0',الاثنين:'1',الثلاثاء:
 const bool=v=>{const s=String(v??'').trim().toLowerCase();if(!s)return true;if(['نعم','نشط','true','1','yes','y'].includes(s))return true;if(['لا','غير نشط','false','0','no','n'].includes(s))return false;return true};
 const clean=v=>v instanceof Date?`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`:String(v??'').trim();
 const html=v=>String(v??'').replace(/[&<>\"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));
+let excelLoading=null;
+const loadExcel=()=>{
+ if(window.ExcelJS)return Promise.resolve(window.ExcelJS);
+ if(excelLoading)return excelLoading;
+ const sources=['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'];
+ const attempt=i=>new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src=sources[i];script.async=true;script.crossOrigin='anonymous';
+  const timer=setTimeout(()=>{script.remove();reject(Error('انتهت مهلة تحميل Excel؛ أعد المحاولة.'))},20000);
+  script.onload=()=>{clearTimeout(timer);window.ExcelJS?resolve(window.ExcelJS):reject(Error('تعذر تحميل Excel'))};
+  script.onerror=()=>{clearTimeout(timer);script.remove();reject(Error('تعذر تحميل Excel'))};
+  document.head.appendChild(script);
+ }).catch(error=>i+1<sources.length?attempt(i+1):Promise.reject(error));
+ excelLoading=attempt(0).catch(error=>{excelLoading=null;throw error});return excelLoading;
+};
 const excel=()=>{if(!window.ExcelJS)throw Error('تعذر تحميل مكوّن Excel؛ حدّث الصفحة وحاول مرة أخرى.');return window.ExcelJS};
 const save=(blob,name)=>{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)};
 const styleSheet=ws=>{
@@ -45,7 +59,7 @@ const styleSheet=ws=>{
 const addSheet=(wb,name,headers,widths=[])=>{const ws=wb.addWorksheet(name,{views:[{rightToLeft:true}]});ws.addRow(headers);headers.forEach((_,i)=>ws.getColumn(i+1).width=widths[i]||18);styleSheet(ws);return ws};
 const workbookBlob=async wb=>new Blob([await wb.xlsx.writeBuffer()],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 async function template(){
- const ExcelJS=excel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
+ const ExcelJS=await loadExcel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
  const ins=wb.addWorksheet('تعليمات',{views:[{rightToLeft:true}]});
  ins.getColumn(1).width=110;
  [
@@ -95,7 +109,7 @@ const sourceDate=v=>{
 };
 const sourceCell=(row,col)=>clean(row.getCell(col).value);
 async function parseEntityDatabase(file){
- const ExcelJS=excel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
+ const ExcelJS=await loadExcel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
  const studentsWs=wb.getWorksheet('بيانات طلاب الجهة'),circlesWs=wb.getWorksheet('بيانات الحلقات داخل الجهة'),entityWs=wb.getWorksheet('بيانات الجهة التعليمية');
  if(!studentsWs||!circlesWs)throw Error('الملف لا يطابق قاعدة بيانات الجهة: يلزم وجود ورقتي «بيانات طلاب الجهة» و«بيانات الحلقات داخل الجهة».');
  const entityName=entityWs?sourceCell(entityWs.getRow(2),2):'';
@@ -141,13 +155,13 @@ async function parseEntityDatabase(file){
 }
 
 async function parse(file){
- const ExcelJS=excel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
+ const ExcelJS=await loadExcel(),wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
  const payload={complexes:[],mosques:[],circles:[],teachers:[],students:[]};
  for(const [name,d] of Object.entries(defs)){const ws=wb.getWorksheet(name);if(!ws)throw Error(`الملف لا يحتوي ورقة «${name}»`);payload[keyBySheet[name]]=rowsFromSheet(ws,d)}
  return{payload,validation:validate(payload)}
 }
 async function exportMaster(data){
- const ExcelJS=excel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
+ const ExcelJS=await loadExcel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
  const cx=new Map((data.complexes||[]).map(x=>[x.id,x.name])),mq=new Map((data.mosques||[]).map(x=>[x.id,x.name])),ci=new Map((data.circles||[]).map(x=>[x.id,x.name])),te=new Map((data.teachers||[]).map(x=>[x.id,x.full_name]));
  const add=(name,rows)=>{const d=defs[name],ws=addSheet(wb,name,d.headers,d.headers.map(h=>Math.max(14,Math.min(28,h.length+7))));rows.forEach(x=>ws.addRow(x));};
  add('المجمعات',(data.complexes||[]).map(x=>[x.id,x.name,x.active?'نعم':'لا']));
@@ -159,7 +173,7 @@ async function exportMaster(data){
 }
 const scoreGrade=s=>Number(s)>=90?'ممتاز':Number(s)>=80?'جيد جدًا':Number(s)>=70?'جيد':'يحتاج متابعة';
 async function exportTests(tests,questions=[]){
- const ExcelJS=excel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
+ const ExcelJS=await loadExcel(),wb=new ExcelJS.Workbook();wb.creator='منصة سنابل الوحي';wb.created=new Date();
  const h=['التاريخ','الطالب','الحلقة','المعلم','نوع الاختبار','المقرر','الحفظ /80','التجويد /20','المجموع /100','التقدير','ملاحظات','رمز الاستعلام'];
  const ws=addSheet(wb,'ملخص النتائج',h,[16,28,22,25,18,32,14,14,14,16,30,22]);
  tests.forEach(t=>ws.addRow([t.performed_at?new Date(t.performed_at).toLocaleDateString('ar-SA'):'',t.student_name_snapshot||t.student_name||'',t.circle_name_snapshot||t.circle_name||'',t.teacher_name_snapshot||t.teacher_name||'',t.type||'',t.syllabus_snapshot?.label||t.syllabus_label||'',t.scores?.memorization??'',t.scores?.tajweed??'',t.scores?.total??'',scoreGrade(t.scores?.total),t.notes||'',t.public_code||'']));
@@ -214,6 +228,7 @@ async function printTests(tests,title='تقرير نتائج الاختبارا�
 }
 
 async function exportTable(title,headers,rows,meta=[]){
+ await loadExcel();
  if(!window.ExcelJS){
   const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',bom='\ufeff',lines=[headers.map(q).join(','),...rows.map(r=>r.map(q).join(','))];
   save(new Blob([bom+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),String(title||'تقرير_سنابل_الوحي').replace(/[\\/:*?"<>|]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv');

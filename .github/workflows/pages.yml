@@ -30,6 +30,9 @@ jobs:
         run: |
           node --check sanabil-live-v12.js
           node tests/sanabil-user-whatsapp.cjs
+          node --check sanabil-excel-v11.js
+          node --check sanabil-offline-app.js
+          node tests/sanabil-performance.cjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -73,6 +76,9 @@ jobs:
                   script=re.search(r'src="(/sanabil-live-v12.js[^"]*)"',html).group(1)
                   js=read(script).decode()
                   assert 'userWhatsAppDialog' in js and expected in js
+                  assert 'loadCircleSessionData' in js
+                  assert 'SanabilPerformance' in read('/sanabil-performance.js').decode()
+                  assert 'cdn.jsdelivr.net/npm/exceljs' not in html
                   assert "register('/sanabil-offline-sw.js" in js
                   print('PASS: live release, PWA manifest, PNG icon dimensions, service worker registration, WhatsApp integration')
                   break

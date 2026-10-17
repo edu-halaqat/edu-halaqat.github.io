@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261017-v13.6.3';
+window.__SanabilLiveBuild='20261017-v13.7.0';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -11,7 +11,8 @@ const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الا�
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
-const rpcDirect=(name,args)=>result(sb().rpc(name,args));
+const measure=(name,fn)=>window.SanabilPerformance?window.SanabilPerformance.track(name,fn):fn();
+const rpcDirect=(name,args)=>measure('rpc:'+name,()=>result(sb().rpc(name,args)));
 const CACHEABLE_RPCS=new Set(['my_access','circle_session_access','get_daily_assignments',
  'get_day_types_guarded','get_guardian_excuses_for_circle_guarded','get_talaqqin_dashboard']);
 const rpc=(name,args)=>{
@@ -20,7 +21,7 @@ const rpc=(name,args)=>{
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261017',{scope:'/'}).catch(()=>null):Promise.resolve(null));
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261017-perf',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
 const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
 const queueOfflineRpc=async(name,args,label)=>{
@@ -99,8 +100,9 @@ const scheduleSanabilOfflineRefresh=()=>{
  if(!navigator.onLine||!window.SanabilOffline||sanabilAutoOfflineTimer!==null)return;
  sanabilAutoOfflineTimer=setTimeout(()=>{
   sanabilAutoOfflineTimer=null;
+  if(document.hidden||window.SanabilPerformance&&!window.SanabilPerformance.backgroundReady()){scheduleSanabilOfflineRefresh();return}
   autoPrepareSanabilOffline().catch(e=>console.warn('تعذر التحديث المحلي التلقائي:',e?.message||e));
- },1300);
+ },15000);
 };
 const access=async()=>{
  if(accessCached&&Date.now()-accessAt<12000)return accessCached;
@@ -119,7 +121,7 @@ const access=async()=>{
  return pending;
 };
 const msg=(root,text,bad=false)=>{let el=root.querySelector('.sl-message');if(!el){el=document.createElement('p');el.className='sl-message';el.setAttribute('role','status');root.prepend(el)}el.textContent=text;el.style.color=bad?'#982431':'#006b55';};
-const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');button.classList.add('sl-action-pending');try{await fn()}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false;button.removeAttribute('aria-busy');button.classList.remove('sl-action-pending')}});return button};
+const action=(root,button,fn)=>{if(!button)return null;button.addEventListener('click',async()=>{if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');button.classList.add('sl-action-pending');try{await measure('action:'+String(button.dataset.action||'button').replace(/\d+/g,'#'),fn)}catch(e){msg(root,e?.message||'تعذر تنفيذ العملية',true)}finally{button.disabled=false;button.removeAttribute('aria-busy');button.classList.remove('sl-action-pending')}});return button};
 const navigateView=key=>{const label=titles[key],short={dashboard:'الرئيسية',attendance:'البصمة',outcomes:'الحصيلة',plans:'الخطط',tests:'الاختبارات',students:'الطلاب',supervision:'الإشراف',inquiries:'استعلام',reports:'التقارير',settings:'الإعدادات'}[key];const buttons=[...document.querySelectorAll('.tabs button,.mobile-nav button,.sheet-grid button')],b=buttons.find(x=>x.textContent.trim()===label)||buttons.find(x=>x.textContent.trim()===short);if(b){b.click();return}location.hash='#'+key;location.reload()};
 const button=(label,id='')=>`<button type="button" class="button button-soft" ${id?`data-action="${id}"`:''}>${esc(label)}</button>`;
 const field=(label,name,type='text',value='',extra='')=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
@@ -758,14 +760,23 @@ function awardStudent(root,s,onDone){
 
 const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const url=URL.createObjectURL(new Blob(['\ufeff'+[head,...data].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
-const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){msg(form,e.message,true)}finally{b.disabled=false}})};
+const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');const originalLabel=b.textContent;b.textContent='جارٍ الحفظ…';try{await measure('save:form',fn)}catch(e){msg(form,e.message,true)}finally{b.disabled=false;b.removeAttribute('aria-busy');b.textContent=originalLabel}})};
 let lookupPromise=null,lookupAt=0;
-async function lookups(){if(!lookupPromise||Date.now()-lookupAt>120000){lookupAt=Date.now();lookupPromise=Promise.all([
- rows('complexes','id,name,org_id',{active:true}),
- rows('circles','id,name,complex_id,org_id,mosque_id,circle_type,session_period,declared_student_count,assignment_note',{active:true}),
- rows('teachers','id,full_name,circle_id,complex_id,user_id,phone,job_title,source_ref',{active:true}),
- result(sb().from('circle_teachers').select('circle_id,teacher_id,is_primary,active').eq('active',true).order('circle_id'))
-]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers})).catch(e=>{lookupPromise=null;throw e})}return window.SanabilOffline?window.SanabilOffline.readThrough('lookups',()=>lookupPromise):lookupPromise}
+async function lookups(){
+ if(!lookupPromise||Date.now()-lookupAt>120000){
+  lookupAt=Date.now();
+  const loader=()=>Promise.all([
+   rows('complexes','id,name,org_id',{active:true}),
+   rows('circles','id,name,complex_id,org_id,mosque_id,circle_type,session_period,declared_student_count,assignment_note',{active:true}),
+   rows('teachers','id,full_name,circle_id,complex_id,user_id,phone,job_title,source_ref',{active:true}),
+   result(sb().from('circle_teachers').select('circle_id,teacher_id,is_primary,active').eq('active',true).order('circle_id'))
+  ]).then(([complexes,circles,teachers,circleTeachers])=>({complexes,circles,teachers,circleTeachers}));
+  const pending=measure('load:lookups',()=>window.SanabilOffline?window.SanabilOffline.readThrough('lookups',loader):loader());
+  lookupPromise=pending;
+  pending.catch(()=>{if(lookupPromise===pending)lookupPromise=null});
+ }
+ return lookupPromise;
+}
 let sanabilAutoPrepareBusy=false;
 const SANABIL_AUTO_PREP_DAYS=9; // Yesterday, today, and seven following dates.
 const riyadhDate=()=>{const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),p=t=>parts.find(x=>x.type===t)?.value||'';return p('year')+'-'+p('month')+'-'+p('day')};
@@ -803,13 +814,19 @@ async function autoPrepareSanabilOffline({manualCircle='',anchor='',force=false}
    let circleLoaded=0,circleTotal=0;
    for(const n of dayOffsets){
     if(!navigator.onLine)break;
+    if(!force){
+     while(!document.hidden&&navigator.onLine&&window.SanabilPerformance&&!window.SanabilPerformance.backgroundReady())await new Promise(resolve=>setTimeout(resolve,1000));
+     if(document.hidden||!navigator.onLine)break;
+    }
     const date=addUtcDays(base,n);
     const operations=[
      ['circle_session_access',{p_circle_id:circle,p_date:date}],
      ['get_day_types_guarded',{p_circle_id:circle,p_date:date}],
      ['get_daily_assignments',{p_circle_id:circle,p_date:date}]
     ];
-    const done=await Promise.allSettled(operations.map(([name,args])=>rpc(name,args)));
+    const done=[];
+    for(const [name,args] of operations){try{await rpc(name,args);done.push({status:'fulfilled'})}catch{done.push({status:'rejected'})}}
+    if(!force)await new Promise(resolve=>setTimeout(resolve,1000));
     circleTotal+=done.length;circleLoaded+=done.filter(x=>x.status==='fulfilled').length;
    }
    loaded+=circleLoaded;total+=circleTotal;
@@ -1227,9 +1244,18 @@ function showFamilyExcuses(box,requests){
   box.prepend(notice);
 }
 
+async function loadCircleSessionData(circle,date,talaqqin){
+ const args={p_circle_id:circle,p_date:date};
+ const [dayData,familyRequests,assignments]=await Promise.all([
+  rpc('get_day_types_guarded',args),
+  rpc('get_guardian_excuses_for_circle_guarded',args).catch(()=>[]),
+  talaqqin?Promise.resolve(null):rpc('get_daily_assignments',args)
+ ]);
+ return {dayData,familyRequests,assignments};
+}
 async function outcomesPage(root){
- const l=await lookups();
- const freeLiveDemoEnabled=(await access().catch(()=>({})))?.roles?.includes('admin')===true;
+ const [l,a]=await Promise.all([lookups(),access()]);
+ const freeLiveDemoEnabled=a?.roles?.includes('admin')===true;
  const activeUserId=await window.SanabilOffline?.userId?.().catch(()=>null)||(await sb().auth.getSession()).data?.session?.user?.id||'anonymous';
  const activeSessionKey='sanabil_outcome_active_v2:'+activeUserId;
  const selectedCircleKey='sanabil_outcome_selected_circle_v1:'+activeUserId;
@@ -1268,9 +1294,7 @@ async function outcomesPage(root){
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   const circleMeta=l.circles.find(x=>x.id===circle);
   let studentSearchText='';
-  const dayData=await rpc('get_day_types_guarded',{p_circle_id:circle,p_date:date});
-  const familyRequests=await rpc('get_guardian_excuses_for_circle_guarded',
-    {p_circle_id:circle,p_date:date}).catch(e=>{console.warn('تعذر قراءة طلبات استئذان الأسر',e);return[]});
+  const {dayData,familyRequests,assignments}=await loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين');
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
   const activeKind=id=>effectiveDayKind(dayData,id);
   const absenceNote=(kind)=>kind==='holiday'?'إجازة: لا تسجل حصيلة أو غياب، ولا يحاسب الطالب على هذا اليوم.':
@@ -1522,7 +1546,7 @@ async function outcomesPage(root){
     await renderTalaqqin();
     return;
   }
-  let students=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
+  let students=assignments;
   const noScheduledAssignments=students.length>0&&students.every(s=>!s.memorization&&!s.recentReview&&!(s.reviews||[]).length)&&!(dayData.testReviews||[]).length;
   let nextTeachingDate='';
   if(noScheduledAssignments){
@@ -2530,7 +2554,7 @@ async function plansPage(root){
 }
 
 async function attendancePage(root){
- const a=await access(),l=await lookups(),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
+ const [a,l]=await Promise.all([access(),lookups()]),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
  root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent')+button('طلبات البصمة المؤجلة','offline-claims'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
  const selected=()=>l.circles.find(c=>c.id===val(root,'circle'));
  const getWindow=async c=>{
@@ -3080,7 +3104,15 @@ async function dashboardDetails(root,a){
 }
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
- root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('استيراد / تصدير Excel','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس سرعة الاستجابة','performance')}${button('استيراد / تصدير Excel','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
+ action(root,root.querySelector('[data-action="performance"]'),()=>{
+  const b=modal('قياس سرعة الاستجابة');
+  const data=window.SanabilPerformance?.summary()||[];
+  b.innerHTML='<p>قياسات هذا الجهاز خلال الجلسة الحالية. الهدف أقل من ثانيتين لـ95% من المحاولات الناجحة. يلزم 20 عينة على الأقل لكل عملية لتقييم أولي؛ هذه القياسات لا تشمل الأجهزة الأخرى.</p>'+
+   table(['العملية','العينات الناجحة','الأخطاء','زمن 95% (ثانية)','أقل من ثانيتين','التقييم'],data.map(x=>[esc(({dashboard:'الرئيسية',students:'الطلاب',outcomes:'الحصيلة',attendance:'الحضور',plans:'الخطط',tests:'الاختبارات',reports:'التقارير',settings:'الإعدادات',lookups:'القوائم الأساسية',my_access:'التحقق من الصلاحيات',get_daily_assignments:'جلب مقررات الحلقة',get_day_types_guarded:'نوع اليوم التعليمي',circle_session_access:'صلاحية جلسة الحلقة',get_guardian_excuses_for_circle_guarded:'طلبات استئذان الطلاب',form:'حفظ النموذج'}[x.name.split(':')[1]])||'إجراء '+x.name.split(':')[1]),x.count,x.errors,x.p95===null?'—':(x.p95/1000).toFixed(2),x.under2s===null?'—':x.under2s+'%',x.count<20?'عينات غير كافية':x.p95<2000?'ضمن الهدف':'تحتاج تحسينًا']))+
+   '<p>زمن الصفحة لا يشمل تسجيل الدخول. زمن الحفظ يشمل انتظار تأكيد العملية؛ العمليات المحفوظة دون اتصال تبقى معلقة للمزامنة.</p>';
+ });
+
  action(root,root.querySelector('[data-action="users"]'),async()=>{const b=modal('الحسابات والصلاحيات');await usersPanel(b)});
  const bulkPanel=async()=>{
   const b=modal('الاستيراد والتصدير الجماعي عبر Excel');let parsed=null;
@@ -3137,7 +3169,7 @@ async function settingsPage(root){
  action(root,root.querySelector('[data-action="add-circle"]'),async()=>{const [complexes,mosques]=await Promise.all([rows('complexes','*',{active:true}),rows('mosques','*',{active:true})]);editCircle(null,complexes,mosques)});
  await load()
 }
-async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20261002-v13.0.1';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,supervision:window.SanabilSupervision?.page,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await render(b)}catch(e){msg(b,e.message,true)}}
+async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20261002-v13.0.1';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,supervision:window.SanabilSupervision?.page,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await measure('page:'+view,()=>render(b))}catch(e){msg(b,e.message,true)}}
 window.SanabilLive={mount,usersPanel};window.dispatchEvent(new Event("sanabil-live-ready"));
 window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null;accessCached=null;accessAt=0;accessPending=null;accessGeneration++});
 const style=document.createElement('style');style.textContent=`.sl-live{background:white;border:1px solid #dde5df;border-radius:20px;padding:24px;min-height:300px}.sl-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:15px 0}.sl-live label,.sl-dialog label{display:grid;gap:8px;font-weight:600}.sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select{font:inherit;max-width:100%;min-width:0;padding:10px;border:1px solid #bdccc3;border-radius:8px;background:white}.sl-live table,.sl-dialog table{width:100%;border-collapse:collapse}.sl-live th,.sl-live td,.sl-dialog td,.sl-dialog th{padding:12px;text-align:right;border-bottom:1px solid #e2e9e5}.sl-dialog{direction:rtl;width:min(900px,94vw);max-height:90vh;border:0;border-radius:18px;padding:24px;color:#183c33}.sl-dialog::backdrop{background:#002c2580}.sl-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.sl-dialog fieldset{border:1px solid #ddd;border-radius:12px;margin:12px 0}.sl-live .button,.sl-dialog .button{margin:3px}.sl-message{padding:12px;background:#f3f7f4;border-radius:8px}.sl-tasks{margin:18px 0;padding:16px;border:1px solid #dde5df;border-radius:16px;background:#fbfdfc}.sl-announcement{padding:12px 0;border-bottom:1px solid #e2e9e5}.sl-announcement:last-child{border-bottom:0}.sl-announcement b{color:#00808A}.sl-announcement small{color:#63766e}.sl-import-preview{margin:14px 0}.sl-import-warning{margin:12px 0;padding:14px 16px;border:1px solid #e2c56f;background:#fff8df;color:#6b5313;border-radius:12px;font-weight:600}.sl-dialog .form-grid,.sl-live .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.sl-live .table-wrap{overflow:auto}.sl-data input{width:100%;box-sizing:border-box}.sl-live .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:650px){.sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr}.sl-live{padding:14px}.sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.topbar,.tabs,.mobile-nav,.sl-toolbar,button,.more-sheet{display:none!important}.app-content,.sl-live{margin:0!important;padding:0!important;border:0}.table-wrap{overflow:visible!important}thead{display:table-header-group}tr{break-inside:avoid}body{background:white!important}}`;document.head.append(style);

@@ -1,0 +1,23 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync(process.argv[2]||'sanabil-live-v12.js','utf8');
+const helper=src.slice(src.indexOf('async function loadCircleSessionData'),src.indexOf('async function outcomesPage'));
+(async()=>{
+ let started=[],finish=[];
+ const context={rpc:(name,args)=>new Promise((resolve,reject)=>{started.push(name);finish.push(()=>resolve(name))})};
+ vm.createContext(context);vm.runInContext(helper,context);
+ const pending=context.loadCircleSessionData('test-circle','2026-10-17',false);
+ assert.equal(started.length,3,'independent reads must start before any completes');
+ finish.forEach(f=>f());const data=await pending;assert.equal(data.assignments,'get_daily_assignments');
+ started=[];finish=[];const tl=context.loadCircleSessionData('test-circle','2026-10-17',true);
+ assert.equal(started.length,2,'talaqqin must not fetch Quran assignments');finish.forEach(f=>f());assert.equal((await tl).assignments,null);
+ context.rpc=name=>name==='get_guardian_excuses_for_circle_guarded'?Promise.reject(Error('network')):Promise.resolve(name);
+ assert.equal((await context.loadCircleSessionData('test','date',false)).familyRequests.length,0);
+ context.rpc=()=>Promise.reject(Error('denied'));await assert.rejects(context.loadCircleSessionData('test','date',false));
+ const listeners={},w={addEventListener:(n,f)=>listeners[n]=f};
+ vm.runInNewContext(fs.readFileSync(process.argv[3]||'sanabil-performance.js','utf8'),{window:w,performance});
+ const perf=w.SanabilPerformance;assert.equal(await perf.track('test',async()=>42),42);
+ await assert.rejects(perf.track('failed',async()=>{throw Error('failure')}));
+ assert.equal(perf.summary().find(x=>x.name==='failed').errors,1);
+ listeners['sanabil-session-changed']();assert.equal(perf.summary().length,0);
+ console.log('PASS: concurrent reads, talaqqin isolation, critical error propagation, timing results and session isolation');
+})().catch(e=>{console.error(e);process.exit(1)});
