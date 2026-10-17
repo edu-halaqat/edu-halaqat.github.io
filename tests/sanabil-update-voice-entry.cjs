@@ -26,6 +26,7 @@ function environment({current='20261018-v13.8.13',published='20261018-v13.8.14',
   querySelector(query){
    if(query==='meta[name="sanabil-build"]')return {content:current};
    if(query==='.sl-live')return {className:'sl-live'};
+   if(query==='.app-content,.mobile-nav,.sl-live')return {className:'app-content'};
    if(query==='[data-sanabil-voice]')return null;
    if(query==='[data-sanabil-voice] button[aria-label="تشغيل الموجه الصوتي"]')return null;
    if(query==='button,[role="tab"],a')return null;
