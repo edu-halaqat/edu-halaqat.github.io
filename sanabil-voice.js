@@ -14,9 +14,9 @@ const words={صفر:0,واحد:1,واحدة:1,اثنان:2,اثنين:2,اثنت
  ثلاث:3,ثلاثة:3,اربع:4,اربعة:4,خمس:5,خمسة:5,ست:6,ستة:6,
  سبع:7,سبعة:7,ثمان:8,ثمانية:8,تسع:9,تسعة:9,عشر:10,عشرة:10};
 const countOf=phrase=>{
- const m=normalize(phrase).match(/\b(?:[0-9]{1,2}|صفر|واحد|واحدة|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة)\b/);
+ const m=normalize(phrase).match(/(?:^|\s)([0-9]{1,2}|صفر|واحد|واحدة|اثنان|اثنين|اثنتان|اثنتين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة)(?=\s|$)/u);
  if(!m)return null;
- const n=/^\d+$/.test(m[0])?Number(m[0]):words[m[0]];
+ const n=/^\d+$/.test(m[1])?Number(m[1]):words[m[1]];
  return Number.isInteger(n)&&n>=0&&n<=20?n:null;
 };
 const gradeOf=cmd=>{
@@ -32,7 +32,7 @@ const gradeOf=cmd=>{
 const categoryOf=text=>{
  const s=normalize(text);
  if(/المراجعه الكبرى|مراجعه كبرى|الكبرى/.test(s))return 'review';
- if(/المراجعه الصغرى|مراجعه صغرى|الصغرى|القريبه/.test(s))return 'recentReview';
+ if(/المراجعه الصغرى|مراجعه صغرى|الصغرى|الصوره|القريبه/.test(s))return 'recentReview';
  if(/الحفظ|الدرس الجديد|الجديد/.test(s))return 'memorization';
  return null;
 };
