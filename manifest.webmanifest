@@ -61,5 +61,12 @@
     "education",
     "productivity"
   ],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "/manifest.webmanifest?v=visible-icon-1",
+      "id": "https://snabilalwahy.com/sanabil-app"
+    }
+  ]
 }
