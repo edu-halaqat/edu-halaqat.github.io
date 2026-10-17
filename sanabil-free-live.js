@@ -129,10 +129,29 @@ async function open(root,{circleId,restored=null}={}){
  const jump=create('button','','الحصيلة ↓');
  jump.type='button';
  jump.setAttribute('aria-label','الانتقال إلى تسجيل حصيلة الطلاب دون إيقاف البث');
- jump.onclick=()=>{
+ const locateStudentOutcome=()=>{
+  const targetId=s.active||s.selectedStudentId;
   const outcome=s.root.querySelector('.sl-data');
-  if(outcome)outcome.scrollIntoView({behavior:'smooth',block:'start'});
+  if(!outcome||!targetId){status(s,'اختر طالبًا للتسميع أولًا.');return false}
+  const card=[...outcome.querySelectorAll('[data-outcome-student-id]')].find(c=>c.dataset.outcomeStudentId===targetId);
+  if(card){
+   const search=outcome.querySelector('#sl-outcome-search-input');
+   if(search?.value){search.value='';search.dispatchEvent(new Event('input',{bubbles:true}))}
+   card.scrollIntoView({behavior:'smooth',block:'start'});
+   card.focus({preventScroll:true});
+   status(s,'تم الوصول إلى حصيلة الطالب دون إيقاف البث.');
+   return true;
+  }
+  const load=s.root.querySelector('[data-action="load"]');
+  if(load&&!load.disabled){
+   s.root.dataset.videoOutcomeTarget=targetId;
+   load.click();
+   status(s,'جارٍ تجهيز حصيلة الطالب المحدد.');
+  }else status(s,'افتح جلسة الحصيلة أولًا ثم حاول مجددًا.');
+  return false;
  };
+ jump.onclick=locateStudentOutcome;
+ s.jumpToOutcome=locateStudentOutcome;
  top.append(jump);
  const end=create('button','','إنهاء البث');end.onclick=()=>stop();top.append(end);wrap.append(top);
  wrap.append(create('p','sl-peer-warning','متاح للحلقات الحضورية وعن بُعد. اختر الطالب وأرسل رابطه الشخصي إلى ولي أمره؛ الدخول بعد موافقتك. لا يغيّر الاتصال سجل الحضور ولا يُسجّل صوتًا أو صورة.'));
@@ -147,6 +166,7 @@ async function open(root,{circleId,restored=null}={}){
  videoStage.append(videos);
  wrap.append(videoStage);
  const selector=create('select');selector.setAttribute('aria-label','الطالب المدعو للتسميع');
+ selector.addEventListener('change',()=>{s.selectedStudentId=selector.value;remember(s)});
  const placeholder=create('option','','اختر الطالب');placeholder.value='';selector.append(placeholder);
  for(const student of students){const option=create('option','',student.full_name);option.value=student.id;selector.append(option)}
  const btn=create('button','','إنشاء رابط شخصي للطالب');btn.type='button';
