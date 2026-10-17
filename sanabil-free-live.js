@@ -4,6 +4,46 @@ const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l
 const create=(tag,cls,str)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(str)el.textContent=str;return el};
 const random=()=>Array.from(crypto.getRandomValues(new Uint8Array(24)),x=>x.toString(16).padStart(2,'0')).join('');
 let current=null;
+const SESSION_KEY='sanabil-private-teacher-video-v2';
+// Stored only in this browser tab, for the invitation's remaining validity.
+// Never save teacher-room bearer secrets to localStorage or a remote table.
+function readSaved(){
+ try{
+  const raw=sessionStorage.getItem(SESSION_KEY);if(!raw)return null;
+  const state=JSON.parse(raw);
+  if(state?.version!==2||typeof state.owner!=='string'||typeof state.circleId!=='string'
+     ||!Number.isFinite(state.expires)||state.expires<=Date.now()
+     ||!Array.isArray(state.invites)){sessionStorage.removeItem(SESSION_KEY);return null}
+  state.invites=state.invites.filter(x=>x&&typeof x.id==='string'
+    &&/^snv[a-f0-9]{48}$/.test(x.room)
+    &&/^[A-Za-z0-9_-]{43}$/.test(x.secret)
+    &&Number.isFinite(x.expires)&&x.expires>Date.now()&&x.expires<=state.expires);
+  return state;
+ }catch{try{sessionStorage.removeItem(SESSION_KEY)}catch{}return null}
+}
+function remember(s){
+ if(s.closed)return;
+ try{sessionStorage.setItem(SESSION_KEY,JSON.stringify({
+  version:2,owner:s.owner,circleId:s.circleId,expires:s.expires,
+  selectedStudentId:s.selectedStudentId||'',
+  invites:[...s.invites.values()].filter(x=>x.ready&&x.expires>Date.now()).map(x=>({
+   id:x.id,room:x.room,secret:x.secret,expires:x.expires
+  }))
+ }))}catch{}
+}
+function forget(){try{sessionStorage.removeItem(SESSION_KEY)}catch{}}
+function reattach(s,root){
+ const bar=root?.querySelector?.('.sl-session-filter');
+ if(!bar)return false;
+ s.root?.classList.remove('sl-peer-active');
+ s.root=root;
+ if(s.wrap.previousElementSibling!==bar||s.wrap.parentElement!==bar.parentElement)
+  bar.insertAdjacentElement('afterend',s.wrap);
+ root.classList.add('sl-peer-active');
+ s.dockListener?.();
+ return true;
+}
+
 const publish=async(s,event,payload)=>{
  if(s.closed)return;
  const targets=payload.to?[s.invites.get(payload.to)].filter(Boolean):[...s.invites.values()];
@@ -50,9 +90,9 @@ async function stop(){const s=current;if(!s||s.closed)return;
  }
  if(s.dockFrame!=null)cancelAnimationFrame(s.dockFrame);
  if(s.watchdog)clearInterval(s.watchdog);s.invites.clear();
- s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;
+ s.wrap.remove();const root=s.root;if(root)root.classList.remove('sl-peer-active');if(current===s)current=null;forget();
 }
-async function open(root,{circleId}={}){
+async function open(root,{circleId,restored=null}={}){
  if(!circleId)throw Error('اختر الحلقة أولًا.');
  if(!window.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw Error('لا يدعم المتصفح WebRTC والميكروفون.');
  if(!navigator.onLine)throw Error('يحتاج الاتصال المرئي إلى إنترنت.');
@@ -68,8 +108,18 @@ async function open(root,{circleId}={}){
  if(circleResult.error||!circleResult.data||studentResult.error||scopeResult.error)throw Error('تعذر التحقق من صلاحية الحلقة وطلابها.');
  if(!window.SanabilVideoCrypto)throw Error('حدّث الصفحة لتحميل مكوّن الاتصال.');
  const students=studentResult.data||[];
- if(current){if(current.circleId===circleId){current.wrap.scrollIntoView();return}await stop()}
- const token='snp'+random(),s={circleId,token,closed:false,ready:false,waiting:new Map(),active:null,pc:null,media:null,iceQueue:[],invites:new Map(),students};
+ if(current){
+  if(current.circleId===circleId){
+   reattach(current,root);
+   current.wrap.scrollIntoView({block:'nearest'});
+   return;
+  }
+  await stop();
+ }
+ const recovered=restored||readSaved();
+ const snapshot=recovered?.owner===user.data.user.id&&recovered.circleId===circleId?recovered:null;
+ if(recovered&&!snapshot)forget();
+ const token='snp'+random(),s={circleId,token,owner:user.data.user.id,closed:false,ready:false,waiting:new Map(),active:null,pc:null,media:null,iceQueue:[],invites:new Map(),students,selectedStudentId:snapshot?.selectedStudentId||''};
  const wrap=create('section','sl-peer-panel');s.wrap=wrap;s.root=root;
  const top=create('div','sl-peer-header');
  const headerTitle=create('strong','','سنابل المباشر · التسميع المرئي');top.append(headerTitle);
@@ -101,22 +151,36 @@ async function open(root,{circleId}={}){
  for(const student of students){const option=create('option','',student.full_name);option.value=student.id;selector.append(option)}
  const btn=create('button','','إنشاء رابط شخصي للطالب');btn.type='button';
  const invitationBox=create('div');wrap.append(selector,btn,invitationBox);
+ const displayInvitation=(student,invite)=>{
+  s.selectedStudentId=student.id;selector.value=student.id;remember(s);
+  invitationBox.replaceChildren();
+  invitationBox.append(create('p','',student.full_name+' · الرابط صالح حتى انتهاء الجلسة، ويمكن العودة إليه بعد إرسال واتساب.'));
+  const linkInput=create('input');linkInput.readOnly=true;linkInput.value=invite.link;linkInput.setAttribute('aria-label','رابط الطالب الشخصي');invitationBox.append(linkInput);
+  const copy=create('button','','نسخ الرابط');
+  copy.type='button';
+  copy.onclick=()=>navigator.clipboard.writeText(invite.link).then(()=>status(s,'نُسخ الرابط، ويمكن العودة إلى المنصة دون إغلاق التسميع.')).catch(()=>{linkInput.focus();linkInput.select()});
+  invitationBox.append(copy);
+  const phone=String(student.guardian_phone||student.student_phone||'').replace(/[^0-9]/g,'');
+  const normalized=phone.startsWith('00')?phone.slice(2):phone.length===10&&phone.startsWith('0')?'966'+phone.slice(1):phone;
+  if(/^[1-9][0-9]{9,14}$/.test(normalized)){
+   const wa=create('a','','إرسال الرابط عبر واتساب');
+   wa.target='_blank';wa.rel='noopener noreferrer';
+   wa.href='https://wa.me/'+normalized+'?text='+encodeURIComponent('السلام عليكم ورحمة الله وبركاته، نرجو انضمام الطالب '+student.full_name+' إلى التسميع المرئي في سنابل الوحي عبر رابطه الشخصي، وعدم مشاركته مع الآخرين:\n'+invite.link);
+   wa.addEventListener('click',()=>remember(s));
+   invitationBox.append(wa);
+  }
+  if(navigator.share){
+   const share=create('button','','مشاركة الرابط من الجهاز');share.type='button';
+   share.onclick=async()=>{remember(s);try{await navigator.share({title:'دعوة التسميع المرئي في سنابل الوحي',text:'رابط تسميع الطالب '+student.full_name+'\n'+invite.link})}catch(e){if(e.name!=='AbortError')status(s,'تعذرت المشاركة؛ استخدم نسخ الرابط أو واتساب.')}};
+   invitationBox.append(share);
+  }
+ };
  btn.onclick=async()=>{
   const student=students.find(x=>x.id===selector.value);if(!student){status(s,'اختر الطالب أولًا.');return}
   btn.disabled=true;try{
    const invite=await createInvite(s,student);
-   invitationBox.replaceChildren();
-   invitationBox.append(create('p','',student.full_name+' · الرابط صالح لساعتين أو حتى إنهاء الجلسة.'));
-   const linkInput=create('input');linkInput.readOnly=true;linkInput.value=invite.link;linkInput.setAttribute('aria-label','رابط الطالب الشخصي');invitationBox.append(linkInput);
-   const copy=create('button','','نسخ الرابط');copy.onclick=()=>navigator.clipboard.writeText(invite.link).then(()=>status(s,'نُسخ رابط الطالب الشخصي.')).catch(()=>{linkInput.focus();linkInput.select()});invitationBox.append(copy);
-   const phone=String(student.guardian_phone||student.student_phone||'').replace(/[^0-9]/g,'');
-   const normalized=phone.startsWith('00')?phone.slice(2):phone.length===10&&phone.startsWith('0')?'966'+phone.slice(1):phone;
-   if(/^[1-9][0-9]{9,14}$/.test(normalized)){
-    const wa=create('a','','إرسال الرابط عبر واتساب');wa.target='_blank';wa.rel='noopener noreferrer';
-    wa.href='https://wa.me/'+normalized+'?text='+encodeURIComponent('السلام عليكم ورحمة الله وبركاته، نرجو انضمام الطالب '+student.full_name+' إلى التسميع المرئي في سنابل الوحي عبر رابطه الشخصي، وعدم مشاركته مع الآخرين:\n'+invite.link);
-    invitationBox.append(wa);
-   }
-   status(s,'الرابط مخصص للطالب المختار. انتظر طلب انضمامه ثم وافق عليه.');
+   displayInvitation(student,invite);
+   status(s,'الرابط مخصص للطالب المختار. شاركه ثم ارجع إلى هذه الصفحة وانتظر طلب الانضمام.');
   }catch(error){status(s,error.message)}finally{btn.disabled=false}
  };
  const studentSearch=create('div','sl-peer-outcome-search');
@@ -160,18 +224,40 @@ async function open(root,{circleId}={}){
  document.addEventListener('scroll',s.dockListener,true);
  window.addEventListener('resize',s.dockListener,{passive:true});
  s.dockListener();
- s.watchdog=setInterval(()=>{if(!s.root.isConnected||Date.now()>s.expires)stop().catch(()=>{})},1000);
- s.expires=Date.now()+2*60*60*1000;
+ s.watchdog=setInterval(()=>{
+  if(Date.now()>s.expires){stop().catch(()=>{});return}
+  // Framework re-renders and Android task switching may detach the view;
+  // keep the authenticated invitation channels alive until explicit termination.
+  if(!s.root.isConnected){
+   const page=[...document.querySelectorAll('.sl-live .sl-content')].find(el=>el.querySelector('.sl-session-filter'));
+   if(page)reattach(s,page);
+  }
+ },1000);
+ s.expires=snapshot?.expires||Date.now()+2*60*60*1000;
  status(s,'جاهز للحلقات الحضورية وعن بُعد؛ اختر الطالب لإنشاء رابط شخصي.');
  current=s;
+ if(snapshot?.invites?.length){
+  let recoveredCount=0;
+  for(const saved of snapshot.invites){
+   const student=students.find(x=>x.id===saved.id);if(!student)continue;
+   try{
+    const invite=await createInvite(s,student,saved);
+    recoveredCount++;
+    if(student.id===snapshot.selectedStudentId||!invitationBox.hasChildNodes())displayInvitation(student,invite);
+   }catch(e){status(s,'تعذر استعادة أحد الروابط. أعد إنشاء الرابط للطالب عند الحاجة.')}
+  }
+  if(recoveredCount)status(s,'استُعيدت جلسة التسميع وروابطها بعد العودة إلى المنصة. انتظر طلب انضمام الطالب أو اطلب إعادة الضغط على الانضمام.');
+  else status(s,'استُعيدت صفحة التسميع. أنشئ رابطًا جديدًا للطالب.');
+ }
+ remember(s);
 }
 
-async function createInvite(s,student){
+async function createInvite(s,student,saved=null){
  const existing=s.invites.get(student.id);
  if(existing&&Date.now()<existing.expires)return existing;
  if(existing){await window.supabaseClient.removeChannel(existing.channel);s.invites.delete(student.id)}
- const C=window.SanabilVideoCrypto,secret=C.random(),room='snv'+random(),key=await C.importKey(secret);
- const invite={id:student.id,name:student.full_name,room,key,expires:Math.min(s.expires,Date.now()+2*60*60*1000),seen:new Set(),ready:false};
+ const C=window.SanabilVideoCrypto,secret=saved?.secret||C.random(),room=saved?.room||'snv'+random(),key=await C.importKey(secret);
+ const invite={id:student.id,name:student.full_name,room,secret,key,expires:saved?.expires||Math.min(s.expires,Date.now()+2*60*60*1000),seen:new Set(),ready:false};
  const fragment=new URLSearchParams({id:student.id,key:secret,expires:String(invite.expires)});
  invite.link=location.origin+'/sanabil-free-student.html?room='+room+'#'+fragment.toString();
  const ch=window.supabaseClient.channel('sanabil-video:'+room,{config:{broadcast:{self:false}}});invite.channel=ch;
@@ -205,10 +291,41 @@ async function createInvite(s,student){
    });
   });
  }catch(error){s.invites.delete(student.id);await window.supabaseClient.removeChannel(ch);throw error}
+ remember(s);
  return invite;
 }
 
-window.SanabilFreeLive={open,stop};
-window.addEventListener('sanabil-session-changed',()=>stop().catch(()=>{}));
-window.addEventListener('pagehide',()=>stop().catch(()=>{}));
+async function restore(root){
+ const saved=readSaved();
+ if(!saved?.invites?.length)return false;
+ const sb=window.supabaseClient;
+ if(!sb)return false;
+ const {data,error}=await sb.auth.getUser();
+ if(error||!data?.user)return false;
+ if(data.user.id!==saved.owner){forget();return false}
+ const selector=root.querySelector('[name="circle"]');
+ if(!selector||![...selector.options].some(option=>option.value===saved.circleId))return false;
+ selector.value=saved.circleId;
+ await open(root,{circleId:saved.circleId,restored:saved});
+ return true;
+}
+window.SanabilFreeLive={open,stop,restore};
+window.addEventListener('sanabil-session-changed',async()=>{
+ const s=current;
+ if(!s||s.closed)return;
+ try{
+  const {data}=await window.supabaseClient.auth.getSession();
+  if(current!==s||s.closed)return;
+  if(data?.session?.user?.id===s.owner)return; // Automatic JWT refresh is not a logout.
+  await stop();
+ }catch{ /* Network interruptions must not end a teaching session. */ }
+});
+window.addEventListener('pagehide',()=>{
+ if(current&&!current.closed){
+  remember(current);
+  // Release capture when leaving the page; restore invitation subscriptions
+  // from the same tab on return. Never mark this as an explicit teacher exit.
+  disconnect(current).catch(()=>{});
+ }
+});
 })();
