@@ -10,7 +10,7 @@ assert(css.includes('.mobile-nav>button svg'),'mobile navigation icons normalize
 assert(offline.includes('root.hidden=!needsAttention'),'redundant connected badge must disappear');
 assert(html.includes('/sanabil-voice.js'),'voice module loaded on all authenticated views');
 class E{
- constructor(tag,doc){this.tag=tag;this.doc=doc;this.children=[];this.events={};this.dataset={};this.attributes={};this.className='';this.style={};this.hidden=false;this.isConnected=true;this.classList={add:x=>{this.className+=' '+x},remove:x=>{this.className=this.className.replace(x,'')},contains:x=>this.className.split(/\s+/).includes(x)};}
+ constructor(tag,doc){this.tag=tag;this.doc=doc;this.children=[];this.events={};this.dataset={};this.attributes={};this.className='';this.style={};this.hidden=false;this.isConnected=true;this.classList={add:x=>{if(!this.className.split(/\s+/).includes(x))this.className+=' '+x},remove:x=>{this.className=this.className.split(/\s+/).filter(c=>c&&c!==x).join(' ')},contains:x=>this.className.split(/\s+/).includes(x)};}
  append(...args){for(const child of args){child.parentElement=this;this.children.push(child);if(child.id)this.doc.ids.set(child.id,child)}}
  replaceChildren(...args){this.children=[];this.append(...args)}
  setAttribute(name,value){this.attributes[name]=value}
