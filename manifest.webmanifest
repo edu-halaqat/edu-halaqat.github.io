@@ -8,24 +8,24 @@
   "scope": "/",
   "id": "/sanabil-app",
   "display": "standalone",
-  "background_color": "#073F42",
+  "background_color": "#F1F7F4",
   "theme_color": "#00808A",
   "orientation": "any",
   "icons": [
     {
-      "src": "/assets/sanabil-app-192.png",
+      "src": "/assets/sanabil-app-visible-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/sanabil-app-512.png",
+      "src": "/assets/sanabil-app-visible-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/sanabil-app-maskable-512.png",
+      "src": "/assets/sanabil-app-visible-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -38,7 +38,7 @@
       "url": "/?source=installed#outcomes",
       "icons": [
         {
-          "src": "/assets/sanabil-app-192.png",
+          "src": "/assets/sanabil-app-visible-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -50,7 +50,7 @@
       "url": "/?source=installed#attendance",
       "icons": [
         {
-          "src": "/assets/sanabil-app-192.png",
+          "src": "/assets/sanabil-app-visible-192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
