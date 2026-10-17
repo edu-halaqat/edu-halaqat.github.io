@@ -1,0 +1,16 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync(process.argv[2]||'sanabil-live-v12.js','utf8');
+const code=src.slice(src.indexOf('const userWhatsAppPhone='),src.indexOf('function userWhatsAppDialog'));
+const scope={waPhone:p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d;}};
+vm.createContext(scope);vm.runInContext(code+';this.phone=userWhatsAppPhone;this.message=userWelcomeMessage;',scope);
+assert.equal(scope.phone('٠٥٥١٢٣٤٥٦٧'),'966551234567');
+assert.equal(scope.phone('+966 55 123 4567'),'966551234567');
+assert.equal(scope.phone('00966551234567'),'966551234567');
+assert.throws(()=>scope.phone('966123'));
+assert.throws(()=>scope.phone('966123456789'));
+const u={display_name:'معلم تجريبي',email:'teacher@example.invalid'};
+const msg=scope.message(u);assert.ok(msg.includes(u.email));assert.ok(msg.includes('https://snabilalwahy.com/'));assert.ok(!msg.includes('كلمة المرور المؤقتة:'));
+const initial=scope.message(u,'Temporary-Test-Only');assert.ok(initial.includes('كلمة المرور المؤقتة: Temporary-Test-Only'));
+assert.equal(decodeURIComponent(encodeURIComponent(initial)),initial);
+assert.ok(src.includes('phone:val(f,\'phone\')'));assert.ok(src.includes('userWhatsAppDialog(invitation,temporaryPassword)'));
+console.log('PASS: recipient normalization, invalid numbers, existing/new account messages, URL encoding and form integration');

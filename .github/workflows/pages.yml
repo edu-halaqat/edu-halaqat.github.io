@@ -26,6 +26,11 @@ jobs:
         with:
           ref: main
 
+      - name: Check Sanabil user messaging
+        run: |
+          node --check sanabil-live-v12.js
+          node tests/sanabil-user-whatsapp.cjs
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
@@ -39,3 +44,40 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify published Sanabil PWA and user WhatsApp release
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request, struct, re
+          from pathlib import Path
+          base='https://snabilalwahy.com'
+          expected=re.search(r'name="sanabil-build" content="([^"]+)"',Path('index.html').read_text()).group(1)
+          def read(path):
+              with urllib.request.urlopen(base+path, timeout=25) as r:
+                  assert r.status == 200, path
+                  return r.read()
+          for attempt in range(8):
+              try:
+                  html=read('/?verify='+expected).decode()
+                  assert expected in html
+                  assert 'rel="manifest"' in html
+                  manifest=json.loads(read('/manifest.webmanifest'))
+                  assert manifest['display']=='standalone' and manifest['scope']=='/'
+                  for icon in manifest['icons']:
+                      data=read(icon['src'])
+                      assert data[:8]==b'\x89PNG\r\n\x1a\n'
+                      w,h=struct.unpack('>II',data[16:24])
+                      assert f'{w}x{h}'==icon['sizes']
+                  sw=read('/sanabil-offline-sw.js?verify='+expected).decode()
+                  assert "self.addEventListener('fetch'" in sw
+                  script=re.search(r'src="(/sanabil-live-v12.js[^"]*)"',html).group(1)
+                  js=read(script).decode()
+                  assert 'userWhatsAppDialog' in js and expected in js
+                  assert "register('/sanabil-offline-sw.js" in js
+                  print('PASS: live release, PWA manifest, PNG icon dimensions, service worker registration, WhatsApp integration')
+                  break
+              except Exception as e:
+                  if attempt==7: raise
+                  print('Waiting for deployment propagation:',type(e).__name__)
+                  time.sleep(10)
+          PY

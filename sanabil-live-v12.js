@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261015-v13.6.2';
+window.__SanabilLiveBuild='20261017-v13.6.3';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -20,7 +20,7 @@ const rpc=(name,args)=>{
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261015',{scope:'/'}).catch(()=>null):Promise.resolve(null));
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261017',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
 const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
 const queueOfflineRpc=async(name,args,label)=>{
@@ -875,7 +875,48 @@ const teacherWarningsHtml=data=>{
 };
 function bindScope(form,data,initial={}){const cx=form.querySelector('[name="complex_id"]'),ci=form.querySelector('[name="circle_id"]'),te=form.querySelector('[name="teacher_id"]');const opts=(el,items,value)=>{if(!el)return;el.innerHTML='<option value="">اختر</option>'+items.map(x=>`<option value="${esc(x.id)}">${esc(x.name||x.full_name)}</option>`).join('');if(items.some(x=>x.id===value))el.value=value;else if(items.length===1)el.value=items[0].id;};const teachers=()=>opts(te,teachersForCircle(data,ci.value),initial.teacher_id);const circles=()=>{opts(ci,data.circles.filter(x=>x.complex_id===cx.value),initial.circle_id);teachers()};opts(cx,data.complexes,initial.complex_id);cx.onchange=circles;ci.onchange=teachers;circles()}
 async function adminCall(action,payload={}){const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});if(error){let m;try{m=(await error.context.json()).error}catch{}throw Error(m||error.message)}return data}
-async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.')})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
+
+const userWhatsAppPhone=value=>{
+ const digits=String(value||'').replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632)).replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776));
+ const phone=waPhone(digits);
+ if(!/^[1-9]\d{9,14}$/.test(phone)||(/^966/.test(phone)&&!/^9665\d{8}$/.test(phone)))throw Error('أدخل رقم جوال صحيحًا مع رمز الدولة، مثل 05xxxxxxxx أو +9665xxxxxxxx.');
+ return phone;
+};
+const userWelcomeMessage=(u,password='')=>[
+ 'السلام عليكم ورحمة الله وبركاته،',
+ 'الأستاذ/ '+(u.display_name||'الفاضل')+'، حفظكم الله.',
+ '',
+ 'يسر إدارة سنابل الوحي تزويدكم ببيانات حسابكم للمساهمة في خدمة كتاب الله ومتابعة تعلم طلابنا:',
+ 'رابط المنصة: https://snabilalwahy.com/',
+ 'البريد الإلكتروني: '+u.email,
+ password?'كلمة المرور المؤقتة: '+password:'كلمة المرور: استخدم كلمة مرور حسابك، وإن نسيتها فاختر «نسيت كلمة المرور» في صفحة الدخول.',
+ '',
+ 'نأمل منكم العناية بتحديث الحضور والحصيلة في وقتها، ودقة متابعة الطلاب؛ فانتظام المتابعة يعين على جودة التعلم ويعزز أثر تعليم القرآن الكريم.',
+ password?'يرجى تغيير كلمة المرور المؤقتة بعد الدخول، والمحافظة على خصوصية بيانات الحساب.':'يرجى المحافظة على خصوصية بيانات الحساب.',
+ 'بارك الله في جهودكم، وجعل ما تقدمونه في ميزان حسناتكم.',
+ 'إدارة منصة سنابل الوحي'
+].join('\n');
+function userWhatsAppDialog(u,password=''){
+ if(!u.active||!u.email)throw Error('فعّل الحساب وتأكد من بريده الإلكتروني قبل إرسال بيانات الدخول.');
+ const b=modal('إرسال بيانات الدخول عبر واتساب');
+ b.innerHTML='<p>المستلم: <strong>'+esc(u.display_name)+'</strong> · '+esc(u.email)+'</p>'+
+ field('رقم واتساب المستلم','recipient_phone','tel',u.phone||'','required autocomplete="tel"')+
+ '<p>راجع رقم المستلم والرسالة قبل فتح واتساب.</p><label>معاينة الرسالة<textarea name="welcome_message" rows="13" readonly style="width:100%;box-sizing:border-box;white-space:pre-wrap"></textarea></label>'+
+ button('فتح واتساب لإرسال بيانات الدخول','send-user-whatsapp');
+ b.querySelector('textarea').value=userWelcomeMessage(u,password);
+ const d=b.closest('dialog');
+ d.addEventListener('close',()=>{password='';b.querySelector('textarea').value='';},{once:true});
+ action(b,b.querySelector('[data-action="send-user-whatsapp"]'),()=>{
+  const phone=userWhatsAppPhone(b.querySelector('[name="recipient_phone"]').value);
+  const link=document.createElement('a');
+  link.href='https://wa.me/'+phone+'?text='+encodeURIComponent(b.querySelector('textarea').value);
+  link.target='_blank';link.rel='noopener noreferrer';link.click();
+  msg(b,'فُتحت الرسالة في واتساب؛ راجع المستلم ثم اضغط إرسال هناك.');
+ });
+}
+const userWhatsAppButton=i=>'<button type="button" class="button button-soft" data-action="user-wa-'+i+'" title="إرسال بيانات الدخول عبر واتساب" aria-label="إرسال بيانات الدخول عبر واتساب"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>';
+
+async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active?userWhatsAppButton(i):'')+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${field('رقم الجوال / واتساب','phone','tel',u?.phone||'','autocomplete="tel"')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{const invitation=u?null:{display_name:val(f,'display_name'),email:val(f,'email'),phone:val(f,'phone'),active:f.elements.active.checked};let temporaryPassword=u?'':val(f,'password');await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,phone:val(f,'phone'),display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.');if(invitation?.active){userWhatsAppDialog(invitation,temporaryPassword)}temporaryPassword='';})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="user-wa-${i}"]`),()=>userWhatsAppDialog(u));action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
 async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin');
  root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
