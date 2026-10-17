@@ -45,6 +45,7 @@ jobs:
           node tests/sanabil-voice-nomination.cjs
           node --check sanabil-updater.js
           node tests/sanabil-update-voice-entry.cjs
+          node tests/sanabil-voice-responsive.cjs
 
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
@@ -134,6 +135,8 @@ jobs:
                   assert 'sanabil-updater.js' in html
                   assert 'sanabil-update-prompt-v3' in read('/sanabil-updater.js').decode()
                   assert 'function showLauncher()' in read('/sanabil-voice.js').decode()
+                  assert 'sl-voice-manual' in read('/sanabil-voice.js').decode()
+                  assert 'root.hidden=!needsAttention' in read('/sanabil-offline-app.js').decode()
                   assert 'window.SanabilVoice?.showLauncher?.()' in js
                   assert 'SanabilVoice' in read('/sanabil-voice.js').decode()
                   assert 'data-outcome-student-id' in read('/sanabil-free-live.js').decode()
