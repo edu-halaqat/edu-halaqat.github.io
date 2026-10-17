@@ -146,11 +146,13 @@ function mount(box,{cards,names,ids=[]}={}){
  const detail=document.createElement('div');detail.className='sl-voice-command';
  const close=document.createElement('button');close.type='button';close.className='sl-voice-close';close.textContent='✕';
  close.setAttribute('aria-label','إغلاق نافذة الموجه الصوتي');
- const manual=document.createElement('form');manual.className='sl-voice-manual';
+ // The outcome cards already live inside a submission form. Never nest a form:
+ // browsers can redirect that submit to «حفظ حصيلة الحلقة» instead.
+ const manual=document.createElement('div');manual.className='sl-voice-manual';
  const manualInput=document.createElement('input');manualInput.type='text';manualInput.dir='rtl';
  manualInput.setAttribute('aria-label','اكتب أمرًا للمنصة');
  manualInput.placeholder='أو اكتب: انتقل إلى الطالب أحمد…';
- const manualGo=document.createElement('button');manualGo.type='submit';manualGo.className='button button-primary';
+ const manualGo=document.createElement('button');manualGo.type='button';manualGo.className='button button-primary';
  manualGo.textContent='تنفيذ الأمر المكتوب';
  manual.append(manualInput,manualGo);
  panel.append(launcher,close,status,manual,detail);
@@ -162,7 +164,15 @@ function mount(box,{cards,names,ids=[]}={}){
   status.textContent='التعرف على الصوت غير مدعوم هنا. اكتب الأمر أدناه، أو جرّب Chrome مع إذن الميكروفون.';
  }
  let active=-1,recognition=null,pending=null;
- close.onclick=()=>{if(recognition)recognition.stop();pending=null;detail.replaceChildren();panel.classList.remove('sl-voice-open')};
+ const collapse=()=>{
+  if(recognition){recognition.abort?.();recognition=null}
+  pending=null;detail.replaceChildren();
+  panel.classList.remove('sl-voice-open');
+  panel.dataset.expanded='false';launcher.setAttribute('aria-expanded','false');
+  status.textContent=Recognition?'اضغط زر الموجه لإدخال أمر جديد.':'اكتب الأمر عند فتح الموجه.';
+ };
+ close.onclick=collapse;
+ launcher.setAttribute('aria-expanded','false');panel.dataset.expanded='false';
  const shownCards=()=>cards.filter(c=>c.isConnected&&!c.hidden);
  const selectCard=index=>{
   if(index<0||!cards[index]?.isConnected)return false;
@@ -258,15 +268,22 @@ function mount(box,{cards,names,ids=[]}={}){
   };
   status.textContent='راجع الأمر ثم اضغط تأكيد التنفيذ. لا تستخدم الأوامر الصوتية وحدها للتحقق من صحة الدرجات.';
  };
- manual.addEventListener('submit',event=>{
-  event.preventDefault();panel.classList.add('sl-voice-open');
+ const submitWrittenCommand=event=>{
+  event?.preventDefault?.();event?.stopPropagation?.();
   const text=manualInput.value.trim();
   if(!text){status.textContent='اكتب أمرًا قبل التنفيذ.';manualInput.focus();return}
+  panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   status.textContent='الأمر المكتوب: '+text;
   prepare(intentOf(text));
+ };
+ manualGo.addEventListener('click',submitWrittenCommand);
+ manualInput.addEventListener('keydown',event=>{
+  if(event.key==='Enter')submitWrittenCommand(event);
  });
  launcher.onclick=()=>{
-  panel.classList.add('sl-voice-open');
+  if(panel.classList.contains('sl-voice-open')){collapse();return}
+  panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
+  launcher.setAttribute('aria-expanded','true');
   if(!Recognition){
    status.textContent='يمكنك إدخال الأمر كتابةً. الميكروفون لا يدعم التعرف الصوتي في هذا المتصفح.';
    manualInput.focus();return;
