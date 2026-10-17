@@ -228,7 +228,7 @@ async function open(root,{circleId,restored=null}={}){
   if(Date.now()>s.expires){stop().catch(()=>{});return}
   // Framework re-renders and Android task switching may detach the view;
   // keep the authenticated invitation channels alive until explicit termination.
-  if(!s.root.isConnected){
+  if(!s.root.isConnected||!s.wrap.isConnected){
    const page=[...document.querySelectorAll('.sl-live .sl-content')].find(el=>el.querySelector('.sl-session-filter'));
    if(page)reattach(s,page);
   }
@@ -312,12 +312,14 @@ async function restore(root){
 window.SanabilFreeLive={open,stop,restore};
 window.addEventListener('sanabil-session-changed',async()=>{
  const s=current;
- if(!s||s.closed)return;
  try{
   const {data}=await window.supabaseClient.auth.getSession();
-  if(current!==s||s.closed)return;
-  if(data?.session?.user?.id===s.owner)return; // Automatic JWT refresh is not a logout.
-  await stop();
+  const owner=data?.session?.user?.id;
+  if(s&&!s.closed){
+   if(current!==s)return;
+   if(owner===s.owner)return; // Automatic JWT refresh is not a logout.
+   await stop();
+  }else if(readSaved()&&owner!==readSaved()?.owner){forget()}
  }catch{ /* Network interruptions must not end a teaching session. */ }
 });
 window.addEventListener('pagehide',()=>{
