@@ -2,11 +2,11 @@
 /* Sanabil PWA shell. Never replay private POST requests from the service worker:
    auth tokens expire, 2xx alone does not guarantee domain-level acceptance,
    and only a signed-in foreground page may confirm cloud persistence. */
-const SHELL='sanabil-shell-20261017-v6';
+const SHELL='sanabil-shell-20261017-v7-visible-icon';
 const NOOR_SOURCE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
 const NOOR_CACHE='sanabil-noor-bayan-v1',NOOR_KEY='/noor-bayan.pdf';
 const LEGACY_DB='sanabil-offline-v1',LEGACY_STORE='queue';
-const basic=['/index.html','/','/manifest.webmanifest','/assets/logo-sanabil-icon-v6.png','/assets/logo-sanabil-v6.png','/auth-gate.js','/sanabil-offline-app.js'];
+const basic=['/index.html','/','/manifest.webmanifest','/assets/logo-sanabil-icon-v6.png','/assets/logo-sanabil-v6.png','/assets/sanabil-app-visible-192.png','/assets/sanabil-app-visible-512.png','/assets/sanabil-app-visible-maskable-512.png','/auth-gate.js','/sanabil-offline-app.js'];
 const isAsset=p=>/\.(?:js|css|png|jpe?g|webp|svg|woff2?|ico)(?:$|\?)/i.test(p);
 const openLegacy=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(LEGACY_DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(LEGACY_STORE))r.result.createObjectStore(LEGACY_STORE,{keyPath:'id'})};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
 const legacyDelete=async id=>{const db=await openLegacy();try{await new Promise((resolve,reject)=>{const t=db.transaction(LEGACY_STORE,'readwrite');t.objectStore(LEGACY_STORE).delete(id);t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}finally{db.close()}};
