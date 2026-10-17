@@ -106,22 +106,18 @@ async function importLegacy(){
 const style=document.createElement('style');
 style.textContent=`.sanabil-install-pill{position:fixed;bottom:88px;inset-inline-start:12px;z-index:2147483200;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 12px;background:#073f42;color:#fff;border:1px solid #d8bd88;border-radius:15px;box-shadow:0 3px 18px #0005;font:600 13px/1.6 system-ui;direction:rtl}.sanabil-install-pill button{border:1px solid #d8bd88;background:#d8bd88;color:#073f42;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit}.sanabil-install-pill a{color:#fff}`;
 document.head.appendChild(style);
-let deferredInstall=null;
-window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;updateUi()});
-window.addEventListener('appinstalled',()=>{deferredInstall=null;updateUi()});
 function uiRoot(){let root=document.getElementById('sanabil-pwa-offline');if(!root){root=document.createElement('div');root.id='sanabil-pwa-offline';root.className='sanabil-install-pill';root.setAttribute('role','status');root.setAttribute('aria-live','polite');document.body.appendChild(root)}return root}
 async function updateUi(){
  if(!document.body)return;
  const root=uiRoot(),s=await status(true).catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
  root.replaceChildren();
- const img=document.createElement('img');img.src='/assets/sanabil-app-192.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
+ const img=document.createElement('img');img.src='/assets/sanabil-app-visible-192.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
  root.append(img);
  const text=document.createElement('span');text.textContent=s.online?(s.count?'بانتظار مزامنة '+s.count+' عملية':'سنابل الوحي · متصل'):'سنابل الوحي · يعمل دون اتصال'+(s.count?' · '+s.count+' معلّقة':'');root.append(text);
  if(s.legacyCount){const btn=document.createElement('button');btn.textContent='سجلات سابقة ('+s.legacyCount+')';btn.onclick=async()=>{
   if(!confirm('توجد عمليات قديمة محفوظة على هذا الجهاز بلا تعريف مستخدم. هل تؤكد أنها تخص حسابك الحالي؟'))return;
   try{await importLegacy();updateUi()}catch(error){alert(error.message)}
  };root.append(btn)}
- if(deferredInstall&&!window.matchMedia('(display-mode: standalone)').matches){const b=document.createElement('button');b.textContent='تثبيت التطبيق';b.onclick=async()=>{const event=deferredInstall;deferredInstall=null;await event.prompt();await event.userChoice.catch(()=>null);updateUi()};root.append(b)}
  if(s.error){root.title='آخر خطأ في المزامنة: '+s.error;const retry=document.createElement('button');retry.textContent='تعذر إرسال سجل · إعادة المحاولة';retry.onclick=()=>window.dispatchEvent(new Event('sanabil-offline-retry'));root.append(retry)}
 }
 window.addEventListener('online',()=>updateUi());
