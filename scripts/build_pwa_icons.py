@@ -79,12 +79,24 @@ def main() -> None:
         print(f"PASS {size}x{size} {'maskable' if maskable else 'standard'} "
               f"logo footprint={.59 if maskable else .73:.0%} "
               f"background={BACKGROUND} -> {versioned_path}")
-    # Critical guard: original colors should be visibly distinct from backdrop.
-    largest = Image.open(ASSETS / "sanabil-app-visible-512.png").convert("RGB")
-    bg = largest.getpixel((256, 64))
-    center = largest.getpixel((256, 256))
-    if bg == center:
-        raise RuntimeError("App icon has insufficient separation from its background.")
+    # Validate actual visible ink, not an arbitrary center pixel. The Quran
+    # logo is intentionally not filled at its geometric center, so a single
+    # center-vs-corner comparison falsely rejected the previous release.
+    from PIL import ImageColor
+    background = ImageColor.getrgb(BACKGROUND)
+    opaque_count = 0
+    contrast_count = 0
+    for red, green, blue, alpha in logo.getdata():
+        if alpha < 180:
+            continue
+        opaque_count += 1
+        if max(abs(red - background[0]),
+               abs(green - background[1]),
+               abs(blue - background[2])) >= 70:
+            contrast_count += 1
+    if opaque_count < 100 or contrast_count < opaque_count // 2:
+        raise RuntimeError("Official Sanabil logo lacks sufficient readable contrast.")
+    print(f"PASS: {contrast_count} of {opaque_count} opaque logo pixels visibly contrast with background")
 
 
 if __name__ == "__main__":
