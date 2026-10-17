@@ -31,8 +31,12 @@ async function check(){
   let installed=false,verified=false;
   if(typeof navigator.getInstalledRelatedApps==='function'){
    try{
-    installed=hasRelatedApp(await navigator.getInstalledRelatedApps());
-    verified=true;
+    // A slow or buggy Installed Related Apps API must not prevent rendering.
+    const apps=await Promise.race([
+     navigator.getInstalledRelatedApps(),
+     new Promise(resolve=>setTimeout(()=>resolve(null),1800))
+    ]);
+    if(apps!==null){installed=hasRelatedApp(apps);verified=true}
    }catch{/* Lack of API support must not hide the install help. */}
   }
   // appinstalled can arrive before the operating system's app registry updates.
@@ -97,10 +101,13 @@ async function install(){
 }
 function bind(button){
  if(!button)return;
+ if(button.dataset.sanabilInstallBound==='1'){render(isAppWindow()||justInstalled);return}
+ button.dataset.sanabilInstallBound='1';
  buttons.add(button);
- button.hidden=true; // Never flash an install button in a standalone app.
+ // Present the action immediately. Only a verified installation hides it.
+ render(isAppWindow()||justInstalled);
  button.addEventListener('click',install);
- check().catch(()=>{if(!isAppWindow())render(false)});
+ check().catch(()=>render(isAppWindow()||justInstalled));
 }
 window.addEventListener('beforeinstallprompt',event=>{
  event.preventDefault();deferred=event;justInstalled=false;
@@ -110,6 +117,11 @@ window.addEventListener('appinstalled',()=>{
  deferred=null;justInstalled=true;installedAt=Date.now();render(true);
 });
 window.addEventListener('pageshow',()=>{check().catch(()=>{})});
+// Handle dashboard views that are rendered after the installer file was loaded.
+document.addEventListener('DOMContentLoaded',()=>{
+ const button=document.querySelector?.('[data-action="install-pwa"]');
+ if(button)bind(button);
+});
 window.addEventListener('focus',()=>{check().catch(()=>{})});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)check().catch(()=>{})});
 if(typeof window.matchMedia==='function'){
