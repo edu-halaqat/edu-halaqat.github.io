@@ -38,6 +38,8 @@ jobs:
           node tests/sanabil-install.cjs
           node --check sanabil-performance-deep.js
           node tests/sanabil-performance-deep.cjs
+          node --check sanabil-performance.js
+          node tests/sanabil-performance-real.cjs
 
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
@@ -121,6 +123,9 @@ jobs:
                   assert 'sanabil-performance-deep.js' in html
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
+                  assert 'data-real-results' in js
+                  assert "recordActual('save_student'" in js
+                  assert 'afterPaintActual' in read('/sanabil-performance.js').decode()
                   assert 'cdn.jsdelivr.net/npm/exceljs' not in html
                   assert "register('/sanabil-offline-sw.js" in js
                   print('PASS: live release, PWA manifest, PNG icon dimensions, service worker registration, WhatsApp integration')
