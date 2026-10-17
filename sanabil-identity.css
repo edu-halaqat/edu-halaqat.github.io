@@ -1132,3 +1132,21 @@ html[data-sanabil-theme="light"] .sl-outcome-float-nav output{color:#124b3e}
  .sl-outcome-float-nav button svg{width:20px;height:20px}
 }
 @media print{.sl-outcome-float-nav{display:none!important}}
+
+
+/* 13.8.12: scoped per-student exam nomination, return-to-video and voice assist */
+.sl-return-video{display:inline-flex!important;align-items:center;justify-content:center;gap:8px;min-height:42px;margin:4px 0 12px!important;padding:8px 14px!important;border:1px solid #00808a!important;border-radius:12px!important;background:#e6f5ed!important;color:#064f46!important;font-family:Alyamama,Tahoma,sans-serif!important;font-weight:700!important}
+.sl-voice-panel{margin:12px 0 2px;padding:12px;border-radius:14px;background:#f0f7f3;border:1px solid #c7ddd1;font-family:Alyamama,Tahoma,sans-serif;line-height:1.8}
+.sl-voice-panel>button{min-height:43px;margin:0!important;font-weight:700!important}
+.sl-voice-panel>p{margin:9px 0 0;font-size:13px;line-height:1.8}
+.sl-voice-command{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sl-voice-command>p{width:100%;margin:10px 0 3px;font-weight:700}
+.sl-voice-command button{min-height:42px!important;margin:0!important}
+.sl-exam-destination{display:grid;gap:10px;padding:14px;margin:15px 0;border:1px solid #b9d4c7;border-radius:14px}
+.sl-exam-destination label{display:flex!important;flex-direction:row;align-items:center;gap:8px}
+.sl-exam-destination input[type=radio]{width:auto!important;min-width:auto!important;accent-color:#00808a}
+.sl-exam-destination input:disabled+span,.sl-exam-destination label:has(input:disabled){opacity:.7}
+.sl-exam-destination small{font-size:12px;line-height:1.8}
+html[data-sanabil-theme="dark"] .sl-return-video{background:#17493f!important;color:#f2fff7!important;border-color:#d8bd88!important}
+html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] .sl-exam-destination{background:#183b32!important;color:#e4f4eb!important;border-color:#467965!important}
+@media(max-width:600px){.sl-voice-panel{padding:10px}.sl-return-video{width:100%}.sl-voice-command button{flex:1}}
