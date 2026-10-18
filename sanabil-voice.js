@@ -93,9 +93,24 @@ const metricParts=cmd=>{
  if(new Set(hits.map(h=>h.metric)).size!==hits.length)return null;
  return hits.map(({metric,count})=>({metric,count}));
 };
+// Treat «عبد الله» and «عبدالله» as the same name, without matching
+// unrelated students by a merely similar first name.
+const canonicalName=value=>normalize(value).replace(/عبد\s+الله/g,'عبدالله');
 const matchingStudents=(studentNames,rawName)=>{
- const name=normalize(rawName);
- const removePatronymic=val=>normalize(val).split(' ').filter(w=>!['بن','ابن','بنت'].includes(w)).join(' ');
+ let name=canonicalName(rawName);
+ const removePatronymic=val=>canonicalName(val).split(' ').filter(w=>!['بن','ابن','بنت'].includes(w)).join(' ');
+ // Some Android recognition sessions echo the first name at restart:
+ // «إياد إياد عبد الله». Only collapse when the remaining name uniquely
+ // identifies a registered student and the original does not match one.
+ const repeat=name.match(/^(\S+)\s+\1(?:\s+|$)/u);
+ if(repeat){
+  const trimmed=name.slice(repeat[1].length+1);
+  const fits=(studentNames||[]).filter(n=>{
+   const c=removePatronymic(n),short=removePatronymic(trimmed);
+   return c===short||c.startsWith(short+' ');
+  });
+  if(fits.length===1)name=trimmed;
+ }
  const compact=removePatronymic(name),parts=compact.split(' ').filter(Boolean);
  if(!compact||!parts.length)return [];
  const indexed=(studentNames||[]).map((n,i)=>({name:normalize(n),compact:removePatronymic(n),i}));
@@ -182,7 +197,8 @@ const intentOf=(raw,studentNames=[])=>{
  if(Array.isArray(studentNames)&&name.length>=3){
   const token=normalize(name);
   const hits=matchingStudents(studentNames,token);
-  if(hits.length)return {type:'navigate',name};
+  if(hits.length===1)return {type:'navigate',name};
+  if(hits.length>1)return {type:'unknown',reason:'الاسم يطابق أكثر من طالب؛ اذكر الاسم الكامل لتحديد المقصود.'};
  }
  return {type:'unknown'};
 };
@@ -195,58 +211,115 @@ const labelOf=i=>i.type==='attendance_save'?'حفظ تحضير الحلقة وا
  :i.type==='metric'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
  :i.type==='save'?(i.share?'حفظ الحصيلة ثم مشاركة ولي الأمر':'حفظ الحصيلة')
  :i.type==='share'?'فتح مشاركة الحصيلة لولي الأمر':'لم أتعرف على أمر محدد';
-// Segment a teacher's continuous dictation without splitting compound counters
-// such as "3 أخطاء و4 شكوك" or the phrase "جيد جدا".
+// Normalize Chrome's incremental transcript updates across recognition restarts.
+// Final results from a new session may repeat a trailing phrase from the old.
+const joinSpeech=(prior,next)=>{
+ const a=normalize(prior).split(' ').filter(Boolean),b=normalize(next).split(' ').filter(Boolean);
+ if(!a.length)return b.join(' ');
+ if(!b.length)return a.join(' ');
+ for(let n=Math.min(a.length,b.length);n>0;n--){
+  if(a.slice(-n).join(' ')===b.slice(0,n).join(' '))
+   return [...a,...b.slice(n)].join(' ');
+ }
+ return [...a,...b].join(' ');
+};
+// Parse an entire Arabic utterance as ordered *atomic* instructions, carrying
+// its current Quran task across short metric clauses ("3 أخطاء، شكين").
+// Do not infer a student when the spoken name is ambiguous.
 const splitBatch=(spoken,studentNames=[])=>{
- const raw=String(spoken||'')
-  .replace(/[،؛;.\n]+/g,' | ')
-  .replace(/\s+(?:ثم|بعدها|وبعدها|وبعدين|بعد\s+ذلك)\s+/gu,' | ');
- const names=(studentNames||[]).map(name=>normalize(name)).filter(Boolean);
+ const normalized=String(spoken||'').replace(/[،؛;.!؟\n]+/g,' | ')
+  .replace(/\s+(?:ثم|بعدها|وبعدين|وبعدها|بعد\s+ذلك)\s+/gu,' | ');
  const commands=[];
- const recognize=text=>intentOf(text,studentNames)?.type!=='unknown';
- const prefixName=text=>{
-  let s=normalize(text);
-  const leading=s.match(/^(?:(?:انتقل|اذهب|افتح|روح|اعرض)(?:\s+الي|\s+عند)?\s+)?(?:الطالب|الطالبه)\s+/u);
-  const simple=s.match(/^(?:انتقل|اذهب|افتح|روح|اعرض)(?:\s+الي|\s+عند)?\s+/u);
-  const intro=leading?.[0]||simple?.[0]||'';
-  if(intro)s=s.slice(intro.length).trim();
-  const possibilities=[];
-  for(const name of names){
-   const parts=name.split(' ');
-   for(let size=parts.length;size>=1;size--){
-    const candidate=parts.slice(0,size).join(' ');
-    if(s===candidate||s.startsWith(candidate+' ')){
-     const matches=matchingStudents(studentNames,candidate);
-     if(matches.length===1)possibilities.push({name:candidate,remainder:s.slice(candidate.length).trim(),length:candidate.length});
-    }
+ const NUM=NUMBER,UNIT=METRIC;
+ const metricAtom=new RegExp('^(?:و)?(?:(?:'+NUM+')\\s+)?'+UNIT+'(?:\\s+(?:'+NUM+'))?(?=\\s|$)','u');
+ const categoryStart=/^(?:المراجعه\s+(?:الصغري|الصغيره|القريبه|الكبري|الكبيره)|مراجعه\s+(?:صغري|قريبه|كبري|كبيره)|جنب\s+الدرس|جنبدرس|التثبيت|الحفظ(?:\s+الجديد)?|الحفظ\s+الجديد|الدرس(?:\s+الجديد)?|المراجعه|المراجعات|مراجعه|التثبيت)(?=\s|$)/u;
+ const gradeStart=/^(?:لم\s+(?:يحفظ|يسمع)|ما\s+(?:حفظ|سمع)|يحتاج\s+اعاده|جيد\s+جدا|ممتاز|جيد)(?=\s|$)/u;
+ const attendanceStart=/^(?:حاضر|غائب|غايب|متاخر|مستاذن)(?=\s|$)/u;
+ const saveStart=/^(?:(?:احفظ|حفظ|ثبت|اعتمد)\s+(?:التحضير|الحضور|الحصيله|حصيله|التقدير)|(?:ارسل|شارك)\s+(?:الحصيله|حصيله|ولي\s+الامر))(?=\s|$)/u;
+ const stripConnector=s=>s.replace(/^و(?=(?:الحفظ|الدرس|جنب|التثبيت|المراجعه|مراجعه|حاضر|غائب|غايب|متاخر|مستاذن|احفظ|ارسل|شارك|[0-9]|اخطاء|خطا|شكوك|شكين))/, '');
+ const prefixStudent=s=>{
+  const withoutVerb=s.replace(/^(?:(?:انتقل|اذهب|افتح|روح|اعرض|اختر|اختار)(?:\s+الي|\s+عند)?\s+)?(?:الطالب|الطالبه)\s+/u,'')
+   .replace(/^(?:انتقل|اذهب|افتح|روح|اعرض|اختر|اختار)(?:\s+الي|\s+عند)?\s+/u,'');
+  const words=withoutVerb.split(' '),candidates=[];
+  for(let length=1;length<=Math.min(7,words.length);length++){
+   const candidate=words.slice(0,length).join(' ');
+   const hits=matchingStudents(studentNames,candidate);
+   if(hits.length===1){
+    const rest=words.slice(length).join(' ');
+    if(!rest||/^(?:و?حاضر|و?متاخر|و?غائب|و?مستاذن|و?الحفظ|و?الدرس|و?جنب|و?المراجعه|و?مراجعه|و?التثبيت|و?احفظ)/.test(rest))
+     candidates.push({index:hits[0].i,length,rest});
    }
   }
-  possibilities.sort((a,b)=>b.length-a.length);
-  const best=possibilities[0];
-  if(best&&(best.remainder||intro||normalize(text)===best.name))return best;
-  return null;
+  return candidates.sort((a,b)=>b.length-a.length)[0]||null;
  };
- const starters=/\s+و?(?=(?:الحفظ|الدرس|جنب\s+الدرس|التثبيت|المراجعه|مراجعه|حاضر|غائب|غايب|متاخر|مستاذن|احفظ|ارسل|شارك|تحضير\s+الطلاب)(?:\s|$))/gu;
- const feed=(phrase,depth=0)=>{
-  const s=normalize(phrase).replace(/^و(?=(?:الحفظ|الدرس|جنب|التثبيت|المراجعه|مراجعه|احفظ|ارسل|شارك|حاضر|غائب|متاخر|مستاذن))/, '').trim();
-  if(!s||depth>12)return;
-  const named=prefixName(s);
-  if(named&&named.remainder){
-   commands.push(named.name);
-   feed(named.remainder,depth+1);
-   return;
+ let kind=null;
+ const putMetric=s=>{
+  if(!kind)return false;
+  let rest=s,parts=[];
+  for(let iter=0;iter<5;iter++){
+   const match=rest.match(metricAtom);
+   if(!match)break;
+   let unit=match[0].trim();
+   let parsed=metricParts(unit);
+   // A joined conjunction («وشكين») is different from «واحد خطأ»;
+   // don't cut the initial waw off the number «واحد».
+   if(!parsed?.length&&unit.startsWith('و')&&metricParts(unit.slice(1))?.length){
+    unit=unit.slice(1);parsed=metricParts(unit);
+   }
+   if(parsed?.length)parts.push(unit);
+   else if(/^(?:خطا|غلط|شك|شكوك|تجويد)$/.test(unit))parts.push('واحد '+unit);
+   else break;
+   rest=rest.slice(match[0].length).trim();
   }
-  for(const match of s.matchAll(starters)){
-   const at=match.index, left=s.slice(0,at).trim();
-   const right=s.slice(at).trim().replace(/^و(?=\S)/,'');
-   if(!left||!right)continue;
-   if(recognize(left)){commands.push(left);feed(right,depth+1);return}
-  }
-  if(recognize(s)){commands.push(s);return}
-  if(named&&!named.remainder){commands.push(named.name);return}
-  commands.push(s);
+  if(!parts.length)return false;
+  commands.push(kind+' '+parts.join(' '));
+  return rest;
  };
- raw.split('|').forEach(feed);
+ const consume=(text)=>{
+  let s=normalize(text),loops=0;
+  // Keep complete explicit count-change and save phrases atomic.
+  const full=intentOf(s,studentNames);
+  if(['metric','metrics','attendance_all','attendance_save','save','share'].includes(full.type)&&
+     /^(?:اضف|زد|زود|تحضير الطلاب|حضور الطلاب|احفظ|حفظ|ثبت|اعتمد|ارسل|شارك)(?:\s|$)/u.test(s)){
+   commands.push(s);return;
+  }
+  while(s&&loops++<35){
+   s=stripConnector(s).trim();
+   if(!s)break;
+   const student=prefixStudent(s);
+   if(student){
+    commands.push(studentNames[student.index]);
+    kind=null;s=student.rest;continue;
+   }
+   const cat=s.match(categoryStart);
+   if(cat){
+    kind=cat[0];s=s.slice(cat[0].length).trim();
+    const grade=s.match(gradeStart);
+    if(grade){commands.push(kind+' '+grade[0]);s=s.slice(grade[0].length).trim();continue}
+    if(!s){commands.push(kind);break}
+    continue;
+   }
+   const attendance=s.match(attendanceStart);
+   if(attendance){
+    let value=attendance[0];s=s.slice(value.length).trim();
+    if(/^(?:بدون|بلا)\s+عذر|^بعذر|^معذور/.test(s)){
+     const reason=s.match(/^(?:(?:بدون|بلا)\s+عذر|بعذر|معذور)/)[0];
+     value+=' '+reason;s=s.slice(reason.length).trim();
+    }
+    commands.push(value);continue;
+   }
+   const save=s.match(saveStart);
+   if(save){commands.push(save[0]);s=s.slice(save[0].length).trim();continue}
+   const metric=putMetric(s);
+   if(metric!==false){s=metric;continue}
+   // A segment we don't understand is reported, never discarded. Recover at
+   // the next recognizable boundary rather than stopping the whole dictation.
+   const next=s.search(/\s+(?=(?:و?الحفظ|و?الدرس|و?جنب|و?المراجعه|و?مراجعه|و?حاضر|و?غائب|و?متاخر|و?مستاذن|و?احفظ)(?:\s|$))/u);
+   if(next>=0){commands.push(s.slice(0,next));s=s.slice(next).trim()}
+   else{commands.push(s);break}
+  }
+ };
+ normalized.split('|').forEach(consume);
  return commands.filter(Boolean);
 };
 const batchOf=(raw,names=[])=>splitBatch(raw,names).map(command=>({command,intent:intentOf(command,names)}));
@@ -596,11 +669,11 @@ function mount(box,{cards,names,ids=[]}={}){
   const jobs=batchOf(text,names),log=[],touched=new Set(),saved=new Set();
   executingBatch=true;let targetUncertain=false;
   let attendanceTouched=false,attendanceSaved=false,incompleteAbsence=false;
-  if(!jobs.length){status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
+  if(!jobs.length){executingBatch=false;status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
   for(const job of jobs){
    // A misheard or ambiguous student name must not redirect the following
    // grades to whichever student's card was previously active.
-   if(targetUncertain&&['grade','metric','metrics','save','share'].includes(job.intent.type)){
+   if(targetUncertain&&['attendance','grade','metric','metrics','save','share'].includes(job.intent.type)){
     log.push({ok:false,message:job.command+' — تخطيت التعديل حتى يتحدد الطالب المقصود.'});
     continue;
    }
@@ -664,7 +737,7 @@ function mount(box,{cards,names,ids=[]}={}){
   if(!listening)return;
   listening=false;stopping=false;clearSpeechTimers();
   recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
-  const heard=[...fragments,liveSpeech].filter(Boolean).join(' ').trim();
+  const heard=joinSpeech(fragments.join(' '),liveSpeech).trim();
   fragments=[];liveSpeech='';
   if(heard)executeBatch(heard);
   else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
@@ -678,22 +751,37 @@ function mount(box,{cards,names,ids=[]}={}){
   try{instance.stop()}catch{finishCapture();return}
   finishTimer=setTimeout(finishCapture,1100);
  };
- const restartSilenceClock=()=>{
+ const restartSilenceClock=(initial=false)=>{
   clearTimeout(silenceTimer);
-  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,SILENCE_MS);
+  // Allow permission/service initialization and the first word to arrive.
+  // Once speech begins, finish after about two seconds without new words.
+  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,initial?7000:SILENCE_MS);
  };
  const beginRecognition=()=>{
   if(!listening||stopping)return;
   const instance=new Recognition();recognition=instance;
   instance.lang='ar-SA';instance.continuous=true;instance.interimResults=true;
+  instance.maxAlternatives=3;
+  // Contextual vocabulary hints are supported by some Chromium builds only.
+  // They improve recognition of Quran terms and the actual session names
+  // without obtaining, storing, or uploading a second microphone stream.
+  try{
+   const Phrase=window.SpeechRecognitionPhrase;
+   if(typeof Phrase==='function'&&'phrases' in instance){
+    const hints=[...new Set([...names.slice(0,70),'الحفظ الجديد','جنب الدرس','المراجعة الكبرى','المراجعة الصغرى','حاضر','متأخر','جيد جداً','أخطاء','شكوك'])];
+    instance.phrases=hints.map(x=>new Phrase(x,3));
+   }
+  }catch{}
+
   instance.onresult=event=>{
    if(recognition!==instance)return;
    let words='';
    for(let index=0;index<(event.results?.length||0);index++)
     words+=' '+(event.results[index]?.[0]?.transcript||'');
-   liveSpeech=words.trim();
-   status.textContent='أستمع… '+[...fragments,liveSpeech].filter(Boolean).join(' ');
-   if(!stopping)restartSilenceClock();
+   const next=words.trim(),changed=next!==liveSpeech;
+   liveSpeech=next;
+   status.textContent='أستمع… '+joinSpeech(fragments.join(' '),liveSpeech);
+   if(changed&&!stopping)restartSilenceClock();
   };
   instance.onerror=event=>{
    if(recognition!==instance)return;
@@ -707,8 +795,10 @@ function mount(box,{cards,names,ids=[]}={}){
    if(recognition!==instance)return;
    recognition=null;
    if(stopping){finishCapture();return}
-   if(liveSpeech){fragments.push(liveSpeech);liveSpeech=''}
-   if(listening)beginRecognition();
+   if(liveSpeech){fragments=[joinSpeech(fragments.join(' '),liveSpeech)];liveSpeech=''}
+   // Android frequently closes a recognition session while the teacher is
+   // still speaking. Resume after a short delay to avoid audio-service races.
+   if(listening)setTimeout(()=>{if(listening&&!stopping&&!recognition)beginRecognition()},220);
   };
   try{instance.start()}
   catch(error){captureError='تعذر تشغيل الميكروفون: '+(error?.message||'خطأ غير معروف');finishCapture()}
@@ -720,7 +810,7 @@ function mount(box,{cards,names,ids=[]}={}){
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   recordButton.textContent='⏹ إنهاء التسجيل';recordButton.setAttribute('aria-pressed','true');
   status.textContent='أستمع لعدة أوامر… سأنفذها بعد صمت يتجاوز ثانيتين.';
-  restartSilenceClock();beginRecognition();
+  restartSilenceClock(true);beginRecognition();
  };
  recordButton.addEventListener('click',startRecording);
  launcher.onclick=()=>{
@@ -745,5 +835,5 @@ function mount(box,{cards,names,ids=[]}={}){
   if(shell!==box)instance.observer.observe(shell,{childList:true,subtree:true});
  }
 }
-window.SanabilVoice={mount,showLauncher,intentOf,splitBatch,batchOf,normalize,countOf,attendanceOf};
+window.SanabilVoice={mount,showLauncher,intentOf,splitBatch,batchOf,joinSpeech,normalize,countOf,attendanceOf};
 })();

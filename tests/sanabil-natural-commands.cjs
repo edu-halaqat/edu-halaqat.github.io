@@ -45,7 +45,7 @@ const Event=class {constructor(type){this.type=type}};
 const window={innerHeight:760};
 vm.runInNewContext(script,{window,document:doc,Event,console,Promise});
 const api=window.SanabilVoice;
-const names=['أحمد دحمان حسن','أحمد صالح','خالد العتيبي'];
+const names=['أحمد دحمان حسن','أحمد صالح','خالد العتيبي','إياد عبد الله'];
 const parserCases=[
  ['أحمد دحمان','navigate',i=>i.name==='احمد دحمان'],
  ['حاضر','attendance',i=>i.status==='present'&&i.target.scope==='current'],
@@ -202,5 +202,62 @@ const gradeCountBeforeAmbiguous=gradeButtons[0].clicked;
 const blocked=enter('أحمد، الحفظ ممتاز');
 assert.equal(gradeButtons[0].clicked,gradeCountBeforeAmbiguous,'ambiguous student prevents carrying grade over from a prior student');
 assert(blocked.some(x=>x.textContent.includes('تخطيت التعديل')),'blocked batch reports why grade was skipped');
+
+
+// User-reported Android transcription: name repeated at restart and several
+// Quran categories followed by standalone mistake/doubt counts.
+const spokenNames=['أحمد دحمان حسن','أحمد صالح','خالد العتيبي','إياد عبد الله'];
+assert.equal(api.joinSpeech('إياد','إياد عبد الله حاضر'),'اياد عبد الله حاضر','overlapping ASR restarts are joined once');
+assert.equal(api.joinSpeech('إياد عبد الله حاضر','الحفظ الجديد ممتاز'),'اياد عبد الله حاضر الحفظ الجديد ممتاز');
+const spoken='إياد عبدالله حاضر، الحفظ الجديد ممتاز خطأ، جنب الدرس ممتاز، المراجعة جيد جداً ثلاث أخطاء شكين';
+const expected=api.batchOf(spoken,spokenNames);
+assert.deepEqual(Array.from(expected,x=>x.intent.type),
+ ['navigate','attendance','grade','metric','grade','grade','metrics'],
+ 'one spoken paragraph must yield ordered name, attendance, grades and review counters');
+assert.equal(expected[0].intent.name.replace(/عبد\s+الله/g,'عبدالله'),'اياد عبدالله','Abdullah is one or two words');
+assert.equal(expected[3].intent.kind,'memorization');
+assert.equal(expected[3].intent.metric,'errors');
+assert.equal(expected[3].intent.count,1);
+assert.equal(expected[6].intent.kind,'review');
+assert.deepEqual(Array.from(expected[6].intent.changes,x=>[x.metric,x.count]),[['errors',3],['doubts',2]]);
+const withEcho=api.batchOf('إياد إياد عبد الله حاضر الحفظ الجديد ممتاز، جنب الدرس ممتاز',spokenNames);
+assert.deepEqual(Array.from(withEcho,x=>x.intent.type),['navigate','attendance','grade','grade'],
+ 'repeated first name must not stop the rest of speech');
+assert.equal(api.batchOf('أحمد أحمد دحمان حاضر',spokenNames)[0].intent.type,'navigate');
+assert.notEqual(api.batchOf('أحمد حاضر الحفظ ممتاز',spokenNames)[0].intent.type,'navigate',
+ 'ambiguous Ahmed alone must never silently choose one student');
+
+// Exercise actual UI controls for the same compound dictation.
+const iyadCard=cards[3];
+const iyadGrades=[
+ data('memorization','ممتاز'),data('recentReview','ممتاز'),
+ data('review:plan-one','جيد جدًا')
+];
+iyadCard.grades=iyadGrades;
+const iyadError=metric('memorization','errors',0);
+const iyadMajorErrors=metric('review:plan-one','errors',0);
+const iyadMajorDoubts=metric('review:plan-one','doubts',0);
+iyadCard.metrics=[iyadError,iyadMajorErrors,iyadMajorDoubts];
+const iyadAttend=['present','absent'].map(value=>{
+ const button=new Element('button',doc);button.dataset.attValue=value;
+ button.onclick=()=>{
+  iyadCard.attendance.forEach(x=>x.classList.remove('active'));
+  button.classList.add('active');
+ };
+ return button;
+});
+iyadCard.attendance=iyadAttend;
+const iyadSave=new Element('button',doc);
+iyadCard.lookup={'[data-action^="save-student-"],[data-action^="tl-save-"]':iyadSave};
+const commandOutput=enter(spoken);
+assert(iyadAttend[0].classList.contains('active'),'Ayad attendance set to present');
+assert.equal(iyadGrades[0].clicked,1,'Ayad memorization excellent');
+assert.equal(iyadGrades[1].clicked,1,'Ayad small review excellent');
+assert.equal(iyadGrades[2].clicked,1,'Ayad large review very good');
+assert.equal(iyadError.value,'1');
+assert.equal(iyadMajorErrors.value,'3');
+assert.equal(iyadMajorDoubts.value,'2');
+assert.equal(iyadSave.clicked,1,'Ayad outcome sent for saving exactly once after complete batch');
+assert(!commandOutput.some(x=>x.textContent.includes('لم أتعرف')),'no unrecognized speech in complete teacher example');
 
 console.log('PASS: natural Arabic commands, attendance and absence, bulk save trigger, read-only guard, Quran grading and verified counters');
