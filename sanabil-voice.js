@@ -431,7 +431,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const launcher=document.createElement('button');launcher.type='button';launcher.className='button button-soft';
  launcher.textContent='🎙 الموجه الصوتي';launcher.setAttribute('aria-label','تشغيل الموجه الصوتي');
  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
- status.textContent=Recognition?'أملِ عدة أوامر بعد الضغط على زر بدء التسجيل؛ تنتهي الحزمة بعد ثانيتين من الصمت.':'اكتب عدة أوامر مفصولة بفاصلة أو ثم.';
+ status.textContent=Recognition?'أملِ اسم الطالب ثم عدة أوامر؛ سأمنحك وقتًا لإكمال الإملاء قبل التنفيذ.':'اكتب عدة أوامر مفصولة بفاصلة أو ثم.';
  const detail=document.createElement('div');detail.className='sl-voice-command';
  const close=document.createElement('button');close.type='button';close.className='sl-voice-close';close.textContent='✕';
  close.setAttribute('aria-label','إغلاق نافذة الموجه الصوتي');
@@ -799,7 +799,10 @@ function mount(box,{cards,names,ids=[]}={}){
     words+=' '+(event.results[index]?.[0]?.transcript||'');
    const next=words.trim(),changed=next!==liveSpeech;
    liveSpeech=next;
-   status.textContent='أستمع… '+fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names);
+   const spoken=fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names);
+   const commands=batchOf(spoken,names);
+   const heardOnlyName=commands.length>0&&commands.every(({intent})=>['navigate','unknown'].includes(intent.type));
+   status.textContent='أستمع… '+spoken+(heardOnlyName?' — أكمل الحضور والحفظ والمراجعة، ما زلت أستمع.':'');
    if(changed&&!stopping)restartSilenceClock();
   };
   instance.onerror=event=>{
