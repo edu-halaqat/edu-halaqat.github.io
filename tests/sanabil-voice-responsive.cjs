@@ -13,11 +13,22 @@ assert(badge.includes('<circle')&&badge.includes('clipPath'),
 assert(!/<rect[^>]*fill=["']#(?:000|000000)["']/i.test(badge),
  'no opaque black tile may be painted around the emblem');
 
+
+// Android Chrome's native manual-popover user-agent background is opaque
+// Canvas in dark mode; only resetting the button is insufficient.
+const popoverRule=css.slice(css.indexOf('/* 13.8.24: native'));
+assert(popoverRule.includes('body>.sl-voice-entry:popover-open'),'top layer launcher host is explicitly reset');
+assert(popoverRule.includes('body>.sl-voice-panel:not(.sl-voice-open):popover-open'),'collapsed classroom host is explicitly reset');
+for(const decl of ['background:transparent!important','border:0!important','padding:0!important','box-shadow:none!important','overflow:visible!important'])
+ assert(popoverRule.includes(decl),'native popover host missing reset: '+decl);
+assert(popoverRule.includes('body>.sl-voice-entry::backdrop'),'no opaque top-layer backdrop');
+assert(!popoverRule.includes('.sl-voice-panel.sl-voice-open:popover-open'),'open full-size command panel keeps intentional background');
+
 assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped');
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
 assert(css.includes("background-image:url('/assets/sanabil-voice-mic-clean.svg?v=20261018-23')"),'mic icon uses the supplied transparent badge');
 assert(css.includes('background:transparent!important'),'voice dock has no black rectangular background');
-assert(html.includes('/sanabil-identity.css?v=31'),'new mic badge styling bypasses stale PWA cache');
+assert(html.includes('/sanabil-identity.css?v=32'),'new mic badge styling bypasses stale PWA cache');
 assert(css.includes('body>.sl-voice-panel{'),'assistant uses global body stacking context');
 assert(css.includes('z-index:2147483647!important'),'assistant overlays bulk attendance/student controls');
 assert(css.includes('body>.sl-voice-panel:popover-open'),'manual popover resets default positioning');
