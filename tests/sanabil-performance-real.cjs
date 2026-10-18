@@ -7,6 +7,11 @@ assert(live.includes("afterPaintActual('open'"),'session open must wait for rend
 assert(live.includes("afterPaintActual('switch'"),'teacher navigation must record actual paint');
 assert(live.includes("data-real-next")&&live.includes("data-real-prev"),'card navigation controls present');
 assert(live.includes("recordActual('save_student'"),'single save instrumentation present');
+for(const stage of ['save_student_access','save_student_write','save_student_verify']){
+ assert(live.includes("recordActual('"+stage+"'"),'missing operational save stage '+stage);
+}
+assert(live.indexOf("recordActual('save_student_write'")<live.indexOf("const verifyStarted=performance.now()"),'database write measured before verification');
+assert(live.indexOf("recordActual('save_student_verify'")>live.indexOf("await confirmSaved(s,x)"),'verification timing recorded only after completed readback');
 assert(live.includes("recordActual('save_all'"),'bulk save instrumentation present');
 assert(live.includes("recordActual('save_talaqqin'"),'talaqqin save instrumentation present');
 assert(live.indexOf("recordActual('save_student'")>live.indexOf('if(unchanged)'), 'single saves recorded after confirmation and draft comparison');
@@ -47,6 +52,12 @@ assert.equal(api.actualSummary().find(v=>v.kind==='save_student').count,0,'inval
 api.afterPaintActual('switch',r.advance(200),()=>true);
 r.ready.shift()();r.advance(40);r.ready.shift()();
 assert.equal(api.actualSummary().find(v=>v.kind==='switch').count,1);
+for(const [stage,time] of [['save_student_access',240],['save_student_write',4100],['save_student_verify',620]]){
+ api.recordActual(stage,time);
+ const row=api.actualSummary().find(x=>x.kind===stage);
+ assert.equal(row.count,1,'stage is present for '+stage);
+ assert.equal(row.p95,time,'P95 preserves real per-stage durations');
+}
 const stored=storage.getItem('sanabil-real-timings-v1');
 assert(!stored.includes('studentId')&&!stored.includes('fullName')&&!stored.includes('notes'),'no student identifiers or notes persisted');
 const second=build();
