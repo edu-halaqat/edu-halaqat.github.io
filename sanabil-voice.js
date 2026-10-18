@@ -125,7 +125,7 @@ const attendanceOf=raw=>{
 };
 const attendeeTarget=(text,names)=>{
  const cmd=normalize(text);
- const all=/جميع|الكل|الطلاب كلهم|كافه الطلاب|كل الطلاب|كل الطلبه|الجميع/.test(cmd);
+ const all=/جميع|الكل|الطلاب كلهم|كافه الطلاب|كل الطلاب|كل الطلبه|الجميع|تحضير الطلاب|حضور الطلاب|حضر الطلاب/.test(cmd);
  if(all)return {scope:'all'};
  const clean=cmd
   .replace(/(?:بلا عذر|بدون عذر|غير مبرر|بعذر|معذور)/g,' ')
@@ -156,6 +156,7 @@ const intentOf=(raw,studentNames=[])=>{
  // Attendance names are only interpreted after excluding lesson-grade phrases.
  const attendance=attendanceOf(cmd);
  if(attendance&&!kind&&!grade){
+  if(/الغائبين|المتاخرين|المستاذنين/.test(cmd)&&!matchingStudents(studentNames,cmd).length)return {type:'unknown',reason:'حدد أسماء الطلاب المعنيين بالحضور أو الغياب واحدًا واحدًا.'};
   const target=attendeeTarget(cmd,studentNames);
   if(target.scope==='all'){
    if(attendance.status==='present')return {type:'attendance_all',status:'present'};
@@ -268,7 +269,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const manual=document.createElement('div');manual.className='sl-voice-manual';
  const manualInput=document.createElement('input');manualInput.type='text';manualInput.dir='rtl';
  manualInput.setAttribute('aria-label','اكتب أمرًا للمنصة');
- manualInput.placeholder='مثال: أحمد دحمان، أو الحفظ ممتاز…';
+ manualInput.placeholder='مثال: حاضر، الحفظ ممتاز، جنب الدرس 5 شكوك…';
  const manualGo=document.createElement('button');manualGo.type='button';manualGo.className='button button-primary';
  manualGo.textContent='تنفيذ الأمر المكتوب';
  manual.append(manualInput,manualGo);
