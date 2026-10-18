@@ -125,7 +125,7 @@ enter('أحمد دحمان');
 assert(cards[0].scrolled>0,'bare student name navigates directly to that student');
 const present=enter('حاضر');
 present[1].click();
-assert(attendanceChoices[0].classList.contains('active'),'present command must mark the actual student's attendance');
+assert(attendanceChoices[0].classList.contains('active'),'present command must mark actual student attendance');
 const late=enter('متأخر');
 late[1].click();
 assert(attendanceChoices[1].classList.contains('active'),'late command must mark student late');
