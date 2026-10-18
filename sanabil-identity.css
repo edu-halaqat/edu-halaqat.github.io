@@ -1492,3 +1492,29 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
   background-color:transparent!important;
  }
 }
+
+/* 13.8.24: native `popover=manual` renders its OWN Canvas background,
+   UA border and padding. Clearing only the button leaves a black square
+   around the mic on Android dark mode. Reset the actual top-layer hosts. */
+@media screen {
+ body>.sl-voice-entry,
+ body>.sl-voice-entry:popover-open,
+ body>.sl-voice-panel:not(.sl-voice-open),
+ body>.sl-voice-panel:not(.sl-voice-open):popover-open {
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  padding:0!important;
+  box-shadow:none!important;
+  outline:0!important;
+  overflow:visible!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+ }
+ body>.sl-voice-entry::backdrop,
+ body>.sl-voice-panel::backdrop {
+  background:transparent!important;
+  pointer-events:none!important;
+ }
+}
