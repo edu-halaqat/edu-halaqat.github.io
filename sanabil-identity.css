@@ -1442,3 +1442,11 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
  body>.sl-voice-entry::backdrop{background:transparent!important;pointer-events:none!important}
 }
 @media print{body>.sl-voice-panel{display:none!important}}
+
+/* v13.8.21: microphone is a separate, reusable action inside the open dock. */
+.sl-voice-panel:not(.sl-voice-open)>.sl-voice-record{display:none!important}
+.sl-voice-panel.sl-voice-open>.sl-voice-record{display:block!important;width:100%!important;min-height:45px!important;margin:9px 0!important;background:#00808a!important;color:#fff!important;border:1px solid #d8bd88!important;border-radius:12px!important}
+.sl-voice-panel.sl-voice-open>.sl-voice-record[aria-pressed="true"]{background:#8b3035!important;border-color:#e8bdbd!important}
+.sl-voice-panel .sl-voice-result-ok,.sl-voice-panel .sl-voice-result-failed{width:100%;margin:3px 0!important;padding:5px 8px;border-radius:8px;font-size:12px;line-height:1.7}
+.sl-voice-panel .sl-voice-result-ok{background:#0b593a24;color:inherit}
+.sl-voice-panel .sl-voice-result-failed{background:#b5363524;color:inherit}
