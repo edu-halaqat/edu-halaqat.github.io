@@ -7,7 +7,9 @@ const html=fs.readFileSync('index.html','utf8');
 assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped');
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
 assert(css.includes('body>.sl-voice-panel{'),'assistant uses global body stacking context');
-assert(css.includes('z-index:2147482500!important'),'assistant overlays bulk attendance/student controls');
+assert(css.includes('z-index:2147483647!important'),'assistant overlays bulk attendance/student controls');
+assert(css.includes('body>.sl-voice-panel:popover-open'),'manual popover resets default positioning');
+assert(voice.includes("node.setAttribute('popover','manual')"),'supported browsers render assistant in native top layer');
 assert(voice.includes('document.body.append(panel)'),'assistant is portalled outside nested student grid');
 assert(voice.includes('disposeMountedSession()'),'no stale assistant when changing sessions');
 assert(css.includes('.mobile-nav>button svg'),'mobile navigation icons normalized');
@@ -19,6 +21,7 @@ class E{
  replaceChildren(...args){this.children=[];this.append(...args)}
  setAttribute(name,value){this.attributes[name]=value}
  addEventListener(event,fn){this.events[event]=fn}
+ showPopover(){assert(this.parentElement,'popover must be mounted before showing');assert.equal(this.attributes.popover,'manual');this.topLayer=true}
  remove(){this.removed=true;this.isConnected=false;this.doc.ids.delete(this.id)}
  focus(){this.focused=true}
  scrollIntoView(){this.scrolled=true}
@@ -47,6 +50,7 @@ vm.runInNewContext(voice,{window:win,document:doc,MutationObserver:Observer,Prom
 const mic=win.SanabilVoice.showLauncher();
 assert(mic&&mic.id==='sanabil-voice-entry');
 assert.equal(mic.hidden,false,'global mic appears on app shell');
+assert.equal(mic.topLayer,true,'global voice launcher enters the native top layer');
 assert(mic.children[0].onclick,'tap handler must be registered');
 mic.children[0].onclick();assert.equal(mic.children[1].hidden,false,'tap opens useful guidance');
 app=true;session=false;
@@ -62,6 +66,7 @@ Promise.resolve().then(()=>{
  const panel=doc.body.children.find(node=>node.dataset.sanabilVoice==='true');
  assert.equal(panel.parentElement,doc.body,'assistant is outside nested student stacking context');
  assert(panel,'classroom assistant must mount');
+assert.equal(panel.topLayer,true,'classroom voice assistant enters the native top layer');
  assert.equal(mic.hidden,true,'global mic yields to classroom button');
  assert.equal(panel.children[0].disabled,undefined,'unsupported speech may not disable all commands');
  panel.children[0].onclick();
