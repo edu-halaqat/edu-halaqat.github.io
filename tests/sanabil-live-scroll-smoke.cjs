@@ -15,10 +15,11 @@ assert(js.includes("videoStage.style.minHeight=Math.ceil(videoStage.getBoundingC
 assert(js.includes("videoStage.getBoundingClientRect().bottom<72"),'Float after original video has gone above viewport');
 assert(js.includes("document.addEventListener('scroll',s.dockListener,true)"),'Handle nested scrollers');
 assert(js.includes("document.removeEventListener('scroll',s.dockListener,true)"),'Clean up nested scroll listener');
-assert(js.includes("jump.onclick=")&&js.includes("outcome.scrollIntoView({behavior:'smooth',block:'start'})"),'Teacher can reach outcomes directly');
+assert(js.includes('jump.onclick=locateStudentOutcome')&&js.includes("card.scrollIntoView({behavior:'smooth',block:'start'})"),'Teacher can reach a student outcome card without ending the live session');
 assert(!/sl-peer-active>\.sl-peer-panel\{position:sticky/.test(css));
-assert(html.includes('sanabil-build" content="20261015-v13.6.2"'));
-assert(core.includes("__SanabilLiveBuild='20261015-v13.6.2'"));
+const currentBuild=html.match(/name="sanabil-build" content="([^"]+)"/)?.[1];
+assert(currentBuild,'a deployed build must be specified');
+assert(core.includes("__SanabilLiveBuild='"+currentBuild+"'"),'core and index release must agree');
 assert(html.includes('/sanabil-free-live.js?v=pilot3'));
 assert(html.includes('/sanabil-free-live.css?v=pilot3'));
 console.log('PASS: mobile panel remains scrollable, video floats without layout collapse, nested scrolling works, release versions agree');
