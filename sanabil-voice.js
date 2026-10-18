@@ -240,7 +240,6 @@ const splitBatch=(spoken,studentNames=[])=>{
    const at=match.index, left=s.slice(0,at).trim();
    const right=s.slice(at).trim().replace(/^و(?=\S)/,'');
    if(!left||!right)continue;
-   if(recognize(left)&&recognize(right)){commands.push(left,right);return}
    if(recognize(left)){commands.push(left);feed(right,depth+1);return}
   }
   if(recognize(s)){commands.push(s);return}
@@ -464,7 +463,8 @@ function mount(box,{cards,names,ids=[]}={}){
   if(interpretation.type==='navigate'){
    const index=matchStudent(interpretation.name);
    if(index===null){status.textContent='الاسم غير محدد أو يطابق أكثر من طالب؛ انطق الاسم الكامل بوضوح.';pending=null;return}
-   selectCard(index);status.textContent='انتقلت إلى '+names[index]+' دون تعديل أي حصيلة.';pending=null;return;
+   selectCard(index);status.textContent='انتقلت إلى '+names[index]+' دون تعديل أي حصيلة.';pending=null;
+   return {ok:true,index,type:'navigate',reason:status.textContent};
   }
   let chosen=null;
   if(interpretation.type==='attendance'&&interpretation.target.scope==='student'){
@@ -571,7 +571,19 @@ function mount(box,{cards,names,ids=[]}={}){
        if(wa&&!wa.disabled){wa.click();status.textContent='راجع مشاركة الحصيلة في نافذتها وأرسلها بنفسك.'}
        else status.textContent='استخدم زر المشاركة من بطاقة الطالب.';
       };
-      detail.replaceChildren(share);pending=null;worked=true;return;
+      // Do not require another click. Wait for the real save status before
+      // launching the user's usual sharing UI; never send stale results.
+      const attemptShare=(attempts=0)=>{
+       const message=card.querySelector('[data-save-status]')?.textContent||box.querySelector('.sl-message')?.textContent||'';
+       if(/حصيلة محفوظة ومؤكدة|تم حفظ حصيلة|تم تحديث حصيلة|تم الحفظ والتحقق/.test(message)){
+        const wa=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
+        if(wa&&!wa.disabled){wa.click();status.textContent='فُتحت مشاركة ولي الأمر بعد التحقق من الحفظ.'}
+        else status.textContent='تم الحفظ لكن مشاركة ولي الأمر غير متاحة.';
+       }else if(attempts<15)setTimeout(()=>attemptShare(attempts+1),400);
+       else status.textContent='لم يصل تأكيد حفظ من الخادم؛ لم أشارك بيانات قديمة.';
+      };
+      setTimeout(()=>attemptShare(),400);
+      detail.replaceChildren();pending=null;worked=true;return;
      }
     }else if(i.type==='share'){
      const share=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
