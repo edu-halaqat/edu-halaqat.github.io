@@ -5,17 +5,19 @@ const css=fs.readFileSync('sanabil-identity.css','utf8');
 const offline=fs.readFileSync('sanabil-offline-app.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const badge=fs.readFileSync('assets/sanabil-voice-mic-clean.svg','utf8');
-const embedded=badge.match(/href="data:image\/png;base64,([A-Za-z0-9+/=]+)"/);
-assert(embedded,'voice badge embeds its image locally without any external request');
-const image=Buffer.from(embedded[1],'base64');
-assert(image.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')),'mic icon contains valid embedded PNG');
-assert(image.includes(Buffer.from('tRNS')),'icon background is transparent PNG, not a black rectangle');
+assert(badge.startsWith('<svg'), 'microphone badge is native SVG');
+assert(!/<image\b|data:image|<foreignObject\b|<rect[^>]*\bwidth="128"/i.test(badge),
+ 'icon must not contain an embedded PNG or a background-filling rectangle');
+assert(badge.includes('<circle')&&badge.includes('clipPath'),
+ 'only the teal/gold circular emblem and microphone geometry should be painted');
+assert(!/<rect[^>]*fill=["']#(?:000|000000)["']/i.test(badge),
+ 'no opaque black tile may be painted around the emblem');
 
 assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped');
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
-assert(css.includes("background-image:url('/assets/sanabil-voice-mic-clean.svg')"),'mic icon uses the supplied transparent badge');
+assert(css.includes("background-image:url('/assets/sanabil-voice-mic-clean.svg?v=20261018-23')"),'mic icon uses the supplied transparent badge');
 assert(css.includes('background:transparent!important'),'voice dock has no black rectangular background');
-assert(html.includes('/sanabil-identity.css?v=30'),'new mic badge styling bypasses stale PWA cache');
+assert(html.includes('/sanabil-identity.css?v=31'),'new mic badge styling bypasses stale PWA cache');
 assert(css.includes('body>.sl-voice-panel{'),'assistant uses global body stacking context');
 assert(css.includes('z-index:2147483647!important'),'assistant overlays bulk attendance/student controls');
 assert(css.includes('body>.sl-voice-panel:popover-open'),'manual popover resets default positioning');

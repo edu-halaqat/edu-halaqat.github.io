@@ -1469,7 +1469,7 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
   display:block!important;
   width:48px!important;
   height:48px!important;
-  background-image:url('/assets/sanabil-voice-mic-clean.svg')!important;
+  background-image:url('/assets/sanabil-voice-mic-clean.svg?v=20261018-23')!important;
   background-position:center!important;
   background-repeat:no-repeat!important;
   background-size:contain!important;
@@ -1480,5 +1480,15 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
  body>.sl-voice-panel:not(.sl-voice-open)>button:first-child:focus-visible {
   outline:3px solid #d8bd88!important;
   outline-offset:3px!important;
+ }
+}
+
+/* 13.8.23: force true alpha behind microphone badge; no opaque image tile. */
+@media screen{
+ body>.sl-voice-entry>button,
+ body>.sl-voice-panel:not(.sl-voice-open)>button:first-child,
+ body>.sl-voice-entry>button::after,
+ body>.sl-voice-panel:not(.sl-voice-open)>button:first-child::after{
+  background-color:transparent!important;
  }
 }
