@@ -31,6 +31,7 @@ jobs:
           node --check sanabil-live-v12.js
           node --check sanabil-v13-enhancements.js
           node tests/sanabil-exam-nominations.cjs
+          node --check sanabil-exam-distribution.js
           node tests/sanabil-user-whatsapp.cjs
           node --check sanabil-excel-v11.js
           node --check sanabil-offline-app.js

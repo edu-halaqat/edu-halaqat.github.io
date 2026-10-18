@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - sanabil-live-v12.js
+      - sanabil-exam-distribution.js
+      - tests/sanabil-exam-ui-distribution.cjs
       - sanabil-v13-enhancements.js
       - sanabil-identity.css
       - tests/sanabil-exam-nominations.cjs
@@ -17,7 +19,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund jsdom@26.1.0
       - run: |
+          node --check sanabil-exam-distribution.js
+          node tests/sanabil-exam-ui-distribution.cjs
           node --check sanabil-live-v12.js
           node --check sanabil-v13-enhancements.js
           node --check sanabil-offline-sw.js

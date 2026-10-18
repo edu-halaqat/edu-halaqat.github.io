@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.29';
+window.__SanabilLiveBuild='20261019-v13.8.30';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -21,7 +21,7 @@ const rpc=(name,args)=>{
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261019-exam1',{scope:'/'}).catch(()=>null):Promise.resolve(null));
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261019-exam2',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
 const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
 const queueOfflineRpc=async(name,args,label)=>{
@@ -3009,10 +3009,13 @@ async function requestPanel(root,options={}){
   if(canSchedule)list.forEach((r,i)=>{const btn=root.querySelector(`[data-action="schedule-${i}"]`);if(btn)action(root,btn,()=>scheduleRequest(r))})
  };
  const form=root.querySelector('form');
+ if(typeof window.SanabilExamEnhanceForm!=='function')throw Error('لم يُحمّل مكوّن اختيار المقرر. حدّث صفحة سنابل الوحي وأعد فتح الترشيح.');
+ await window.SanabilExamEnhanceForm(form);
  submit(form,async()=>{
   const s=students.find(s=>s.id===val(form,'student'));if(!s)throw Error('اختر الطالب');if(!s.teacher_id)throw Error('الطالب غير مسند إلى معلم.');
   if(form.querySelector('[name="destination"]:checked')?.value==='jadeer')throw Error('تعذر الإحالة إلى جدير لأن الربط الآمن لم يفعّل؛ لم يُرسل الطلب.');
-  const syllabusData=typeof form.__v13GetSyllabus==='function'?form.__v13GetSyllabus():{label:val(form,'syllabus')};
+  if(typeof form.__v13GetSyllabus!=='function')throw Error('حقول المقرر لم تكتمل؛ أعد فتح نافذة الترشيح.');
+  const syllabusData=form.__v13GetSyllabus();
   if(!syllabusData?.label)throw Error('حدد مقرر الاختبار بدقة.');
   await result(sb().from('exam_requests').insert({
    id:crypto.randomUUID(),org_id:s.org_id,complex_id:s.complex_id,circle_id:s.circle_id,teacher_id:s.teacher_id,student_id:s.id,
@@ -3045,43 +3048,47 @@ async function testsPage(root){
    (manage&&['scheduled','confirmed','in_progress'].includes(d.status)?button('فتح الاختبار','t'+i):'')+(d.status==='completed'&&d.scores?button('مشاركة','share-'+i)+button('تقرير','report-'+i):'—')
   ]));
   data.forEach((d,i)=>{
-   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await rpc('start_exam',{p_schedule_id:d.id});await exam(d);await load()});
+   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await exam(d);await load()});
    const share=root.querySelector(`[data-action="share-${i}"]`);if(share)action(root,share,async()=>{const s=students.find(x=>x.id===d.student_id),portal=s?await guardianLink(s.id):'';const txt=`نتيجة اختبار القرآن — سنابل الوحي\nالطالب: ${d.student_name}\nالمقرر: ${d.syllabus_label||''}\nالحفظ: ${d.scores?.memorization??'—'} / 80\nالتجويد: ${d.scores?.tajweed??'—'} / 20\nالمجموع: ${d.scores?.total??'—'} / 100${portal?'\n\nبوابة ولي الأمر: '+portal:''}`;openWhatsApp(s?.guardian_phone,txt)});
    const rp=root.querySelector(`[data-action="report-${i}"]`);if(rp)action(root,rp,async()=>{const t=await result(sb().from('tests').select('*').eq('schedule_id',d.id).single());excelApi().printTests([t],'نتيجة اختبار الطالب')})
   })
  };
  const exam=async d=>{
   const m=modal('رصد الاختبار: '+d.student_name),request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null,count=Math.min(15,Number(request?.question_count||d.syllabus?.questionCount||3)),lines=Math.min(10,Math.max(1,Number(d.syllabus?.linesPerQuestion||10))),syllabus=d.syllabus||{},mode=syllabus.mode||d.type||'custom';
-  let bank=[];
-  try{bank=await rows('question_bank','id,surah_no,ayah_no,juz_no,ayah_index,label,max_lines',{active:true})}catch{}
-  const inLex=(q,fs,fa,ts,ta)=>{const x=Number(q.surah_no)*1000+Number(q.ayah_no),a=Number(fs)*1000+Number(fa||1),b=Number(ts||fs)*1000+Number(ta||999);return x>=Math.min(a,b)&&x<=Math.max(a,b)};
-  let pool=bank.filter(q=>{
-    if(mode==='full')return true;
-    if(mode==='juz'||mode==='phased')return Number(q.juz_no)>=Number(syllabus.fromJuz||1)&&Number(q.juz_no)<=Number(syllabus.toJuz||syllabus.fromJuz||30);
-    if(mode==='surah_range')return Number(q.surah_no)>=Number(syllabus.fromSurahNo||1)&&Number(q.surah_no)<=Number(syllabus.toSurahNo||syllabus.fromSurahNo||114);
-    if(['ayah_range','activation','placement'].includes(mode))return inLex(q,syllabus.fromSurahNo,syllabus.fromAyahNo,syllabus.toSurahNo||syllabus.fromSurahNo,syllabus.toAyahNo||syllabus.fromAyahNo);
-    return false;
+  const dist=window.SanabilExamDistribution;
+  if(!dist)throw Error('مكون توزيع أسئلة الاختبار لم يُحمّل؛ أعد تحديث الصفحة.');
+  const [catalog,boundaries,bank]=await Promise.all([
+    quranCatalog(),
+    rpc('quran_juz_boundaries',{}),
+    rows('question_bank','id,surah_no,ayah_no,juz_no,ayah_index,label,max_lines,end_surah_no,end_ayah_no,verified',{active:true})
+  ]);
+  const bins=dist.buildBins(bank,syllabus,count,catalog,boundaries);
+  const parseModelKeys=keys=>(keys||[]).map(k=>{
+    const [s,a]=String(k).split(':').map(Number);
+    return bank.find(q=>Number(q.surah_no)===s&&Number(q.ayah_no)===a);
+  }).filter(Boolean);
+  const reserveModel=qs=>rpc('reserve_exam_model_signature',{
+    p_schedule_id:d.id,
+    p_questions:qs.map(q=>({surahNo:Number(q.surah_no),ayahNo:Number(q.ayah_no)}))
   });
-  const modelKey=q=>String(Number(q.surah_no)).padStart(3,'0')+':'+String(Number(q.ayah_no)).padStart(3,'0');
-  const parseModelKeys=keys=>(keys||[]).map(k=>{const [s,a]=String(k).split(':').map(Number);return bank.find(q=>Number(q.surah_no)===s&&Number(q.ayah_no)===a)}).filter(Boolean);
-  const reserveModel=qs=>rpc('reserve_exam_model_signature',{p_schedule_id:d.id,p_questions:qs.map(q=>({surahNo:Number(q.surah_no),ayahNo:Number(q.ayah_no)}))});
-  const shuffled=xs=>xs.map(x=>({x,k:crypto.getRandomValues(new Uint32Array(1))[0]})).sort((a,b)=>a.k-b.k).map(o=>o.x);
+  const shuffled=xs=>xs.map(x=>({x,k:crypto.getRandomValues(new Uint32Array(1))[0]}))
+    .sort((a,b)=>a.k-b.k).map(o=>o.x);
   let chosen=[],modelReservation=null;
-  if(pool.length>=count){
-    for(let attempt=0;attempt<80;attempt++){
-      const candidate=shuffled(pool).slice(0,count),res=await reserveModel(candidate);
-      if(res?.reused){
-        const prior=parseModelKeys(res.questionKeys);
-        if(prior.length!==count)throw Error('تعذر استعادة نموذج الأسئلة المثبت لهذا الموعد.');
-        chosen=prior;modelReservation=res;break;
-      }
-      if(res?.reserved){chosen=candidate;modelReservation=res;break}
+  for(let attempt=0;attempt<80;attempt++){
+    const candidate=dist.pickModel(bins,shuffled);
+    const res=await reserveModel(candidate);
+    if(res?.reused){
+      const previous=parseModelKeys(res.questionKeys);
+      const ordered=bins.map(bin=>previous.find(q=>bin.some(c=>c.id===q.id)));
+      if(previous.length!==count||ordered.some(q=>!q)||new Set(ordered.map(q=>q.id)).size!==count)
+        throw Error('النموذج المحفوظ لهذا الموعد لا يغطي المقرر بالتساوي؛ يلزم مراجعة النموذج قبل التسميع.');
+      chosen=ordered;modelReservation=res;break;
     }
-    if(chosen.length!==count)throw Error('تعذر توليد نموذج جديد غير مكرر بعد محاولات متعددة؛ وسّع المقرر أو أضف أسئلة للبنك.');
-  }else{
-    chosen=shuffled(pool).slice(0,count);
+    if(res?.reserved){chosen=candidate;modelReservation=res;break}
   }
-  m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p>${chosen.length<count?'<p class="sl-rule-note">البنك أعطى '+chosen.length+' من '+count+' أسئلة ضمن هذا المقرر؛ أكمل المواضع الباقية يدويًا.</p>':''}<div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
+  if(chosen.length!==count)throw Error('تعذر إنشاء نموذج متوازن وغير مكرر؛ راجع عدد الأسئلة ومحتوى البنك.');
+  await rpc('start_exam',{p_schedule_id:d.id});
+  m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
   const form=m.querySelector('form'),boxes=[];
   for(let i=0;i<count;i++){
     const bankQ=chosen[i]||null,q=document.createElement('fieldset');
