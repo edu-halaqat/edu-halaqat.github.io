@@ -112,7 +112,7 @@ assert.equal(panel.topLayer,true,'classroom voice assistant enters the native to
  assert(!panel.classList.contains('sl-voice-open'),'voice panel stays collapsed after close');
  assert.equal(panel.dataset.expanded,'false','collapse is explicit');
  assert(!panel.children[3].hidden,'typed control stays available after reopening');
- assert.equal(cards[0].scrolled,undefined);
+ assert(cards[0].scrolled,'voice recording navigated to Ahmed before typed navigation');
  // Re-render the classroom on the same box: old portal must be removed
  // before opening a new session, never accumulating stale buttons.
  cards.forEach(card=>card.isConnected=false);
