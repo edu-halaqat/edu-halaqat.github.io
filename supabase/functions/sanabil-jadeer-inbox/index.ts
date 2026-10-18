@@ -54,12 +54,20 @@ const handler=withSupabase({auth:"none"},async(req:Request,ctx)=>{
   if(error)return json({ok:false,error:"inbox_unavailable"},503);
   if(data?.ok===false)return json({ok:false,error:data.code,message:data.message},409);
   const status=data?.state||"unmatched";
-  // An inbox acknowledgement is never a publication acknowledgement.
+  if(status==="published")return json({ok:true,received:true,published:true,state:"published",duplicate:true});
+  if(status==="ready"){
+    const published=await ctx.supabaseAdmin.rpc("jadeer_bridge_publish_result",{p_result_id:resultId});
+    if(published.error)return json({ok:false,received:true,published:false,error:"publication_database_error"},503);
+    if(published.data?.ok===true && published.data?.published===true)
+      return json({ok:true,received:true,published:true,state:"published",test_id:published.data.test_id,duplicate:!!published.data.duplicate});
+    return json({ok:true,received:true,published:false,state:published.data?.code||"pending_review",
+      message:published.data?.message||"تم استلام النتيجة، لكن نشرها يحتاج مراجعة بيانات أو درجات الاختبار."},202);
+  }
   return json({
     ok:true,received:true,published:false,
     state:status,
-    message:status==="unmatched" ? (data?.match?.message||"بيانات المجمع أو الحلقة أو المعلم أو الطالب غير مدرجة في سنابل الوحي؛ يرجى تصحيحها قبل نشر النتيجة.") :
-      "تم استقبال النتيجة للتحقق، ولم تُنشر في سنابل الوحي بعد."
-  },status==="unmatched"?202:202);
+    message:status==="unmatched" ? (data?.match?.message||"المجمع أو الحلقة أو المعلم أو الطالب غير مدرج في سنابل الوحي؛ يرجى إدراجه قبل نشر النتيجة.") :
+      "تم استقبال النتيجة ولم تُنشر في سنابل الوحي."
+  },202);
 });
 export default {fetch:handler};
