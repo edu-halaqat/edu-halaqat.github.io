@@ -68,19 +68,22 @@ async function openBackups(){
  }catch(e){message(e.message,true)}
 }
 let quranCache=null;
-const quran=async()=>quranCache||(quranCache=await rpc('quran_surah_catalog',{}));
+const quran=async()=>{if(!quranCache)quranCache=rpc('quran_surah_catalog',{}).catch(e=>{quranCache=null;throw e});return quranCache};
 async function enhanceExamForm(form){
  if(form.dataset.v13Exam)return;
  const type=form.querySelector('[name="type"]'),syllabus=form.querySelector('[name="syllabus"]');
  if(!type||!syllabus)return;
- form.dataset.v13Exam='1';
+ form.dataset.v13Exam='loading';
+ const selectedMode=type.value;
  const kinds={activation:'اختبار تنشيطي',placement:'اختبار تحديد مستوى',juz:'اختبار الأجزاء',phased:'اختبار مرحلي'};
- type.innerHTML=Object.entries(kinds).map(([id,name])=>opt(id,name,'activation')).join('');
+ type.innerHTML=Object.entries(kinds).map(([id,name])=>opt(id,name,kinds[selectedMode]?selectedMode:'activation')).join('');
  const host=document.createElement('div');host.className='sl-v13-syllabus';
  syllabus.closest('label').after(host);syllabus.closest('label').hidden=true;syllabus.required=false;syllabus.readOnly=true;
- const catalog=await quran(),surahs=new Map(catalog.map(s=>[Number(s.surahNo),s]));
+ let catalog;
+ try{catalog=await quran();if(!Array.isArray(catalog)||catalog.length!==114)throw Error('فهرس سور القرآن غير مكتمل.')}catch(e){delete form.dataset.v13Exam;host.textContent='تعذر تحميل السور والآيات. أعد فتح الترشيح وحاول مرة أخرى: '+(e.message||e);throw e}
+ const surahs=new Map(catalog.map(s=>[Number(s.surahNo),s]));
  const surOptions=(selected)=>catalog.map(s=>opt(s.surahNo,s.surahNo+'. '+s.name,selected)).join('');
- const juzNames=['ألم','سيقول السفهاء','تلك الرسل','لن تنالوا','والمحصنات','لا يحب الله','وإذا سمعوا','ولو أننا','قال الملأ','واعلموا','يعتذرون','وما من دابة','وما أبرئ نفسي','ربما','سبحان الذي','قال ألم أقل لك','اقترب للناس','قد أفلح','وقال الذين لا يرجون','أمن خلق','اتل ما أوحي','ومن يقنت','وما لي','فمن أظلم','إليه يرد','حم','قال فما خطبكم','قد سمع','تبارك الذي','عم'];
+ const juzNames=['ألم','سيقول السفهاء','تلك الرسل','لن تنالوا','والمحصنات','لا يحب الله','وإذا سمعوا','ولو أننا','قال الملأ','واعلموا','يعتذرون','وما من دابة','وما أبرئ نفسي','ربما','سبحان الذي','قال ألم أقل لك','اقترب للناس','قد أفلح','وقال الذين لا يرجون','أمن خلق','اتل ما أوحي','ومن يقنت','وما لي','فمن أظلم','إليه يرد','حم','قال فما خطبكم','قد سمع','تبارك الذي','النبأ (عم)'];
  const juzOptions=()=>juzNames.map((name,i)=>opt(i+1,'الجزء '+(i+1)+' — '+name,1)).join('');
  let juzMap=null,juzPending=null;
  const loadJuz=async()=>{
@@ -123,7 +126,7 @@ async function enhanceExamForm(form){
    if(!juzMap||juzMap.size!==30)throw Error('لم يكتمل تحميل حدود أجزاء القرآن.');
    const count=mode==='phased'?Number(host.querySelector('[name="branch"]')?.value):1;
    if(mode==='phased'&&![5,10,15,20,30].includes(count))throw Error('حدد الفرع المرحلي.');
-   const direction=mode==='phased'?host.querySelector('[name="examDirection"]:checked')?.value:'from_fatiha';
+   const direction=(mode==='phased'||mode==='juz')?host.querySelector('[name="examDirection"]:checked')?.value:'from_fatiha';
    if(!['from_fatiha','from_nas'].includes(direction))throw Error('حدد اتجاه الاختبار.');
    const part=mode==='juz'?Number(host.querySelector('[name="juz"]')?.value):null;
    if(mode==='juz'&&(!Number.isInteger(part)||part<1||part>30))throw Error('اختر الجزء المطلوب.');
@@ -133,7 +136,7 @@ async function enhanceExamForm(form){
    if(!a||!b)throw Error('حدود الجزء غير موجودة.');
    Object.assign(d,{fromJuz,toJuz,fromSurahNo:Number(a.fromSurahNo),fromAyahNo:Number(a.fromAyahNo),
     toSurahNo:Number(b.toSurahNo),toAyahNo:Number(b.toAyahNo),direction});
-   if(mode==='juz'){d.juzNo=part;d.label='اختبار الأجزاء — الجزء '+part+' ('+juzNames[part-1]+')';}
+   if(mode==='juz'){d.juzNo=part;d.label='اختبار الأجزاء — الجزء '+part+' ('+juzNames[part-1]+') — '+(direction==='from_nas'?'نحو الفاتحة':'نحو الناس');}
    else{
     d.partCount=count;d.branch=({5:5,10:4,15:3,20:2,30:1})[count];
     d.label='اختبار مرحلي — الفرع '+({5:'الخامس',10:'الرابع',15:'الثالث',20:'الثاني',30:'الأول'})[count]+
@@ -161,7 +164,10 @@ async function enhanceExamForm(form){
    setAyahs('fromSurah','fromAyah');setAyahs('toSurah','toAyah');
   }else if(mode==='juz'){
    host.innerHTML='<label>الجزء المراد الاختبار فيه<select name="juz">'+juzOptions()+
-    '</select></label><p class="sl-help" role="status" data-exam-summary>جارٍ قراءة حدود الجزء…</p>';
+    '</select></label><fieldset><legend>اتجاه توزيع الأسئلة</legend>'+
+    '<label><input type="radio" name="examDirection" value="from_fatiha" checked> من الفاتحة نحو الناس</label>'+
+    '<label><input type="radio" name="examDirection" value="from_nas"> من الناس نحو الفاتحة</label>'+
+    '</fieldset><p class="sl-help" role="status" data-exam-summary>جارٍ قراءة حدود الجزء…</p>';
   }else{
    host.innerHTML='<label>فرع الاختبار المرحلي<select name="branch">'+
     [[5,'الخامس — خمسة أجزاء'],[10,'الرابع — عشرة أجزاء'],[15,'الثالث — خمسة عشر جزءًا'],[20,'الثاني — عشرون جزءًا'],[30,'الأول — ثلاثون جزءًا']].map(x=>opt(x[0],x[1],5)).join('')+'</select></label>'+
@@ -182,8 +188,9 @@ async function enhanceExamForm(form){
  };
  type.addEventListener('change',()=>render().catch(e=>{syllabus.value='';console.warn(e)}));
  form.addEventListener('reset',()=>setTimeout(()=>render().catch(()=>{}),0));
- await render();
+ try{await render();form.dataset.v13Exam='1'}catch(e){delete form.dataset.v13Exam;host.textContent='تعذر تهيئة المقرر: '+(e.message||e);throw e}
 }
+window.SanabilExamEnhanceForm=enhanceExamForm;
 function enhance(){
  const root=Q('.sl-live');if(!root)return;
  const fp=root.querySelector('[data-action="fingerprint-settings"]');
