@@ -195,6 +195,62 @@ const labelOf=i=>i.type==='attendance_save'?'حفظ تحضير الحلقة وا
  :i.type==='metric'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
  :i.type==='save'?(i.share?'حفظ الحصيلة ثم مشاركة ولي الأمر':'حفظ الحصيلة')
  :i.type==='share'?'فتح مشاركة الحصيلة لولي الأمر':'لم أتعرف على أمر محدد';
+// Segment a teacher's continuous dictation without splitting compound counters
+// such as "3 أخطاء و4 شكوك" or the phrase "جيد جدا".
+const splitBatch=(spoken,studentNames=[])=>{
+ const raw=String(spoken||'')
+  .replace(/[،؛;.\n]+/g,' | ')
+  .replace(/\s+(?:ثم|بعدها|وبعدها|وبعدين|بعد\s+ذلك)\s+/gu,' | ');
+ const names=(studentNames||[]).map(name=>normalize(name)).filter(Boolean);
+ const commands=[];
+ const recognize=text=>intentOf(text,studentNames)?.type!=='unknown';
+ const prefixName=text=>{
+  let s=normalize(text);
+  const leading=s.match(/^(?:(?:انتقل|اذهب|افتح|روح|اعرض)(?:\s+الي|\s+عند)?\s+)?(?:الطالب|الطالبه)\s+/u);
+  const simple=s.match(/^(?:انتقل|اذهب|افتح|روح|اعرض)(?:\s+الي|\s+عند)?\s+/u);
+  const intro=leading?.[0]||simple?.[0]||'';
+  if(intro)s=s.slice(intro.length).trim();
+  const possibilities=[];
+  for(const name of names){
+   const parts=name.split(' ');
+   for(let size=parts.length;size>=1;size--){
+    const candidate=parts.slice(0,size).join(' ');
+    if(s===candidate||s.startsWith(candidate+' ')){
+     const matches=matchingStudents(studentNames,candidate);
+     if(matches.length===1)possibilities.push({name:candidate,remainder:s.slice(candidate.length).trim(),length:candidate.length});
+    }
+   }
+  }
+  possibilities.sort((a,b)=>b.length-a.length);
+  const best=possibilities[0];
+  if(best&&(best.remainder||intro||normalize(text)===best.name))return best;
+  return null;
+ };
+ const starters=/\s+و?(?=(?:الحفظ|الدرس|جنب\s+الدرس|التثبيت|المراجعه|مراجعه|حاضر|غائب|غايب|متاخر|مستاذن|احفظ|ارسل|شارك|تحضير\s+الطلاب)(?:\s|$))/gu;
+ const feed=(phrase,depth=0)=>{
+  const s=normalize(phrase).replace(/^و(?=(?:الحفظ|الدرس|جنب|التثبيت|المراجعه|مراجعه|احفظ|ارسل|شارك|حاضر|غائب|متاخر|مستاذن))/, '').trim();
+  if(!s||depth>12)return;
+  const named=prefixName(s);
+  if(named&&named.remainder){
+   commands.push(named.name);
+   feed(named.remainder,depth+1);
+   return;
+  }
+  if(recognize(s)){commands.push(s);return}
+  for(const match of s.matchAll(starters)){
+   const at=match.index, left=s.slice(0,at).trim();
+   const right=s.slice(at).trim().replace(/^و(?=\S)/,'');
+   if(!left||!right)continue;
+   if(recognize(left)&&recognize(right)){commands.push(left,right);return}
+   if(recognize(left)){commands.push(left);feed(right,depth+1);return}
+  }
+  if(named&&!named.remainder){commands.push(named.name);return}
+  commands.push(s);
+ };
+ raw.split('|').forEach(feed);
+ return commands.filter(Boolean);
+};
+const batchOf=(raw,names=[])=>splitBatch(raw,names).map(command=>({command,intent:intentOf(command,names)}));
 // The microphone entry is visible on the authenticated home screen, even
 // before a circle is opened. Detailed student commands need a loaded session.
 let entryObserver=null;
@@ -560,5 +616,5 @@ function mount(box,{cards,names,ids=[]}={}){
   if(shell!==box)instance.observer.observe(shell,{childList:true,subtree:true});
  }
 }
-window.SanabilVoice={mount,showLauncher,intentOf,normalize,countOf,attendanceOf};
+window.SanabilVoice={mount,showLauncher,intentOf,splitBatch,batchOf,normalize,countOf,attendanceOf};
 })();
