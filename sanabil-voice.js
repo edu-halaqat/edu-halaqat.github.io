@@ -276,6 +276,12 @@ const splitBatch=(spoken,studentNames=[])=>{
  };
  const consume=(text)=>{
   let s=normalize(text),loops=0;
+  // Keep complete explicit count-change and save phrases atomic.
+  const full=intentOf(s,studentNames);
+  if(['metric','metrics','attendance_all','attendance_save','save','share'].includes(full.type)&&
+     /^(?:اضف|زد|زود|تحضير الطلاب|حضور الطلاب|احفظ|حفظ|ثبت|اعتمد|ارسل|شارك)(?:\s|$)/u.test(s)){
+   commands.push(s);return;
+  }
   while(s&&loops++<35){
    s=stripConnector(s).trim();
    if(!s)break;
