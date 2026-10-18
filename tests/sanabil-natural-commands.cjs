@@ -40,6 +40,7 @@ const doc={
  getElementById(){return null},
  querySelector(){return null}
 };
+doc.body=new Element('body',doc);
 const Event=class {constructor(type){this.type=type}};
 const window={innerHeight:760};
 vm.runInNewContext(script,{window,document:doc,Event,console,Promise});
@@ -118,7 +119,8 @@ const absence=new Element('select',doc);
 cards[0].lookup={'[data-quran-absence-reason],[data-tl-absence-reason]':absence};
 
 api.mount(box,{cards,names,ids:['s1','s2','s3']});
-const panel=search.children.find(x=>x.dataset.sanabilVoice==='true');
+const panel=doc.body.children.find(x=>x.dataset.sanabilVoice==='true');
+assert(panel?.parentNode===doc.body,'voice portal must be a direct body child above attendance');
 assert(panel,'classroom command panel mounted');
 const manual=panel.children.find(x=>x.className==='sl-voice-manual');
 assert(manual&&manual.tag==='div','written commands cannot submit parent form');
