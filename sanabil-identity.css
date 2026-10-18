@@ -1413,21 +1413,32 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
 @media screen{
  body>.sl-voice-panel{
   position:fixed!important;
-  z-index:2147482500!important;
+  z-index:2147483647!important;
   isolation:isolate!important;
   pointer-events:auto!important;
   transform:none!important;
   contain:none!important;
  }
  body>.sl-voice-panel.sl-voice-open{
-  z-index:2147482500!important;
+  z-index:2147483647!important;
   visibility:visible!important;
   opacity:1!important;
   pointer-events:auto!important;
  }
  body>.sl-voice-panel:not(.sl-voice-open){
-  z-index:2147482500!important;
+  z-index:2147483647!important;
  }
- body>.sl-voice-entry{z-index:2147482400!important}
+ body>.sl-voice-entry{z-index:2147483646!important}
+}
+/* 13.8.20: native top-layer popovers, with UA centering disabled. */
+@media screen{
+ body>.sl-voice-panel:popover-open,
+ body>.sl-voice-entry:popover-open{
+  position:fixed!important;
+  margin:0!important;
+  pointer-events:auto!important;
+ }
+ body>.sl-voice-panel::backdrop,
+ body>.sl-voice-entry::backdrop{background:transparent!important;pointer-events:none!important}
 }
 @media print{body>.sl-voice-panel{display:none!important}}
