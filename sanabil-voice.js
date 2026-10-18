@@ -472,7 +472,7 @@ function mount(box,{cards,names,ids=[]}={}){
    if(!cards[index]?.isConnected||cards[index].hidden){
     status.textContent='بطاقة الطالب المطلوبة غير ظاهرة؛ انتقل إليه أولًا.';pending=null;return;
    }
-   chosen={card:cards[index],index};
+   chosen={card:cards[index],index};active=index;selectionPinned=true;
   }else if(interpretation.type!=='attendance_all'&&interpretation.type!=='attendance_save'){
    chosen=currentCard();
    if(!chosen){
@@ -491,6 +491,7 @@ function mount(box,{cards,names,ids=[]}={}){
   confirm.textContent=/save|share/.test(interpretation.type)?'تأكيد الإجراء':'تنفيذ الأمر';
   const cancel=document.createElement('button');cancel.type='button';cancel.className='button button-soft';cancel.textContent='إلغاء';
   detail.append(summary);
+  let worked=false;
   cancel.onclick=()=>{pending=null;detail.replaceChildren();status.textContent='ألغي الأمر دون تعديل.'};
   const verifiedClick=(button,check,label)=>{
    if(!button||button.disabled)throw Error(executionError(chosen?.card,button,label));
@@ -570,53 +571,151 @@ function mount(box,{cards,names,ids=[]}={}){
        if(wa&&!wa.disabled){wa.click();status.textContent='راجع مشاركة الحصيلة في نافذتها وأرسلها بنفسك.'}
        else status.textContent='استخدم زر المشاركة من بطاقة الطالب.';
       };
-      detail.replaceChildren(share);pending=null;return;
+      detail.replaceChildren(share);pending=null;worked=true;return;
      }
     }else if(i.type==='share'){
      const share=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
      if(!share||share.disabled)throw Error('المشاركة غير متاحة؛ احفظ الحصيلة أولًا.');
      share.click();status.textContent='فُتحت المشاركة؛ راجع المحتوى وأرسله من واتساب بنفسك.';
     }
-    pending=null;detail.replaceChildren();
+    pending=null;detail.replaceChildren();worked=true;
    }catch(error){
     status.textContent=error?.message||'تعذر تنفيذ الأمر؛ لم أعتبره ناجحًا.';
     confirm.disabled=false;
    }
   };
-  status.textContent='راجع اسم الطالب والإجراء قبل التأكيد. الأوامر تعدّل المسودة، والحفظ يحتاج تأكيد الخادم.';
+  confirm.onclick();
+  return {ok:worked,index:chosen?.index,type:interpretation.type,reason:status.textContent};
+ };
+ const executeBatch=text=>{
+  const jobs=batchOf(text,names),log=[],touched=new Set(),saved=new Set();
+  let attendanceTouched=false,attendanceSaved=false,incompleteAbsence=false;
+  if(!jobs.length){status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
+  for(const job of jobs){
+   const done=prepare(job.intent);
+   if(!done?.ok){
+    log.push({ok:false,message:job.command+' — '+(done?.reason||status.textContent)});
+    continue;
+   }
+   log.push({ok:true,message:job.command+' — '+done.reason});
+   if(['grade','metric','metrics'].includes(done.type)&&Number.isInteger(done.index))touched.add(done.index);
+   if(done.type==='save'&&Number.isInteger(done.index))saved.add(done.index);
+   if(['attendance','attendance_all'].includes(done.type)){
+    attendanceTouched=true;
+    if(done.type==='attendance'&&job.intent.status==='absent'&&!job.intent.reason)incompleteAbsence=true;
+   }
+   if(done.type==='attendance_save')attendanceSaved=true;
+  }
+  // Auto-save once per changed student at the end of a dictation.
+  for(const index of touched){
+   if(saved.has(index))continue;
+   selectCard(index);
+   const done=prepare({type:'save',share:false});
+   log.push({ok:!!done?.ok,message:done?.ok
+    ?'أُرسل طلب حفظ حصيلة '+names[index]+'؛ بانتظار تأكيد الخادم'
+    :'تعذر حفظ حصيلة '+names[index]+': '+(done?.reason||status.textContent)});
+  }
+  if(attendanceTouched&&!attendanceSaved){
+   if(incompleteAbsence)log.push({ok:false,message:'يلزم تحديد سبب الغياب قبل حفظ التحضير تلقائيًا.'});
+   else{
+    const done=prepare({type:'attendance_save'});
+    log.push({ok:!!done?.ok,message:done?.ok?'أُرسل طلب حفظ التحضير؛ بانتظار تأكيد الخادم':
+     'تعذر حفظ التحضير: '+(done?.reason||status.textContent)});
+   }
+  }
+  // Show results instead of buttons that demand another click.
+  detail.replaceChildren(...log.map(item=>{
+   const line=document.createElement('p');
+   line.className=item.ok?'sl-voice-result-ok':'sl-voice-result-failed';
+   line.textContent=(item.ok?'✓ ':'⚠ ')+item.message;
+   return line;
+  }));
+  const complete=log.filter(item=>item.ok).length;
+  status.textContent='تم تنفيذ '+complete+' خطوة من '+log.length+
+   '؛ الحفظ على الخادم لا يعدّ مؤكدًا حتى تظهر رسالة نجاح المزامنة.';
  };
  const submitWrittenCommand=event=>{
   event?.preventDefault?.();event?.stopPropagation?.();
   const text=manualInput.value.trim();
   if(!text){status.textContent='اكتب أمرًا قبل التنفيذ.';manualInput.focus();return}
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
-  status.textContent='الأمر المكتوب: '+text;
-  prepare(intentOf(text,names));
+  executeBatch(text);
  };
  manualGo.addEventListener('click',submitWrittenCommand);
  manualInput.addEventListener('keydown',event=>{
   if(event.key==='Enter')submitWrittenCommand(event);
  });
+ const finishCapture=()=>{
+  if(!listening)return;
+  listening=false;stopping=false;clearSpeechTimers();
+  recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
+  const heard=[...fragments,liveSpeech].filter(Boolean).join(' ').trim();
+  fragments=[];liveSpeech='';
+  if(heard)executeBatch(heard);
+  else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
+  captureError='';
+ };
+ const finishRecording=()=>{
+  if(!listening||stopping)return;
+  stopping=true;clearTimeout(silenceTimer);
+  const instance=recognition;
+  if(!instance){finishCapture();return}
+  try{instance.stop()}catch{finishCapture();return}
+  finishTimer=setTimeout(finishCapture,1100);
+ };
+ const restartSilenceClock=()=>{
+  clearTimeout(silenceTimer);
+  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,SILENCE_MS);
+ };
+ const beginRecognition=()=>{
+  if(!listening||stopping)return;
+  const instance=new Recognition();recognition=instance;
+  instance.lang='ar-SA';instance.continuous=true;instance.interimResults=true;
+  instance.onresult=event=>{
+   if(recognition!==instance)return;
+   let words='';
+   for(let index=0;index<(event.results?.length||0);index++)
+    words+=' '+(event.results[index]?.[0]?.transcript||'');
+   liveSpeech=words.trim();
+   status.textContent='أستمع… '+[...fragments,liveSpeech].filter(Boolean).join(' ');
+   if(!stopping)restartSilenceClock();
+  };
+  instance.onerror=event=>{
+   if(recognition!==instance)return;
+   if(['not-allowed','service-not-allowed','audio-capture'].includes(event.error)){
+    captureError='تعذر الوصول إلى الميكروفون؛ اسمح بالوصول ثم حاول من جديد.';
+    finishRecording();
+   }else if(!['no-speech','aborted'].includes(event.error))
+    captureError='انقطع التعرف الصوتي؛ يمكنك الإملاء مرة أخرى أو كتابة الأوامر.';
+  };
+  instance.onend=()=>{
+   if(recognition!==instance)return;
+   recognition=null;
+   if(stopping){finishCapture();return}
+   if(liveSpeech){fragments.push(liveSpeech);liveSpeech=''}
+   if(listening)beginRecognition();
+  };
+  try{instance.start()}
+  catch(error){captureError='تعذر تشغيل الميكروفون: '+(error?.message||'خطأ غير معروف');finishCapture()}
+ };
+ const startRecording=()=>{
+  if(!Recognition){status.textContent='التسجيل غير مدعوم هنا؛ استخدم الكتابة.';return}
+  if(listening){finishRecording();return}
+  captureError='';fragments=[];liveSpeech='';stopping=false;listening=true;
+  panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
+  recordButton.textContent='⏹ إنهاء التسجيل';recordButton.setAttribute('aria-pressed','true');
+  status.textContent='أستمع لعدة أوامر… سأنفذها بعد صمت يتجاوز ثانيتين.';
+  restartSilenceClock();beginRecognition();
+ };
+ recordButton.addEventListener('click',startRecording);
  launcher.onclick=()=>{
   if(panel.classList.contains('sl-voice-open')){collapse();return}
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   launcher.setAttribute('aria-expanded','true');
-  if(!Recognition){
-   status.textContent='يمكنك إدخال الأمر كتابةً. الميكروفون لا يدعم التعرف الصوتي في هذا المتصفح.';
-   manualInput.focus();return;
-  }
-  if(recognition){recognition.stop();return}
-  recognition=new Recognition();recognition.lang='ar-SA';recognition.continuous=false;recognition.interimResults=false;
-  launcher.textContent='إيقاف الاستماع';status.textContent='أستمع لأمر واحد الآن…';
-  recognition.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';status.textContent='الأمر الذي سمعته: '+transcript;prepare(intentOf(transcript,names))};
-  recognition.onerror=e=>{status.textContent=e.error==='not-allowed'?'يجب السماح للمتصفح باستخدام الميكروفون.':'تعذر التعرف على الصوت. حاول ثانية أو استخدم الأزرار.'};
-  recognition.onend=()=>{recognition=null;launcher.textContent='🎙 الموجه الصوتي'};
-  try{recognition.start()}catch(e){recognition=null;launcher.textContent='🎙 الموجه الصوتي';status.textContent='لم يتوفر الميكروفون: '+e.message}
+  status.textContent=Recognition?'اضغط «بدء التسجيل» أو اكتب أوامرك.':'اكتب أوامرك ثم اضغط التنفيذ.';
  };
  const instance={box,cards,panel,observer:null,stop:()=>{
-  try{recognition?.abort?.()}catch{}
-  recognition=null;
-  pending=null;
+  abortCapture();pending=null;
  }};
  mountedSession=instance;
  // A detached or replaced set of student cards means the teacher has left
