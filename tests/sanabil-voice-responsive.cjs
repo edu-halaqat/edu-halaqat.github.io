@@ -93,6 +93,7 @@ assert.equal(panel.topLayer,true,'classroom voice assistant enters the native to
  FakeSpeech.all[1].onresult({results:[{'0':{transcript:'انتقل إلى الطالب أحمد'},isFinal:true}]});
  [...fakeTimers.values()].find(item=>item.ms===2100).cb();
  assert(cards[0].scrolled,'second recording executes without closing and reopening');
+ panel.children[1].onclick(); // Close once before checking the normal launcher toggle.
 
  assert.equal(panel.children[0].disabled,undefined,'unsupported speech may not disable all commands');
  panel.children[0].onclick();
