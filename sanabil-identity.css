@@ -1450,3 +1450,35 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
 .sl-voice-panel .sl-voice-result-ok,.sl-voice-panel .sl-voice-result-failed{width:100%;margin:3px 0!important;padding:5px 8px;border-radius:8px;font-size:12px;line-height:1.7}
 .sl-voice-panel .sl-voice-result-ok{background:#0b593a24;color:inherit}
 .sl-voice-panel .sl-voice-result-failed{background:#b5363524;color:inherit}
+
+
+/* 13.8.22: the supplied transparent circular microphone replaces the emoji.
+   Both dashboard and classroom docks are genuine buttons, with no dark tile. */
+@media screen {
+ body>.sl-voice-entry>button,
+ body>.sl-voice-panel:not(.sl-voice-open)>button:first-child {
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  border-radius:50%!important;
+  overflow:visible!important;
+ }
+ body>.sl-voice-entry>button::after,
+ body>.sl-voice-panel:not(.sl-voice-open)>button:first-child::after {
+  content:''!important;
+  display:block!important;
+  width:48px!important;
+  height:48px!important;
+  background-image:url('/assets/sanabil-voice-mic-clean.svg')!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:contain!important;
+  font-size:0!important;
+  line-height:0!important;
+ }
+ body>.sl-voice-entry>button:focus-visible,
+ body>.sl-voice-panel:not(.sl-voice-open)>button:first-child:focus-visible {
+  outline:3px solid #d8bd88!important;
+  outline-offset:3px!important;
+ }
+}
