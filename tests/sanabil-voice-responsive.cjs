@@ -55,7 +55,8 @@ Promise.resolve().then(()=>{
  box.local={'[data-sanabil-voice]':null,'.sl-outcome-student-search':search,'#sl-outcome-search-input':null};
  session=true;doc.body.append(box);box.append(search);
  win.SanabilVoice.mount(box,{cards,names:['أحمد','خالد'],ids:['student-1','student-2']});
- const panel=search.children.find(node=>node.dataset.sanabilVoice==='true');
+ const panel=doc.body.children.find(node=>node.dataset.sanabilVoice==='true');
+ assert.equal(panel.parentElement,doc.body,'assistant is outside nested student stacking context');
  assert(panel,'classroom assistant must mount');
  assert.equal(mic.hidden,true,'global mic yields to classroom button');
  assert.equal(panel.children[0].disabled,undefined,'unsupported speech may not disable all commands');
@@ -76,7 +77,7 @@ Promise.resolve().then(()=>{
  assert.equal(panel.dataset.expanded,'false','collapse is explicit');
  assert(!panel.children[3].hidden,'typed control stays available after reopening');
  assert.equal(cards[0].scrolled,undefined);
- session=false;doc.panel=null;
+ session=false;doc.panel=null;box.isConnected=false;cards.forEach(card=>card.isConnected=false);
  observers.filter(o=>o.active).forEach(o=>o.cb());
  return Promise.resolve().then(()=>{
   assert.equal(mic.hidden,false,'global mic reappears after closing classroom');
