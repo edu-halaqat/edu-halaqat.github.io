@@ -106,15 +106,19 @@ assert.equal(panel.topLayer,true,'classroom voice assistant enters the native to
  record.events.click();
  assert.equal(FakeSpeech.all.length,1,'first recording session starts');
  FakeSpeech.all[0].onresult({results:[{'0':{transcript:'انتقل إلى الطالب خالد'},isFinal:true}]});
- const quiet=[...fakeTimers.values()].find(item=>item.ms===2100);
- assert(quiet,'a two-second silence cutoff is armed on speech progress');
+ const nameWait=[...fakeTimers.values()].find(item=>item.ms===7000);
+ assert(nameWait,'after hearing only a student name the recorder waits for follow-up commands');
+ assert(![...fakeTimers.values()].some(item=>item.ms===2900),'name alone must not trigger a short cutoff');
+ FakeSpeech.all[0].onresult({results:[{'0':{transcript:'انتقل إلى الطالب خالد حاضر'},isFinal:true}]});
+ const quiet=[...fakeTimers.values()].find(item=>item.ms===2900);
+ assert(quiet,'silence cutoff starts only after a full actionable phrase');
  quiet.cb();
  assert.equal(record.textContent,'🎙 بدء التسجيل','recording control resets without closing the assistant');
  assert(cards[1].scrolled,'first voice batch executes without confirmation');
  record.events.click();
  assert.equal(FakeSpeech.all.length,2,'second recording starts with the same open assistant');
  FakeSpeech.all[1].onresult({results:[{'0':{transcript:'انتقل إلى الطالب أحمد'},isFinal:true}]});
- [...fakeTimers.values()].find(item=>item.ms===2100).cb();
+ [...fakeTimers.values()].find(item=>item.ms===7000).cb();
  assert(cards[0].scrolled,'second recording executes without closing and reopening');
  panel.children[1].onclick(); // Close once before checking the normal launcher toggle.
 
