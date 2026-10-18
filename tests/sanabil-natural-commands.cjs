@@ -135,59 +135,68 @@ function enter(command){
 }
 enter('أحمد دحمان');
 assert(cards[0].scrolled>0,'bare student name navigates directly to that student');
-const everyone=enter('تحضير الطلاب');everyone[1].click();
+const everyone=enter('تحضير الطلاب');
 assert.equal(allPresent.clicked,1,'all-present command invokes platform all-present control');
-const storeAttendance=enter('احفظ التحضير');storeAttendance[1].click();
-assert.equal(saveAttendance.clicked,1,'save attendance invokes real attendance-save control only after confirmation');
-assert(status.textContent.includes('انتظر تأكيد'),'saving request must not falsely claim stored data');
+const storeAttendance=enter('احفظ التحضير');
+assert(saveAttendance.clicked>=2,'attendance is sent for saving automatically, and explicit save also works');
+assert(status.textContent.includes('تأكيد الخادم'),'saving request must not falsely claim stored data');
 box.lookup['.sl-outcome-readonly']={textContent:'استعراض فقط: خارج وقت السماح'};
 const denied=enter('الحفظ ممتاز');
-assert.equal(denied.length,0,'read-only grade command must not create actionable confirmation');
-assert(status.textContent.includes('للعرض فقط'),'read-only state must explicitly explain blocked edits');
+assert(denied[0]?.textContent.includes('للعرض فقط'),'read-only grade command is blocked immediately');
+assert(status.textContent.includes('تأكيد الخادم'),'batch summary separates execution from server acknowledgement');
 delete box.lookup['.sl-outcome-readonly'];
 const present=enter('حاضر');
-present[1].click();
 assert(attendanceChoices[0].classList.contains('active'),'present command must mark actual student attendance');
 const late=enter('متأخر');
-late[1].click();
 assert(attendanceChoices[1].classList.contains('active'),'late command must mark student late');
 const permission=enter('مستأذن');
-permission[1].click();
 assert(attendanceChoices[2].classList.contains('active'),'excused command must mark student excused');
 const explicitlyNamed=enter('أحمد دحمان غائب بعذر');
 assert(explicitlyNamed[0].textContent.includes('أحمد دحمان'),'targeted absent command shows intended student');
-explicitlyNamed[1].click();
+
 assert.equal(absence.value,'excused','reason for named absence changes on student card');
 const absent=enter('غائب بدون عذر');
-absent[1].click();
+
 assert(attendanceChoices[3].classList.contains('active'),'absence command must mark student absent');
 assert.equal(absence.value,'unexcused','absence reason must be selected');
 assert.equal(absence.changed,2,'both changes in absence reason must reach the draft handler');
 // Restore present before assessing today's lesson, just as a teacher would.
-enter('حاضر')[1].click();
+enter('حاضر');
 assert(attendanceChoices[0].classList.contains('active'));
 const grade=enter('الحفظ ممتاز');
-assert(grade.length>=3,'grade command requires teacher confirmation');
-assert(grade[0].textContent.includes('أحمد دحمان'),'confirmation must show target student name');
-grade[1].click();
+assert(grade.length>=1,'grade executes immediately without confirmation');
+assert(grade[0].textContent.includes('أحمد دحمان'),'execution result shows target student name');
+
 assert.equal(gradeButtons[0].clicked,1,'confirmed shorthand grade clicked proper memorization control');
 const small=enter('جنب الدرس 5 شكوك');
 assert(small[0].textContent.includes('5'),'teacher sees amount before applying');
-small[1].click();
+
 assert.equal(smallDoubts.value,'5','bare counter means SET, not add five to current one');
 assert.equal(smallDoubts.changed,1,'counter change dispatch persists student draft');
 const incremental=enter('أضف شكين إلى المراجعة الصغرى');
-incremental[1].click();
+
 assert.equal(smallDoubts.value,'7','explicit add increments existing value');
 const major=enter('المراجعة لم يحفظ');
-major[1].click();
+
 assert.equal(gradeButtons[4].clicked,1,'unqualified review edits major review only');
 assert.equal(gradeButtons[2].clicked,0,'major review must NOT edit nearby review');
 const compound=enter('المراجعة 3 أخطاء و4 شكوك');
-compound[1].click();
+
 assert.equal(largeErrors.value,'3');
 assert.equal(largeDoubts.value,'4');
 assert.equal(smallErrors.value,'0','major review must not modify nearby counter');
 enter('أحمد');
 assert(/يطابق اكثر من طالب|يطابق أكثر من طالب|غير محدد/.test(status.textContent),'ambiguous name must not choose a student');
+
+// One spoken turn can contain a student's name, attendance, Quran grades and counters.
+const dictation=api.batchOf('أحمد دحمان، حاضر والحفظ ممتاز وجنب الدرس 5 شكوك، ثم المراجعة 3 أخطاء و4 شكوك',names);
+assert.equal(dictation.length,5,'compound Arabic dictation must produce five commands');
+assert.deepEqual(Array.from(dictation,x=>x.intent.type),['navigate','attendance','grade','metric','metrics']);
+assert.equal(dictation[3].intent.kind,'recentReview');
+assert.equal(dictation[4].intent.changes.length,2,'compound major-review counters stay atomic');
+enter('أحمد دحمان، حاضر والحفظ ممتاز وجنب الدرس 5 شكوك');
+assert(gradeButtons[0].clicked>=2,'batch executes grade automatically after student navigation');
+assert.equal(smallDoubts.value,'5','batch applies recent-review count');
+assert.equal(detail.children.some(x=>x.tag==='button'),false,'batch history must have no confirm or cancel button');
+
 console.log('PASS: natural Arabic commands, attendance and absence, bulk save trigger, read-only guard, Quran grading and verified counters');
