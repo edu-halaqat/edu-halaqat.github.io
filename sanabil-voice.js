@@ -236,7 +236,6 @@ const splitBatch=(spoken,studentNames=[])=>{
    feed(named.remainder,depth+1);
    return;
   }
-  if(recognize(s)){commands.push(s);return}
   for(const match of s.matchAll(starters)){
    const at=match.index, left=s.slice(0,at).trim();
    const right=s.slice(at).trim().replace(/^و(?=\S)/,'');
@@ -244,6 +243,7 @@ const splitBatch=(spoken,studentNames=[])=>{
    if(recognize(left)&&recognize(right)){commands.push(left,right);return}
    if(recognize(left)){commands.push(left);feed(right,depth+1);return}
   }
+  if(recognize(s)){commands.push(s);return}
   if(named&&!named.remainder){commands.push(named.name);return}
   commands.push(s);
  };
@@ -344,7 +344,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const launcher=document.createElement('button');launcher.type='button';launcher.className='button button-soft';
  launcher.textContent='🎙 الموجه الصوتي';launcher.setAttribute('aria-label','تشغيل الموجه الصوتي');
  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
- status.textContent=Recognition?'اضغط الميكروفون ثم قل أمرًا واحدًا. لن يُحفظ أو يُرسل شيء دون تأكيد.':'التعرف الصوتي غير مدعوم في هذا المتصفح. استخدم أزرار الحصيلة المعتادة.';
+ status.textContent=Recognition?'أملِ عدة أوامر بعد الضغط على زر بدء التسجيل؛ تنتهي الحزمة بعد ثانيتين من الصمت.':'اكتب عدة أوامر مفصولة بفاصلة أو ثم.';
  const detail=document.createElement('div');detail.className='sl-voice-command';
  const close=document.createElement('button');close.type='button';close.className='sl-voice-close';close.textContent='✕';
  close.setAttribute('aria-label','إغلاق نافذة الموجه الصوتي');
@@ -357,7 +357,12 @@ function mount(box,{cards,names,ids=[]}={}){
  const manualGo=document.createElement('button');manualGo.type='button';manualGo.className='button button-primary';
  manualGo.textContent='تنفيذ الأمر المكتوب';
  manual.append(manualInput,manualGo);
- panel.append(launcher,close,status,manual,detail);
+ const recordButton=document.createElement('button');recordButton.type='button';
+ recordButton.className='button button-primary sl-voice-record';
+ recordButton.textContent='🎙 بدء التسجيل';
+ recordButton.setAttribute('aria-label','بدء تسجيل مجموعة الأوامر الصوتية');
+ if(!Recognition)recordButton.disabled=true;
+ panel.append(launcher,close,status,manual,recordButton,detail);
  // Portal out of .sl-student-grid/.sl-content: their transform, contain,
  // opacity and local stacking contexts otherwise let the bulk-attendance bar
  // cover the assistant regardless of its z-index.
@@ -368,10 +373,18 @@ function mount(box,{cards,names,ids=[]}={}){
   launcher.title='التعرف الصوتي غير مدعوم في هذا المتصفح؛ يمكنك كتابة الأمر من النافذة نفسها.';
   status.textContent='التعرف على الصوت غير مدعوم هنا. اكتب الأمر أدناه، أو جرّب Chrome مع إذن الميكروفون.';
  }
- let active=-1,recognition=null,pending=null;
+ let active=-1,selectionPinned=false,recognition=null,pending=null;
+ let listening=false,stopping=false,silenceTimer=null,finishTimer=null,fragments=[],liveSpeech='',captureError='';
+ const SILENCE_MS=2100;
+ const clearSpeechTimers=()=>{clearTimeout(silenceTimer);clearTimeout(finishTimer);silenceTimer=finishTimer=null};
+ const abortCapture=()=>{
+  listening=false;stopping=true;clearSpeechTimers();fragments=[];liveSpeech='';
+  const old=recognition;recognition=null;
+  if(old){old.onresult=old.onend=old.onerror=null;try{old.abort?.()}catch{}}
+  recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
+ };
  const collapse=()=>{
-  if(recognition){recognition.abort?.();recognition=null}
-  pending=null;detail.replaceChildren();
+  abortCapture();pending=null;detail.replaceChildren();
   panel.classList.remove('sl-voice-open');
   panel.dataset.expanded='false';launcher.setAttribute('aria-expanded','false');
   status.textContent=Recognition?'اضغط زر الموجه لإدخال أمر جديد.':'اكتب الأمر عند فتح الموجه.';
@@ -381,7 +394,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const shownCards=()=>cards.filter(c=>c.isConnected&&!c.hidden);
  const selectCard=index=>{
   if(index<0||!cards[index]?.isConnected)return false;
-  active=index;
+  active=index;selectionPinned=true;
   const card=cards[index];
   if(card.hidden){
    const searchBox=box.querySelector('#sl-outcome-search-input');
@@ -392,6 +405,8 @@ function mount(box,{cards,names,ids=[]}={}){
   return true;
  };
  const currentCard=()=>{
+  if(selectionPinned&&active>=0&&cards[active]?.isConnected&&!cards[active].hidden)
+   return {card:cards[active],index:active};
   // The teacher scrolls a long outcomes page; a previously selected student
   // must not remain the editing target after moving to another card.
   const focused=document.activeElement?.closest?.('.sl-student-card');
@@ -475,7 +490,7 @@ function mount(box,{cards,names,ids=[]}={}){
   const confirm=document.createElement('button');confirm.type='button';confirm.className='button button-primary';
   confirm.textContent=/save|share/.test(interpretation.type)?'تأكيد الإجراء':'تنفيذ الأمر';
   const cancel=document.createElement('button');cancel.type='button';cancel.className='button button-soft';cancel.textContent='إلغاء';
-  detail.append(summary,confirm,cancel);
+  detail.append(summary);
   cancel.onclick=()=>{pending=null;detail.replaceChildren();status.textContent='ألغي الأمر دون تعديل.'};
   const verifiedClick=(button,check,label)=>{
    if(!button||button.disabled)throw Error(executionError(chosen?.card,button,label));
