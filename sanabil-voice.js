@@ -147,6 +147,7 @@ const studentNameFrom=cmd=>{
 const intentOf=(raw,studentNames=[])=>{
  const cmd=normalize(raw);
  if(!cmd)return {type:'unknown'};
+ if(/(?:احفظ|حفظ|ثبت|اعتمد)\s+(?:التحضير|الحضور)/.test(cmd))return {type:'attendance_save'};
  if(/(?:احفظ|حفظ)\s+(?:الحصيله|حصيله|التقدير)/.test(cmd))
   return {type:'save',share:/واتساب|ارسل|شارك/.test(cmd)};
  if(/(?:ارسل|شارك)\s+.*(?:ولي الامر|واتساب|الحصيله)/.test(cmd))
@@ -184,7 +185,8 @@ const intentOf=(raw,studentNames=[])=>{
  }
  return {type:'unknown'};
 };
-const labelOf=i=>i.type==='attendance_all'?'تحضير جميع الطلاب حاضرين (دون حفظ بعد)'
+const labelOf=i=>i.type==='attendance_save'?'حفظ تحضير الحلقة والتحقق من استلام الخادم'
+ :i.type==='attendance_all'?'تحضير جميع الطلاب حاضرين (دون حفظ بعد)'
  :i.type==='attendance'?'تسجيل '+({present:'حاضر',absent:'غائب',late:'متأخر',excused:'مستأذن'}[i.status])+(i.reason?' '+(i.reason==='excused'?'بعذر':'دون عذر'):'')
  :i.type==='navigate'?'الانتقال إلى '+i.name
  :i.type==='grade'?'تسجيل '+i.grade+' في '+({memorization:'الحفظ',recentReview:'المراجعة الصغرى',review:'المراجعة الكبرى'}[i.kind])
@@ -302,12 +304,21 @@ function mount(box,{cards,names,ids=[]}={}){
   return true;
  };
  const currentCard=()=>{
-  if(active>=0&&cards[active]?.isConnected)return {card:cards[active],index:active};
+  // The teacher scrolls a long outcomes page; a previously selected student
+  // must not remain the editing target after moving to another card.
   const focused=document.activeElement?.closest?.('.sl-student-card');
-  if(focused&&cards.includes(focused)){active=cards.indexOf(focused);return {card:focused,index:active}}
-  const anchor=Math.max(90,Math.min((window.innerHeight||700)*.38,350));
-  const selected=shownCards().find(c=>{const r=c.getBoundingClientRect();return r.top<=anchor&&r.bottom>=anchor});
-  if(selected){active=cards.indexOf(selected);return {card:selected,index:active}}
+  if(focused&&cards.includes(focused)&&!focused.hidden){
+   active=cards.indexOf(focused);return {card:focused,index:active}
+  }
+  const anchor=Math.max(100,Math.min((window.innerHeight||700)*.38,350));
+  const inViewport=c=>{
+   if(!c?.isConnected||c.hidden)return false;
+   const rect=c.getBoundingClientRect?.();
+   return !!rect&&rect.top<=anchor&&rect.bottom>=anchor;
+  };
+  const candidate=shownCards().find(inViewport);
+  if(candidate){active=cards.indexOf(candidate);return {card:candidate,index:active}}
+  if(active>=0&&inViewport(cards[active]))return {card:cards[active],index:active};
   return null;
  };
  const matchStudent=name=>{
@@ -317,76 +328,152 @@ function mount(box,{cards,names,ids=[]}={}){
   return matches.length===1?matches[0].i:null;
  };
  const targetKey=(card,kind)=>{
-  const buttons=[...card.querySelectorAll('[data-grade-key]')];
-  const keys=[...new Set(buttons.map(b=>b.dataset.gradeKey).filter(Boolean))];
+  const gradeButtons=[...card.querySelectorAll('[data-grade-key]')];
+  const metricButtons=[...card.querySelectorAll('[data-metric-count]')];
+  const keys=[...new Set([...gradeButtons.map(b=>b.dataset.gradeKey),...metricButtons.map(b=>b.dataset.metricKey)].filter(Boolean))];
   if(kind==='review'){
    const review=keys.filter(k=>k.startsWith('review:'));
    if(review.length!==1)throw Error('لدى الطالب عدة مراجعات كبرى أو لا توجد مراجعة؛ اختر المراجعة المطلوبة يدويًا.');
    return review[0];
   }
+  if(!keys.includes(kind))throw Error('لا يوجد مقرر '+(kind==='memorization'?'للحفظ الجديد':'للمراجعة الصغرى')+' لهذا الطالب في التاريخ المحدد.');
   return kind;
+ };
+ const attendanceButtons=card=>[...card.querySelectorAll('[data-att-student],[data-tl-att]')];
+ const getAttendance=card=>attendanceButtons(card).find(b=>b.classList?.contains('active'))?.dataset?.attValue
+  ||attendanceButtons(card).find(b=>b.classList?.contains('active'))?.dataset?.tlAttValue||null;
+ const executionError=(card,element,label)=>{
+  if(element?.disabled){
+   const state=getAttendance(card);
+   if(['absent','excused'].includes(state))return 'الطالب مسجل '+(state==='absent'?'غائبًا':'مستأذنًا')+'؛ لا يمكن تقدير الدرس حتى تغيير الحضور.';
+   return 'خانة '+label+' معطلة لهذا الطالب أو اليوم؛ راجع تصنيف اليوم ومقرر الطالب وصلاحية الجلسة.';
+  }
+  return 'تعذر العثور على خانة '+label+' للطالب المحدد؛ اختر الطالب ومقررًا موجودًا اليوم ثم أعد المحاولة.';
  };
  const prepare=interpretation=>{
   pending=interpretation;detail.replaceChildren();
-  if(interpretation.type==='unknown'){status.textContent=interpretation.reason||'لم أتعرف على الأمر. جرّب «أحمد دحمان» أو «الحفظ ممتاز» أو «جنب الدرس 5 شكوك».';pending=null;return}
+  if(interpretation.type==='unknown'){
+   status.textContent=interpretation.reason||'لم أتعرف على الأمر. جرّب «أحمد دحمان» أو «الحفظ ممتاز» أو «جنب الدرس 5 شكوك».';
+   pending=null;return;
+  }
   if(interpretation.type==='navigate'){
    const index=matchStudent(interpretation.name);
-   if(index===null){status.textContent='الاسم غير محدد أو يطابق أكثر من طالب؛ انطق الاسم الكامل بوضوح.';return}
+   if(index===null){status.textContent='الاسم غير محدد أو يطابق أكثر من طالب؛ انطق الاسم الكامل بوضوح.';pending=null;return}
    selectCard(index);status.textContent='انتقلت إلى '+names[index]+' دون تعديل أي حصيلة.';pending=null;return;
   }
-  const chosen=currentCard();
-  if(!chosen){status.textContent='حدد بطاقة الطالب بالانتقال إليه أولًا، ثم انطق أمر التقدير.';return}
-  const {card}=chosen;
-  const summary=document.createElement('p');summary.textContent=names[chosen.index]+' — '+labelOf(interpretation);
+  let chosen=null;
+  if(interpretation.type==='attendance'&&interpretation.target.scope==='student'){
+   const index=interpretation.target.index;
+   if(!cards[index]?.isConnected||cards[index].hidden){
+    status.textContent='بطاقة الطالب المطلوبة غير ظاهرة؛ انتقل إليه أولًا.';pending=null;return;
+   }
+   chosen={card:cards[index],index};
+  }else if(interpretation.type!=='attendance_all'&&interpretation.type!=='attendance_save'){
+   chosen=currentCard();
+   if(!chosen){
+    status.textContent='حدد الطالب أولًا بذكر اسمه، أو انتقل إلى بطاقته. لن أختار طالبًا آخر بالنيابة عنك.';
+    pending=null;return;
+   }
+  }
+  const summary=document.createElement('p');
+  summary.textContent=(chosen?names[chosen.index]+' — ':'الحلقة — ')+labelOf(interpretation);
   const confirm=document.createElement('button');confirm.type='button';confirm.className='button button-primary';
-  confirm.textContent=interpretation.type==='save'?'تأكيد الحفظ':'تنفيذ الأمر';
+  confirm.textContent=/save|share/.test(interpretation.type)?'تأكيد الإجراء':'تنفيذ الأمر';
   const cancel=document.createElement('button');cancel.type='button';cancel.className='button button-soft';cancel.textContent='إلغاء';
   detail.append(summary,confirm,cancel);
-  cancel.onclick=()=>{pending=null;detail.replaceChildren();status.textContent='ألغي الأمر.'};
+  cancel.onclick=()=>{pending=null;detail.replaceChildren();status.textContent='ألغي الأمر دون تعديل.'};
+  const verifiedClick=(button,check,label)=>{
+   if(!button||button.disabled)throw Error(executionError(chosen?.card,button,label));
+   button.click();
+   if(check&&!check())throw Error('لم يؤكد زر '+label+' تغيير الخانة. لم أعتبر الأمر منفذًا؛ راجع البطاقة.');
+  };
   confirm.onclick=()=>{
    if(pending!==interpretation)return;
+   confirm.disabled=true;
    try{
-    const i=interpretation;pending=null;
-    if(i.type==='grade'){
+    const i=interpretation,card=chosen?.card;
+    if(card&&!card.isConnected)throw Error('أعيد تحميل بطاقات الطلاب. حدّد الطالب مجددًا قبل التعديل.');
+    if(i.type==='attendance'){
+     const button=attendanceButtons(card).find(b=>(b.dataset.attValue||b.dataset.tlAttValue)===i.status);
+     verifiedClick(button,()=>button.classList?.contains('active'),'حضور الطالب');
+     if(i.status==='absent'){
+      const reason=card.querySelector('[data-quran-absence-reason],[data-tl-absence-reason]');
+      if(!reason)throw Error('لم أجد اختيار نوع الغياب في البطاقة؛ راجع حضور الطالب.');
+      if(i.reason){
+       reason.value=i.reason;
+       reason.dispatchEvent(new Event('change',{bubbles:true}));
+       if(reason.value!==i.reason)throw Error('لم يتأكد نوع الغياب؛ اختره يدويًا.');
+      }
+      status.textContent=i.reason?'تم تسجيل غياب الطالب ونوعه في المسودة. احفظ التحضير لتثبيته.':'تم تسجيل غياب الطالب في المسودة. اختر غيابًا بعذر أو بدون عذر ثم احفظ التحضير.';
+     }else status.textContent='تم تحديد حضور الطالب «'+labelOf(i)+'» في المسودة. احفظ التحضير لتثبيته.';
+    }else if(i.type==='attendance_all'){
+     const button=box.querySelector('[data-action="all-present"],[data-action="tl-all-present"]');
+     if(!button||button.disabled)throw Error('زر تحضير جميع الطلاب غير متاح لهذه الجلسة.');
+     button.click();status.textContent='بدأ تحديد جميع الطلاب حاضرين. راجع حالات الاستثناء، ثم احفظ التحضير.';
+    }else if(i.type==='attendance_save'){
+     const button=box.querySelector('[data-action="save-attendance"],[data-action="tl-save-attendance"]');
+     if(!button||button.disabled)throw Error('زر حفظ التحضير غير متاح لهذه الجلسة.');
+     button.click();status.textContent='أُرسل طلب حفظ التحضير؛ انتظر تأكيد قاعدة البيانات أو إشعار المزامنة.';
+    }else if(i.type==='grade'){
      const gradeButtons=[...card.querySelectorAll('[data-grade-key]')];
-     const talqeenButtons=!gradeButtons.length&&i.kind==='memorization'
+     const talaqqinButtons=!gradeButtons.length&&i.kind==='memorization'
       ?[...card.querySelectorAll('[data-tl-grade-student]')]:[];
      const key=gradeButtons.length?targetKey(card,i.kind):null;
      const button=gradeButtons.length
       ?gradeButtons.find(b=>b.dataset.gradeKey===key&&normalize(b.dataset.gradeValue)===normalize(i.grade))
-      :talqeenButtons.find(b=>normalize(b.dataset.tlGradeValue)===normalize(i.grade));
-     if(!button||button.disabled)throw Error('خانة التقدير غير متاحة لهذا الطالب أو اليوم.');
-     button.click();status.textContent='سُجل التقدير في المسودة. احفظ الحصيلة لتثبيته.';
+      :talaqqinButtons.find(b=>normalize(b.dataset.tlGradeValue)===normalize(i.grade));
+     verifiedClick(button,()=>button.classList?.contains('active'),'تقدير '+i.grade);
+     status.textContent='تم تسجيل تقدير «'+i.grade+'» في مسودة الطالب «'+names[chosen.index]+'». احفظ الحصيلة لتثبيته.';
     }else if(i.type==='metric'||i.type==='metrics'){
      const key=targetKey(card,i.kind),changes=i.type==='metrics'?i.changes:[{metric:i.metric,count:i.count}];
-     const pendingInputs=changes.map(item=>{
+     const inputs=changes.map(item=>{
       const input=[...card.querySelectorAll('[data-metric-count]')].find(b=>b.dataset.metricKey===key&&b.dataset.metricField===item.metric);
-      if(!input||input.disabled)throw Error('خانة '+item.metric+' غير متاحة لهذا المقرر.');
+      if(!input||input.disabled)throw Error(executionError(card,input,'عداد '+item.metric));
       const current=Number(input.value||0);
+      if(!Number.isFinite(current))throw Error('قيمة العداد الحالية غير صالحة.');
       const value=i.mode==='add'?current+item.count:item.count;
-      return {input,value:Math.min(100,Math.max(0,value))};
+      if(value<0||value>100)throw Error('العدد الناتج خارج المدى المسموح (0–100).');
+      return {input,value};
      });
-     // Prevalidate all targets before editing any field.
-     pendingInputs.forEach(item=>{item.input.value=String(item.value);item.input.dispatchEvent(new Event('change',{bubbles:true}))});
-     status.textContent='تم تعديل العدّادات في مسودة الطالب. الحفظ لم يبدأ.';
+     // Validate every field before touching any counter.
+     inputs.forEach(({input,value})=>{
+      input.value=String(value);
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+     });
+     if(inputs.some(({input,value})=>Number(input.value)!==value))
+      throw Error('لم يتأكد تحديث أحد العدادات. راجع القيم قبل الحفظ.');
+     status.textContent='تم تحديث '+inputs.length+' من العدادات في مسودة الطالب. احفظ الحصيلة لتثبيتها.';
     }else if(i.type==='save'){
-     const btn=card.querySelector('[data-action^="save-student-"],[data-action^="tl-save-"]');
-     if(!btn||btn.disabled)throw Error('الحفظ غير متاح؛ تحقق من الحضور والتقديرات.');
-     btn.click();status.textContent='بدأ حفظ الحصيلة. انتظر رسالة تأكيد الخادم قبل المشاركة.';
-     if(i.share){const share=document.createElement('button');share.type='button';share.className='button button-soft';share.textContent='مشاركة ولي الأمر بعد تأكيد الحفظ';
-       share.onclick=()=>{if(!/تم الحفظ والتحقق|حصيلة محفوظة ومؤكدة|تم حفظ حصيلة/.test(card.querySelector('[data-save-status]')?.textContent||box.querySelector('.sl-message')?.textContent||'')){status.textContent='لم تظهر رسالة تأكيد الحفظ بعد؛ انتظر ولا ترسل حصيلة غير مؤكدة.';return}
-       const wa=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');if(wa&&!wa.disabled)wa.click();else status.textContent='استخدم زر المشاركة من بطاقة الطالب.'};
-       detail.replaceChildren(share);return;
+     const button=card.querySelector('[data-action^="save-student-"],[data-action^="tl-save-"]');
+     if(!button||button.disabled)throw Error(executionError(card,button,'حفظ الحصيلة'));
+     button.click();
+     status.textContent='بدأ حفظ الحصيلة. لا تعتبرها محفوظة حتى يظهر تأكيد الخادم في بطاقة الطالب.';
+     if(i.share){
+      const share=document.createElement('button');share.type='button';share.className='button button-soft';
+      share.textContent='مشاركة ولي الأمر بعد تأكيد الحفظ';
+      share.onclick=()=>{
+       const message=card.querySelector('[data-save-status]')?.textContent||box.querySelector('.sl-message')?.textContent||'';
+       if(!/حصيلة محفوظة ومؤكدة|تم حفظ حصيلة|تم تحديث حصيلة|تم الحفظ والتحقق/.test(message)){
+        status.textContent='لم يصل تأكيد الحفظ؛ لن أفتح مشاركة حصيلة غير مؤكدة.';return;
+       }
+       const wa=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
+       if(wa&&!wa.disabled){wa.click();status.textContent='راجع مشاركة الحصيلة في نافذتها وأرسلها بنفسك.'}
+       else status.textContent='استخدم زر المشاركة من بطاقة الطالب.';
+      };
+      detail.replaceChildren(share);pending=null;return;
      }
     }else if(i.type==='share'){
      const share=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
      if(!share||share.disabled)throw Error('المشاركة غير متاحة؛ احفظ الحصيلة أولًا.');
-     share.click();status.textContent='فُتحت المشاركة؛ راجع الرسالة وأرسلها من واتساب بنفسك.';
+     share.click();status.textContent='فُتحت المشاركة؛ راجع المحتوى وأرسله من واتساب بنفسك.';
     }
-    detail.replaceChildren();
-   }catch(e){status.textContent=e.message||'تعذر تنفيذ الأمر. راجع الخانة المطلوبة.'}
+    pending=null;detail.replaceChildren();
+   }catch(error){
+    status.textContent=error?.message||'تعذر تنفيذ الأمر؛ لم أعتبره ناجحًا.';
+    confirm.disabled=false;
+   }
   };
-  status.textContent='تحقق من اسم الطالب والتقدير أو العدد قبل التأكيد. يمكنك الاكتفاء بالاسم أو عبارة مثل «الحفظ ممتاز».';
+  status.textContent='راجع اسم الطالب والإجراء قبل التأكيد. الأوامر تعدّل المسودة، والحفظ يحتاج تأكيد الخادم.';
  };
  const submitWrittenCommand=event=>{
   event?.preventDefault?.();event?.stopPropagation?.();
