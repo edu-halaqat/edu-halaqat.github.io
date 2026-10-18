@@ -198,6 +198,17 @@ const labelOf=i=>i.type==='attendance_save'?'حفظ تحضير الحلقة وا
 // The microphone entry is visible on the authenticated home screen, even
 // before a circle is opened. Detailed student commands need a loaded session.
 let entryObserver=null;
+let mountedSession=null;
+function disposeMountedSession(){
+ const instance=mountedSession;
+ if(!instance)return;
+ mountedSession=null;
+ instance.observer?.disconnect?.();
+ instance.stop?.();
+ instance.panel?.remove?.();
+ const launcher=document.getElementById('sanabil-voice-entry');
+ if(launcher)launcher.hidden=false;
+}
 function showLauncher(){
  if(!document.body||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return null;
  let entry=document.getElementById('sanabil-voice-entry');
@@ -252,9 +263,12 @@ function showLauncher(){
  return entry;
 }
 function mount(box,{cards,names,ids=[]}={}){
- if(!box?.isConnected||!cards?.length)return;
- const existing=box.querySelector('[data-sanabil-voice]');
- if(existing)return;
+ if(!box?.isConnected||!cards?.length||!document.body)return;
+ // At most one assistant per classroom session. Rendering a new circle/date
+ // disposes the former portal, even if the .sl-data wrapper is reused.
+ if(mountedSession?.box===box&&mountedSession.panel?.isConnected
+  &&mountedSession.cards?.[0]===cards[0]&&cards.every(card=>card.isConnected))return;
+ disposeMountedSession();
  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  const panel=document.createElement('section');panel.className='sl-voice-panel';panel.dataset.sanabilVoice='true';
  const launcher=document.createElement('button');launcher.type='button';launcher.className='button button-soft';
@@ -274,8 +288,10 @@ function mount(box,{cards,names,ids=[]}={}){
  manualGo.textContent='تنفيذ الأمر المكتوب';
  manual.append(manualInput,manualGo);
  panel.append(launcher,close,status,manual,detail);
- const search=box.querySelector('.sl-outcome-student-search')||box;
- search.append(panel);
+ // Portal out of .sl-student-grid/.sl-content: their transform, contain,
+ // opacity and local stacking contexts otherwise let the bulk-attendance bar
+ // cover the assistant regardless of its z-index.
+ document.body.append(panel);
  const entry=document.getElementById('sanabil-voice-entry');if(entry)entry.hidden=true;
  if(!Recognition){
   launcher.title='التعرف الصوتي غير مدعوم في هذا المتصفح؛ يمكنك كتابة الأمر من النافذة نفسها.';
@@ -511,6 +527,23 @@ function mount(box,{cards,names,ids=[]}={}){
   recognition.onend=()=>{recognition=null;launcher.textContent='🎙 الموجه الصوتي'};
   try{recognition.start()}catch(e){recognition=null;launcher.textContent='🎙 الموجه الصوتي';status.textContent='لم يتوفر الميكروفون: '+e.message}
  };
+ const instance={box,cards,panel,observer:null,stop:()=>{
+  try{recognition?.abort?.()}catch{}
+  recognition=null;
+  pending=null;
+ }};
+ mountedSession=instance;
+ // A detached or replaced set of student cards means the teacher has left
+ // this session. Remove the global portal and restore the compact home mic.
+ if(window.MutationObserver){
+  instance.observer=new window.MutationObserver(()=>{
+   if(mountedSession!==instance)return;
+   if(!box.isConnected||!cards.some(card=>card.isConnected))disposeMountedSession();
+  });
+  instance.observer.observe(box,{childList:true,subtree:true});
+  const shell=box.closest?.('.sl-live')||document.body;
+  if(shell!==box)instance.observer.observe(shell,{childList:true,subtree:true});
+ }
 }
 window.SanabilVoice={mount,showLauncher,intentOf,normalize,countOf,attendanceOf};
 })();
