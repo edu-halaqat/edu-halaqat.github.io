@@ -33,7 +33,7 @@ async function runProbes(tasks,{signal,onUpdate=()=>{},rounds=3,timeout=12000}={
  }
 }
 // True user-operated measurements only; neither student identifiers nor grades are kept.
-const REAL_KEY='sanabil-real-timings-v1',REAL_KINDS=['open','switch','save_student','save_all','save_talaqqin'];
+const REAL_KEY='sanabil-real-timings-v1',REAL_KINDS=['open','switch','save_student','save_student_access','save_student_write','save_student_verify','save_all','save_talaqqin'];
 const realSamples=(()=>{
  try{
   const parsed=JSON.parse(sessionStorage.getItem(REAL_KEY)||'{}');
