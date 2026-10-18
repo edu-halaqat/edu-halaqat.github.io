@@ -1406,3 +1406,28 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
  .mobile-nav>button{min-width:0!important;max-width:100%!important}
 }
 @media print{.sl-voice-entry,.sl-voice-panel{display:none!important}}
+
+
+/* 13.8.19: the classroom voice assistant is a body-level portal. It must not
+   compete with the student grid or collective attendance stacking contexts. */
+@media screen{
+ body>.sl-voice-panel{
+  position:fixed!important;
+  z-index:2147482500!important;
+  isolation:isolate!important;
+  pointer-events:auto!important;
+  transform:none!important;
+  contain:none!important;
+ }
+ body>.sl-voice-panel.sl-voice-open{
+  z-index:2147482500!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+ }
+ body>.sl-voice-panel:not(.sl-voice-open){
+  z-index:2147482500!important;
+ }
+ body>.sl-voice-entry{z-index:2147482400!important}
+}
+@media print{body>.sl-voice-panel{display:none!important}}
