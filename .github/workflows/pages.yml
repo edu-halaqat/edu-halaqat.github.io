@@ -45,6 +45,8 @@ jobs:
           node tests/sanabil-performance-real.cjs
           node tests/sanabil-student-float-nav.cjs
           node --check sanabil-voice.js
+          node --check sanabil-voice-global.js
+          node tests/sanabil-voice-global.cjs
           node tests/sanabil-voice-nomination.cjs
           node tests/sanabil-natural-commands.cjs
           node --check sanabil-updater.js

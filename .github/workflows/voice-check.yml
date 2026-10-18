@@ -1,0 +1,23 @@
+name: Voice assistant branch regression
+on:
+  push:
+    branches: [voice-unified-20261019]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  voice-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and voice regression tests
+        run: |
+          node --check sanabil-voice.js
+          node --check sanabil-voice-global.js
+          node tests/sanabil-voice-global.cjs
+          node tests/sanabil-natural-commands.cjs
+          node tests/sanabil-voice-responsive.cjs
+          node tests/sanabil-update-voice-entry.cjs
+          node tests/sanabil-teacher-home-voice.cjs
+          node tests/sanabil-voice-nomination.cjs
