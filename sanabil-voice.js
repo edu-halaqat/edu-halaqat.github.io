@@ -111,6 +111,33 @@ const matchingStudents=(studentNames,rawName)=>{
   return true;
  }):[];
 };
+// Attendance is independent from Quran grades. Explicit absence reason is needed
+// before a saved absence; shorthand "حاضر" applies to the selected student.
+const attendanceOf=raw=>{
+ const text=normalize(raw);
+ if(/(?:الغياب|غائب|غايب|غاب|غياب)/.test(text)){
+  return {status:'absent',reason:/بدون عذر|بلا عذر|غير مبرر/.test(text)?'unexcused':/بعذر|ب عذر|معذور/.test(text)?'excused':null};
+ }
+ if(/مستاذن|استئذان|استاذن|مستأذن/.test(text))return {status:'excused',reason:null};
+ if(/متاخر|متاخرين|تاخر|تأخر/.test(text))return {status:'late',reason:null};
+ if(/حاضر|الحضور|حضر|حاضرين|تحضير|احضر/.test(text))return {status:'present',reason:null};
+ return null;
+};
+const attendeeTarget=(text,names)=>{
+ const cmd=normalize(text);
+ const all=/جميع|الكل|الطلاب كلهم|كافه الطلاب|كل الطلاب|كل الطلبه|الجميع/.test(cmd);
+ if(all)return {scope:'all'};
+ const clean=cmd
+  .replace(/(?:بلا عذر|بدون عذر|غير مبرر|بعذر|معذور)/g,' ')
+  .replace(/(?:الطلاب|الطالب|الطالبه|الغياب|غائب|غايب|غاب|غياب|حاضر|الحضور|حضر|حاضرين|تحضير|احضر|مستاذن|استئذان|استاذن|متاخرين|متاخر|تاخر)/g,' ')
+  .replace(/\b(?:سجل|ضع|اجعل|حدد|ادخل|اثبت|قيد|علم|الان|اليوم|بالنسبه|حاله|حالته|للطالب)\b/g,' ')
+  .replace(/\s+/g,' ').trim();
+ if(clean.length<2)return {scope:'current'};
+ const matches=matchingStudents(names,clean);
+ if(matches.length===1)return {scope:'student',name:matches[0].name,index:matches[0].i};
+ if(matches.length>1)return {scope:'ambiguous',name:clean};
+ return {scope:'unknown',name:clean};
+};
 const studentNameFrom=cmd=>{
  const name=normalize(cmd).replace(/^(?:(?:انتقل|اذهب|روح|افتح|اعرض|اختار|اختر|هات|جيب)(?:\s+لي)?(?:\s+الي|\s+عند|\s+ل)?\s*)/,'')
   .replace(/^(?:حصيله\s+)?(?:الطالب|الطالبه)\s+/,'')
@@ -125,6 +152,18 @@ const intentOf=(raw,studentNames=[])=>{
  if(/(?:ارسل|شارك)\s+.*(?:ولي الامر|واتساب|الحصيله)/.test(cmd))
   return {type:'share'};
  const kind=categoryOf(cmd),grade=gradeOf(cmd);
+ // Attendance names are only interpreted after excluding lesson-grade phrases.
+ const attendance=attendanceOf(cmd);
+ if(attendance&&!kind&&!grade){
+  const target=attendeeTarget(cmd,studentNames);
+  if(target.scope==='all'){
+   if(attendance.status==='present')return {type:'attendance_all',status:'present'};
+   return {type:'unknown',reason:'تغيير حضور جميع الطلاب إلى غياب أو استئذان يحتاج تحديدًا فرديًا.'};
+  }
+  if(target.scope==='unknown'||target.scope==='ambiguous')
+   return {type:'unknown',reason:'لم أحدد الطالب المقصود؛ انطق الاسم الكامل أو انتقل إلى بطاقته أولًا.'};
+  return {type:'attendance',...attendance,target};
+ }
  const metricMention=metricOf(cmd),amounts=kind&&metricMention?metricParts(cmd):null;
  if(kind&&grade){
   if(metricMention)return {type:'unknown',reason:'اطلب التقدير والعدادات في أمرين منفصلين لتجنب الخلط.'};
@@ -145,7 +184,9 @@ const intentOf=(raw,studentNames=[])=>{
  }
  return {type:'unknown'};
 };
-const labelOf=i=>i.type==='navigate'?'الانتقال إلى '+i.name
+const labelOf=i=>i.type==='attendance_all'?'تحضير جميع الطلاب حاضرين (دون حفظ بعد)'
+ :i.type==='attendance'?'تسجيل '+({present:'حاضر',absent:'غائب',late:'متأخر',excused:'مستأذن'}[i.status])+(i.reason?' '+(i.reason==='excused'?'بعذر':'دون عذر'):'')
+ :i.type==='navigate'?'الانتقال إلى '+i.name
  :i.type==='grade'?'تسجيل '+i.grade+' في '+({memorization:'الحفظ',recentReview:'المراجعة الصغرى',review:'المراجعة الكبرى'}[i.kind])
  :i.type==='metrics'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.changes.map(c=>c.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[c.metric])).join(' و')
  :i.type==='metric'?(i.mode==='add'?'إضافة ':'تسجيل ')+i.count+' '+({errors:'أخطاء',doubts:'شكوك',tajweed:'ملاحظات تجويد'}[i.metric])
@@ -376,5 +417,5 @@ function mount(box,{cards,names,ids=[]}={}){
   try{recognition.start()}catch(e){recognition=null;launcher.textContent='🎙 الموجه الصوتي';status.textContent='لم يتوفر الميكروفون: '+e.message}
  };
 }
-window.SanabilVoice={mount,showLauncher,intentOf,normalize,countOf};
+window.SanabilVoice={mount,showLauncher,intentOf,normalize,countOf,attendanceOf};
 })();
