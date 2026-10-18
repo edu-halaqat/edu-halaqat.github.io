@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.26';
+window.__SanabilLiveBuild='20261018-v13.8.27';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2797,13 +2797,42 @@ async function plansPage(root){
  await load()
 }
 
+// Preserve a teacher's chosen circle/date between the attendance and outcomes tabs.
+// A fingerprint never assumes an arbitrary circle when multiple assignments exist.
+const attendanceFunctionError=async error=>{
+ let message=String(error?.message||'تعذر قراءة استجابة خدمة الحضور.');
+ const response=error?.context;
+ if(response){
+  try{
+   const body=typeof response.clone==='function'?await response.clone().json():await response.json?.();
+   const reason=body?.error||body?.message;
+   if(typeof reason==='string'&&reason.trim())message=reason.trim();
+   if(body?.code&&/^[A-Z0-9_]{2,16}$/.test(String(body.code)))message+=' (رمز '+body.code+')';
+  }catch{}
+ }
+ if(message==='Edge Function returned a non-2xx status code')
+  message='رفض الخادم تسجيل البصمة؛ راجع شرط الوقت ودقة الموقع والنطاق، ثم أعد المحاولة.';
+ return message;
+};
 async function attendancePage(root){
- const [a,l]=await Promise.all([access(),lookups()]),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
- root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles)}${field('التاريخ','date','date',today())}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent')+button('طلبات البصمة المؤجلة','offline-claims'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
+ const [a,l,auth]=await Promise.all([access(),lookups(),sb().auth.getSession()]),manager=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),teacher=a.roles.includes('teacher');
+ const accountId=auth?.data?.session?.user?.id||'';
+ const key=accountId?'sanabil_attendance_selected_circle_v1:'+accountId:null;
+ const dateKey=accountId?'sanabil_attendance_selected_date_v1:'+accountId:null;
+ const saved=key?localStorage.getItem(key):'';
+ const outcomeChoice=accountId?localStorage.getItem('sanabil_outcome_selected_circle_v1:'+accountId):'';
+ const preferred=l.circles.find(c=>c.id===saved)||l.circles.find(c=>c.id===outcomeChoice)||(l.circles.length===1?l.circles[0]:null);
+ const initialDate=(dateKey&&sessionStorage.getItem(dateKey))||today();
+ root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles,preferred?.id||'')}${field('التاريخ','date','date',initialDate)}${teacher?button('تسجيل حضوري','in')+button('تسجيل انصرافي','out'):''}${manager?button('إعدادات بصمة الحلقة','fingerprint-settings')+button('اعتماد الغائبين','mark-absent')+button('طلبات البصمة المؤجلة','offline-claims'):''}${button('تحديث','load')}</div><div class="sl-window"></div><div class="sl-data"></div>`;
  const selected=()=>l.circles.find(c=>c.id===val(root,'circle'));
+ const rememberSelection=()=>{
+  const circle=val(root,'circle'),date=val(root,'date');
+  if(key&&circle)localStorage.setItem(key,circle);
+  if(dateKey&&date)sessionStorage.setItem(dateKey,date);
+ };
  const getWindow=async c=>{
   if(!c?.mosque_id)return null;
-  const load=async()=>{const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(error.message);if(data?.error)throw Error(data.error);return data.window};
+  const load=async()=>{const {data,error}=await sb().functions.invoke('sanabil-attendance',{body:{action:'window',mosqueId:c.mosque_id,circleId:c.id}});if(error)throw Error(await attendanceFunctionError(error));if(data?.error)throw Error(data.error);return data.window};
   if(!window.SanabilOffline)return load();
   try{return await window.SanabilOffline.readThrough('fingerprint:window:'+c.id,load)}
   catch(error){if(!navigator.onLine)return null;throw error}
@@ -2813,7 +2842,8 @@ async function attendancePage(root){
  const teacherWhatsAppButton=(i,phone)=>`<button type="button" class="button button-soft sl-teacher-whatsapp" data-action="msg-${i}" ${waPhone(phone).length<10?'disabled title="راجع رقم جوال المعلم في بيانات المعلمين أولًا"':''} aria-label="فتح رسالة واتساب للمعلم"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>`;
  let lastWindow=null,lastAttendance=[];
  const load=async()=>{
-  const c=selected(),date=val(root,'date');if(!c||!date){root.querySelector('.sl-data').innerHTML='<p>اختر الحلقة والتاريخ.</p>';return}
+  const c=selected(),date=val(root,'date');if(!c||!date){root.querySelector('.sl-window').replaceChildren();root.querySelector('.sl-data').innerHTML='<p>اختر الحلقة والتاريخ.</p>';return}
+  rememberSelection();
   const [att,win]=await Promise.all([
    rows('attendance','*',{circle_id:c.id,date_key:date}).catch(e=>{if(!navigator.onLine)return [];throw e}),
    getWindow(c)
@@ -2860,10 +2890,14 @@ async function attendancePage(root){
    },kind==='in'?'طلب حضور دون اتصال':'طلب انصراف دون اتصال');
    msg(root,'انقطع الاتصال؛ حُفظ طلب البصمة محليًا للمراجعة دون اعتماده كحضور.');return;
   }
-  let t=error.message;try{const j=await error.context?.json?.();t=j?.error||j?.message||t}catch{}
-  throw Error(t==='Edge Function returned a non-2xx status code'?'تعذر تنفيذ الطلب؛ تحقق من الوقت والموقع ثم أعد المحاولة.':t)
+  throw Error(await attendanceFunctionError(error))
  }
- if(data?.error)throw Error(data.error);await load();const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';msg(root,(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra)})}
+ if(data?.error)throw Error(data.error);
+ const extra=kind==='in'&&data.lateMinutes>0?' (متأخر '+data.lateMinutes+' دقيقة)':kind==='in'&&data.earlyArrivalMinutes>0?' (حضور مبكر '+data.earlyArrivalMinutes+' دقيقة)':'';
+ const success=(kind==='in'?'تم تسجيل الحضور':'تم تسجيل الانصراف')+extra+(data.duplicate?'؛ التسجيل موجود مسبقًا.':'');
+ msg(root,success);
+ try{await load()}catch(refreshError){msg(root,success+' تعذّر تحديث كشف الحلقة فقط؛ اضغط تحديث دون إعادة البصمة. '+(refreshError?.message||''),true)}
+ })}
  if(manager){
   action(root,root.querySelector('[data-action="offline-claims"]'),async()=>{
    const c=selected();if(!c)throw Error('اختر الحلقة أولًا');
@@ -2918,6 +2952,12 @@ async function attendancePage(root){
   action(root,root.querySelector('[data-action="mark-absent"]'),async()=>{const c=selected(),date=val(root,'date');if(!c)throw Error('اختر الحلقة');if(!lastWindow)await load();const day=new Date(date+'T12:00:00+03:00').getDay(),working=lastWindow?.weekdays?.map(Number).includes(day);if(!working)throw Error('هذا اليوم مستبعد من أيام الدوام.');const due=date<today()||(date===today()&&minuteNow()>tmin(lastWindow.start)+Number(lastWindow.absenceAfterMinutes||60));if(!due)throw Error('لم يحن وقت اعتماد الغياب بعد.');const teachers=teachersForCircle(l,c.id),missing=teachers.filter(t=>!lastAttendance.some(r=>r.teacher_id===t.id));if(!missing.length)throw Error('لا يوجد معلمون بلا سجل حضور.');if(!confirm('اعتماد '+missing.length+' معلم/معلمين غائبين؟'))return;for(const t of missing)await rpc('set_teacher_attendance_override',{p_teacher_id:t.id,p_date:date,p_status:'absent',p_note:'غياب لعدم تسجيل الحضور بعد الوقت المحدد'});await load();msg(root,'تم اعتماد حالات الغياب.')});
   action(root,root.querySelector('[data-action="fingerprint-settings"]'),async()=>{const c=selected();if(!c?.mosque_id)throw Error('اختر حلقة مرتبطة بمسجد');const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single()),cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{},d=modal('إعدادات بصمة '+m.name),prayers=[{id:'Fajr',name:'الفجر'},{id:'Dhuhr',name:'الظهر'},{id:'Asr',name:'العصر'},{id:'Maghrib',name:'المغرب'},{id:'Isha',name:'العشاء'}];d.innerHTML=`<form><div class="form-grid two">${field('خط العرض','latitude','number',m.latitude,'step="any" required')}${field('خط الطول','longitude','number',m.longitude,'step="any" required')}${field('النطاق بالمتر','radius','number',m.radius_meters||100,'min="20" max="500"')}${select('البداية','startPrayer',prayers,cfg.startPrayer||'Asr')}${select('النهاية','endPrayer',prayers,cfg.endPrayer||'Maghrib')}${field('سماح التأخير','late','number',cfg.lateAllowMinutes??15,'min="0" max="180"')}${field('الحضور المبكر','early','number',cfg.earlyArrivalMinutes??15,'min="0" max="180"')}${field('الانصراف المبكر','leave','number',cfg.earlyLeaveMinutes??15,'min="0" max="180"')}${field('اعتبار الغياب بعد','absent','number',cfg.absenceAfterMinutes??60,'min="0" max="360"')}</div>${weekdayChecks('work',cfg.weekdays||['0','1','2','3','4'])}<button type="button" class="button button-soft" data-action="gps">استخدام موقعي</button><button type="submit" class="button button-primary">حفظ</button></form>`;const form=d.querySelector('form');action(d,d.querySelector('[data-action="gps"]'),async()=>{const p=await bestGeoPosition();form.elements.latitude.value=p.coords.latitude;form.elements.longitude.value=p.coords.longitude});submit(form,async()=>{const workdays=selectedWeekdays(form,'work');if(!workdays.length)throw Error('اختر يوم دوام واحدًا على الأقل');const config={...cfg,action:'both',weekdays:workdays,start:'00:00',end:'23:59',startPrayer:val(form,'startPrayer'),endPrayer:val(form,'endPrayer'),lateAllowMinutes:Number(val(form,'late')),earlyArrivalMinutes:Number(val(form,'early')),earlyLeaveMinutes:Number(val(form,'leave')),absenceAfterMinutes:Number(val(form,'absent')),checkoutGraceMinutes:Number(cfg.checkoutGraceMinutes??120)};await result(sb().from('mosques').update({latitude:Number(val(form,'latitude')),longitude:Number(val(form,'longitude')),radius_meters:Number(val(form,'radius')),attendance_windows:[config],updated_at:new Date().toISOString()}).eq('id',m.id).select('id').single());d.closest('dialog').close();await load();msg(root,'تم حفظ إعدادات البصمة لهذا المجمع.')})})
  }
+ const onFilterChange=()=>{
+  rememberSelection();
+  load().catch(error=>msg(root,error?.message||'تعذر تحديث بيانات الحلقة.',true));
+ };
+ root.querySelector('[name="circle"]')?.addEventListener('change',onFilterChange);
+ root.querySelector('[name="date"]')?.addEventListener('change',onFilterChange);
  action(root,root.querySelector('[data-action="load"]'),load);await load()
 }
 

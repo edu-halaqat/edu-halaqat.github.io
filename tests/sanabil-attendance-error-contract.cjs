@@ -1,0 +1,24 @@
+'use strict';
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const client=fs.readFileSync('sanabil-live-v12.js','utf8');
+const server=fs.readFileSync('supabase/functions/sanabil-attendance/index.ts','utf8');
+const start=client.indexOf('const attendanceFunctionError=async error=>');
+const end=client.indexOf('async function attendancePage(root){',start);
+assert(start>0&&end>start,'actual Edge error details handler exists');
+const help=new Function(client.slice(start,end)+'; return attendanceFunctionError;')();
+(async()=>{
+ const backend={message:'Edge Function returned a non-2xx status code',context:{clone(){return {json:async()=>({error:'أنت خارج النطاق المسموح (140 متر).',code:'22023'})}}}};
+ const details=await help(backend);
+ assert(details.includes('أنت خارج النطاق المسموح'),'actual server rejection is shown');
+ assert(details.includes('22023'),'diagnostic error code is preserved');
+ const noJson=await help({message:'Edge Function returned a non-2xx status code'});
+ assert(noJson.includes('رفض الخادم'),'fallback is informative, not generic');
+ assert(client.includes('sanabil_attendance_selected_circle_v1:'),'selected circle persists');
+ assert(client.includes('sanabil_outcome_selected_circle_v1:'),'attendance restores last outcome selection');
+ assert(client.includes("root.querySelector('[name=\"circle\"]')?.addEventListener('change',onFilterChange)"),'change updates correct circle');
+ assert(client.includes('try{await load()}catch(refreshError)'),'failed table refresh does not incorrectly report an accepted fingerprint as failed');
+ assert(server.includes('PostgREST failures are plain objects'),'edge failures retain PostgREST reason');
+ assert(server.includes('register_attendance'),'real database geofence and teacher rules remain intact');
+ assert(server.includes('distance>Number(mosque.radius_meters)'),'geofence remains enforced in linked-teacher path');
+ console.log('PASS: attendance failure reasons, circle selection and acceptance safeguards');
+})().catch(e=>{console.error(e);process.exitCode=1});

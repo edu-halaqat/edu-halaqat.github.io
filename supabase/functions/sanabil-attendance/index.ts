@@ -242,6 +242,16 @@ Deno.serve(async(req:Request)=>{
     if(!data?.duplicate)await admin.from("attendance").update(patch).eq("user_id",user.id).eq("circle_id",circle.id).eq("date_key",data?.dateKey||prayer.dateKey);
     return reply({...data,window:info,lateMinutes:late,earlyArrivalMinutes:earlyArrival,earlyLeaveMinutes:earlyLeave});
   }catch(e){
-    return reply({error:e instanceof Error?e.message:"تعذر تنفيذ طلب الحضور."},400);
+    // PostgREST failures are plain objects, not necessarily instanceof Error.
+    // Previously their useful Arabic error was replaced by a generic message,
+    // preventing teachers from knowing whether GPS, timing or assignment failed.
+    const issue=e as {message?:unknown;code?:unknown}|null;
+    const raw=typeof issue?.message==="string"?issue.message.trim():"";
+    const code=typeof issue?.code==="string"&&/^[A-Z0-9_]{2,16}$/.test(issue.code)?issue.code:"";
+    const message=raw&&/[\u0600-\u06FF]/.test(raw)
+      ?raw.slice(0,220)
+      :"تعذّر إتمام تسجيل البصمة في الخادم"+(code?" (رمز "+code+")":"")+". يُرجى مراجعة الإدارة إذا استمرت المشكلة.";
+    console.warn("sanabil-attendance rejected", {code:code||"UNKNOWN"});
+    return reply({error:message,...(code?{code}:{})},400);
   }
 });

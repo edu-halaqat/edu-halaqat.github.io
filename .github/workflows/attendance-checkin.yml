@@ -1,0 +1,20 @@
+name: Verify Attendance Checkin
+on:
+  pull_request:
+    paths:
+      - sanabil-live-v12.js
+      - supabase/functions/sanabil-attendance/index.ts
+      - tests/sanabil-attendance-error-contract.cjs
+      - .github/workflows/attendance-checkin.yml
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --check sanabil-live-v12.js
+          node tests/sanabil-attendance-error-contract.cjs
