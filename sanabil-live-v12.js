@@ -3048,7 +3048,7 @@ async function testsPage(root){
    (manage&&['scheduled','confirmed','in_progress'].includes(d.status)?button('فتح الاختبار','t'+i):'')+(d.status==='completed'&&d.scores?button('مشاركة','share-'+i)+button('تقرير','report-'+i):'—')
   ]));
   data.forEach((d,i)=>{
-   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await rpc('start_exam',{p_schedule_id:d.id});await exam(d);await load()});
+   const open=root.querySelector(`[data-action="t${i}"]`);if(open)action(root,open,async()=>{await exam(d);await load()});
    const share=root.querySelector(`[data-action="share-${i}"]`);if(share)action(root,share,async()=>{const s=students.find(x=>x.id===d.student_id),portal=s?await guardianLink(s.id):'';const txt=`نتيجة اختبار القرآن — سنابل الوحي\nالطالب: ${d.student_name}\nالمقرر: ${d.syllabus_label||''}\nالحفظ: ${d.scores?.memorization??'—'} / 80\nالتجويد: ${d.scores?.tajweed??'—'} / 20\nالمجموع: ${d.scores?.total??'—'} / 100${portal?'\n\nبوابة ولي الأمر: '+portal:''}`;openWhatsApp(s?.guardian_phone,txt)});
    const rp=root.querySelector(`[data-action="report-${i}"]`);if(rp)action(root,rp,async()=>{const t=await result(sb().from('tests').select('*').eq('schedule_id',d.id).single());excelApi().printTests([t],'نتيجة اختبار الطالب')})
   })
@@ -3079,13 +3079,15 @@ async function testsPage(root){
     const res=await reserveModel(candidate);
     if(res?.reused){
       const previous=parseModelKeys(res.questionKeys);
-      if(previous.length!==count||!bins.every((bin,i)=>bin.some(q=>q.id===previous[i].id)))
+      const ordered=bins.map(bin=>previous.find(q=>bin.some(c=>c.id===q.id)));
+      if(previous.length!==count||ordered.some(q=>!q)||new Set(ordered.map(q=>q.id)).size!==count)
         throw Error('النموذج المحفوظ لهذا الموعد لا يغطي المقرر بالتساوي؛ يلزم مراجعة النموذج قبل التسميع.');
-      chosen=previous;modelReservation=res;break;
+      chosen=ordered;modelReservation=res;break;
     }
     if(res?.reserved){chosen=candidate;modelReservation=res;break}
   }
   if(chosen.length!==count)throw Error('تعذر إنشاء نموذج متوازن وغير مكرر؛ راجع عدد الأسئلة ومحتوى البنك.');
+  await rpc('start_exam',{p_schedule_id:d.id});
   m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
   const form=m.querySelector('form'),boxes=[];
   for(let i=0;i<count;i++){
