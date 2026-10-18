@@ -477,7 +477,7 @@ function mount(box,{cards,names,ids=[]}={}){
   status.textContent='التعرف على الصوت غير مدعوم هنا. اكتب الأمر أدناه، أو جرّب Chrome مع إذن الميكروفون.';
  }
  let active=-1,selectionPinned=false,executingBatch=false,recognition=null,pending=null;
- let listening=false,stopping=false,silenceTimer=null,finishTimer=null,fragments=[],liveSpeech='',captureError='';
+ let listening=false,stopping=false,silenceTimer=null,finishTimer=null,fragments=[],liveSpeech='',captureError='',clarificationTries=0;
  const SILENCE_MS=2000;
  const START_MS=7500;
  const clearSpeechTimers=()=>{clearTimeout(silenceTimer);clearTimeout(finishTimer);silenceTimer=finishTimer=null};
@@ -700,12 +700,13 @@ function mount(box,{cards,names,ids=[]}={}){
  const executeBatch=text=>{
   const jobs=batchOf(text,names),log=[],touched=new Set(),saved=new Set();
   if(jobs.some(job=>job.intent.type==='global')){
-   if(jobs.length!==1){status.textContent='افصل أمر الانتقال عن تعديل الحصيلة حتى لا تفقد التعديلات.';return}
-   return window.SanabilVoiceGlobal?.run?.(jobs[0].command,message=>{status.textContent=message});
+   if(jobs.length!==1){status.textContent='افصل أمر الانتقال عن تعديل الحصيلة حتى لا تفقد التعديلات.';return {success:0,attempted:1}}
+   const result=window.SanabilVoiceGlobal?.run?.(jobs[0].command,message=>{status.textContent=message});
+   return {success:result?.ok?1:0,attempted:1};
   }
   executingBatch=true;let targetUncertain=false;
   let attendanceTouched=false,attendanceSaved=false,incompleteAbsence=false;
-  if(!jobs.length){executingBatch=false;status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
+  if(!jobs.length){executingBatch=false;status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return {success:0,attempted:0}}
   for(const job of jobs){
    // A misheard or ambiguous student name must not redirect the following
    // grades to whichever student's card was previously active.
@@ -755,8 +756,8 @@ function mount(box,{cards,names,ids=[]}={}){
   }));
   executingBatch=false;
   const complete=log.filter(item=>item.ok).length;
-  status.textContent='تم تنفيذ '+complete+' خطوة من '+log.length+
-   '؛ الحفظ على الخادم لا يعدّ مؤكدًا حتى تظهر رسالة نجاح المزامنة.';
+  status.textContent=(complete===0?(log[0]?.message||'أعد توضيح الأمر.'):'تم تنفيذ '+complete+' خطوة من '+log.length)+'؛ الحفظ على الخادم لا يعدّ مؤكدًا حتى تظهر رسالة نجاح المزامنة.';
+  return {success:complete,attempted:log.length};
  };
  const submitWrittenCommand=event=>{
   event?.preventDefault?.();event?.stopPropagation?.();
@@ -775,8 +776,17 @@ function mount(box,{cards,names,ids=[]}={}){
   recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
   const heard=fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names).trim();
   fragments=[];liveSpeech='';
-  if(heard)executeBatch(heard);
-  else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
+  if(heard){
+   const result=executeBatch(heard);
+   if(result?.attempted&&result.success===0&&clarificationTries<1){
+    clarificationTries++;
+    const explanation=status.textContent;
+    setTimeout(()=>{if(panel.isConnected&&!listening&&panel.classList.contains('sl-voice-open')){
+     status.textContent=explanation+' سأستمع مرة ثانية لتوضيح طلبك.';
+     startRecording(true);
+    }},450);
+   }
+  }else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
   captureError='';
  };
  const finishRecording=()=>{
@@ -846,7 +856,8 @@ function mount(box,{cards,names,ids=[]}={}){
   try{instance.start()}
   catch(error){captureError='تعذر تشغيل الميكروفون: '+(error?.message||'خطأ غير معروف');finishCapture()}
  };
- const startRecording=()=>{
+ const startRecording=(auto=false)=>{
+  if(!auto)clarificationTries=0;
   if(!Recognition){status.textContent='التسجيل غير مدعوم هنا؛ استخدم الكتابة.';return}
   if(listening){finishRecording();return}
   captureError='';fragments=[];liveSpeech='';stopping=false;listening=true;
@@ -855,7 +866,7 @@ function mount(box,{cards,names,ids=[]}={}){
   status.textContent='أستمع لعدة أوامر… اذكر الاسم ثم التقديرات، وسأنتظر اكتمال الإملاء.';
   restartSilenceClock(true);beginRecognition();
  };
- recordButton.addEventListener('click',startRecording);
+ recordButton.addEventListener('click',()=>startRecording(false));
  launcher.onclick=()=>{
   if(panel.classList.contains('sl-voice-open')){collapse();return}
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
