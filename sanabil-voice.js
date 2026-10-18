@@ -197,7 +197,8 @@ const intentOf=(raw,studentNames=[])=>{
  if(Array.isArray(studentNames)&&name.length>=3){
   const token=normalize(name);
   const hits=matchingStudents(studentNames,token);
-  if(hits.length)return {type:'navigate',name};
+  if(hits.length===1)return {type:'navigate',name};
+  if(hits.length>1)return {type:'unknown',reason:'الاسم يطابق أكثر من طالب؛ اذكر الاسم الكامل لتحديد المقصود.'};
  }
  return {type:'unknown'};
 };
