@@ -344,8 +344,10 @@ function mount(box,{cards,names,ids=[]}={}){
  const getAttendance=card=>attendanceButtons(card).find(b=>b.classList?.contains('active'))?.dataset?.attValue
   ||attendanceButtons(card).find(b=>b.classList?.contains('active'))?.dataset?.tlAttValue||null;
  const executionError=(card,element,label)=>{
+  const readonly=box.querySelector?.('.sl-outcome-readonly')?.textContent?.trim();
+  if(readonly)return 'هذه الجلسة للعرض فقط ولا تسمح بتعديل الحضور أو التقديرات الآن. '+readonly;
   if(element?.disabled){
-   const state=getAttendance(card);
+   const state=card?getAttendance(card):null;
    if(['absent','excused'].includes(state))return 'الطالب مسجل '+(state==='absent'?'غائبًا':'مستأذنًا')+'؛ لا يمكن تقدير الدرس حتى تغيير الحضور.';
    return 'خانة '+label+' معطلة لهذا الطالب أو اليوم؛ راجع تصنيف اليوم ومقرر الطالب وصلاحية الجلسة.';
   }
@@ -375,6 +377,11 @@ function mount(box,{cards,names,ids=[]}={}){
     status.textContent='حدد الطالب أولًا بذكر اسمه، أو انتقل إلى بطاقته. لن أختار طالبًا آخر بالنيابة عنك.';
     pending=null;return;
    }
+  }
+  const readonlyReason=box.querySelector?.('.sl-outcome-readonly')?.textContent?.trim();
+  if(readonlyReason&&interpretation.type!=='navigate'){
+   status.textContent='لا يمكن تنفيذ هذا الأمر لأن جلسة الحلقة للعرض فقط. '+readonlyReason;
+   pending=null;return;
   }
   const summary=document.createElement('p');
   summary.textContent=(chosen?names[chosen.index]+' — ':'الحلقة — ')+labelOf(interpretation);
