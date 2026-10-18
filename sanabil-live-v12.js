@@ -3062,7 +3062,10 @@ async function testsPage(root){
     rpc('quran_juz_boundaries',{}),
     rows('question_bank','id,surah_no,ayah_no,juz_no,ayah_index,label,max_lines,end_surah_no,end_ayah_no,verified',{active:true})
   ]);
-  const bins=dist.buildBins(bank,syllabus,count,catalog,boundaries);
+  // Older scheduled/custom exams may have only a free-text syllabus. Keep the former
+  // manual question entry for them; never imply it satisfies new equal-coverage rules.
+  const legacyManual=!['full','activation','placement','juz','phased','ayah_range','surah_range'].includes(mode);
+  const bins=legacyManual?null:dist.buildBins(bank,syllabus,count,catalog,boundaries);
   const parseModelKeys=keys=>(keys||[]).map(k=>{
     const [s,a]=String(k).split(':').map(Number);
     return bank.find(q=>Number(q.surah_no)===s&&Number(q.ayah_no)===a);
@@ -3074,7 +3077,7 @@ async function testsPage(root){
   const shuffled=xs=>xs.map(x=>({x,k:crypto.getRandomValues(new Uint32Array(1))[0]}))
     .sort((a,b)=>a.k-b.k).map(o=>o.x);
   let chosen=[],modelReservation=null;
-  for(let attempt=0;attempt<80;attempt++){
+  if(!legacyManual)for(let attempt=0;attempt<80;attempt++){
     const candidate=dist.pickModel(bins,shuffled);
     const res=await reserveModel(candidate);
     if(res?.reused){
@@ -3086,9 +3089,9 @@ async function testsPage(root){
     }
     if(res?.reserved){chosen=candidate;modelReservation=res;break}
   }
-  if(chosen.length!==count)throw Error('تعذر إنشاء نموذج متوازن وغير مكرر؛ راجع عدد الأسئلة ومحتوى البنك.');
+  if(!legacyManual&&chosen.length!==count)throw Error('تعذر إنشاء نموذج متوازن وغير مكرر؛ راجع عدد الأسئلة ومحتوى البنك.');
   await rpc('start_exam',{p_schedule_id:d.id});
-  m.innerHTML=`<form><p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
+  m.innerHTML=`<form>${legacyManual?'<p class="sl-rule-note">هذا اختبار قديم محفوظ بوصف نصي فقط؛ حدد مواضع الأسئلة يدويًا من بنك الأسئلة المعتمد. لا يمكن ضمان التوزيع المتساوي قبل تحديد نطاق آيات منظم.</p>':''}<p>خصم الخطأ: درجتان، الشك: درجة، التجويد: ربع درجة لكل سؤال. مقدار السؤال لا يتجاوز ${esc(lines)} أسطر، والأسئلة المنظمة تُسحب تلقائيًا من بنك الأسئلة وفق المقرر.</p><div class="sl-questions"></div>${field('ملحوظات','notes')}<button type="submit" class="button button-primary">حفظ النتيجة النهائية</button></form>`;
   const form=m.querySelector('form'),boxes=[];
   for(let i=0;i<count;i++){
     const bankQ=chosen[i]||null,q=document.createElement('fieldset');
