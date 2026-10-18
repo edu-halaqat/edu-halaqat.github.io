@@ -1,0 +1,26 @@
+name: Voice batch regression
+on:
+  pull_request:
+    paths:
+      - sanabil-voice.js
+      - sanabil-identity.css
+      - tests/sanabil-natural-commands.cjs
+      - tests/sanabil-voice-responsive.cjs
+      - tests/sanabil-teacher-home-voice.cjs
+      - .github/workflows/voice-batch-ci.yml
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --check sanabil-voice.js
+          node tests/sanabil-natural-commands.cjs
+          node tests/sanabil-voice-responsive.cjs
+          node tests/sanabil-teacher-home-voice.cjs
+          node tests/sanabil-voice-nomination.cjs
+          node tests/sanabil-update-voice-entry.cjs
