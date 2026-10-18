@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261018-v13.8.27';
+window.__SanabilLiveBuild='20261018-v13.8.28';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2143,19 +2143,28 @@ async function outcomesPage(root){
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),async()=>{
     const realSaveStarted=performance.now();
     const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
-    validateRow(s,x);await ensureCircleSession(circle,date,true);
+    validateRow(s,x);
+    const accessStarted=performance.now();
+    await ensureCircleSession(circle,date,true);
+    window.SanabilPerformance?.recordActual('save_student_access',performance.now()-accessStarted);
     // ثبِّت المسودة قبل الإرسال حتى لا تضيع إذا اكتمل الحفظ بينما تغيرت الصفحة.
     persistDraft(i);
     const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,recitationMetrics:normalizedMetrics(x.metrics)};
     const before=JSON.stringify(drafts[s.studentId]||null);
     const status=box.querySelector('[data-save-status="'+i+'"]');
+    const writeStarted=performance.now();
     const r=activeKind(s.studentId)==='test'?await saveTestReviewStudent(s,x):await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:[payload]},'حصيلة '+s.fullName);
+    if(!r.queued)window.SanabilPerformance?.recordActual('save_student_write',performance.now()-writeStarted);
     if(r.queued){
       if(status){status.textContent='محفوظ مؤقتًا على الجهاز · بانتظار المزامنة';status.dataset.saved='queued'}
       msg(box,'حصيلة '+s.fullName+' في انتظار المزامنة. لا تعتبر الحصيلة مؤكدة في الخادم بعد.');
       return;
     }
-    try{await confirmSaved(s,x)}
+    const verifyStarted=performance.now();
+    try{
+      await confirmSaved(s,x);
+      window.SanabilPerformance?.recordActual('save_student_verify',performance.now()-verifyStarted);
+    }
     catch(err){
       if(status){status.textContent='تعذر تأكيد الحفظ · المسودة محفوظة';status.dataset.saved='draft'}
       throw Error('أُرسل طلب الحفظ، ولكن التحقق من البيانات لم يكتمل: '+err.message+' المسودة محفوظة على الجهاز.');
@@ -3479,6 +3488,9 @@ async function settingsPage(root){
     open:'فتح الجلسة حتى ظهور البطاقات على الشاشة',
     switch:'التنقل الفعلي إلى بطاقة الطالب',
     save_student:'حفظ حصيلة طالب وتأكيدها',
+    save_student_access:'منح صلاحية الحفظ (طلب مباشر)',
+    save_student_write:'حفظ الحصيلة داخل قاعدة البيانات',
+    save_student_verify:'التحقق من الحصيلة المعادة من الخادم',
     save_all:'حفظ حصيلة الحلقة كاملة وتأكيدها',
     save_talaqqin:'حفظ حصيلة التلقين وتأكيدها'
    };
