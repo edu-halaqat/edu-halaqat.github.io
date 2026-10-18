@@ -2977,7 +2977,7 @@ async function requestPanel(root,options={}){
    ?await result(sb().from('students').select('id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name').eq('id',options.studentId).eq('active',true))
    :await rows('students','id,full_name,org_id,complex_id,circle_id,teacher_id,teacher_name',{active:true});
  const examiners=options.examiners??(canSchedule?await rows('examiners','id,full_name,complex_id',{active:true}):[]);
- root.innerHTML=`<form><p class="sl-help">اختر نوع الاختبار ثم حدد المقرر وفق الحقول التي تظهر تحته. لن يُقبل نطاق غير صحيح.</p><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})),options.studentId||'')}${select('مقرر الاختبار','type',[{id:'activation',name:'اختبار تنشيطي'},{id:'placement',name:'اختبار تحديد مستوى'},{id:'juz',name:'اختبار الأجزاء'},{id:'phased',name:'اختبار مرحلي'}],'activation')}${field('المقرر المطلوب (جزء، سورة، نطاق آيات، أو كامل القرآن)','syllabus','text','','required maxlength="220"')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="15" required')}</div><fieldset class="sl-exam-destination"><legend>وجهة ترشيح الطالب</legend><label><input type="radio" name="destination" value="snabil" checked> سنابل الوحي — يُرسل إلى مشرف المجمع</label><label><input type="radio" name="destination" value="jadeer" disabled> جدير — الربط المباشر لم يُفعّل بعد</label><small>لن نعرض الطلب على أنه وصل إلى جدير دون تأكيد الاستلام من خادمه.</small></fieldset><button type="submit" class="button button-primary">إرسال الترشيح إلى سنابل الوحي</button></form><div class="sl-requests"></div>`;
+ root.innerHTML=`<form><p class="sl-help">اختر نوع الاختبار ثم حدد المقرر وفق الحقول التي تظهر تحته. لن يُقبل نطاق غير صحيح.</p><div class="form-grid two">${select('الطالب','student',students.map(x=>({id:x.id,name:x.full_name})),options.studentId||'')}${select('مقرر الاختبار','type',[{id:'activation',name:'اختبار تنشيطي'},{id:'placement',name:'اختبار تحديد مستوى'},{id:'juz',name:'اختبار الأجزاء'},{id:'phased',name:'اختبار مرحلي'}],'activation')}${field('المقرر المطلوب (جزء، سورة، نطاق آيات، أو كامل القرآن)','syllabus','text','','required maxlength="220"')}${field('عدد الأسئلة','count','number',3,'min="2" max="15" required')}${field('أسطر السؤال','lines','number',10,'min="5" max="10" required')}</div><fieldset class="sl-exam-destination"><legend>وجهة ترشيح الطالب</legend><label><input type="radio" name="destination" value="snabil" checked> سنابل الوحي — يُرسل إلى مشرف المجمع</label><label><input type="radio" name="destination" value="jadeer" disabled> جدير — الربط المباشر لم يُفعّل بعد</label><small>لن نعرض الطلب على أنه وصل إلى جدير دون تأكيد الاستلام من خادمه.</small></fieldset><button type="submit" class="button button-primary">إرسال الترشيح إلى سنابل الوحي</button></form><div class="sl-requests"></div>`;
  if(options.studentId&&students.some(x=>x.id===options.studentId)){const input=root.querySelector('[name="student"]');if(input){input.value=options.studentId;input.closest('label').hidden=true}}
 
  const scheduleRequest=async req=>{
@@ -3051,15 +3051,15 @@ async function testsPage(root){
   })
  };
  const exam=async d=>{
-  const m=modal('رصد الاختبار: '+d.student_name),request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null,count=Math.min(10,Number(request?.question_count||d.syllabus?.questionCount||3)),lines=Math.min(10,Math.max(1,Number(d.syllabus?.linesPerQuestion||10))),syllabus=d.syllabus||{},mode=syllabus.mode||d.type||'custom';
+  const m=modal('رصد الاختبار: '+d.student_name),request=d.request_id?await result(sb().from('exam_requests').select('question_count').eq('id',d.request_id).single()):null,count=Math.min(15,Number(request?.question_count||d.syllabus?.questionCount||3)),lines=Math.min(10,Math.max(1,Number(d.syllabus?.linesPerQuestion||10))),syllabus=d.syllabus||{},mode=syllabus.mode||d.type||'custom';
   let bank=[];
   try{bank=await rows('question_bank','id,surah_no,ayah_no,juz_no,ayah_index,label,max_lines',{active:true})}catch{}
   const inLex=(q,fs,fa,ts,ta)=>{const x=Number(q.surah_no)*1000+Number(q.ayah_no),a=Number(fs)*1000+Number(fa||1),b=Number(ts||fs)*1000+Number(ta||999);return x>=Math.min(a,b)&&x<=Math.max(a,b)};
   let pool=bank.filter(q=>{
     if(mode==='full')return true;
-    if(mode==='juz')return Number(q.juz_no)>=Number(syllabus.fromJuz||1)&&Number(q.juz_no)<=Number(syllabus.toJuz||syllabus.fromJuz||30);
+    if(mode==='juz'||mode==='phased')return Number(q.juz_no)>=Number(syllabus.fromJuz||1)&&Number(q.juz_no)<=Number(syllabus.toJuz||syllabus.fromJuz||30);
     if(mode==='surah_range')return Number(q.surah_no)>=Number(syllabus.fromSurahNo||1)&&Number(q.surah_no)<=Number(syllabus.toSurahNo||syllabus.fromSurahNo||114);
-    if(mode==='ayah_range')return inLex(q,syllabus.fromSurahNo,syllabus.fromAyahNo,syllabus.toSurahNo||syllabus.fromSurahNo,syllabus.toAyahNo||syllabus.fromAyahNo);
+    if(['ayah_range','activation','placement'].includes(mode))return inLex(q,syllabus.fromSurahNo,syllabus.fromAyahNo,syllabus.toSurahNo||syllabus.fromSurahNo,syllabus.toAyahNo||syllabus.fromAyahNo);
     return false;
   });
   const modelKey=q=>String(Number(q.surah_no)).padStart(3,'0')+':'+String(Number(q.ayah_no)).padStart(3,'0');
