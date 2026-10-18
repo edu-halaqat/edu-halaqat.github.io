@@ -79,6 +79,9 @@ for(const [command,type,verify] of parserCases){
 }
 const box=new Element('section',doc),search=new Element('section',doc),cards=names.map(()=>new Element('article',doc));
 box.lookup={'.sl-outcome-student-search':search,'[data-sanabil-voice]':null};
+const allPresent=new Element('button',doc),saveAttendance=new Element('button',doc);
+box.lookup['[data-action="all-present"],[data-action="tl-all-present"]']=allPresent;
+box.lookup['[data-action="save-attendance"],[data-action="tl-save-attendance"]']=saveAttendance;
 const data=(key,val,kind)=>{
  const element=new Element('button',doc);
  element.dataset.gradeKey=key;element.dataset.gradeValue=val;
@@ -130,6 +133,16 @@ function enter(command){
 }
 enter('أحمد دحمان');
 assert(cards[0].scrolled>0,'bare student name navigates directly to that student');
+const everyone=enter('تحضير الطلاب');everyone[1].click();
+assert.equal(allPresent.clicked,1,'all-present command invokes platform all-present control');
+const storeAttendance=enter('احفظ التحضير');storeAttendance[1].click();
+assert.equal(saveAttendance.clicked,1,'save attendance invokes real attendance-save control only after confirmation');
+assert(status.textContent.includes('انتظر تأكيد'),'saving request must not falsely claim stored data');
+box.lookup['.sl-outcome-readonly']={textContent:'استعراض فقط: خارج وقت السماح'};
+const denied=enter('الحفظ ممتاز');
+assert.equal(denied.length,0,'read-only grade command must not create actionable confirmation');
+assert(status.textContent.includes('للعرض فقط'),'read-only state must explicitly explain blocked edits');
+delete box.lookup['.sl-outcome-readonly'];
 const present=enter('حاضر');
 present[1].click();
 assert(attendanceChoices[0].classList.contains('active'),'present command must mark actual student attendance');
@@ -175,4 +188,4 @@ assert.equal(largeDoubts.value,'4');
 assert.equal(smallErrors.value,'0','major review must not modify nearby counter');
 enter('أحمد');
 assert(/يطابق اكثر من طالب|يطابق أكثر من طالب|غير محدد/.test(status.textContent),'ambiguous name must not choose a student');
-console.log('PASS: natural Arabic shorthand names, grade, nearby review aliases, major review default, set/add counters and UI confirmation');
+console.log('PASS: natural Arabic commands, attendance and absence, bulk save trigger, read-only guard, Quran grading and verified counters');
