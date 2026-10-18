@@ -372,7 +372,7 @@ function mount(box,{cards,names,ids=[]}={}){
   launcher.title='التعرف الصوتي غير مدعوم في هذا المتصفح؛ يمكنك كتابة الأمر من النافذة نفسها.';
   status.textContent='التعرف على الصوت غير مدعوم هنا. اكتب الأمر أدناه، أو جرّب Chrome مع إذن الميكروفون.';
  }
- let active=-1,selectionPinned=false,recognition=null,pending=null;
+ let active=-1,selectionPinned=false,executingBatch=false,recognition=null,pending=null;
  let listening=false,stopping=false,silenceTimer=null,finishTimer=null,fragments=[],liveSpeech='',captureError='';
  const SILENCE_MS=2100;
  const clearSpeechTimers=()=>{clearTimeout(silenceTimer);clearTimeout(finishTimer);silenceTimer=finishTimer=null};
@@ -404,8 +404,12 @@ function mount(box,{cards,names,ids=[]}={}){
   return true;
  };
  const currentCard=()=>{
-  if(selectionPinned&&active>=0&&cards[active]?.isConnected&&!cards[active].hidden)
-   return {card:cards[active],index:active};
+  if(selectionPinned&&active>=0&&cards[active]?.isConnected&&!cards[active].hidden){
+   const rect=cards[active].getBoundingClientRect?.();
+   const anchor=Math.max(100,Math.min((window.innerHeight||700)*.38,350));
+   if(executingBatch||(rect&&rect.top<=anchor&&rect.bottom>=anchor))
+    return {card:cards[active],index:active};
+  }
   // The teacher scrolls a long outcomes page; a previously selected student
   // must not remain the editing target after moving to another card.
   const focused=document.activeElement?.closest?.('.sl-student-card');
@@ -590,15 +594,24 @@ function mount(box,{cards,names,ids=[]}={}){
  };
  const executeBatch=text=>{
   const jobs=batchOf(text,names),log=[],touched=new Set(),saved=new Set();
+  executingBatch=true;let targetUncertain=false;
   let attendanceTouched=false,attendanceSaved=false,incompleteAbsence=false;
   if(!jobs.length){status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
   for(const job of jobs){
+   // A misheard or ambiguous student name must not redirect the following
+   // grades to whichever student's card was previously active.
+   if(targetUncertain&&['grade','metric','metrics','save','share'].includes(job.intent.type)){
+    log.push({ok:false,message:job.command+' — تخطيت التعديل حتى يتحدد الطالب المقصود.'});
+    continue;
+   }
    const done=prepare(job.intent);
    if(!done?.ok){
     log.push({ok:false,message:job.command+' — '+(done?.reason||status.textContent)});
+    if(['navigate','unknown'].includes(job.intent.type))targetUncertain=true;
     continue;
    }
    log.push({ok:true,message:job.command+' — '+done.reason});
+   if(done.type==='navigate'||(done.type==='attendance'&&job.intent.target?.scope==='student'))targetUncertain=false;
    if(['grade','metric','metrics'].includes(done.type)&&Number.isInteger(done.index))touched.add(done.index);
    if(done.type==='save'&&Number.isInteger(done.index))saved.add(done.index);
    if(['attendance','attendance_all'].includes(done.type)){
@@ -631,6 +644,7 @@ function mount(box,{cards,names,ids=[]}={}){
    line.textContent=(item.ok?'✓ ':'⚠ ')+item.message;
    return line;
   }));
+  executingBatch=false;
   const complete=log.filter(item=>item.ok).length;
   status.textContent='تم تنفيذ '+complete+' خطوة من '+log.length+
    '؛ الحفظ على الخادم لا يعدّ مؤكدًا حتى تظهر رسالة نجاح المزامنة.';
