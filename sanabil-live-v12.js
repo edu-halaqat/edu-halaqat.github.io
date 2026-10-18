@@ -2807,7 +2807,7 @@ const attendanceFunctionError=async error=>{
    const body=typeof response.clone==='function'?await response.clone().json():await response.json?.();
    const reason=body?.error||body?.message;
    if(typeof reason==='string'&&reason.trim())message=reason.trim();
-   if(body?.code&&/^E_[A-Z0-9_]+$/.test(String(body.code)))message+=' (رمز '+body.code+')';
+   if(body?.code&&/^[A-Z0-9_]{2,16}$/.test(String(body.code)))message+=' (رمز '+body.code+')';
   }catch{}
  }
  if(message==='Edge Function returned a non-2xx status code')
