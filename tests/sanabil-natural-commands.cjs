@@ -220,6 +220,10 @@ assert.equal(expected[3].intent.metric,'errors');
 assert.equal(expected[3].intent.count,1);
 assert.equal(expected[6].intent.kind,'review');
 assert.deepEqual(Array.from(expected[6].intent.changes,x=>[x.metric,x.count]),[['errors',3],['doubts',2]]);
+assert.equal(api.fixStudentEcho('أحمد أحمد دحمان حاضر',spokenNames),'أحمد دحمان حاضر','intra-result Android name echo is repaired');
+assert.equal(api.fixStudentEcho('إياد إياد عبد الله، حاضر',spokenNames),'إياد عبد الله، حاضر','punctuation retained in repaired voice input');
+assert.equal(api.fixStudentEcho('أحمد أحمد',spokenNames),'أحمد أحمد','do not alter ambiguous student names');
+assert.deepEqual(Array.from(api.batchOf('أحمد أحمد دحمان حاضر الحفظ ممتاز',spokenNames),x=>x.intent.type),['navigate','attendance','grade'],'a repeated name does not abort grade batch');
 const withEcho=api.batchOf('إياد إياد عبد الله حاضر الحفظ الجديد ممتاز، جنب الدرس ممتاز',spokenNames);
 assert.deepEqual(Array.from(withEcho,x=>x.intent.type),['navigate','attendance','grade','grade'],
  'repeated first name must not stop the rest of speech');
