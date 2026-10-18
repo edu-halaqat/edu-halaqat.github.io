@@ -198,5 +198,9 @@ enter('أحمد دحمان، حاضر والحفظ ممتاز وجنب الدر�
 assert(gradeButtons[0].clicked>=2,'batch executes grade automatically after student navigation');
 assert.equal(smallDoubts.value,'5','batch applies recent-review count');
 assert.equal(detail.children.some(x=>x.tag==='button'),false,'batch history must have no confirm or cancel button');
+const gradeCountBeforeAmbiguous=gradeButtons[0].clicked;
+const blocked=enter('أحمد، الحفظ ممتاز');
+assert.equal(gradeButtons[0].clicked,gradeCountBeforeAmbiguous,'ambiguous student prevents carrying grade over from a prior student');
+assert(blocked.some(x=>x.textContent.includes('تخطيت التعديل')),'blocked batch reports why grade was skipped');
 
 console.log('PASS: natural Arabic commands, attendance and absence, bulk save trigger, read-only guard, Quran grading and verified counters');
