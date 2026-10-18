@@ -185,8 +185,8 @@ const compound=enter('المراجعة 3 أخطاء و4 شكوك');
 assert.equal(largeErrors.value,'3');
 assert.equal(largeDoubts.value,'4');
 assert.equal(smallErrors.value,'0','major review must not modify nearby counter');
-enter('أحمد');
-assert(/يطابق اكثر من طالب|يطابق أكثر من طالب|غير محدد/.test(status.textContent),'ambiguous name must not choose a student');
+const ambiguous=enter('أحمد');
+assert(/يطابق اكثر من طالب|يطابق أكثر من طالب|غير محدد/.test(ambiguous[0].textContent),'ambiguous name must not choose a student');
 
 // One spoken turn can contain a student's name, attendance, Quran grades and counters.
 const dictation=api.batchOf('أحمد دحمان، حاضر والحفظ ممتاز وجنب الدرس 5 شكوك، ثم المراجعة 3 أخطاء و4 شكوك',names);
