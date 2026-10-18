@@ -258,8 +258,13 @@ const splitBatch=(spoken,studentNames=[])=>{
   for(let iter=0;iter<5;iter++){
    const match=rest.match(metricAtom);
    if(!match)break;
-   const unit=match[0].replace(/^و(?=\S)/,'').trim();
-   const parsed=metricParts(unit);
+   let unit=match[0].trim();
+   let parsed=metricParts(unit);
+   // A joined conjunction («وشكين») is different from «واحد خطأ»;
+   // don't cut the initial waw off the number «واحد».
+   if(!parsed?.length&&unit.startsWith('و')&&metricParts(unit.slice(1))?.length){
+    unit=unit.slice(1);parsed=metricParts(unit);
+   }
    if(parsed?.length)parts.push(unit);
    else if(/^(?:خطا|غلط|شك|شكوك|تجويد)$/.test(unit))parts.push('واحد '+unit);
    else break;
@@ -657,11 +662,11 @@ function mount(box,{cards,names,ids=[]}={}){
   const jobs=batchOf(text,names),log=[],touched=new Set(),saved=new Set();
   executingBatch=true;let targetUncertain=false;
   let attendanceTouched=false,attendanceSaved=false,incompleteAbsence=false;
-  if(!jobs.length){status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
+  if(!jobs.length){executingBatch=false;status.textContent='لم أسمع أو أقرأ أوامر مفهومة.';return}
   for(const job of jobs){
    // A misheard or ambiguous student name must not redirect the following
    // grades to whichever student's card was previously active.
-   if(targetUncertain&&['grade','metric','metrics','save','share'].includes(job.intent.type)){
+   if(targetUncertain&&['attendance','grade','metric','metrics','save','share'].includes(job.intent.type)){
     log.push({ok:false,message:job.command+' — تخطيت التعديل حتى يتحدد الطالب المقصود.'});
     continue;
    }
@@ -725,7 +730,7 @@ function mount(box,{cards,names,ids=[]}={}){
   if(!listening)return;
   listening=false;stopping=false;clearSpeechTimers();
   recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
-  const heard=[...fragments,liveSpeech].filter(Boolean).join(' ').trim();
+  const heard=joinSpeech(fragments.join(' '),liveSpeech).trim();
   fragments=[];liveSpeech='';
   if(heard)executeBatch(heard);
   else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
@@ -739,22 +744,37 @@ function mount(box,{cards,names,ids=[]}={}){
   try{instance.stop()}catch{finishCapture();return}
   finishTimer=setTimeout(finishCapture,1100);
  };
- const restartSilenceClock=()=>{
+ const restartSilenceClock=(initial=false)=>{
   clearTimeout(silenceTimer);
-  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,SILENCE_MS);
+  // Allow permission/service initialization and the first word to arrive.
+  // Once speech begins, finish after about two seconds without new words.
+  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,initial?7000:SILENCE_MS);
  };
  const beginRecognition=()=>{
   if(!listening||stopping)return;
   const instance=new Recognition();recognition=instance;
   instance.lang='ar-SA';instance.continuous=true;instance.interimResults=true;
+  instance.maxAlternatives=3;
+  // Contextual vocabulary hints are supported by some Chromium builds only.
+  // They improve recognition of Quran terms and the actual session names
+  // without obtaining, storing, or uploading a second microphone stream.
+  try{
+   const Phrase=window.SpeechRecognitionPhrase;
+   if(typeof Phrase==='function'&&'phrases' in instance){
+    const hints=[...new Set([...names.slice(0,70),'الحفظ الجديد','جنب الدرس','المراجعة الكبرى','المراجعة الصغرى','حاضر','متأخر','جيد جداً','أخطاء','شكوك'])];
+    instance.phrases=hints.map(x=>new Phrase(x,3));
+   }
+  }catch{}
+
   instance.onresult=event=>{
    if(recognition!==instance)return;
    let words='';
    for(let index=0;index<(event.results?.length||0);index++)
     words+=' '+(event.results[index]?.[0]?.transcript||'');
-   liveSpeech=words.trim();
-   status.textContent='أستمع… '+[...fragments,liveSpeech].filter(Boolean).join(' ');
-   if(!stopping)restartSilenceClock();
+   const next=words.trim(),changed=next!==liveSpeech;
+   liveSpeech=next;
+   status.textContent='أستمع… '+joinSpeech(fragments.join(' '),liveSpeech);
+   if(changed&&!stopping)restartSilenceClock();
   };
   instance.onerror=event=>{
    if(recognition!==instance)return;
@@ -768,8 +788,10 @@ function mount(box,{cards,names,ids=[]}={}){
    if(recognition!==instance)return;
    recognition=null;
    if(stopping){finishCapture();return}
-   if(liveSpeech){fragments.push(liveSpeech);liveSpeech=''}
-   if(listening)beginRecognition();
+   if(liveSpeech){fragments=[joinSpeech(fragments.join(' '),liveSpeech)];liveSpeech=''}
+   // Android frequently closes a recognition session while the teacher is
+   // still speaking. Resume after a short delay to avoid audio-service races.
+   if(listening)setTimeout(()=>{if(listening&&!stopping&&!recognition)beginRecognition()},220);
   };
   try{instance.start()}
   catch(error){captureError='تعذر تشغيل الميكروفون: '+(error?.message||'خطأ غير معروف');finishCapture()}
@@ -781,7 +803,7 @@ function mount(box,{cards,names,ids=[]}={}){
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   recordButton.textContent='⏹ إنهاء التسجيل';recordButton.setAttribute('aria-pressed','true');
   status.textContent='أستمع لعدة أوامر… سأنفذها بعد صمت يتجاوز ثانيتين.';
-  restartSilenceClock();beginRecognition();
+  restartSilenceClock(true);beginRecognition();
  };
  recordButton.addEventListener('click',startRecording);
  launcher.onclick=()=>{
