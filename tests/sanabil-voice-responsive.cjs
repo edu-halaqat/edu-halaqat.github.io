@@ -28,7 +28,7 @@ assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped'
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
 assert(css.includes("background-image:url('/assets/sanabil-voice-mic-clean.svg?v=20261018-23')"),'mic icon uses the supplied transparent badge');
 assert(css.includes('background:transparent!important'),'voice dock has no black rectangular background');
-assert(html.includes('/sanabil-identity.css?v=32'),'new mic badge styling bypasses stale PWA cache');
+assert(/\/sanabil-identity\.css\?v=(?:3[3-9]|[4-9]\d+)/.test(html),'updated styling must bypass stale PWA cache');
 assert(css.includes('body>.sl-voice-panel{'),'assistant uses global body stacking context');
 assert(css.includes('z-index:2147483647!important'),'assistant overlays bulk attendance/student controls');
 assert(css.includes('body>.sl-voice-panel:popover-open'),'manual popover resets default positioning');

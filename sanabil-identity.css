@@ -1518,3 +1518,16 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
   pointer-events:none!important;
  }
 }
+
+
+/* 2026-10-19: contextual nomination syllabus, direction and accessible dark mode */
+.sl-v13-syllabus{grid-column:1/-1;min-width:0;width:100%;direction:rtl}
+.sl-v13-syllabus>.form-grid{width:100%;min-width:0}
+.sl-v13-syllabus label{min-width:0}
+.sl-v13-syllabus select{width:100%;max-width:100%;min-height:43px}
+.sl-v13-syllabus fieldset{padding:12px 14px;border:1px solid var(--border,#d9dfda);border-radius:12px;margin:10px 0;min-width:0}
+.sl-v13-syllabus fieldset label{display:inline-flex;align-items:center;gap:8px;margin:4px 0 4px 12px}
+.sl-v13-syllabus fieldset input[type="radio"]{width:auto;min-height:auto;accent-color:#00808a}
+.sl-v13-syllabus [data-exam-summary]{padding:10px 12px;margin:10px 0 0;border-inline-start:3px solid #00808a;line-height:1.85;background:rgba(0,128,138,.06);border-radius:8px;white-space:normal}
+:root[data-sanabil-theme="dark"] .sl-v13-syllabus [data-exam-summary]{background:rgba(0,128,138,.18);color:#e1f0ef}
+:root[data-sanabil-theme="dark"] .sl-v13-syllabus fieldset{border-color:#51605c;color:#e1f0ef}

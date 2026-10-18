@@ -25,6 +25,10 @@ jobs:
           node --check sanabil-live-v12.js
           node --check sanabil-offline-app.js
           node --check sanabil-offline-sw.js
+      - name: Generate missing PWA app icons before verifying their dimensions
+        run: |
+          python -m pip install --disable-pip-version-check --quiet 'Pillow>=11,<13'
+          python scripts/build_pwa_icons.py
       - name: Validate manifest, icons and app references
         run: |
           node - <<'NODE'

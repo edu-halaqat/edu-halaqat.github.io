@@ -1,0 +1,26 @@
+name: Quran exam nomination and scoped outcomes
+on:
+  pull_request:
+    paths:
+      - sanabil-live-v12.js
+      - sanabil-v13-enhancements.js
+      - sanabil-identity.css
+      - tests/sanabil-exam-nominations.cjs
+      - supabase/migrations/**
+      - .github/workflows/exam-nomination-ci.yml
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --check sanabil-live-v12.js
+          node --check sanabil-v13-enhancements.js
+          node --check sanabil-offline-sw.js
+          node tests/sanabil-exam-nominations.cjs
+          node tests/sanabil-voice-nomination.cjs
+          node tests/sanabil-performance-real.cjs
