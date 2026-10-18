@@ -47,6 +47,13 @@ const api=window.SanabilVoice;
 const names=['أحمد دحمان حسن','أحمد صالح','خالد العتيبي'];
 const parserCases=[
  ['أحمد دحمان','navigate',i=>i.name==='احمد دحمان'],
+ ['حاضر','attendance',i=>i.status==='present'&&i.target.scope==='current'],
+ ['أحمد دحمان غائب بدون عذر','attendance',i=>i.status==='absent'&&i.reason==='unexcused'&&i.target.index===0],
+ ['خالد العتيبي متأخر','attendance',i=>i.status==='late'&&i.target.index===2],
+ ['مستأذن','attendance',i=>i.status==='excused'],
+ ['تحضير الطلاب','attendance_all',i=>i.status==='present'],
+ ['احفظ التحضير','attendance_save',()=>true],
+ ['سجل الغائبين','unknown',()=>true],
  ['انتقل إلى الطالب أحمد دحمان','navigate',i=>i.name==='احمد دحمان'],
  ['الحفظ ممتاز','grade',i=>i.kind==='memorization'&&i.grade==='ممتاز'],
  ['الحفظ جيد جدا','grade',i=>i.kind==='memorization'&&i.grade==='جيد جدًا'],
@@ -132,11 +139,15 @@ assert(attendanceChoices[1].classList.contains('active'),'late command must mark
 const permission=enter('مستأذن');
 permission[1].click();
 assert(attendanceChoices[2].classList.contains('active'),'excused command must mark student excused');
+const explicitlyNamed=enter('أحمد دحمان غائب بعذر');
+assert(explicitlyNamed[0].textContent.includes('أحمد دحمان'),'targeted absent command shows intended student');
+explicitlyNamed[1].click();
+assert.equal(absence.value,'excused','reason for named absence changes on student card');
 const absent=enter('غائب بدون عذر');
 absent[1].click();
 assert(attendanceChoices[3].classList.contains('active'),'absence command must mark student absent');
 assert.equal(absence.value,'unexcused','absence reason must be selected');
-assert.equal(absence.changed,1,'absence reason change must reach the draft handler');
+assert.equal(absence.changed,2,'both changes in absence reason must reach the draft handler');
 // Restore present before assessing today's lesson, just as a teacher would.
 enter('حاضر')[1].click();
 assert(attendanceChoices[0].classList.contains('active'));
