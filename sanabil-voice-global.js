@@ -79,6 +79,12 @@
   let attempts=0;
   const ready=()=>{
    if(!document.querySelector('.app-content,.mobile-nav,.sl-live'))return;
+   const heading=norm(document.querySelector('.sl-live > h1')?.textContent);
+   if(!(navLabels[section]||[]).includes(heading)){
+    if(++attempts<16)setTimeout(ready,250);
+    else report('لم يتم الانتقال إلى «'+sectionNames[section]+'». افتح القسم أو راجع صلاحيتك.');
+    return;
+   }
    if([...document.querySelectorAll('.sl-live [data-action="'+action+'"]')].some(selectable)){
     clickControl(action,label,report);return;
    }
