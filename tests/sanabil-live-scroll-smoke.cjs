@@ -20,6 +20,7 @@ assert(!/sl-peer-active>\.sl-peer-panel\{position:sticky/.test(css));
 const currentBuild=html.match(/name="sanabil-build" content="([^"]+)"/)?.[1];
 assert(currentBuild,'a deployed build must be specified');
 assert(core.includes("__SanabilLiveBuild='"+currentBuild+"'"),'core and index release must agree');
-assert(html.includes('/sanabil-free-live.js?v=pilot3'));
+assert(html.includes('/sanabil-free-live.js?v=studentjump3'));
+assert(html.includes('/sanabil-free-live.js?v='),'student video bridge is versioned');
 assert(html.includes('/sanabil-free-live.css?v=pilot3'));
 console.log('PASS: mobile panel remains scrollable, video floats without layout collapse, nested scrolling works, release versions agree');
