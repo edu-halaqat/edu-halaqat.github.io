@@ -29,6 +29,7 @@ class Element {
  querySelectorAll(selector){
   if(selector==='[data-grade-key]')return this.grades||[];
   if(selector==='[data-metric-count]')return this.metrics||[];
+  if(selector==='[data-att-student],[data-tl-att]')return this.attendance||[];
   return [];
  }
  click(){this.clicked++;this.onclick?.();this.events.click?.({preventDefault(){},stopPropagation(){}})}
@@ -75,6 +76,7 @@ const data=(key,val,kind)=>{
  const element=new Element('button',doc);
  element.dataset.gradeKey=key;element.dataset.gradeValue=val;
  element.dataset.gradeStudent=kind;
+ element.onclick=()=>{element.classList.add('active')};
  return element;
 };
 const gradeButtons=[
@@ -93,6 +95,18 @@ const smallErrors=metric('recentReview','errors',0);
 const largeErrors=metric('review:plan-one','errors',1);
 const largeDoubts=metric('review:plan-one','doubts',1);
 cards[0].metrics=[smallDoubts,smallErrors,largeErrors,largeDoubts];
+const attendanceChoices=['present','late','excused','absent'].map(value=>{
+ const button=new Element('button',doc);button.dataset.attValue=value;
+ button.onclick=()=>{
+  cards[0].attendance.forEach(b=>b.classList.remove('active'));
+  button.classList.add('active');
+ };
+ return button;
+});
+cards[0].attendance=attendanceChoices;
+const absence=new Element('select',doc);
+cards[0].lookup={'[data-quran-absence-reason],[data-tl-absence-reason]':absence};
+
 api.mount(box,{cards,names,ids:['s1','s2','s3']});
 const panel=search.children.find(x=>x.dataset.sanabilVoice==='true');
 assert(panel,'classroom command panel mounted');
@@ -109,6 +123,23 @@ function enter(command){
 }
 enter('أحمد دحمان');
 assert(cards[0].scrolled>0,'bare student name navigates directly to that student');
+const present=enter('حاضر');
+present[1].click();
+assert(attendanceChoices[0].classList.contains('active'),'present command must mark the actual student's attendance');
+const late=enter('متأخر');
+late[1].click();
+assert(attendanceChoices[1].classList.contains('active'),'late command must mark student late');
+const permission=enter('مستأذن');
+permission[1].click();
+assert(attendanceChoices[2].classList.contains('active'),'excused command must mark student excused');
+const absent=enter('غائب بدون عذر');
+absent[1].click();
+assert(attendanceChoices[3].classList.contains('active'),'absence command must mark student absent');
+assert.equal(absence.value,'unexcused','absence reason must be selected');
+assert.equal(absence.changed,1,'absence reason change must reach the draft handler');
+// Restore present before assessing today's lesson, just as a teacher would.
+enter('حاضر')[1].click();
+assert(attendanceChoices[0].classList.contains('active'));
 const grade=enter('الحفظ ممتاز');
 assert(grade.length>=3,'grade command requires teacher confirmation');
 assert(grade[0].textContent.includes('أحمد دحمان'),'confirmation must show target student name');
