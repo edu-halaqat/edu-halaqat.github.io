@@ -45,8 +45,18 @@ class Observer{
  observe(){this.active=true}
  disconnect(){this.active=false}
 }
-const win={MutationObserver:Observer,innerHeight:700};
-vm.runInNewContext(voice,{window:win,document:doc,MutationObserver:Observer,Promise,console,Event:class{}});
+class FakeSpeech{
+ constructor(){FakeSpeech.all.push(this)}
+ start(){this.started=true}
+ stop(){this.onend?.()}
+ abort(){this.aborted=true}
+}
+FakeSpeech.all=[];
+const fakeTimers=new Map();let timerId=0;
+const fakeSetTimeout=(cb,ms)=>{const id=++timerId;fakeTimers.set(id,{cb,ms});return id};
+const fakeClearTimeout=id=>fakeTimers.delete(id);
+const win={MutationObserver:Observer,SpeechRecognition:FakeSpeech,innerHeight:700};
+vm.runInNewContext(voice,{window:win,document:doc,MutationObserver:Observer,Promise,console,Event:class{},setTimeout:fakeSetTimeout,clearTimeout:fakeClearTimeout});
 const mic=win.SanabilVoice.showLauncher();
 assert(mic&&mic.id==='sanabil-voice-entry');
 assert.equal(mic.hidden,false,'global mic appears on app shell');
@@ -68,6 +78,22 @@ Promise.resolve().then(()=>{
  assert(panel,'classroom assistant must mount');
 assert.equal(panel.topLayer,true,'classroom voice assistant enters the native top layer');
  assert.equal(mic.hidden,true,'global mic yields to classroom button');
+ const record=panel.children.find(node=>node.className.includes('sl-voice-record'));
+ assert(record&&record.events.click,'separate reusable recording button is available');
+ record.events.click();
+ assert.equal(FakeSpeech.all.length,1,'first recording session starts');
+ FakeSpeech.all[0].onresult({results:[{'0':{transcript:'انتقل إلى الطالب خالد'},isFinal:true}]});
+ const quiet=[...fakeTimers.values()].find(item=>item.ms===2100);
+ assert(quiet,'a two-second silence cutoff is armed on speech progress');
+ quiet.cb();
+ assert.equal(record.textContent,'🎙 بدء التسجيل','recording control resets without closing the assistant');
+ assert(cards[1].scrolled,'first voice batch executes without confirmation');
+ record.events.click();
+ assert.equal(FakeSpeech.all.length,2,'second recording starts with the same open assistant');
+ FakeSpeech.all[1].onresult({results:[{'0':{transcript:'انتقل إلى الطالب أحمد'},isFinal:true}]});
+ [...fakeTimers.values()].find(item=>item.ms===2100).cb();
+ assert(cards[0].scrolled,'second recording executes without closing and reopening');
+
  assert.equal(panel.children[0].disabled,undefined,'unsupported speech may not disable all commands');
  panel.children[0].onclick();
  assert(panel.className.includes('sl-voice-open'),'tap opens command input if native speech recognition unavailable');
