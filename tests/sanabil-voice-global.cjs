@@ -42,7 +42,6 @@ for(const [cmd,type,key] of [
   const got=api.parse(cmd);assert.equal(got.type,type,cmd);
   if(key)assert.equal(got.kind||got.key,key,cmd);
  }
-assert.equal(voice.intentOf('الحفظ ممتاز كلام غير مفهوم',['أحمد']),Object(voice.intentOf('الحفظ ممتاز كلام غير مفهوم',['أحمد'])),'parser available');
 assert.equal(voice.intentOf('الحفظ ممتاز كلام غير مفهوم',['أحمد']).type,'unknown','no partial grade');
 assert.equal(voice.intentOf('تسجيل حضور',['أحمد']).type,'global','global command must not mark student present');
 assert.equal(voice.fixStudentEcho('أحمد أحمد أحمد دحمان حاضر',['أحمد دحمان']),'أحمد دحمان حاضر','repair three repeated names');
