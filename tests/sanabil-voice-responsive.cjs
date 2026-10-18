@@ -4,6 +4,13 @@ const voice=fs.readFileSync('sanabil-voice.js','utf8');
 const css=fs.readFileSync('sanabil-identity.css','utf8');
 const offline=fs.readFileSync('sanabil-offline-app.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
+const badge=fs.readFileSync('assets/sanabil-voice-mic-clean.svg','utf8');
+const embedded=badge.match(/href="data:image\/png;base64,([A-Za-z0-9+/=]+)"/);
+assert(embedded,'voice badge embeds its image locally without any external request');
+const image=Buffer.from(embedded[1],'base64');
+assert(image.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')),'mic icon contains valid embedded PNG');
+assert(image.includes(Buffer.from('tRNS')),'icon background is transparent PNG, not a black rectangle');
+
 assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped');
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
 assert(css.includes("background-image:url('/assets/sanabil-voice-mic-clean.svg')"),'mic icon uses the supplied transparent badge');
