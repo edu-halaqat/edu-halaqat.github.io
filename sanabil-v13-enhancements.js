@@ -70,25 +70,119 @@ async function openBackups(){
 let quranCache=null;
 const quran=async()=>quranCache||(quranCache=await rpc('quran_surah_catalog',{}));
 async function enhanceExamForm(form){
- if(form.dataset.v13Exam)return;form.dataset.v13Exam='1';
- const type=form.querySelector('[name="type"]'),syllabus=form.querySelector('[name="syllabus"]');if(!type||!syllabus)return;
- type.innerHTML=opt('full','كامل القرآن','')+opt('juz','جزء أو عدة أجزاء','')+opt('surah_range','سورة أو نطاق سور','')+opt('ayah_range','نطاق آيات محدد','')+opt('custom','مقرر مخصص','custom');
- const host=document.createElement('div');host.className='sl-v13-syllabus';const originalLabel=syllabus.closest('label');originalLabel.after(host);originalLabel.hidden=true;syllabus.required=false;syllabus.readOnly=true;syllabus.placeholder='يُنشأ تلقائيًا من الاختيارات';
- form.__v13GetSyllabus=()=>{const mode=type.value,data={label:syllabus.value,mode};if(mode==='juz'){data.fromJuz=Number(host.querySelector('[name="fromJuz"]')?.value||1);data.toJuz=Number(host.querySelector('[name="toJuz"]')?.value||data.fromJuz)}else if(mode==='surah_range'){data.fromSurahNo=Number(host.querySelector('[name="fromSurah"]')?.value||1);data.toSurahNo=Number(host.querySelector('[name="toSurah"]')?.value||data.fromSurahNo)}else if(mode==='ayah_range'){data.fromSurahNo=Number(host.querySelector('[name="fromSurah"]')?.value||1);data.fromAyahNo=Number(host.querySelector('[name="fromAyah"]')?.value||1);data.toSurahNo=Number(host.querySelector('[name="toSurah"]')?.value||data.fromSurahNo);data.toAyahNo=Number(host.querySelector('[name="toAyah"]')?.value||1)}else if(mode==='custom'){data.customText=host.querySelector('[name="customSyllabus"]')?.value.trim()||''}return data};
- const render=async()=>{const mode=type.value,catalog=await quran(),surOpts=(sel)=>catalog.map(s=>opt(s.surahNo,s.surahNo+'. '+s.name,sel)).join(''),juzOpts=(sel)=>Array.from({length:30},(_,i)=>opt(i+1,'الجزء '+(i+1),sel)).join('');
-  if(mode==='full'){host.innerHTML='<p class="sl-help">المقرر: كامل القرآن الكريم.</p>';syllabus.value='كامل القرآن الكريم';return}
-  if(mode==='juz'){host.innerHTML='<div class="form-grid two"><label>من الجزء<select name="fromJuz">'+juzOpts(1)+'</select></label><label>إلى الجزء<select name="toJuz">'+juzOpts(1)+'</select></label></div>'}
-  else if(mode==='surah_range'){host.innerHTML='<div class="form-grid two"><label>من سورة<select name="fromSurah">'+surOpts(1)+'</select></label><label>إلى سورة<select name="toSurah">'+surOpts(1)+'</select></label></div>'}
-  else if(mode==='ayah_range'){host.innerHTML='<div class="form-grid two"><label>من سورة<select name="fromSurah">'+surOpts(1)+'</select></label><label>من آية<select name="fromAyah"></select></label><label>إلى سورة<select name="toSurah">'+surOpts(1)+'</select></label><label>إلى آية<select name="toAyah"></select></label></div>'}
-  else {host.innerHTML='<label>وصف المقرر المخصص<input name="customSyllabus" required placeholder="مثال: سورة البقرة من آية 1 إلى 50"></label>'}
-  const update=()=>{if(mode==='juz'){const a=Number(host.querySelector('[name="fromJuz"]').value),b=Number(host.querySelector('[name="toJuz"]').value);syllabus.value=a===b?'الجزء '+a:'من الجزء '+a+' إلى الجزء '+b}
-   else if(mode==='surah_range'){const a=catalog.find(x=>String(x.surahNo)===host.querySelector('[name="fromSurah"]').value),b=catalog.find(x=>String(x.surahNo)===host.querySelector('[name="toSurah"]').value);syllabus.value=a?.name===b?.name?'سورة '+a?.name:'من سورة '+a?.name+' إلى سورة '+b?.name}
-   else if(mode==='ayah_range'){const fs=host.querySelector('[name="fromSurah"]'),ts=host.querySelector('[name="toSurah"]'),fa=host.querySelector('[name="fromAyah"]'),ta=host.querySelector('[name="toAyah"]'),fill=(ss,aa)=>{const r=catalog.find(x=>String(x.surahNo)===ss.value),old=aa.value;aa.innerHTML=Array.from({length:Number(r?.ayahCount||1)},(_,i)=>opt(i+1,i+1,old||1)).join('')};if(!fa.options.length){fill(fs,fa);fill(ts,ta)}const a=catalog.find(x=>String(x.surahNo)===fs.value),b=catalog.find(x=>String(x.surahNo)===ts.value);syllabus.value='من سورة '+a?.name+' آية '+fa.value+' إلى سورة '+b?.name+' آية '+ta.value}
-   else syllabus.value=host.querySelector('[name="customSyllabus"]')?.value||'';
-  };
-  host.onchange=e=>{if(mode==='ayah_range'&&(e.target.name==='fromSurah'||e.target.name==='toSurah')){const ss=e.target,aa=host.querySelector('[name="'+(e.target.name==='fromSurah'?'fromAyah':'toAyah')+'"]'),r=catalog.find(x=>String(x.surahNo)===ss.value);aa.innerHTML=Array.from({length:Number(r?.ayahCount||1)},(_,i)=>opt(i+1,i+1,1)).join('')}update()};host.oninput=update;update();
+ if(form.dataset.v13Exam)return;
+ const type=form.querySelector('[name="type"]'),syllabus=form.querySelector('[name="syllabus"]');
+ if(!type||!syllabus)return;
+ form.dataset.v13Exam='1';
+ const kinds={activation:'اختبار تنشيطي',placement:'اختبار تحديد مستوى',juz:'اختبار الأجزاء',phased:'اختبار مرحلي'};
+ type.innerHTML=Object.entries(kinds).map(([id,name])=>opt(id,name,'activation')).join('');
+ const host=document.createElement('div');host.className='sl-v13-syllabus';
+ syllabus.closest('label').after(host);syllabus.closest('label').hidden=true;syllabus.required=false;syllabus.readOnly=true;
+ const catalog=await quran(),surahs=new Map(catalog.map(s=>[Number(s.surahNo),s]));
+ const surOptions=(selected)=>catalog.map(s=>opt(s.surahNo,s.surahNo+'. '+s.name,selected)).join('');
+ const juzNames=['ألم','سيقول السفهاء','تلك الرسل','لن تنالوا','والمحصنات','لا يحب الله','وإذا سمعوا','ولو أننا','قال الملأ','واعلموا','يعتذرون','وما من دابة','وما أبرئ نفسي','ربما','سبحان الذي','قال ألم أقل لك','اقترب للناس','قد أفلح','وقال الذين لا يرجون','أمن خلق','اتل ما أوحي','ومن يقنت','وما لي','فمن أظلم','إليه يرد','حم','قال فما خطبكم','قد سمع','تبارك الذي','عم'];
+ const juzOptions=()=>juzNames.map((name,i)=>opt(i+1,'الجزء '+(i+1)+' — '+name,1)).join('');
+ let juzMap=null,juzPending=null;
+ const loadJuz=async()=>{
+  if(juzMap)return juzMap;
+  if(!juzPending)juzPending=rpc('quran_juz_boundaries',{}).then(rows=>{
+   if(!Array.isArray(rows)||rows.length!==30)throw Error('فهرس الأجزاء غير مكتمل.');
+   juzMap=new Map(rows.map(x=>[Number(x.juzNo),x]));return juzMap;
+  }).catch(e=>{juzPending=null;throw e});
+  return juzPending;
  };
- type.onchange=render;form.addEventListener('reset',()=>setTimeout(()=>render().catch(()=>{}),0));await render();
+ const setAyahs=(sName,aName)=>{
+  const s=host.querySelector('[name="'+sName+'"]'),a=host.querySelector('[name="'+aName+'"]');
+  const max=Number(surahs.get(Number(s.value))?.ayahCount||0);
+  if(!max)throw Error('السورة المختارة غير موجودة.');
+  a.innerHTML=Array.from({length:max},(_,i)=>opt(i+1,i+1,1)).join('');
+ };
+ const range=()=>{
+  const fromSurahNo=Number(host.querySelector('[name="fromSurah"]')?.value);
+  const fromAyahNo=Number(host.querySelector('[name="fromAyah"]')?.value);
+  const toSurahNo=Number(host.querySelector('[name="toSurah"]')?.value);
+  const toAyahNo=Number(host.querySelector('[name="toAyah"]')?.value);
+  if(!surahs.has(fromSurahNo)||!surahs.has(toSurahNo)||
+    fromAyahNo<1||toAyahNo<1||
+    fromAyahNo>Number(surahs.get(fromSurahNo).ayahCount)||
+    toAyahNo>Number(surahs.get(toSurahNo).ayahCount))
+    throw Error('حدد سورة وآية صحيحتين للبداية والنهاية.');
+  if(fromSurahNo>toSurahNo||(fromSurahNo===toSurahNo&&fromAyahNo>toAyahNo))
+    throw Error('آية البداية يجب أن تسبق آية النهاية في ترتيب المصحف.');
+  return{fromSurahNo,fromAyahNo,toSurahNo,toAyahNo};
+ };
+ const getSyllabus=()=>{
+  const mode=type.value;
+  if(!kinds[mode])throw Error('حدد نوع الاختبار.');
+  const d={mode,examType:mode};
+  if(mode==='activation'||mode==='placement'){
+   Object.assign(d,range());
+   d.label=kinds[mode]+': من سورة '+surahs.get(d.fromSurahNo).name+' آية '+d.fromAyahNo+
+     ' إلى سورة '+surahs.get(d.toSurahNo).name+' آية '+d.toAyahNo;
+  }else{
+   if(!juzMap||juzMap.size!==30)throw Error('لم يكتمل تحميل حدود أجزاء القرآن.');
+   const count=mode==='phased'?Number(host.querySelector('[name="branch"]')?.value):1;
+   if(mode==='phased'&&![5,10,15,20,30].includes(count))throw Error('حدد الفرع المرحلي.');
+   const direction=mode==='phased'?host.querySelector('[name="examDirection"]:checked')?.value:'from_fatiha';
+   if(!['from_fatiha','from_nas'].includes(direction))throw Error('حدد اتجاه الاختبار.');
+   const part=mode==='juz'?Number(host.querySelector('[name="juz"]')?.value):null;
+   if(mode==='juz'&&(!Number.isInteger(part)||part<1||part>30))throw Error('اختر الجزء المطلوب.');
+   const fromJuz=mode==='juz'?part:(direction==='from_fatiha'?1:31-count);
+   const toJuz=mode==='juz'?part:(direction==='from_fatiha'?count:30);
+   const a=juzMap.get(fromJuz),b=juzMap.get(toJuz);
+   if(!a||!b)throw Error('حدود الجزء غير موجودة.');
+   Object.assign(d,{fromJuz,toJuz,fromSurahNo:Number(a.fromSurahNo),fromAyahNo:Number(a.fromAyahNo),
+    toSurahNo:Number(b.toSurahNo),toAyahNo:Number(b.toAyahNo),direction});
+   if(mode==='juz'){d.juzNo=part;d.label='اختبار الأجزاء — الجزء '+part+' ('+juzNames[part-1]+')';}
+   else{
+    d.partCount=count;d.branch=({5:5,10:4,15:3,20:2,30:1})[count];
+    d.label='اختبار مرحلي — الفرع '+({5:'الخامس',10:'الرابع',15:'الثالث',20:'الثاني',30:'الأول'})[count]+
+     ' — '+count+' جزءًا — '+(direction==='from_fatiha'?'من الفاتحة':'من الناس');
+   }
+  }
+  return d;
+ };
+ form.__v13GetSyllabus=()=>{const d=getSyllabus();syllabus.value=d.label;return d};
+ const preview=()=>{
+  const el=host.querySelector('[data-exam-summary]');
+  try{const d=getSyllabus();syllabus.value=d.label;
+   if(el)el.textContent=d.label+' · '+surahs.get(d.fromSurahNo)?.name+' ('+d.fromAyahNo+') إلى '+surahs.get(d.toSurahNo)?.name+' ('+d.toAyahNo+')';
+  }catch(e){syllabus.value='';if(el)el.textContent=e.message}
+ };
+ const render=async()=>{
+  const mode=type.value;
+  if(mode==='activation'||mode==='placement'){
+   host.innerHTML='<div class="form-grid two">'+
+    '<label>سورة البداية<select name="fromSurah">'+surOptions(1)+'</select></label>'+
+    '<label>آية البداية<select name="fromAyah"></select></label>'+
+    '<label>سورة النهاية<select name="toSurah">'+surOptions(1)+'</select></label>'+
+    '<label>آية النهاية<select name="toAyah"></select></label>'+
+    '</div><p class="sl-help" role="status" data-exam-summary></p>';
+   setAyahs('fromSurah','fromAyah');setAyahs('toSurah','toAyah');
+  }else if(mode==='juz'){
+   host.innerHTML='<label>الجزء المراد الاختبار فيه<select name="juz">'+juzOptions()+
+    '</select></label><p class="sl-help" role="status" data-exam-summary>جارٍ قراءة حدود الجزء…</p>';
+  }else{
+   host.innerHTML='<label>فرع الاختبار المرحلي<select name="branch">'+
+    [[5,'الخامس — خمسة أجزاء'],[10,'الرابع — عشرة أجزاء'],[15,'الثالث — خمسة عشر جزءًا'],[20,'الثاني — عشرون جزءًا'],[30,'الأول — ثلاثون جزءًا']].map(x=>opt(x[0],x[1],5)).join('')+'</select></label>'+
+    '<fieldset><legend>اتجاه الاختبار</legend>'+
+    '<label><input type="radio" name="examDirection" value="from_fatiha" checked> من الفاتحة</label>'+
+    '<label><input type="radio" name="examDirection" value="from_nas"> من الناس</label>'+
+    '</fieldset><p class="sl-help" role="status" data-exam-summary>جارٍ قراءة حدود الأجزاء…</p>';
+  }
+  host.onchange=e=>{
+   if(e.target.name==='fromSurah')setAyahs('fromSurah','fromAyah');
+   if(e.target.name==='toSurah')setAyahs('toSurah','toAyah');
+   preview();
+  };
+  if(mode==='juz'||mode==='phased'){
+   try{await loadJuz()}catch(e){syllabus.value='';host.querySelector('[data-exam-summary]').textContent='فشل تحميل حدود الأجزاء: '+e.message;return}
+  }
+  preview();
+ };
+ type.addEventListener('change',()=>render().catch(e=>{syllabus.value='';console.warn(e)}));
+ form.addEventListener('reset',()=>setTimeout(()=>render().catch(()=>{}),0));
+ await render();
 }
 function enhance(){
  const root=Q('.sl-live');if(!root)return;
