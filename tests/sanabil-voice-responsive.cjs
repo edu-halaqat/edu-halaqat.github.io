@@ -6,6 +6,10 @@ const offline=fs.readFileSync('sanabil-offline-app.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 assert(css.includes('13.8.15 — compact'),'responsive action-bar patch shipped');
 assert(css.includes('.sl-voice-entry>button::after'),'mobile mic condensed to icon');
+assert(css.includes('body>.sl-voice-panel{'),'assistant uses global body stacking context');
+assert(css.includes('z-index:2147482500!important'),'assistant overlays bulk attendance/student controls');
+assert(voice.includes('document.body.append(panel)'),'assistant is portalled outside nested student grid');
+assert(voice.includes('disposeMountedSession()'),'no stale assistant when changing sessions');
 assert(css.includes('.mobile-nav>button svg'),'mobile navigation icons normalized');
 assert(offline.includes('root.hidden=!needsAttention'),'redundant connected badge must disappear');
 assert(html.includes('/sanabil-voice.js'),'voice module loaded on all authenticated views');
@@ -77,7 +81,16 @@ Promise.resolve().then(()=>{
  assert.equal(panel.dataset.expanded,'false','collapse is explicit');
  assert(!panel.children[3].hidden,'typed control stays available after reopening');
  assert.equal(cards[0].scrolled,undefined);
- session=false;doc.panel=null;box.isConnected=false;cards.forEach(card=>card.isConnected=false);
+ // Re-render the classroom on the same box: old portal must be removed
+ // before opening a new session, never accumulating stale buttons.
+ cards.forEach(card=>card.isConnected=false);
+ const replacement=[new E('article',doc),new E('article',doc)];
+ win.SanabilVoice.mount(box,{cards:replacement,names:['أحمد','خالد'],ids:['new-1','new-2']});
+ const portals=doc.body.children.filter(node=>node.dataset.sanabilVoice==='true'&&!node.removed);
+ assert.equal(portals.length,1,'only one active voice portal on session replacement');
+ assert.notEqual(portals[0],panel,'old session voice portal disposed');
+ session=false;doc.panel=null;box.isConnected=false;
+ replacement.forEach(card=>card.isConnected=false);
  observers.filter(o=>o.active).forEach(o=>o.cb());
  return Promise.resolve().then(()=>{
   assert.equal(mic.hidden,false,'global mic reappears after closing classroom');
