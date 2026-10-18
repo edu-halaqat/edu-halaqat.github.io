@@ -560,17 +560,6 @@ function mount(box,{cards,names,ids=[]}={}){
      button.click();
      status.textContent='بدأ حفظ الحصيلة. لا تعتبرها محفوظة حتى يظهر تأكيد الخادم في بطاقة الطالب.';
      if(i.share){
-      const share=document.createElement('button');share.type='button';share.className='button button-soft';
-      share.textContent='مشاركة ولي الأمر بعد تأكيد الحفظ';
-      share.onclick=()=>{
-       const message=card.querySelector('[data-save-status]')?.textContent||box.querySelector('.sl-message')?.textContent||'';
-       if(!/حصيلة محفوظة ومؤكدة|تم حفظ حصيلة|تم تحديث حصيلة|تم الحفظ والتحقق/.test(message)){
-        status.textContent='لم يصل تأكيد الحفظ؛ لن أفتح مشاركة حصيلة غير مؤكدة.';return;
-       }
-       const wa=card.querySelector('[data-action^="wa-"],[data-action^="tl-card-"]');
-       if(wa&&!wa.disabled){wa.click();status.textContent='راجع مشاركة الحصيلة في نافذتها وأرسلها بنفسك.'}
-       else status.textContent='استخدم زر المشاركة من بطاقة الطالب.';
-      };
       // Do not require another click. Wait for the real save status before
       // launching the user's usual sharing UI; never send stale results.
       const attemptShare=(attempts=0)=>{
