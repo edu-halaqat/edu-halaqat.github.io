@@ -209,6 +209,20 @@ function disposeMountedSession(){
  const launcher=document.getElementById('sanabil-voice-entry');
  if(launcher)launcher.hidden=false;
 }
+// The body-level voice portal must also outrank browser stacking layers.
+// A non-modal manual popover enters the native top layer when supported.
+// Older browsers retain the fixed-position high-z-index fallback.
+function promoteToTopLayer(node){
+ if(typeof node?.showPopover!=='function')return false;
+ try{
+  node.setAttribute('popover','manual');
+  node.showPopover();
+  return true;
+ }catch{
+  node.removeAttribute?.('popover');
+  return false;
+ }
+}
 function showLauncher(){
  if(!document.body||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return null;
  let entry=document.getElementById('sanabil-voice-entry');
@@ -232,7 +246,7 @@ function showLauncher(){
   const close=document.createElement('button');close.type='button';
   close.className='button button-soft';close.textContent='إغلاق';
   close.onclick=()=>{guidance.hidden=true};
-  guidance.append(info,goto,close);entry.append(trigger,guidance);document.body.append(entry);
+  guidance.append(info,goto,close);entry.append(trigger,guidance);document.body.append(entry);promoteToTopLayer(entry);
   trigger.onclick=()=>{
    const active=document.querySelector('[data-sanabil-voice] button[aria-label="تشغيل الموجه الصوتي"]');
    if(active){active.click();return}
@@ -292,6 +306,7 @@ function mount(box,{cards,names,ids=[]}={}){
  // opacity and local stacking contexts otherwise let the bulk-attendance bar
  // cover the assistant regardless of its z-index.
  document.body.append(panel);
+  promoteToTopLayer(panel);
  const entry=document.getElementById('sanabil-voice-entry');if(entry)entry.hidden=true;
  if(!Recognition){
   launcher.title='التعرف الصوتي غير مدعوم في هذا المتصفح؛ يمكنك كتابة الأمر من النافذة نفسها.';
