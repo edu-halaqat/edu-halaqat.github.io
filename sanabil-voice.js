@@ -223,11 +223,26 @@ const joinSpeech=(prior,next)=>{
  }
  return [...a,...b].join(' ');
 };
+// Correct a repeated first name in one Android Web Speech result, but only
+// when it belongs to exactly one registered student.
+const fixStudentEcho=(value,studentNames=[])=>{
+ const normalized=normalize(value),echo=normalized.match(/^(\S+)\s+\1(?=\s|$)/u);
+ if(!echo)return String(value||'');
+ const remainder=normalized.slice(echo[1].length+1).trim();
+ const words=remainder.split(' ');let unique=false;
+ for(let n=2;n<=Math.min(7,words.length);n++){
+  const matches=matchingStudents(studentNames,words.slice(0,n).join(' '));
+  if(matches.length===1&&(n===words.length||/^(?:حاضر|متاخر|غائب|مستاذن|الحفظ|الدرس|جنب|المراجعه|مراجعه|التثبيت|احفظ|و)/.test(words[n]||'')))
+   unique=true;
+ }
+ if(!unique)return String(value||'');
+ return String(value||'').replace(/^(\S+)\s+\1(?=\s|$)/u,'$1');
+};
 // Parse an entire Arabic utterance as ordered *atomic* instructions, carrying
 // its current Quran task across short metric clauses ("3 أخطاء، شكين").
 // Do not infer a student when the spoken name is ambiguous.
 const splitBatch=(spoken,studentNames=[])=>{
- const normalized=String(spoken||'').replace(/[،؛;.!؟\n]+/g,' | ')
+ const normalized=fixStudentEcho(spoken,studentNames).replace(/[،؛;.!؟\n]+/g,' | ')
   .replace(/\s+(?:ثم|بعدها|وبعدين|وبعدها|بعد\s+ذلك)\s+/gu,' | ');
  const commands=[];
  const NUM=NUMBER,UNIT=METRIC;
@@ -447,7 +462,8 @@ function mount(box,{cards,names,ids=[]}={}){
  }
  let active=-1,selectionPinned=false,executingBatch=false,recognition=null,pending=null;
  let listening=false,stopping=false,silenceTimer=null,finishTimer=null,fragments=[],liveSpeech='',captureError='';
- const SILENCE_MS=2100;
+ const SILENCE_MS=2900;
+ const NAME_ONLY_MS=7000;
  const clearSpeechTimers=()=>{clearTimeout(silenceTimer);clearTimeout(finishTimer);silenceTimer=finishTimer=null};
  const abortCapture=()=>{
   listening=false;stopping=true;clearSpeechTimers();fragments=[];liveSpeech='';
@@ -737,7 +753,7 @@ function mount(box,{cards,names,ids=[]}={}){
   if(!listening)return;
   listening=false;stopping=false;clearSpeechTimers();
   recordButton.textContent='🎙 بدء التسجيل';recordButton.setAttribute('aria-pressed','false');
-  const heard=joinSpeech(fragments.join(' '),liveSpeech).trim();
+  const heard=fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names).trim();
   fragments=[];liveSpeech='';
   if(heard)executeBatch(heard);
   else status.textContent=captureError||'لم أسمع أمرًا واضحًا؛ اضغط بدء التسجيل وجرب مجددًا.';
@@ -753,9 +769,12 @@ function mount(box,{cards,names,ids=[]}={}){
  };
  const restartSilenceClock=(initial=false)=>{
   clearTimeout(silenceTimer);
-  // Allow permission/service initialization and the first word to arrive.
-  // Once speech begins, finish after about two seconds without new words.
-  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,initial?7000:SILENCE_MS);
+  // A lone student name is NOT the end of a command bundle. Android Chrome
+  // may pause after its first result, before transcribing attendance/grades.
+  const heard=fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names);
+  const hasAction=batchOf(heard,names).some(({intent})=>!['navigate','unknown'].includes(intent.type));
+  const wait=initial||!hasAction?NAME_ONLY_MS:SILENCE_MS;
+  if(listening&&!stopping)silenceTimer=setTimeout(finishRecording,wait);
  };
  const beginRecognition=()=>{
   if(!listening||stopping)return;
@@ -780,7 +799,7 @@ function mount(box,{cards,names,ids=[]}={}){
     words+=' '+(event.results[index]?.[0]?.transcript||'');
    const next=words.trim(),changed=next!==liveSpeech;
    liveSpeech=next;
-   status.textContent='أستمع… '+joinSpeech(fragments.join(' '),liveSpeech);
+   status.textContent='أستمع… '+fixStudentEcho(joinSpeech(fragments.join(' '),liveSpeech),names);
    if(changed&&!stopping)restartSilenceClock();
   };
   instance.onerror=event=>{
@@ -796,6 +815,7 @@ function mount(box,{cards,names,ids=[]}={}){
    recognition=null;
    if(stopping){finishCapture();return}
    if(liveSpeech){fragments=[joinSpeech(fragments.join(' '),liveSpeech)];liveSpeech=''}
+   if(listening&&!stopping)restartSilenceClock();
    // Android frequently closes a recognition session while the teacher is
    // still speaking. Resume after a short delay to avoid audio-service races.
    if(listening)setTimeout(()=>{if(listening&&!stopping&&!recognition)beginRecognition()},220);
@@ -809,7 +829,7 @@ function mount(box,{cards,names,ids=[]}={}){
   captureError='';fragments=[];liveSpeech='';stopping=false;listening=true;
   panel.classList.add('sl-voice-open');panel.dataset.expanded='true';
   recordButton.textContent='⏹ إنهاء التسجيل';recordButton.setAttribute('aria-pressed','true');
-  status.textContent='أستمع لعدة أوامر… سأنفذها بعد صمت يتجاوز ثانيتين.';
+  status.textContent='أستمع لعدة أوامر… اذكر الاسم ثم التقديرات، وسأنتظر اكتمال الإملاء.';
   restartSilenceClock(true);beginRecognition();
  };
  recordButton.addEventListener('click',startRecording);
@@ -835,5 +855,5 @@ function mount(box,{cards,names,ids=[]}={}){
   if(shell!==box)instance.observer.observe(shell,{childList:true,subtree:true});
  }
 }
-window.SanabilVoice={mount,showLauncher,intentOf,splitBatch,batchOf,joinSpeech,normalize,countOf,attendanceOf};
+window.SanabilVoice={mount,showLauncher,intentOf,splitBatch,batchOf,joinSpeech,fixStudentEcho,normalize,countOf,attendanceOf};
 })();
