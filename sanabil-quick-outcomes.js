@@ -3,7 +3,7 @@
  const int=value=>Math.max(0,Math.min(100,Math.round(Number(value)||0)));
  const gradeFor=(kind,errors=0,doubts=0)=>{
   const e=int(errors),d=int(doubts);
-  if(kind==='memorization'||kind==='recentReview')return e?'لم يحفظ':d?'جيد جدًا':'ممتاز';
+  if(kind==='memorization'||kind==='recentReview')return e||d?'لم يحفظ':'ممتاز';
   const weight=2*e+d;
   return weight<=1?'ممتاز':weight===2?'جيد جدًا':weight<=5?'جيد':'لم يحفظ';
  };
@@ -28,8 +28,10 @@
   const toolbar=el('div','sl-quick-toolbar');
   const toggle=button('عرض الحصيلة التفصيلية',()=>{
    const isQuick=box.classList.toggle('sl-quick-mode');
-   toggle.textContent=isQuick?'عرض الحصيلة التفصيلية':'العودة للحصيلة السريعة';
-  });
+   toggle.textContent=isQuick?'عرض الحصيلة التفصيلية':'عرض الحصيلة السريعة';
+   toggle.setAttribute('aria-expanded',String(isQuick));
+  },'sl-quick-mode-toggle');
+  toggle.setAttribute('aria-expanded','true');
   const bulk=button('✓ ممتاز لمن اكتمل تسميعهم',()=>{
    if(readOnly){inform('هذه الجلسة للعرض فقط.');return}
    const ids=students.map((s,i)=>i).filter(i=>checked.has(i));
@@ -45,8 +47,8 @@
   const list=el('div','sl-quick-list'),checked=new Set(),provisional=new Set(),rows=[];
   const inform=t=>{notice.textContent=t};
   const defaults=button('تهيئة ممتاز للحاضرين',()=>seedPresent(true),'sl-quick-defaults');
-  toolbar.append(toggle,defaults,bulk);
-  wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(wrap,form);
+  toolbar.append(defaults,bulk);
+  wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(toggle,form);form.parentNode.insertBefore(wrap,form);
   box.classList.add('sl-quick-mode');
   const allowAtt=st=>['present','late'].includes(st.attendance);
   const canEdit=i=>!readOnly&&needsDayAttendance(activeKind(students[i].studentId))&&eligible(students[i],activeKind(students[i].studentId))&&allowAtt(states[i]);
@@ -107,7 +109,7 @@
    dialog=el('dialog','sl-quick-sheet');dialog.dir='rtl';
    const header=el('div','sl-quick-sheet-header');
    header.append(el('div','sl-quick-sheet-title','تفاصيل التسميع — '+s.fullName),button('✕',()=>dialog.close(),'sl-quick-close'));
-   const intro=el('p','sl-quick-explain','الخطأ = شكّان في المراجعة الكبرى. في الحفظ وجنب الدرس: الخطأ «لم يحفظ»، والشك دون خطأ «جيد جدًا».');
+   const intro=el('p','sl-quick-explain','الخطأ = شكّان في المراجعة الكبرى. في الحفظ وجنب الدرس: الخطأ «لم يحفظ»، والشك أو الخطأ «لم يحفظ».');
    const tabs=el('div','sl-quick-sheet-tabs'),content=el('div','sl-quick-sheet-content');
    const footer=el('div','sl-quick-sheet-footer'),done=button('تم — العودة إلى الطلاب',()=>dialog.close(),'sl-quick-done');
    footer.append(done);dialog.append(header,intro,tabs,content,footer);document.body.append(dialog);
@@ -120,7 +122,7 @@
     const m=metricFor(i,selected),rating=gradeValue(states[i],selected);
     content.replaceChildren();
     const score=selected.startsWith('review:')?2*int(m.errors)+int(m.doubts):null;
-    content.append(el('h3','',t.name),el('p','sl-quick-metric-summary',score!==null?'وحدات الخصم: '+score:'الشك دون خطأ = جيد جدًا · الخطأ = لم يحفظ'));
+    content.append(el('h3','',t.name),el('p','sl-quick-metric-summary',score!==null?'وحدات الخصم: '+score:'يشترط صفر أخطاء وصفر شكوك للإتقان؛ أي خطأ أو شك = لم يحفظ'));
     for(const [field,label] of [['errors','الأخطاء'],['doubts','الشكوك'],['tajweed','ملاحظات التجويد']]){
      const holder=el('div','sl-quick-counter');
      const legend=el('strong','',label);
