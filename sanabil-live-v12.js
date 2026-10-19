@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.33';
+window.__SanabilLiveBuild='20261019-v13.8.34';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2185,7 +2185,8 @@ async function outcomesPage(root){
   // Quick mode uses the same guarded draft, grading, and server-verified save pipeline.
   window.SanabilQuickOutcomes?.mount?.({
     box,form,students,states,readOnly,activeKind,needsDayAttendance,
-    gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard
+    gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard,
+    complexId:circleMeta?.complex_id||l.circles.find(c=>c.id===circle)?.complex_id
   });
   students.forEach((s,i)=>{
     syncCard(i,false);
@@ -3342,6 +3343,7 @@ async function dashboard(root){
 
 
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
+ window.SanabilPointsAdmin?.mountDashboard?.(root,a);
 }
 async function dashboardDetails(root,a){
  const rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
