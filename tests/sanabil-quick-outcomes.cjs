@@ -3,17 +3,17 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const js=fs.readFileSync('sanabil-quick-outcomes.js','utf8'),live=fs.readFileSync('sanabil-live-v12.js','utf8'),
 html=fs.readFileSync('index.html','utf8'),css=fs.readFileSync('sanabil-quick-outcomes.css','utf8');
 new vm.Script(js,{filename:'sanabil-quick-outcomes.js'});
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v1'));
-assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v1'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v2'));
+assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v2'));
 assert(live.includes('window.SanabilQuickOutcomes?.mount?.({'),'live classroom loads optional quick editor');
 assert(live.includes("rpcOffline('save_daily_outcomes_guarded'"),'existing server-guarded outcome pipeline preserved');
 assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server confirmation preserved');
 assert(css.includes('.sl-quick-sheet')&&css.includes('.sl-quick-mode'),'responsive views available');
 const win={};vm.runInNewContext(js,{window:win,document:{}});const grade=win.SanabilQuickOutcomes.gradeFor;
 for(const [key,e,d,want] of [
- ['memorization',0,0,'ممتاز'],['memorization',0,1,'جيد جدًا'],
- ['memorization',0,3,'جيد جدًا'],['memorization',1,0,'لم يحفظ'],['memorization',1,1,'لم يحفظ'],
- ['recentReview',0,0,'ممتاز'],['recentReview',0,1,'جيد جدًا'],['recentReview',1,0,'لم يحفظ'],
+ ['memorization',0,0,'ممتاز'],['memorization',0,1,'لم يحفظ'],
+ ['memorization',0,3,'لم يحفظ'],['memorization',1,0,'لم يحفظ'],['memorization',1,1,'لم يحفظ'],
+ ['recentReview',0,0,'ممتاز'],['recentReview',0,1,'لم يحفظ'],['recentReview',1,0,'لم يحفظ'],
  ['review:a',0,0,'ممتاز'],['review:a',0,1,'ممتاز'],
  ['review:a',1,0,'جيد جدًا'],['review:a',0,2,'جيد جدًا'],
  ['review:a',1,1,'جيد'],['review:a',2,0,'جيد'],
