@@ -1,0 +1,21 @@
+name: Quick Outcomes Regression
+on:
+  push:
+    branches: [feature/quick-outcomes-1448-grading]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  quick-outcomes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Quran grade matrix and classroom hooks
+        run: |
+          node --check sanabil-quick-outcomes.js
+          node --check sanabil-live-v12.js
+          node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-natural-commands.cjs
+          node tests/sanabil-voice-responsive.cjs
+          node tests/sanabil-exam-nominations.cjs
