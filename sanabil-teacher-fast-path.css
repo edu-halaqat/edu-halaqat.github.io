@@ -1,0 +1,42 @@
+/* Teacher quick path — an alternative presentation of the same signed-in app. */
+.sl-fast-switcher{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:9px 0 14px}
+.sl-fast-switcher .button{flex:1 1 125px;min-height:44px}
+.sl-fast-entry{direction:rtl;margin:14px auto;max-width:620px;padding:20px;border:1px solid #d8bd88;
+ border-radius:20px;background:#f8fbf9;color:#123e33;box-shadow:0 6px 20px #001d1314}
+.sl-fast-entry h2{margin:0 0 9px;font-size:1.35rem}
+.sl-fast-help{line-height:1.7;font-size:.88rem;opacity:.88}
+.sl-fast-start-actions{display:grid;gap:13px;margin-top:19px}
+.sl-fast-label{display:flex;flex-direction:column;gap:7px;font-weight:700;line-height:1.7}
+.sl-fast-label :is(select,input){width:100%;min-height:48px;padding:10px 12px;box-sizing:border-box;
+ border-radius:12px;border:1px solid #76998a;background:#fff;color:#123e33;font:inherit}
+.sl-fast-start{min-height:54px;font-size:1.12rem}
+.sl-fast-status,.sl-fast-nomination-status{margin:0;font-size:.87rem;line-height:1.8}
+.sl-fast-session-bar{direction:rtl;position:sticky;top:0;z-index:9;background:#eef7f3;color:#153f33;
+ border:1px solid #b6d5c5;border-radius:14px;padding:10px 13px;margin:0 0 12px}
+.sl-fast-session-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sl-fast-session-meta strong{font-size:1rem}
+.sl-fast-session-bar p{margin:7px 0 3px;line-height:1.7;font-size:.84rem}
+.sl-fast-session-bar button{min-height:42px}
+.sl-fast-session .sl-session-head,.sl-fast-session .sl-session-filter{display:none!important}
+.sl-fast-session .sl-day-kind-toolbar{display:none!important}
+body:has(.sl-fast-session) .mobile-nav,
+body:has(.sl-fast-session) .tabs,
+body:has(.sl-fast-session) .more-sheet{display:none!important}
+.sl-fast-nomination-dialog{width:min(95vw,660px);max-height:88dvh;overflow:auto;direction:rtl;
+ border:1px solid #d8bd88;background:#f9fcfa;color:#17483a;border-radius:18px;padding:17px}
+.sl-fast-nomination-dialog::backdrop{background:#09271fc2}
+.sl-fast-nomination-dialog h3{margin:0 0 10px}
+.sl-fast-nomination-dialog form{display:grid;gap:9px;margin:12px 0}
+.sl-fast-nomination-dialog .button{min-height:45px}
+.sl-fast-selected-names{max-height:100px;overflow:auto;line-height:1.7;font-size:.83rem;
+ background:#ecf4ef;padding:9px;border-radius:10px}
+.sl-quick-nominate{flex:1 1 170px;background:#e8f4ed;color:#134e3d;border-color:#7c9d8a}
+html[data-sanabil-theme="dark"] .sl-fast-entry,
+html[data-sanabil-theme="dark"] .sl-fast-nomination-dialog{background:#193a30;color:#e7f1eb;border-color:#a18e5f}
+html[data-sanabil-theme="dark"] .sl-fast-entry select,
+html[data-sanabil-theme="dark"] .sl-fast-nomination-dialog :is(select,input){background:#234b3c;color:#e9f4ec}
+html[data-sanabil-theme="dark"] .sl-fast-session-bar{background:#17382e;color:#ebf3ef;border-color:#6e8d7d}
+html[data-sanabil-theme="dark"] .sl-fast-selected-names{background:#244638;color:#e7eee9}
+html[data-sanabil-theme="dark"] .sl-quick-nominate{background:#21483b;color:#f1eee0}
+@media(max-width:530px){.sl-fast-entry{padding:14px}.sl-fast-session-meta{align-items:stretch}
+ .sl-fast-session-meta button{width:100%}.sl-fast-nomination-dialog{padding:12px}}
