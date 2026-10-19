@@ -6,7 +6,7 @@ const html=read('index.html'),css=read('sanabil-quick-outcomes.css'),
  sql=read('supabase/migrations/20261019081000_atomic_bulk_day_types.sql'),
  metrics=read('supabase/migrations/20261019083000_circle_operation_metrics.sql');
 for(const [name,source] of [['live',live],['quick',quick],['ops',ops]])new vm.Script(source,{filename:name+'.js'});
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v4'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v5'));
 assert(html.includes('/sanabil-live-ops.js?v=20261019-v1'));
 assert(html.includes('/sanabil-live-ops.css?v=20261019-v1'));
 assert(live.includes("attendance:s.attendanceStatus||(needsDayAttendance(activeKind(s.studentId))?'present':'')"),'unrecorded attendance presented as present');
