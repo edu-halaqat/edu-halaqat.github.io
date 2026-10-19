@@ -2196,7 +2196,8 @@ async function outcomesPage(root){
   const drainAuto=async()=>{
     if(!box.isConnected||readOnly)return;
     while(autoInFlight.size<2&&autoPending.size){
-      const i=autoPending.values().next().value;
+      const i=[...autoPending].find(index=>!autoInFlight.has(index));
+      if(i===undefined)break;
       autoPending.delete(i);
       const x=rowData(students[i],i);
       if(box._sanabilQuick?.isProvisional?.(i))continue;
@@ -2245,7 +2246,7 @@ async function outcomesPage(root){
       if(readOnly)throw Error('هذه الجلسة لا تسمح بالتعديل.');
       if(!studentIds?.length)throw Error('لم تحدد طلابًا.');
       if(Object.keys(drafts).length&&
-        !confirm('توجد مسودات حصائل لم تُعتمد. سيُعاد فتح الجلسة بعد تصنيف اليوم؛ تأكد من عدم فقد أي مسودة. متابعة؟'))return;
+        !confirm('توجد مسودات حصائل لم تُعتمد. سيُعاد فتح الجلسة بعد تصنيف اليوم؛ تأكد من عدم فقد أي مسودة. متابعة؟'))throw Error('أُلغيت العملية حفاظًا على المسودات.');
       await ensureCircleSession(circle,date,true);
       const output=await rpc('set_day_types_bulk_guarded',{
         p_circle_id:circle,p_date:date,p_day_type:kind,p_student_ids:studentIds
