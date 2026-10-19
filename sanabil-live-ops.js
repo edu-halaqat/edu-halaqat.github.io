@@ -48,23 +48,29 @@
    busy=true;refresh.disabled=true;const complex=selector.value;
    const recent=new Date(Date.now()-3600000).toISOString();
    try{
-    const [circles,students,attendance,outcomes,samples]=await Promise.all([
+    const [circles,students,attendance,outcomes,samples,efficiency]=await Promise.all([
      client().from('circles').select('id,name').eq('complex_id',complex).eq('active',true).limit(150),
      client().from('students').select('id,circle_id').eq('complex_id',complex).eq('active',true).limit(3000),
      client().from('student_attendance').select('circle_id,student_id,status').eq('complex_id',complex).eq('date_key',today()).limit(4000),
      client().from('outcomes').select('circle_id,student_id,updated_at').eq('complex_id',complex).eq('date_key',today()).limit(4000),
-     client().from('circle_operation_samples').select('circle_id,operation,duration_ms,succeeded,observed_at').eq('complex_id',complex).gte('observed_at',recent).order('observed_at',{ascending:false}).limit(2000)
+     client().from('circle_operation_samples').select('circle_id,operation,duration_ms,succeeded,observed_at').eq('complex_id',complex).gte('observed_at',recent).order('observed_at',{ascending:false}).limit(2000),
+     client().from('circle_efficiency_sessions').select('circle_id,clicks,active_seconds,categories').eq('complex_id',complex).eq('date_key',today()).limit(3000)
     ]);
-    for(const r of [circles,students,attendance,outcomes,samples])if(r.error)throw r.error;
+    for(const r of [circles,students,attendance,outcomes,samples,efficiency])if(r.error)throw r.error;
     result.replaceChildren();
     const savedIds=new Set((outcomes.data||[]).map(o=>o.student_id));
     const attendedIds=new Set((attendance.data||[]).map(o=>o.student_id));
     const allTimings=(samples.data||[]).filter(x=>x.operation==='outcome_save'&&x.succeeded).map(x=>x.duration_ms);
     const p95=percentile(allTimings,.95);
+    const measuredClicks=(efficiency.data||[]).reduce((sum,item)=>sum+Number(item.clicks||0),0);
+    const measuredSeconds=(efficiency.data||[]).reduce((sum,item)=>sum+Number(item.active_seconds||0),0);
+    const clicksPerOutcome=savedIds.size?Number((measuredClicks/savedIds.size).toFixed(1)):null;
     const top=document.createElement('section');top.className='sl-liveops-summary';
     for(const [key,value] of [
      ['الحصائل المحفوظة اليوم',savedIds.size],['التحضير المحفوظ اليوم',attendedIds.size],
-     ['عينات سرعة الحفظ في الساعة الماضية',allTimings.length],['زمن حفظ P95',statusValue(p95)]
+     ['عينات سرعة الحفظ في الساعة الماضية',allTimings.length],['زمن حفظ P95',statusValue(p95)],
+     ['النقرات المقاسة اليوم',measuredClicks],['نقرة لكل حصيلة مؤكدة',clicksPerOutcome===null?'—':clicksPerOutcome],
+     ['وقت التفاعل المقاس',Math.round(measuredSeconds/60)+' دقيقة']
     ]){
      const box=textNode('article','','sl-liveops-stat');
      box.append(textNode('small',key),textNode('strong',String(value)));top.append(box);
@@ -75,15 +81,18 @@
      const done=(outcomes.data||[]).filter(x=>x.circle_id===c.id).length;
      const attendanceDone=(attendance.data||[]).filter(x=>x.circle_id===c.id).length;
      const m=(samples.data||[]).filter(x=>x.circle_id===c.id&&x.operation==='outcome_save'&&x.succeeded);
+     const clickCount=(efficiency.data||[]).filter(x=>x.circle_id===c.id).reduce((sum,x)=>sum+Number(x.clicks||0),0);
+     const avg=done?Number((clickCount/done).toFixed(1)):'—';
      const row=textNode('article','','sl-liveops-row');
      row.append(textNode('strong',c.name),textNode('span','حصائل '+done+'/'+studentTotal),
        textNode('span','تحضير '+attendanceDone+'/'+studentTotal),
+       textNode('span','نقرات '+clickCount),textNode('span','نقرة/حصيلة '+avg),
        textNode('span','P95 '+statusValue(percentile(m.map(v=>v.duration_ms),.95))));
      table.append(row);
     }
     result.append(table);
     result.append(textNode('small','آخر تحديث: '+new Date().toLocaleTimeString('ar-SA')+
-      ' · لا يعني غياب العينة سرعة صفرًا. هذه قياسات عمليات محفوظة ومؤكدة فقط.','sl-liveops-note'));
+      ' · النقرات تمثل اللمسات المرصودة داخل صفحات الحصيلة، وليست الوقت الكامل للتسميع أو بيانات جميع الأجهزة. مقارنة تقريبية بعمليات الحفظ المؤكدة.','sl-liveops-note'));
    }catch(e){result.textContent='تعذر تحميل المؤشرات: '+(e.message||'أعد المحاولة')}
    finally{busy=false;refresh.disabled=false}
   }
