@@ -1,0 +1,21 @@
+name: Exclusive quick outcome layout regression
+on:
+  push:
+    branches: [fix/quick-outcomes-exclusive-view-20261019]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  layout-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify quick/detail visibility and save regression
+        run: |
+          node --check sanabil-quick-outcomes.js
+          node tests/sanabil-exclusive-quick-view.cjs
+          node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-one-touch.cjs
+          node tests/sanabil-teacher-productivity.cjs
+          node tests/sanabil-exam-nominations.cjs
