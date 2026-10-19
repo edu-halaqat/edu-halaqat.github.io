@@ -28,7 +28,7 @@
  ];
  function mount(ctx){
   const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
-   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate}=ctx;
+   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind}=ctx;
   let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
@@ -59,7 +59,9 @@
   const list=el('div','sl-quick-list'),checked=new Set(),provisional=new Set(),rows=[];
   const inform=t=>{notice.textContent=t};
   const defaults=button('تهيئة ممتاز للحاضرين',()=>seedPresent(true),'sl-quick-defaults');
-  toolbar.append(defaults,bulk);
+  const multiGrade=button('✎ تقييم مجموعة',()=>openBulkGrade(),'sl-quick-multi');
+  const multiDay=button('▦ تصنيف يوم مجموعة',()=>openBulkDay(),'sl-quick-multi-day');
+  toolbar.append(defaults,bulk,multiGrade,multiDay);
   wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(toggle,form);form.parentNode.insertBefore(wrap,form);
   box.classList.add('sl-quick-mode');
   const allowAtt=st=>['present','late'].includes(st.attendance);
@@ -68,7 +70,85 @@
   const seedPresent=(message=false)=>{
    if(readOnly){if(message)inform('الجلسة للعرض فقط.');return 0}
    let count=0;
-   for(let i=0;i<students.length;i++){
+   const targetIndices=()=>[...checked].filter(i=>i>=0&&i<students.length);
+  const makeInput=(type,label,value)=>{
+   const line=el('label','sl-quick-bulk-field',label),field=el(type==='select'?'select':'input');
+   if(type==='number'){field.type='number';field.min='0';field.max='100';field.value=String(value||0);}
+   line.append(field);return{line,field};
+  };
+  const bulkDialog=(heading)=>{
+   const d=el('dialog','sl-quick-sheet sl-quick-bulk-sheet');d.dir='rtl';
+   d.append(el('h3','',heading));
+   document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});
+   const cancel=button('إلغاء',()=>d.close());
+   const end=el('div','sl-quick-sheet-footer');end.append(cancel);d.append(end);
+   if(d.showModal)d.showModal();else d.setAttribute('open','');
+   return {d,end};
+  };
+  function openBulkGrade(){
+   if(readOnly)return;
+   const ids=targetIndices(),allowed=ids.filter(canEdit);
+   if(ids.length===0){inform('حدد الطلاب أولًا.');return}
+   if(allowed.length!==ids.length){inform('حدد فقط الطلاب الحاضرين الذين لهم مقررات مسندة.');return}
+   const common=trackList(students[ids[0]]).map(t=>({key:t.key,name:t.name}));
+   const every=common.filter(t=>ids.every(i=>trackList(students[i]).some(x=>x.key===t.key)));
+   if(ids.every(i=>(students[i].reviews||[]).length===1)&&!every.some(t=>t.key.startsWith('review:')))
+    every.push({key:'singleReview',name:'المراجعة الكبرى الوحيدة لكل طالب'});
+   if(!every.length){inform('ليس لهؤلاء الطلاب واجب مشترك. غيّر مجموعة التحديد.');return}
+   const {d,end}=bulkDialog('تقييم جماعي لـ '+ids.length+' طلاب');
+   const track=makeInput('select','الواجب',0);
+   every.forEach(t=>{const opt=el('option','',t.name);opt.value=t.key;track.field.append(opt)});
+   const errors=makeInput('number','عدد الأخطاء لكل طالب',0);
+   const doubts=makeInput('number','عدد الشكوك لكل طالب',0);
+   const tajweed=makeInput('number','ملاحظات التجويد لكل طالب',0);
+   const rating=makeInput('select','التقدير',0);
+   for(const [value,label] of [['auto','حساب تلقائي وفق لائحة المجمع'],['ممتاز','ممتاز'],['جيد جدًا','جيد جدًا'],['جيد','جيد'],['لم يحفظ','لم يحفظ'],['لم يسمع','لم يسمع']]){
+    const option=el('option','',label);option.value=value;rating.field.append(option);
+   }
+   d.insertBefore(el('p','sl-quick-explain','ينطبق التقييم على الواجب المحدد فقط. لن تُمس الواجبات الأخرى أو نتائج الطلاب غير المحددين.'),end);
+   for(const item of [track,errors,doubts,tajweed,rating])d.insertBefore(item.line,end);
+   const commit=button('تطبيق التقييم المحدد',()=>{
+    const n=[errors,doubts,tajweed].map(x=>Number(x.field.value));
+    if(n.some(x=>!Number.isInteger(x)||x<0||x>100)){inform('أدخل أعدادًا صحيحة من صفر إلى مئة.');return}
+    const planned=ids.map(i=>{
+     const key=track.field.value==='singleReview'?'review:'+students[i].reviews[0].planId:track.field.value;
+     return {i,key};
+    });
+    if(!planned.every(({i,key})=>trackList(students[i]).some(x=>x.key===key))){inform('المقرر غير مشترك بين جميع الطلاب.');return}
+    if(!window.confirm('أؤكد أنني سمّعت الواجب المختار للطلاب '+ids.length+'، وأن القيم تنطبق عليهم جميعًا.'))return;
+    for(const {i,key} of planned){
+      for(const [field,value] of [['errors',n[0]],['doubts',n[1]],['tajweed',n[2]]])setMetric(i,key,field,value);
+      const final=rating.field.value==='auto'?gradeFor(key,n[0],n[1],rubric):rating.field.value;
+      setGrade(states[i],key,final);store(i);
+    }
+    checked.clear();refreshAll();inform('عُدّلت '+planned.length+' حصيلة للواجب المشترك. التغييرات الأخرى بقيت دون مساس.');
+    d.close();
+   },'sl-quick-done');
+   end.prepend(commit);
+  }
+  function openBulkDay(){
+   if(readOnly)return;
+   const ids=targetIndices();
+   if(!ids.length){inform('حدد الطلاب الذين تريد تغيير تصنيف يومهم.');return}
+   if(typeof bulkDayKind!=='function'){inform('تغيير نوع اليوم الجماعي غير متاح في هذه الجلسة.');return}
+   const {d,end}=bulkDialog('تصنيف اليوم لـ '+ids.length+' طلاب');
+   const field=makeInput('select','التصنيف الجديد',0);
+   for(const [value,label] of [['study','يوم دراسي'],['test','يوم اختبار'],['holiday','إجازة'],['unaccounted','غير محتسب'],['inherit','تصنيف الحلقة']]){
+    const opt=el('option','',label);opt.value=value;field.field.append(opt);
+   }
+   d.insertBefore(field.line,end);
+   d.insertBefore(el('p','sl-quick-explain','يؤثر تصنيف اليوم في خطط الحفظ والترحيل. يتحقق الخادم من الصلاحيات ويطبّق التعديل على المجموعة معًا أو يرفضها كلها.'),end);
+   const apply=button('اعتماد تصنيف المجموعة',async()=>{
+    if(!window.confirm('تأكيد تغيير تصنيف يوم '+ids.length+' طلاب؟ لا تؤثر العملية في نتائج طلاب آخرين.'))return;
+    apply.disabled=true;
+    try{
+      await bulkDayKind(ids.map(i=>students[i].studentId),field.field.value);
+      d.close();
+    }catch(e){inform(e?.message||'تعذر تغيير التصنيف');apply.disabled=false}
+   },'sl-quick-done');
+   end.prepend(apply);
+  }
+  for(let i=0;i<students.length;i++){
     if(!canEdit(i)||hasPrior(i))continue;
     const entries=trackList(students[i]);
     // No grading overwrite: draft/saved grades and detailed error counters always win.
@@ -99,8 +179,8 @@
    const entries=trackList(s),kind=activeKind(s.studentId),allowed=canEdit(i);
    view.tick.disabled=!allowed;
    view.details.disabled=readOnly||!needsDayAttendance(kind);
-   view.check.disabled=!allowed;
-   if(!allowed){checked.delete(i);provisional.delete(i);view.check.checked=false}
+   view.check.disabled=readOnly;
+   if(!allowed){provisional.delete(i)}
    const chips=[];
    for(const t of entries){
     const m=metricFor(i,t.key),rating=gradeValue(st,t.key);
@@ -217,7 +297,7 @@
     if(settings&&box.isConnected){rubric=settings;inform('تسري على هذه الجلسة لائحة التقدير الخاصة بالمجمع.');}
    }).catch(err=>{inform('تعذر تحميل لائحة المجمع؛ لن أغير التقديرات القائمة. '+(err?.message||''));});
   }
-  const entry={refresh,refreshAll,seed:seedPresent,gradeFor};
+  const entry={refresh,refreshAll,seed:seedPresent,gradeFor,isProvisional:i=>provisional.has(i)};
   box._sanabilQuick=entry;
   return entry;
  }
