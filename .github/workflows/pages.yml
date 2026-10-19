@@ -48,6 +48,7 @@ jobs:
           node --check sanabil-voice-global.js
           node --check sanabil-quick-outcomes.js
           node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-exclusive-quick-view.cjs
           node --check sanabil-live-ops.js
           node tests/sanabil-one-touch.cjs
           node --check sanabil-teacher-productivity.js
