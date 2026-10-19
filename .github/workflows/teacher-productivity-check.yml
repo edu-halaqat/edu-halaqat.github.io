@@ -1,0 +1,24 @@
+name: Teacher productivity regression
+on:
+  push:
+    branches: [feature/teacher-favorites-click-efficiency-20261019]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  productivity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check teacher shortcuts, session click counts and legacy flows
+        run: |
+          node --check sanabil-teacher-productivity.js
+          node --check sanabil-quick-outcomes.js
+          node --check sanabil-live-ops.js
+          node --check sanabil-live-v12.js
+          node tests/sanabil-teacher-productivity.cjs
+          node tests/sanabil-one-touch.cjs
+          node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-scoring.cjs
+          node tests/sanabil-exam-nominations.cjs

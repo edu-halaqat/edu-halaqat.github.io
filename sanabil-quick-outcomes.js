@@ -311,7 +311,9 @@
     if(settings&&box.isConnected){rubric=settings;inform('تسري على هذه الجلسة لائحة التقدير الخاصة بالمجمع.');}
    }).catch(err=>{inform('تعذر تحميل لائحة المجمع؛ لن أغير التقديرات القائمة. '+(err?.message||''));});
   }
-  const entry={refresh,refreshAll,seed:seedPresent,gradeFor,isProvisional:i=>provisional.has(i)};
+  const entry={refresh,refreshAll,seed:seedPresent,gradeFor,isProvisional:i=>provisional.has(i),
+   openBulkGrade,openBulkDay,openDetails,selectedIndices:targetIndices,
+   studentNames:()=>students.map(item=>item.fullName)};
   box._sanabilQuick=entry;
   // Default only the local draft for a scheduled study day; never persist
   // unsummoned success to the server until the teacher explicitly confirms.

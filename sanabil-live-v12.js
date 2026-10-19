@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.37';
+window.__SanabilLiveBuild='20261019-v13.8.38';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2268,6 +2268,10 @@ async function outcomesPage(root){
       msg(box,'تم تعديل يوم '+(output.updated||0)+' من '+studentIds.length+' طالبًا دفعة واحدة.');
       reloadDay();
     }
+  });
+  // Teacher shortcuts are explicitly selected; no learner is ever advanced automatically.
+  window.SanabilTeacherProductivity?.mount?.({
+    box,circle,date,teacherId:activeUserId,students,readOnly
   });
   students.forEach((s,i)=>{
     syncCard(i,false);
