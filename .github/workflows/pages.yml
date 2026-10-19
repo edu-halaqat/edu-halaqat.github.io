@@ -48,6 +48,8 @@ jobs:
           node --check sanabil-voice-global.js
           node --check sanabil-quick-outcomes.js
           node tests/sanabil-quick-outcomes.cjs
+          node --check sanabil-points-admin.js
+          node tests/sanabil-points-scoring.cjs
           node tests/sanabil-voice-global.cjs
           node tests/sanabil-voice-nomination.cjs
           node tests/sanabil-natural-commands.cjs
