@@ -20,7 +20,7 @@ assert.equal(helpers.teachersForCircle(data,'c1').length,1);
 assert.equal(helpers.teachersForCircle(data,'c1')[0].id,'a','use explicit link rather than obsolete direct teacher link');
 assert.equal(helpers.teacherAssignmentInfo(data,'c1').legacyConflict,true,'alert when legacy direct roster has multiple');
 assert.equal(helpers.teachersForCircle(data,'c2')[0].id,'c','do not override explicit assignment with legacy alias');
-assert.equal(helpers.teachersForCircle(data,'c3')[0].id,'d','fallback to single active teacher on old unmigrated circle');
+assert.equal(helpers.teachersForCircle(data,'c3').length,0,'unregistered imported teacher cannot be used for new assignments');
 assert.equal(helpers.teacherDirectory(teachers).filter(x=>x.user_id==='account-b').length,1,'same user must appear once');
 assert(src.includes("assign_circle_teacher_guarded"),'explicit guarded assignment action is required');
 assert(src.includes("تعارض")||src.includes("التعارض"),'conflict handling should be visible');
@@ -30,4 +30,4 @@ assert(css.includes('sl-peer-floating')&&css.includes('pointer-events:none'),'th
 assert(!css.includes('.sl-peer-panel.sl-peer-compact'),'entire call card must no longer collapse on mobile');
 assert(css.includes('sl-peer-videos video:nth-child(2)'),'teacher picture in picture required');
 assert(src.includes('freeLiveDemoEnabled'),'video must remain admin-only until student identity verification');
-console.log('PASS: canonical teacher source, safe legacy handling, deduplication by account, assignment guard and mobile video layout');
+console.log('PASS: verified teachers only, safe legacy preservation, deduplication by account, assignment guard and mobile video layout');
