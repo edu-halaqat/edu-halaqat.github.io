@@ -19,6 +19,8 @@ assert(live.includes('const i=[...autoPending].find(index=>!autoInFlight.has(ind
 assert(live.includes("await confirmSaved(s,x)"),'server readback required before marking confirmed');
 assert(quick.indexOf('const targetIndices')<quick.indexOf('const seedPresent'),'bulk operations remain in parent scope');
 assert(quick.includes("openBulkDay")&&quick.includes("openBulkGrade"),'batch UI for day types and grade');
+assert(quick.includes('sl-quick-attendance')&&quick.includes('غائب بعذر')&&quick.includes('مستأذن'),'attendance exceptions visible in fast mode');
+assert(live.includes('changeAttendance:(i,value)=>')&&live.includes('syncCard(i);persistDraft(i);'),'attendance selector shares guarded autosave path');
 assert(quick.includes("if(!readOnly&&sessionDate)seedPresent(false)"),'initial perfect ratings remain local drafts');
 assert(quick.includes("isProvisional:i=>provisional.has(i)"),'autowrite gate for unverified grades');
 assert(sql.includes('public.set_day_type_guarded(')&&sql.includes('security invoker'),'reuse existing permissions and plan change constraints');
