@@ -31,7 +31,24 @@
    metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance}=ctx;
   let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
+  // Switching modes must not destroy the original form: the existing guarded
+  // handlers, unsaved drafts, and verified save/restore pipeline remain active.
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
+  box.querySelector('.sl-quick-mode-toggle')?.remove();
+  const switchView=(quick)=>{
+   box.classList.toggle('sl-quick-mode',quick);
+   // Identity CSS sets display:grid!important on detailed student grids.
+   // Setting display via inline important reliably wins over that declaration.
+   const detailedGrid=form.querySelector('.sl-student-grid');
+   const detailedSearch=box.querySelector('.sl-outcome-student-search');
+   const detailedNavigation=document.querySelector?.('[data-outcome-float-nav]');
+   for(const target of [detailedGrid,detailedSearch,detailedNavigation]){
+    if(!target?.style)continue;
+    if(quick)target.style.setProperty?.('display','none','important');
+    else target.style.removeProperty?.('display');
+   }
+   return quick;
+  };
   const wrap=el('section','sl-quick-outcomes');
   wrap.dir='rtl';wrap.setAttribute('aria-label','الحصيلة السريعة');
   const heading=el('div','sl-quick-heading');
@@ -39,11 +56,14 @@
   heading.append(headingText,el('small','', 'اختصار التقييم دون تغيير نظام الحفظ المعتمد'));
   const toolbar=el('div','sl-quick-toolbar');
   const toggle=button('عرض الحصيلة التفصيلية',()=>{
-   const isQuick=box.classList.toggle('sl-quick-mode');
+   const isQuick=switchView(!box.classList.contains('sl-quick-mode'));
    toggle.textContent=isQuick?'عرض الحصيلة التفصيلية':'عرض الحصيلة السريعة';
-   toggle.setAttribute('aria-expanded',String(isQuick));
+   toggle.setAttribute('aria-expanded',String(!isQuick));
+   toggle.setAttribute('aria-pressed',String(!isQuick));
   },'sl-quick-mode-toggle');
-  toggle.setAttribute('aria-expanded','true');
+  toggle.setAttribute('aria-expanded','false');
+  toggle.setAttribute('aria-pressed','false');
+  toggle.setAttribute('aria-controls','sl-outcome-student-grid');
   const bulk=button('✓ ممتاز لمن اكتمل تسميعهم',()=>{
    if(readOnly){inform('هذه الجلسة للعرض فقط.');return}
    const ids=students.map((s,i)=>i).filter(i=>checked.has(i));
@@ -63,7 +83,7 @@
   const multiDay=button('▦ تصنيف يوم مجموعة',()=>openBulkDay(),'sl-quick-multi-day');
   toolbar.append(defaults,bulk,multiGrade,multiDay);
   wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(toggle,form);form.parentNode.insertBefore(wrap,form);
-  box.classList.add('sl-quick-mode');
+  switchView(true);
   const allowAtt=st=>['present','late'].includes(st.attendance);
   const canEdit=i=>!readOnly&&needsDayAttendance(activeKind(students[i].studentId))&&eligible(students[i],activeKind(students[i].studentId))&&allowAtt(states[i]);
   const hasPrior=(i)=>!!box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved?.match(/saved/);

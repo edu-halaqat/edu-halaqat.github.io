@@ -2,7 +2,7 @@
 /* Sanabil PWA shell. Never replay private POST requests from the service worker:
    auth tokens expire, 2xx alone does not guarantee domain-level acceptance,
    and only a signed-in foreground page may confirm cloud persistence. */
-const SHELL='sanabil-shell-20261019-v26-teacher-favorites';
+const SHELL='sanabil-shell-20261019-v27-quick-exclusive';
 const NOOR_SOURCE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
 const NOOR_CACHE='sanabil-noor-bayan-v1',NOOR_KEY='/noor-bayan.pdf';
 const LEGACY_DB='sanabil-offline-v1',LEGACY_STORE='queue';

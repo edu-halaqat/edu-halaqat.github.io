@@ -19,7 +19,11 @@
 .sl-quick-chip{border-radius:999px;background:color-mix(in srgb,currentColor 9%,transparent);font-size:.75rem;padding:3px 8px}
 .sl-quick-row-actions{gap:6px;flex-wrap:nowrap}
 .sl-quick-select{width:22px;height:22px;accent-color:#00808a;flex-shrink:0}
-.sl-quick-mode .sl-outcome-session>.sl-student-grid{display:none}
+/* Explicitly override identity.css: .sl-live .sl-outcome-session
+   .sl-student-grid { display:grid!important }. Only one outcome mode is visible. */
+.sl-live .sl-data.sl-quick-mode .sl-outcome-session > .sl-student-grid{display:none!important}
+.sl-live .sl-data.sl-quick-mode .sl-outcome-student-search{display:none!important}
+body:has(.sl-live .sl-data.sl-quick-mode) .sl-outcome-float-nav{display:none!important}
 .sl-quick-sheet{width:min(100vw - 16px,650px);max-height:min(85dvh,850px);margin:auto auto 0;border:1px solid #7c9f91;border-radius:20px 20px 0 0;padding:14px 14px max(16px,env(safe-area-inset-bottom));overflow-y:auto;background:#f9fbfa;color:#183c33;box-shadow:0 -16px 50px #0008;direction:rtl}
 .sl-quick-sheet::backdrop{background:#081c18ac}
 .sl-quick-sheet-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
