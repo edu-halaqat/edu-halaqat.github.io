@@ -1,0 +1,21 @@
+name: Scoring and guardian integration regression
+on:
+  push:
+    branches: [feature/complex-scorecards-1448]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  scorecards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate new scoring UI and previous interfaces
+        run: |
+          node --check sanabil-scoring-ui.js
+          node --check sanabil-quick-outcomes.js
+          node --check sanabil-live-v12.js
+          node tests/sanabil-scoring.cjs
+          node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-exam-nominations.cjs
