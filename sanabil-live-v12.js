@@ -2200,6 +2200,8 @@ async function outcomesPage(root){
     while(autoInFlight.size<2&&autoPending.size){
       const i=[...autoPending].find(index=>!autoInFlight.has(index));
       if(i===undefined)break;
+      const manualButton=box.querySelector('[data-action="save-student-'+i+'"]');
+      if(manualButton?.disabled){setTimeout(drainAuto,700);break}
       autoPending.delete(i);
       const x=rowData(students[i],i);
       if(box._sanabilQuick?.isProvisional?.(i))continue;
