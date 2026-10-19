@@ -1474,6 +1474,7 @@ async function loadCircleSessionData(circle,date,talaqqin){
  return {dayData,familyRequests,assignments,absences};
 }
 async function outcomesPage(root){
+ const liveSessionOpenedAt=performance.now();
  const [l,a]=await Promise.all([lookups(),access()]);
  const freeLiveDemoEnabled=a?.roles?.some(role=>['admin','manager','supervisor','teacher'].includes(role))===true;
  const activeUserId=await window.SanabilOffline?.userId?.().catch(()=>null)||(await sb().auth.getSession()).data?.session?.user?.id||'anonymous';
@@ -2184,6 +2185,7 @@ async function outcomesPage(root){
     if(unchanged){clearDraft(i);window.SanabilPerformance?.recordActual('save_student',performance.now()-realSaveStarted)}
     if(status){status.textContent=unchanged?'تم الحفظ والتحقق من الخادم':'حُفظت نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft'}
     msg(box,unchanged?'تم حفظ حصيلة '+s.fullName+' والتأكد من مطابقة التقديرات والعدادات في قاعدة البيانات.':'تم حفظ نسخة سابقة من حصيلة '+s.fullName+'، لكن توجد تعديلات أحدث لم تُحفظ بعد.');
+    window.SanabilLiveOps?.record?.(circle,'outcome_save',performance.now()-realSaveStarted,true);
   };
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),()=>saveOneStudent(i)));
   // Debounce each edited student, and use the exact existing guarded write/readback.
@@ -2230,12 +2232,13 @@ async function outcomesPage(root){
     },1100));
   };
   autoBadge.textContent='تُحفظ التعديلات تلقائيًا بعد اكتمال البيانات والتحقق من الخادم';
-  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
+  action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{const attendanceWriteAt=performance.now();validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
     const i=students.indexOf(s);return{studentId:s.studentId,status:states[i].attendance,
       absenceReason:states[i].attendance==='absent'?states[i].absenceReason:null,note:val(form,'note'+i)||null};
   });
-  if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
+  if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`);if(!r.queued)window.SanabilLiveOps?.record?.(circle,'attendance_save',performance.now()-attendanceWriteAt,true)});
   renderSummary();
+  window.SanabilLiveOps?.record?.(circle,'session_open',performance.now()-liveSessionOpenedAt,true);
   // Quick mode uses the same guarded draft, grading, and server-verified save pipeline.
   window.SanabilQuickOutcomes?.mount?.({
     box,form,students,states,readOnly,activeKind,needsDayAttendance,
@@ -3418,6 +3421,7 @@ async function dashboard(root){
 
 
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
+ window.SanabilLiveOps?.mountDashboard?.(root,a);
 }
 async function dashboardDetails(root,a){
  const rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
