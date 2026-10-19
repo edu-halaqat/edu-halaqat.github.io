@@ -50,3 +50,11 @@ html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk
 .sl-quick-mode-toggle{display:block;margin:12px 0!important}
 .sl-data:not(.sl-quick-mode) .sl-quick-outcomes{display:none!important}
 .sl-data.sl-quick-mode .sl-quick-outcomes{display:block}
+
+.sl-quick-bulk-sheet .sl-quick-bulk-field{display:flex;flex-direction:column;gap:4px;margin:11px 0;font-weight:700;font-size:.9rem}
+.sl-quick-bulk-sheet :is(select,input){width:100%;min-height:44px;background:transparent;color:inherit;border:1px solid #7c9e8d;border-radius:10px;padding:9px;font:inherit}
+.sl-quick-bulk-sheet select option{color:#183c33;background:#f8fbfa}
+.sl-quick-multi,.sl-quick-multi-day{flex:1;min-width:130px}
+.sl-att-default-notice{font-size:.79rem;line-height:1.6;margin-top:6px;max-width:750px}
+.sl-autosave-message{display:block;font-size:.78rem;line-height:1.5;margin-top:6px}
+@media(max-width:450px){.sl-quick-multi,.sl-quick-multi-day{font-size:.78rem}}
