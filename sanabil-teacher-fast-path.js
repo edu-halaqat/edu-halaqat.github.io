@@ -8,6 +8,18 @@ const store=(key,value,area=localStorage)=>{try{area.setItem(key,JSON.stringify(
 const read=(key,area=localStorage)=>{try{return JSON.parse(area.getItem(key)||'null')}catch{return null}};
 const preferred=user=>read(L+user);
 const choose=(user,mode)=>{if(!['fast','general'].includes(mode))return;store(L+user,mode)};
+const DEFAULT_CIRCLE='sanabil_fast_default_circle_v1:';
+// A favorite is an account-specific UI preference, never a change to circle assignments.
+const favorite=(user,circles=[])=>{
+ const id=read(DEFAULT_CIRCLE+user);
+ return circles.find(c=>c.id===id)?.id||null;
+};
+const setFavorite=(user,id,circles=[])=>{
+ const allowed=circles.find(c=>c.id===id);
+ if(!allowed||!user)return false;
+ store(DEFAULT_CIRCLE+user,allowed.id);
+ return true;
+};
 const sessionToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const fingerKey=(user,circle,date)=>STATUS+user+':'+circle+':'+date;
 const pending=new Map();
@@ -91,8 +103,16 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
  const fastBtn=button('⚡ المسار السريع',()=>setMode('fast'),'button-primary');
  const generalBtn=button('☷ المسار العام',()=>setMode('general'),'button-soft');
  modeBar.append(fastBtn,generalBtn);
- const label=node('label','sl-fast-label','حلقة اليوم');
- const select=node('select');select.setAttribute('aria-label','اختر الحلقة التعليمية');label.append(select);
+ const label=node('div','sl-fast-label');
+ const labelText=node('span','','حلقة اليوم');
+ // Native select is retained as the session's value; the visible picker can
+ // show one real star button next to each circle (not possible in <option>).
+ const picker=node('details','sl-fast-circle-picker');
+ const summary=node('summary','sl-fast-circle-summary','اختر الحلقة');
+ const options=node('div','sl-fast-circle-options');
+ const select=node('select','sl-fast-circle-value');select.hidden=true;
+ select.setAttribute('aria-label','الحلقة المختارة للجلسة');
+ picker.append(summary,options,select);label.append(labelText,picker);
  const status=node('p','sl-fast-status','اختر الحلقة ثم اضغط بدء الجلسة.');
  status.setAttribute('role','status');
  const start=button('▶ بدء جلسة الحلقة',startCircle,'button-primary sl-fast-start');
@@ -101,6 +121,36 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
  quick.append(heading,desc,top);
  root.append(modeBar,quick,general);
  let circles=[];
+ const renderCircleOptions=()=>{
+  const defaultId=favorite(user,circles),selectedId=select.value;
+  const current=circles.find(c=>c.id===selectedId);
+  summary.textContent=(selectedId===defaultId?'★ ':'')+(current?.name||'اختر الحلقة');
+  summary.setAttribute('aria-label','حلقة اليوم: '+(current?.name||'اختر الحلقة')+
+   (selectedId===defaultId?'، الحلقة الافتراضية':'')+'؛ اضغط لتغيير الحلقة أو تعيين نجمة');
+  options.replaceChildren(...circles.map(circle=>{
+   const row=node('div','sl-fast-circle-row');
+   const active=circle.id===defaultId,selected=circle.id===selectedId;
+   const star=button(active?'★':'☆',()=>{
+    if(!setFavorite(user,circle.id,circles))return;
+    select.value=circle.id;
+    status.textContent='تم تعيين «'+(circle.name||'الحلقة')+'» حلقة افتراضية. ستظهر تلقائيًا عند العودة للمسار السريع.';
+    renderCircleOptions();
+   },'sl-fast-circle-star'+(active?' is-favorite':''));
+   star.setAttribute('aria-pressed',String(active));
+   star.setAttribute('aria-label',active?'الحلقة الافتراضية: '+(circle.name||'حلقة'):
+    'تعيين '+(circle.name||'الحلقة')+' حلقة افتراضية');
+   star.title=active?'الحلقة الافتراضية الحالية':'اضغط النجمة لجعل هذه الحلقة افتراضية';
+   const chooseCircle=button(circle.name||'حلقة',()=>{
+    select.value=circle.id;
+    picker.open=false;
+    status.textContent='اخترت «'+(circle.name||'الحلقة')+'» لهذه الجلسة فقط. النجمة الافتراضية لم تتغير.';
+    renderCircleOptions();
+   },'sl-fast-circle-option'+(selected?' is-selected':''));
+   chooseCircle.setAttribute('aria-current',String(selected));
+   row.append(star,chooseCircle);
+   options.append(row);
+  }));
+ };
  const setMode=mode=>{
   choose(user,mode);quick.hidden=mode!=='fast';general.hidden=mode!=='general';
   fastBtn.setAttribute('aria-pressed',String(mode==='fast'));
@@ -113,7 +163,11 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
   circles=(data?.circles||[]).filter(c=>c.active!==false);
   select.replaceChildren(...circles.map(c=>{const o=node('option','',c.name||'حلقة');o.value=c.id;return o}));
   const saved=read('sanabil_last_fast_circle_v1:'+user);
-  if(circles.some(c=>c.id===saved))select.value=saved;
+  const defaultId=favorite(user,circles);
+  // The explicit favorite wins over the last temporary session selection.
+  const initial=defaultId||(circles.some(c=>c.id===saved)?saved:circles[0]?.id);
+  if(initial)select.value=initial;
+  renderCircleOptions();
   start.disabled=!circles.length;
   if(!circles.length)status.textContent='لا توجد حلقة نشطة مسندة إلى حسابك. انتقل للمسار العام أو تواصل مع مشرف المجمع.';
  }catch(error){status.textContent='تعذر تحميل الحلقات: '+error.message}
@@ -305,5 +359,5 @@ async function bulkNominate({students,studentIds,circle,server}){
   finally{save.disabled=false;cancel.disabled=false}
  });
 }
-window.SanabilTeacherFastPath={mountDashboard,mountOutcomes,consumeLaunch,fingerprint,bulkNominate,preferred,choose,describe,setQuickUp};
+window.SanabilTeacherFastPath={mountDashboard,mountOutcomes,consumeLaunch,fingerprint,bulkNominate,preferred,choose,favorite,setFavorite,describe,setQuickUp};
 })();

@@ -47,3 +47,35 @@ html[data-sanabil-theme="dark"] .sl-fast-selected-names{background:#244638;color
 html[data-sanabil-theme="dark"] .sl-quick-nominate{background:#21483b;color:#f1eee0}
 @media(max-width:530px){.sl-fast-entry{padding:14px}.sl-fast-session-meta{align-items:stretch}
  .sl-fast-session-meta button{width:100%}.sl-fast-nomination-dialog{padding:12px}}
+
+/* Per-teacher starred default circle: keep the fast path compact on mobile. */
+.sl-fast-circle-picker{position:relative;width:100%;font-weight:500}
+.sl-fast-circle-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;
+ min-height:50px;box-sizing:border-box;padding:10px 13px;cursor:pointer;border:1px solid #76998a;
+ border-radius:12px;background:#fff;color:#123e33;font:inherit;line-height:1.6;list-style:none}
+.sl-fast-circle-summary::-webkit-details-marker{display:none}
+.sl-fast-circle-summary::after{content:'⌄';font-size:1.25rem;flex:none}
+.sl-fast-circle-picker[open] .sl-fast-circle-summary::after{transform:rotate(180deg)}
+.sl-fast-circle-summary:focus-visible,.sl-fast-circle-star:focus-visible,.sl-fast-circle-option:focus-visible{
+ outline:3px solid #0b8b80;outline-offset:2px}
+.sl-fast-circle-options{position:absolute;top:calc(100% + 5px);right:0;left:0;z-index:35;
+ max-height:min(42dvh,350px);overflow:auto;padding:5px;background:#fff;border:1px solid #76998a;
+ border-radius:12px;box-shadow:0 12px 30px #102b2450}
+.sl-fast-circle-row{display:flex;align-items:stretch;gap:4px;padding:3px;border-radius:8px}
+.sl-fast-circle-row+.sl-fast-circle-row{border-top:1px solid #dce8e1}
+.sl-fast-circle-star{flex:none;min-width:44px;min-height:44px;padding:5px;border-radius:8px;
+ font-size:1.5rem;line-height:1;border:1px solid #b9cfc3;background:#f7faf8;color:#73857d}
+.sl-fast-circle-star.is-favorite{background:#fff7db;border-color:#d0aa4b;color:#aa7610}
+.sl-fast-circle-option{min-width:0;flex:1;text-align:right;white-space:normal;min-height:44px;
+ padding:8px;border:0;border-radius:8px;background:transparent;color:#123e33;font:inherit}
+.sl-fast-circle-option.is-selected{background:#e6f4ef;font-weight:700}
+.sl-fast-circle-option:hover,.sl-fast-circle-star:hover{filter:brightness(.96)}
+.sl-fast-circle-value[hidden]{display:none!important}
+html[data-sanabil-theme="dark"] .sl-fast-circle-summary,
+html[data-sanabil-theme="dark"] .sl-fast-circle-options{background:#234b3c;color:#e9f4ec;border-color:#799c8c}
+html[data-sanabil-theme="dark"] .sl-fast-circle-option{color:#e9f4ec}
+html[data-sanabil-theme="dark"] .sl-fast-circle-row+.sl-fast-circle-row{border-color:#527466}
+html[data-sanabil-theme="dark"] .sl-fast-circle-option.is-selected{background:#356354}
+html[data-sanabil-theme="dark"] .sl-fast-circle-star{background:#2c5547;color:#c1d0c6;border-color:#69877b}
+html[data-sanabil-theme="dark"] .sl-fast-circle-star.is-favorite{
+ background:#584820;color:#ffe28a;border-color:#b49542}
