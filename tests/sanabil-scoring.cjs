@@ -35,7 +35,7 @@ assert(guardian.includes('score.month.daily')&&guardian.includes('score.period?.
 assert(guardian.includes('score.period?.circleRank'));
 assert(sql.includes("date_key between p_start and p_end"));
 assert(sql.includes('dense_rank() over(partition by circle_id order by total desc)'));
-assert(sql.includes("coalesce((p_rules#>>array['attendance'"));
+assert(sql.includes("coalesce((b.rules#>>array['attendance'"));
 assert(sql.includes('on conflict(complex_id,valid_from) do update'));
 assert(sql.includes("where pd.student_id=b.student_id and pd.date_key=b.date_key"));
 assert(sql.includes("public.snabil_score_grade_points(b.rules,'major',pd.rating)"));
