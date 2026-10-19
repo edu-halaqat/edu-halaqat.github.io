@@ -42,14 +42,31 @@
   },'sl-quick-bulk');
   const info=el('p','sl-quick-explain','التحديد لا يساوي الحضور: لا تُعتمد درجة ممتاز إلا بعد التسميع. الدرجة والعدادات قابلة للتعديل، والحفظ النهائي من زر حصيلة الحلقة.');
   const notice=el('p','sl-quick-notice');notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
-  const list=el('div','sl-quick-list'),checked=new Set(),rows=[];
+  const list=el('div','sl-quick-list'),checked=new Set(),provisional=new Set(),rows=[];
   const inform=t=>{notice.textContent=t};
-  toolbar.append(toggle,bulk);
+  const defaults=button('تهيئة ممتاز للحاضرين',()=>seedPresent(true),'sl-quick-defaults');
+  toolbar.append(toggle,defaults,bulk);
   wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(wrap,form);
   box.classList.add('sl-quick-mode');
   const allowAtt=st=>['present','late'].includes(st.attendance);
   const canEdit=i=>!readOnly&&needsDayAttendance(activeKind(students[i].studentId))&&eligible(students[i],activeKind(students[i].studentId))&&allowAtt(states[i]);
   const hasPrior=(i)=>!!box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved?.match(/saved/);
+  const seedPresent=(message=false)=>{
+   if(readOnly){if(message)inform('الجلسة للعرض فقط.');return 0}
+   let count=0;
+   for(let i=0;i<students.length;i++){
+    if(!canEdit(i)||hasPrior(i))continue;
+    const entries=trackList(students[i]);
+    // No grading overwrite: draft/saved grades and detailed error counters always win.
+    if(entries.some(t=>gradeValue(states[i],t.key)||(()=>{
+     const m=metricFor(i,t.key);return int(m.errors)+int(m.doubts)+int(m.tajweed)>0
+    })()))continue;
+    for(const t of entries)setGrade(states[i],t.key,'ممتاز');
+    provisional.add(i);store(i);count++;
+   }
+   if(message)inform(count?'تمت تعبئة '+count+' طالبًا بممتاز مبدئي. صحح الاستثناءات وأكد التسميع قبل الاعتماد.':'لا توجد حصائل جديدة مؤهلة للتعبئة؛ لم أستبدل نتائج محفوظة أو معدلة.');
+   return count;
+  };
   const store=i=>{syncCard(i,false);persistDraft(i);refresh(i)};
   const applyExcellent=(i,bulkMode=false)=>{
    if(!canEdit(i)){inform('يلزم حضور الطالب وتوفر مقرره اليوم قبل تقييمه.');return false}
@@ -60,7 +77,7 @@
     setMetric(i,t.key,'errors',0);setMetric(i,t.key,'doubts',0);setMetric(i,t.key,'tajweed',0);
     setGrade(states[i],t.key,'ممتاز');
    }
-   store(i);return true;
+   provisional.delete(i);store(i);return true;
   };
   function refresh(i){
    const view=rows[i];if(!view)return;
@@ -69,12 +86,12 @@
    view.tick.disabled=!allowed;
    view.details.disabled=readOnly||!needsDayAttendance(kind);
    view.check.disabled=!allowed;
-   if(!allowed){checked.delete(i);view.check.checked=false}
+   if(!allowed){checked.delete(i);provisional.delete(i);view.check.checked=false}
    const chips=[];
    for(const t of entries){
     const m=metricFor(i,t.key),rating=gradeValue(st,t.key);
     const abbreviated=t.key==='memorization'?'الحفظ':t.key==='recentReview'?'جنب الدرس':t.name;
-    chips.push(abbreviated+': '+(rating||'لم يقيّم')+((m.errors||m.doubts)?' · '+m.errors+'خ '+m.doubts+'ش':''));
+    chips.push(abbreviated+': '+(rating||'لم يقيّم')+(provisional.has(i)?' (مبدئي)':'')+((m.errors||m.doubts)?' · '+m.errors+'خ '+m.doubts+'ش':''));
    }
    view.tags.replaceChildren(...chips.map(c=>el('span','sl-quick-chip',c)));
    view.state.textContent=!needsDayAttendance(kind)?'لا يتطلب تسميعًا اليوم':!allowAtt(st)?(st.attendance==='absent'?'غائب':st.attendance==='excused'?'مستأذن':'بانتظار التحضير'):
@@ -159,8 +176,31 @@
    const saveLabel=box.querySelector('[data-save-status="'+i+'"]');
    if(saveLabel&&typeof MutationObserver==='function')new MutationObserver(()=>{if(row.isConnected)refresh(i)}).observe(saveLabel,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['data-saved']});
   }
+  // The fast screen's provisional defaults require an explicit teacher
+  // acknowledgement when the established form or individual-save action runs.
+  const teacherConfirm=()=>{
+   if(!provisional.size)return true;
+   const n=provisional.size;
+   if(!window.confirm('توجد '+n+' حصيلة ممتاز مبدئية للحاضرين. أؤكد أنني سمعت واجبات هؤلاء الطلاب بالفعل، وصححت جميع الحالات الاستثنائية قبل الحفظ.'))return false;
+   provisional.clear();refreshAll();return true;
+  };
+  form.addEventListener('submit',event=>{
+   if(!teacherConfirm()){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
+  form.addEventListener('click',event=>{
+   const action=event.target?.closest?.('button[data-action^="save-student-"]');
+   if(!action)return;
+   const index=Number(String(action.dataset.action||'').replace('save-student-',''));
+   if(!provisional.has(index))return;
+   if(!window.confirm('أؤكد أنني سمّعت هذا الطالب وأن تقديراته المبدئية صحيحة.')){
+    event.preventDefault();event.stopImmediatePropagation();return;
+   }
+   provisional.delete(index);refresh(index);
+  },true);
   refreshAll();
-  return {refresh,refreshAll,gradeFor};
+  const entry={refresh,refreshAll,seed:seedPresent,gradeFor};
+  box._sanabilQuick=entry;
+  return entry;
  }
  window.SanabilQuickOutcomes={mount,gradeFor};
 })();
