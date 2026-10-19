@@ -33,7 +33,7 @@
   let favorites=getStorage(localStorage,userKey);
   if(!validFavorites(favorites))favorites=[...DEFAULT];
   const previous=getStorage(sessionStorage,sessionKey);
-  const newId=()=>typeof crypto?.randomUUID==='function'?crypto.randomUUID():null;
+  const newId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():null;
   let counters=previous?.sessionId&&Number.isFinite(previous.clicks)&&previous.categories
    ?{...previous,categories:Object.fromEntries(CATEGORIES.map(x=>[x,num(previous.categories[x])]))}
    :{sessionId:newId(),clicks:0,activeSeconds:0,categories:Object.fromEntries(CATEGORIES.map(x=>[x,0]))};
@@ -90,6 +90,14 @@
    counters.categories[category]=num(counters.categories[category]+1);
    persist();
    if(counters.clicks-lastSynced>=15)flush();else scheduleFlush();
+  };
+  if(window.SanabilTeacherProductivity?._dispose)window.SanabilTeacherProductivity._dispose();
+  const dispose=()=>{
+   flush();
+   document.removeEventListener('click',record,true);
+   document.removeEventListener('visibilitychange',onHidden);
+   window.removeEventListener('pagehide',flush);
+   if(flushTimer)clearTimeout(flushTimer);
   };
   document.addEventListener('click',record,true);
   const onHidden=()=>{if(document.visibilityState==='hidden')flush()};
@@ -169,7 +177,8 @@
   drawFavorites();
   const reportButton=button('📊 نقراتي',report,'sl-quick-efficiency-open');
   header.append(reportButton);
-  const entry={summary,flush,runAction,report};
+  const entry={summary,flush,runAction,report,dispose};
+  window.SanabilTeacherProductivity._dispose=dispose;
   box._sanabilProductivity=entry;
   return entry;
  }
