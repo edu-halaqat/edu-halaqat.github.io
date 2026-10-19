@@ -67,9 +67,6 @@
   const allowAtt=st=>['present','late'].includes(st.attendance);
   const canEdit=i=>!readOnly&&needsDayAttendance(activeKind(students[i].studentId))&&eligible(students[i],activeKind(students[i].studentId))&&allowAtt(states[i]);
   const hasPrior=(i)=>!!box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved?.match(/saved/);
-  const seedPresent=(message=false)=>{
-   if(readOnly){if(message)inform('الجلسة للعرض فقط.');return 0}
-   let count=0;
    const targetIndices=()=>[...checked].filter(i=>i>=0&&i<students.length);
   const makeInput=(type,label,value)=>{
    const line=el('label','sl-quick-bulk-field',label),field=el(type==='select'?'select':'input');
@@ -148,6 +145,9 @@
    },'sl-quick-done');
    end.prepend(apply);
   }
+  const seedPresent=(message=false)=>{
+   if(readOnly){if(message)inform('الجلسة للعرض فقط.');return 0}
+   let count=0;
   for(let i=0;i<students.length;i++){
     if(!canEdit(i)||hasPrior(i))continue;
     const entries=trackList(students[i]);
