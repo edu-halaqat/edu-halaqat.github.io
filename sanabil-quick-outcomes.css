@@ -46,3 +46,9 @@ html[data-sanabil-theme="dark"] .sl-quick-row{background:#224137;border-color:#5
 html[data-sanabil-theme="dark"] .sl-quick-sheet{background:#19362e;color:#e3eee9;border-color:#5e8275}
 html[data-sanabil-theme="dark"] .sl-quick-sheet-footer{background:#19362e}
 html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk):not(.sl-quick-perfect):not(.sl-quick-done){color:#e3eee9}
+
+/* Detailed mode is mutually exclusive with quick cards: only the return switch remains. */
+.sl-data:not(.sl-quick-mode) .sl-quick-outcomes > :not(.sl-quick-toolbar){display:none!important}
+.sl-data:not(.sl-quick-mode) .sl-quick-toolbar > :not(:first-child){display:none!important}
+.sl-data:not(.sl-quick-mode) .sl-quick-outcomes{padding:4px 0;border:0;background:transparent!important;box-shadow:none;margin:6px 0}
+.sl-data:not(.sl-quick-mode) .sl-quick-toolbar{margin:0}
