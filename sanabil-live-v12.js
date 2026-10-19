@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.39';
+window.__SanabilLiveBuild='20261019-v13.8.40';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -852,17 +852,14 @@ const teacherLinkForCircle=(data,circleId)=>{
  return links.map(x=>data.teachers.find(t=>t.id===x.teacher_id)).filter(Boolean);
 };
 const teachersForCircle=(data,circleId)=>{
- // The explicit link table is authoritative. A legacy teacher.circle_id is
- // only considered when the circle has no active explicit link.
- const linked=teacherLinkForCircle(data,circleId);
- if(linked.length)return teacherDirectory(linked.slice(0,1));
- const legacy=data.teachers.filter(x=>x.circle_id===circleId);
- return legacy.length===1?legacy:[];
+ // Only a current explicit link to an officially registered teacher is suitable
+ // for NEW student assignments. Historical teacher_id values are preserved.
+ return teacherDirectory(teacherLinkForCircle(data,circleId).filter(t=>Boolean(t.user_id)).slice(0,1));
 };
 const teacherAssignmentInfo=(data,circleId)=>{
  const linked=teacherLinkForCircle(data,circleId),legacy=data.teachers.filter(t=>t.circle_id===circleId);
- return {primary:linked[0]||(legacy.length===1?legacy[0]:null),
-    legacyConflict:legacy.length>1||linked.length>1||(linked.length>0&&legacy.some(t=>!linked.some(a=>a.id===t.id))),
+ return {primary:linked[0]||null,
+    legacyConflict:legacy.length>1||linked.length>1||(legacy.length>0&&!linked.length)||(linked.length>0&&legacy.some(t=>!linked.some(a=>a.id===t.id))),
     mismatches:legacy.filter(t=>linked.length&&!linked.some(a=>a.id===t.id))
  };
 };
@@ -980,13 +977,8 @@ async function studentsPage(root){
      notice=response.primary?'أُنشئ حساب المعلم وأُسند إلى الحلقة.':'أُنشئ حساب المعلم، ويمكن إسناده من زر إسناد حلقات للمعلم.';
     }else{
      const teacherId='teacher-'+crypto.randomUUID();
-     await result(sb().from('teachers').insert({id:teacherId,org_id:a.org_id,complex_id:complexId,circle_id:primary?null:circleId,full_name:name,phone:phone||null,active:true}).select('id').single());
-     if(!primary){
-      try{
-       const assignment=await rpc('assign_circle_teacher_guarded',{p_circle_id:circleId,p_teacher_id:teacherId,p_replace:false});
-       if(assignment?.ok)notice='تمت إضافة المعلم وإسناده إلى الحلقة.';
-      }catch(e){notice='تمت إضافة المعلم دون إسناد الحلقة: '+e.message+'؛ استخدم زر إسناد حلقات للمعلم.';}
-     }
+     await result(sb().from('teachers').insert({id:teacherId,org_id:a.org_id,complex_id:complexId,circle_id:null,full_name:name,phone:phone||null,active:false}).select('id').single());
+     notice='أُنشئ سجل المعلم كمسودة غير مفعلة، دون إسناد. يجب إنشاء حساب مستخدم رسمي وربطه قبل تفعيل المعلم.';
     }
     b.closest('dialog').close();
     await reloadDirectory(notice);
@@ -1044,7 +1036,7 @@ async function studentsPage(root){
  if(canMove)action(root,root.querySelector('[data-action="teacher-assign"]'),()=>{
   const b=modal('إسناد أكثر من حلقة للمعلم');
   b.innerHTML=teacherWarningsHtml(l)+'<form><p class="sl-help">يسمح بإسناد معلم لعدة حلقات دون تداخل أيام وفترات العمل. لا يتغير معلم الطلاب السابقين تلقائيًا.</p><div class="form-grid two">'+
-    select('المعلم','teacher_id',teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name})))+
+    select('المعلم','teacher_id',teacherDirectory(l.teachers).filter(t=>Boolean(t.user_id)).map(t=>({id:t.id,name:t.full_name})))+
     select('الحلقة','circle_id',l.circles.map(c=>({id:c.id,name:c.name+' — '+(c.session_period||'دون فترة')})))+
     '</div><p class="sl-help" data-assignment-preview></p><button type="submit" class="button button-primary">اعتماد إسناد الحلقة</button></form>';
   const form=b.querySelector('form'),preview=b.querySelector('[data-assignment-preview]');
@@ -1071,11 +1063,11 @@ async function studentsPage(root){
    msg(root,'حُفظ إسناد الحلقة بعد التحقق من عدم تعارض الفترات. لم تُحذف بيانات المعلمين أو الطلاب.');
   });
  });
- action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=teacherWarningsHtml(l)+table(['المعلم','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>{
+ action(root,root.querySelector('[data-action="teachers"]'),()=>{const b=modal('المعلمون وإسناد الحلقات');b.innerHTML=teacherWarningsHtml(l)+table(['المعلم','الحالة','المسمى','الجوال','الحلقات'],teacherDirectory(l.teachers).map(t=>{const samePerson=l.teachers.filter(x=>x.user_id&&t.user_id?x.user_id===t.user_id:x.id===t.id);const ids=new Set(samePerson.flatMap(x=>{
   const assigned=(l.circleTeachers||[]).filter(link=>link.teacher_id===x.id&&link.active!==false).map(link=>link.circle_id);
   if(x.circle_id&&!teacherLinkForCircle(l,x.circle_id).length&&teachersForCircle(l,x.circle_id).some(t=>t.id===x.id))assigned.push(x.circle_id);
   return assigned;
- }).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'لا يوجد إسناد معتمد')]}))});
+ }).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.user_id?'مرتبط بحساب مستخدم':'⚠️ سجل بلا حساب دخول'),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'لا يوجد إسناد معتمد')]}))});
  action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=teacherWarningsHtml(l)+table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
  if(canImport)action(root,root.querySelector('[data-action="import-entity-db"]'),()=>{
    const b=modal('استيراد قاعدة بيانات الجهة');
