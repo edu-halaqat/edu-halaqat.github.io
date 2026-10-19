@@ -58,3 +58,9 @@ html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk
 .sl-att-default-notice{font-size:.79rem;line-height:1.6;margin-top:6px;max-width:750px}
 .sl-autosave-message{display:block;font-size:.78rem;line-height:1.5;margin-top:6px}
 @media(max-width:450px){.sl-quick-multi,.sl-quick-multi-day{font-size:.78rem}}
+
+.sl-quick-row-top{flex-wrap:wrap}
+.sl-quick-attendance{display:flex;flex-direction:column;gap:3px;font-size:.74rem;font-weight:700}
+.sl-quick-attendance select{min-height:40px;border:1px solid #739990;border-radius:10px;padding:5px 10px;max-width:170px;background:transparent;color:inherit;font:inherit}
+.sl-quick-attendance option{color:#183d34;background:#f9fbfa}
+@media(max-width:420px){.sl-quick-attendance{width:100%}.sl-quick-attendance select{width:100%;max-width:none}}
