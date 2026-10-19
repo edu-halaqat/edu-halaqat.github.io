@@ -1,11 +1,18 @@
 /* Sanabil 1448: optional, guarded quick outcome editor. Existing RPCs and save verification remain authoritative. */
 (()=>{'use strict';if(window.SanabilQuickOutcomes)return;
  const int=value=>Math.max(0,Math.min(100,Math.round(Number(value)||0)));
- const gradeFor=(kind,errors=0,doubts=0)=>{
-  const e=int(errors),d=int(doubts);
-  if(kind==='memorization'||kind==='recentReview')return e?'لم يحفظ':d?'جيد جدًا':'ممتاز';
-  const weight=2*e+d;
-  return weight<=1?'ممتاز':weight===2?'جيد جدًا':weight<=5?'جيد':'لم يحفظ';
+ const defaults={tracks:{
+  memorization:{error_weight:1,doubt_weight:1,excellent_max:0,very_good_max:0,good_max:0},
+  recentReview:{error_weight:1,doubt_weight:1,excellent_max:0,very_good_max:0,good_max:0},
+  review:{error_weight:2,doubt_weight:1,excellent_max:1,very_good_max:2,good_max:5}
+ }};
+ const gradeFor=(kind,errors=0,doubts=0,policy=defaults)=>{
+  const key=kind.startsWith('review:')?'review':kind;
+  const conf=policy?.tracks?.[key]||defaults.tracks[key]||defaults.tracks.review;
+  const value=int(errors)*int(conf.error_weight)+int(doubts)*int(conf.doubt_weight);
+  return value<=int(conf.excellent_max)?'ممتاز':
+   value<=int(conf.very_good_max)?'جيد جدًا':
+   value<=int(conf.good_max)?'جيد':'لم يحفظ';
  };
  const eligible=(student,kind)=>kind==='study'&&!!(student.memorization||student.recentReview||(student.reviews||[]).length);
  const el=(tag,klass,text)=>{const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=text;return n};
@@ -16,9 +23,17 @@
   ...(student.reviews||[]).map((r,i)=>({key:'review:'+r.planId,name:r.planName||'المراجعة الكبرى '+(i+1)}))
  ];
  function mount(ctx){
-  const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
+  const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,complexId,
    metricFor,setMetric,persistDraft,syncCard}=ctx;
   if(!box?.isConnected||!form||!students?.length)return null;
+  let currentRules=defaults;
+  if(complexId&&window.supabaseClient?.rpc){
+   window.supabaseClient.rpc('get_student_scoring_policy',{p_complex_id:complexId})
+   .then(({data,error})=>{if(error||!data?.rules)return;
+     currentRules=data.rules;
+     if(box.isConnected){const summary=box.querySelector('.sl-quick-notice');if(summary)summary.textContent='تم تحميل ضوابط تقييم المجمع المعتمدة.';}
+   }).catch(()=>{});
+  }
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
   const wrap=el('section','sl-quick-outcomes');
   wrap.dir='rtl';wrap.setAttribute('aria-label','الحصيلة السريعة');
@@ -129,7 +144,7 @@
       setMetric(i,selected,field,int(value));
       if(field!=='tajweed'){
        const a=metricFor(i,selected);
-       setGrade(states[i],selected,gradeFor(selected,int(a.errors),int(a.doubts)));
+       setGrade(states[i],selected,gradeFor(selected,int(a.errors),int(a.doubts),currentRules));
        override=false;
       }
       store(i);render();
@@ -202,5 +217,5 @@
   box._sanabilQuick=entry;
   return entry;
  }
- window.SanabilQuickOutcomes={mount,gradeFor};
+ window.SanabilQuickOutcomes={mount,gradeFor,defaults};
 })();
