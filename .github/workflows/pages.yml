@@ -29,6 +29,7 @@ jobs:
       - name: Check Sanabil user messaging
         run: |
           node --check sanabil-live-v12.js
+          node --check sanabil-registry-management.js
           node --check sanabil-v13-enhancements.js
           node tests/sanabil-exam-nominations.cjs
           node --check sanabil-exam-distribution.js
@@ -147,6 +148,8 @@ jobs:
                   assert 'data-deep>بدء الاختبار الموسع' in js
                   assert 'data-real-results' in js
                   assert 'data-outcome-float-nav' in js
+                  assert 'sanabil-registry-management.js?v=20261019-v2' in html
+                  assert 'لا يمكن تفعيل سجل معلم بلا حساب رسمي' in read('/sanabil-registry-management.js?v=20261019-v2').decode()
                   assert 'sanabil-voice.js' in html
                   assert 'sanabil-updater.js' in html
                   assert 'sanabil-update-prompt-v3' in read('/sanabil-updater.js').decode()
