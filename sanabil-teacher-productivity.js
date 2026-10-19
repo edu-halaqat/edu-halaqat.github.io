@@ -95,7 +95,7 @@
    counters.activeSeconds=Math.min(86400,Math.round(activeMs/1000)+num(previous?.activeSeconds||0));
    const category=classify(target);
    counters.categories[category]=num(counters.categories[category]+1);
-   const shortcut=target.closest?.('[data-favorite-action]')?.dataset.favoriteAction;
+   const shortcut=target.closest?.('[data-favorite-action]')?.dataset?.favoriteAction;
    const action=shortcut||
     (target.closest?.('.sl-quick-multi')?'bulk_grade':
      target.closest?.('.sl-quick-multi-day')?'bulk_day':
