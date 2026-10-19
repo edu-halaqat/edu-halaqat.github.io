@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.32';
+window.__SanabilLiveBuild='20261019-v13.8.33';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2181,6 +2181,11 @@ async function outcomesPage(root){
   });
   if(!payload.length){msg(box,'هذا يوم إجازة أو غير محتسب ولا يوجد تحضير.');return}const r=await rpcOffline('save_student_attendance_guarded',{p_circle_id:circle,p_date:date,p_rows:payload},'تحضير الطلاب');msg(box,r.queued?'حُفظ التحضير محليًا وسيتم إرساله تلقائيًا فور عودة الاتصال.':`تم حفظ تحضير ${r.saved} طالبًا.`)});
   renderSummary();
+  // Quick mode uses the same guarded draft, grading, and server-verified save pipeline.
+  window.SanabilQuickOutcomes?.mount?.({
+    box,form,students,states,readOnly,activeKind,needsDayAttendance,
+    gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard
+  });
   students.forEach((s,i)=>{
     syncCard(i,false);
     const mushafAssignments=[['m-'+i,s.memorization],['s-'+i,s.recentReview],...(s.reviews||[]).map((a,j)=>['r-'+i+'-'+j,a])];
