@@ -54,6 +54,8 @@ jobs:
           node tests/sanabil-one-touch.cjs
           node --check sanabil-teacher-productivity.js
           node tests/sanabil-teacher-productivity.cjs
+          node --check sanabil-teacher-fast-path.js
+          node tests/sanabil-teacher-fast-path.cjs
           node --check sanabil-scoring-ui.js
           node tests/sanabil-scoring.cjs
           node tests/sanabil-voice-global.cjs
