@@ -1,0 +1,23 @@
+name: Teacher fast path checks
+on:
+  push:
+    branches: [feature/teacher-fast-session]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  quick-entry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify nonblocking fingerprint and reversible teacher workflows
+        run: |
+          node --check sanabil-teacher-fast-path.js
+          node --check sanabil-live-v12.js
+          node --check sanabil-quick-outcomes.js
+          node tests/sanabil-teacher-fast-path.cjs
+          node tests/sanabil-quick-outcomes.cjs
+          node tests/sanabil-exclusive-quick-view.cjs
+          node tests/sanabil-one-touch.cjs
+          node tests/sanabil-exam-nominations.cjs
