@@ -63,7 +63,7 @@ create policy "score daily membership read" on public.student_daily_points for s
 using (exists(select 1 from public.memberships m where m.user_id=auth.uid() and m.active and
  ((m.role::text='admin' and m.org_id=student_daily_points.org_id)
   or (m.role::text in ('manager','supervisor') and m.complex_id=student_daily_points.complex_id)
-  or (m.role::text='teacher' and (m.circle_id=student_daily_points.circle_id))))));
+  or (m.role::text='teacher' and m.circle_id=student_daily_points.circle_id))));
 
 create or replace function public.student_scoring_defaults() returns jsonb
 language sql immutable set search_path='' as $$
