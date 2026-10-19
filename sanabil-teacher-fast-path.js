@@ -25,6 +25,19 @@ const gps=()=>new Promise((resolve,reject)=>{
  if(!navigator.geolocation)return reject(Error('خدمة الموقع الجغرافي غير متاحة على الجهاز'));
  navigator.geolocation.getCurrentPosition(resolve,err=>reject(Error(err.code===1?'إذن الموقع مرفوض':err.code===3?'انتهت مهلة تحديد الموقع':'لم يتمكن الجهاز من تحديد موقعك')),{enableHighAccuracy:true,maximumAge:0,timeout:12000});
 });
+async function fingerprintError(error){
+ // Supabase FunctionsHttpError keeps the actionable server message in Response.context.
+ let message=String(error?.message||'تعذرت استجابة خدمة الحضور');
+ try{
+  const response=error?.context;
+  const payload=response?.clone?await response.clone().json():await response?.json?.();
+  if(typeof payload?.error==='string'&&payload.error.trim())return payload.error.trim();
+  if(typeof payload?.message==='string'&&payload.message.trim())return payload.message.trim();
+ }catch{}
+ return message==='Edge Function returned a non-2xx status code'
+  ?'رفض خادم الحضور تسجيل البصمة. تحقق من وقت الدوام والنطاق الجغرافي أو أعد المحاولة لاحقًا.'
+  :message;
+}
 async function fingerprint({user,circle,date,server,force=false}){
  if(!user||!circle?.id||!date||!server)return;
  const key=fingerKey(user,circle.id,date);
@@ -59,7 +72,7 @@ async function fingerprint({user,circle,date,server,force=false}){
      await window.SanabilOffline.queue('submit_offline_attendance_claim',args,'طلب بصمة حضور المسار السريع');
      return update('pending','طلب قيد مراجعة المشرف');
     }
-    return update('failed',data?.error||error?.message||'رفض خادم البصمة الطلب');
+    return update('failed',data?.error||(error?await fingerprintError(error):'رفض خادم البصمة الطلب'));
    }
    return update('confirmed','سجل حضور مؤكد', {lateMinutes:Number(data?.lateMinutes||0),duplicate:!!data?.duplicate});
   }catch(error){return update('failed',error?.message||'تعذر التواصل مع خدمة البصمة')}
@@ -130,9 +143,22 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
  const state=node('p','sl-fast-fingerprint-info',''),retry=button('إعادة محاولة البصمة',retryFinger,'button-soft');
  state.setAttribute('role','status');
  const identity=node('strong','','جلسة التسميع اليومية');
+ const progress=node('p','sl-fast-outcome-progress','تحميل الطلاب والحصيلة مستقل تمامًا عن نتيجة البصمة.');
+ progress.setAttribute('role','status');
+ const openOutcomes=button('فتح حصيلة الحلقة',()=>{
+  const circle=current(),load=root.querySelector('[data-action="load"]');
+  if(!circle){progress.textContent='حدد الحلقة أولًا لفتح الحصيلة.';return}
+  if(!load){progress.textContent='تعذّر العثور على أمر فتح الحصيلة. حدّث الصفحة وأعد المحاولة.';return}
+  if(load.disabled){progress.textContent='جارٍ تحميل حصيلة الحلقة، انتظر اكتمال الطلب.';return}
+  progress.textContent='جارٍ فتح قائمة الطلاب والحصائل دون انتظار تسجيل البصمة…';
+  root.classList.remove('sl-fast-session-ready');
+  load.click();
+ },'button-primary sl-fast-open-outcomes');
+ const sessionActions=node('div','sl-fast-session-actions');
+ sessionActions.append(openOutcomes);
  const meta=node('div','sl-fast-session-meta');
  meta.append(identity,switcher);
- bar.append(meta,state,retry);
+ bar.append(meta,state,retry,sessionActions,progress);
  root.prepend(bar);
  const select=root.querySelector('[name="circle"]');
  const current=()=>circles.find(c=>c.id===select?.value);
@@ -145,6 +171,44 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
  const notify=event=>{const c=current();if(c&&event.detail?.key===fingerKey(user,c.id,sessionToday()))update()};
  window.addEventListener('sanabil-fast-fingerprint',notify);
  select?.addEventListener('change',update);
+ const sessionContent=root.querySelector('.sl-data');
+ let loading=false;
+ const sessionReady=()=>!!sessionContent?.querySelector('.sl-student-grid,.sl-quick-outcomes');
+ const refreshSessionView=()=>{
+  const ready=sessionReady();
+  root.classList.toggle('sl-fast-session-ready',ready);
+  if(ready){
+   progress.textContent='قائمة الطلاب جاهزة؛ سجّل التحضير والحصيلة واحفظها بالطريقة المعتادة.';
+   openOutcomes.textContent='تحديث حصيلة الحلقة';
+   if(root.classList.contains('sl-fast-session')){
+    const toggle=sessionContent?.querySelector('.sl-quick-mode-toggle');
+    if(toggle&&!sessionContent.classList.contains('sl-quick-mode'))toggle.click();
+   }
+  }else{
+   openOutcomes.textContent='فتح حصيلة الحلقة';
+  }
+ };
+ if(sessionContent&&typeof MutationObserver!=='undefined'){
+  const watcher=new MutationObserver(refreshSessionView);
+  watcher.observe(sessionContent,{subtree:true,childList:true});
+ }
+ const loadButton=root.querySelector('[data-action="load"]');
+ if(loadButton&&typeof MutationObserver!=='undefined'){
+  const watcher=new MutationObserver(()=>{
+   const busy=loadButton.getAttribute('aria-busy')==='true';
+   if(busy){loading=true;progress.textContent='جارٍ تحميل الطلاب والحصائل…';return}
+   if(!loading)return;
+   loading=false;
+   refreshSessionView();
+   if(!sessionReady()){
+    const reason=root.querySelector('.sl-message')?.textContent?.trim();
+    progress.textContent=reason
+     ?'تعذر فتح الحصيلة: '+reason+' · يمكنك إعادة المحاولة دون إعادة البصمة.'
+     :'لم تظهر قائمة الطلاب بعد. أعد محاولة فتح الحصيلة؛ لا يلزم إعادة البصمة.';
+   }
+  });
+  watcher.observe(loadButton,{attributes:true,attributeFilter:['aria-busy']});
+ }
  const setMode=mode=>{
   choose(user,mode);
   const fast=mode==='fast';
@@ -165,7 +229,8 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
   finally{retry.disabled=false;update()}
  }
  setMode(preferred(user)==='fast'?'fast':'general');
- const result={update,setMode};
+ refreshSessionView();
+ const result={update,setMode,refreshSessionView};
  root._sanabilFastOutcomes=result;
  return result;
 }

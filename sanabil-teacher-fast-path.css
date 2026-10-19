@@ -17,7 +17,14 @@
 .sl-fast-session-meta strong{font-size:1rem}
 .sl-fast-session-bar p{margin:7px 0 3px;line-height:1.7;font-size:.84rem}
 .sl-fast-session-bar button{min-height:42px}
-.sl-fast-session .sl-session-head,.sl-fast-session .sl-session-filter{display:none!important}
+/* Keep the manual session loader visible until student cards have actually rendered.
+   A rejected fingerprint must never leave the teacher at an empty screen. */
+.sl-fast-session > .sl-session-head{display:none!important}
+.sl-fast-session.sl-fast-session-ready > .sl-session-filter{display:none!important}
+.sl-fast-session:not(.sl-fast-session-ready) > .sl-session-filter{display:flex!important}
+.sl-fast-session-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.sl-fast-session-actions .button{min-height:44px}
+.sl-fast-outcome-progress{margin:8px 0 0;font-size:.85rem;line-height:1.7;color:inherit;opacity:.95}
 .sl-fast-session .sl-day-kind-toolbar{display:none!important}
 body:has(.sl-fast-session) .mobile-nav,
 body:has(.sl-fast-session) .tabs,
