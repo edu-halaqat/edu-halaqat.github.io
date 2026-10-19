@@ -95,3 +95,4 @@ html[data-sanabil-theme="dark"] .sl-teacher-efficiency-tile{background:#294c3c}
 html[data-sanabil-theme="dark"] .sl-teacher-click-category{border-color:#557d6b}
 html[data-sanabil-theme="dark"] .sl-quick-fav-label select{color:#e7f0eb}
 @media(max-width:420px){.sl-quick-favorite-actions{grid-template-columns:1fr 1fr 1fr}.sl-teacher-efficiency-tile strong{font-size:.94rem}}
+.sl-quick-fav-suggest{margin:8px 0;min-height:40px;width:100%;font-size:.85rem}
