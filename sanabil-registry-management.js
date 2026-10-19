@@ -63,7 +63,7 @@ function editTeacher(id){
  b.innerHTML='<section class="sr-panel"><h3>تحرير المعلم: '+esc(t.full_name)+'</h3><form id="sr-edit-form"><div class="sr-fields"><label>الاسم الكامل<input required maxlength="180" name="full_name" value="'+esc(t.full_name)+'"></label><label>رقم الجوال<input name="phone" maxlength="25" value="'+esc(t.phone||'')+'"></label><label>المسمى الوظيفي<input name="job_title" maxlength="100" value="'+esc(t.job_title||'')+'"></label><label>الحالة<select name="active"><option value="1"'+(t.active?' selected':'')+'>نشط</option><option value="0"'+(!t.active?' selected':'')+'>موقوف</option></select></label></div><p class="sr-warning">'+esc(t.user_id?'الحساب مرتبط بالفعل؛ تعديل بيانات الدخول وصلاحياته من إدارة المستخدمين.':'لا يوجد حساب دخول مرتبط. لا يمكن اعتماد السجل أو إسناده قبل إنشاء حساب رسمي وربطه.')+'</p><div class="sr-actions"><button type="submit" class="sr-primary">حفظ التعديل</button><button type="button" data-cancel>إلغاء</button></div></form></section>';
  b.querySelector('[data-cancel]').onclick=()=>b.replaceChildren();
  b.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,active=f.elements.active.value==='1',name=f.elements.full_name.value.trim();
- try{if(name.length<3)throw Error('الاسم غير مكتمل.');if(active&&!t.user_id)throw Error('لا يمكن تفعيل سجل معلم بلا حساب رسمي مرتبط.');if(t.active&&!active&&!confirm('إيقاف سجل المعلم دون حذف حصائل طلابه أو ارتباطاتهم التاريخية؟'))return;
+ try{if(name.length<3)throw Error('الاسم غير مكتمل.');if(active&&!t.user_id&&!t.active)throw Error('لا يمكن تفعيل سجل معلم بلا حساب رسمي مرتبط.');if(t.active&&!active&&!confirm('إيقاف سجل المعلم دون حذف حصائل طلابه أو ارتباطاتهم التاريخية؟'))return;
  await save(f,sdk().from('teachers').update({full_name:name,phone:f.elements.phone.value.trim()||null,job_title:f.elements.job_title.value.trim()||null,active,updated_at:new Date().toISOString()}).eq('id',id).eq('complex_id',t.complex_id).select('id').single(),'تم تعديل بيانات المعلم.');}catch(x){message(errorMessage(x),true)}};
  b.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
@@ -127,5 +127,6 @@ async function scan(){
   (d.querySelector('header')||d).appendChild(btn);
  });
 }
+document.addEventListener('click',e=>{const action=e.target.closest?.('[data-action]')?.getAttribute('data-action');if(['teachers','circles','teacher-assign'].includes(action))setTimeout(scan,70)},true);
 window.addEventListener('load',()=>{setTimeout(scan,600);setInterval(scan,1600)});
 })();
