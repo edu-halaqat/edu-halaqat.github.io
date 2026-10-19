@@ -51,6 +51,23 @@ button,a{touch-action:manipulation}
 
 .family-monthly-report{background:#fff;color:#193c32;font:14px/1.8 Alyamama,Tahoma,sans-serif}.family-monthly-report header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #d8bd88;padding-bottom:15px}.family-monthly-report h1{margin:0;color:#006b74}.family-monthly-report h2{margin:3px 0}.family-monthly-report h3{color:#006b74}.family-report-metrics{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 0}.family-report-metrics span{padding:7px 12px;background:#eef7f2;border-radius:9px}.family-monthly-report table{width:100%;border-collapse:collapse}.family-monthly-report th,.family-monthly-report td{border:1px solid #d5e5dd;padding:8px;text-align:right}.family-monthly-report th{background:#e9f3ed}.family-monthly-report footer{text-align:center;margin-top:28px;border-top:1px solid #d8bd88;padding-top:13px;font-size:12px}
 @media print{#app>:not(#guardian-month-report){display:none!important}#guardian-month-report[hidden]{display:block!important}}
+/* Student points are read-only and never leak other students' names. */
+.guardian-score-section{border:1px solid #d8bd88}
+.guardian-score-today{display:flex;align-items:center;gap:15px;background:#eef7f4;border-radius:14px;padding:12px 16px;flex-wrap:wrap}
+.guardian-score-today b{font-size:2rem;color:#00808a}
+.guardian-score-today small{color:#61786d}
+.guardian-score-picker{display:flex;gap:14px;align-items:center;font-weight:700;margin:14px 0}
+.guardian-score-picker select{min-height:42px;border-radius:9px;border:1px solid #82a398;background:white;color:#173d33;padding:7px;max-width:100%}
+.guardian-score-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.guardian-score-stat{background:#f3f7f4;border:1px solid #dce7e2;border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;gap:5px;align-items:center;text-align:center}
+.guardian-score-stat small{font-size:.78rem;color:#647a70}
+.guardian-score-stat b{font-size:1.35rem;color:#07574b}
+.guardian-score-details{margin-top:15px}
+.guardian-score-details summary{cursor:pointer;font-weight:700}
+.guardian-score-day{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-bottom:1px solid #dce7e2;padding:9px 0;font-size:.82rem}
+.guardian-score-day span{flex:1}
+.guardian-score-disclaimer{color:#667a72;font-size:.78rem;line-height:1.6;margin-top:11px}
+@media(max-width:480px){.guardian-score-grid{gap:5px}.guardian-score-stat b{font-size:1.12rem}}
 </style>
 </head>
 <body>
@@ -256,6 +273,25 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  const present=a.filter(x=>x.status==='present'||x.status==='late').length,attRate=a.length?Math.round(present/a.length*100):0;
  const ratings=x=>[x.memorization_rating,x.recent_review_rating,...(Array.isArray(x.recitation_metrics?.reviewPlans)&&x.recitation_metrics.reviewPlans.length?x.recitation_metrics.reviewPlans.map(r=>r.rating||r.grade):[x.review_rating])].filter(Boolean),all=o.flatMap(ratings),outRate=all.length?Math.round(all.filter(x=>['ممتاز','جيد جدًا','جيد'].includes(x)).length/all.length*100):0;
  const testScores=t.filter(x=>x.scores?.total!=null).map(x=>Number(x.scores.total)).filter(Number.isFinite),avg=testScores.length?Math.round(testScores.reduce((x,y)=>x+y,0)/testScores.length*10)/10:'—';
+ const scoreData=d.scorecard||null;
+ const scorePeriods=Array.isArray(scoreData?.periods)?scoreData.periods:[];
+ const scoreNumbers=(r)=>r&&typeof r.total==='number'
+  ?'<div class="guardian-score-grid">'+
+   [['مجموع نقاط الفترة',r.total],['ترتيب الحلقة',(r.circleRank||'—')+' / '+(r.circleCount||'—')],
+    ['ترتيب المجمع',(r.complexRank||'—')+' / '+(r.complexCount||'—')]]
+   .map(([label,value])=>'<article class="guardian-score-stat"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></article>').join('')+'</div>'
+  :'<p class="empty">لا توجد نقاط مؤكدة في هذه الفترة.</p>';
+ const scoreDetails=r=>'<details class="guardian-score-details"><summary>تفاصيل الرصيد اليومي</summary>'+
+  ((r?.days||[]).length
+    ?(r.days||[]).map(day=>'<div class="guardian-score-day"><b>'+esc(day.date)+'</b><span>حضور '+esc(day.attendance)+' · حفظ '+esc(day.memorization)+' · جنب الدرس '+esc(day.recentReview)+' · مراجعة '+esc(day.review)+'</span><strong>'+esc(day.total)+'/25</strong></div>').join('')
+    :'<p class="empty">لا يوجد رصيد محفوظ خلال هذه الفترة.</p>')+'</details>';
+ const scoreSection=scoreData?.unavailable?'<section class="section" aria-label="نقاط الطالب"><h2>نقاط الطالب</h2><p class="empty">'+esc(scoreData.message||'تعذر تحميل النقاط')+'</p></section>':
+  scorePeriods.length?'<section class="section guardian-score-section" aria-label="نقاط الطالب"><div class="section-head"><h2>رصيد النقاط وترتيب الطالب</h2><small>من الحصائل والحضور المحفوظين</small></div>'+
+   '<div class="guardian-score-today"><span>نقاط اليوم</span><b>'+esc(scoreData.today?.total??'—')+'</b><small>الحد الأعلى 25 نقطة في اليوم الدراسي المكتمل</small></div>'+
+   '<label class="guardian-score-picker">الفترة <select id="guardian-score-period">'+
+   scorePeriods.map((p,i)=>'<option value="'+i+'">'+esc(p.label)+'</option>').join('')+'</select></label>'+
+   '<div id="guardian-score-results">'+scoreNumbers(scorePeriods[0])+scoreDetails(scorePeriods[0])+'</div>'+
+   '<p class="guardian-score-disclaimer">تُحسب نقاط الحضور من حالة التحضير، والتقييم من الحصائل المعتمدة فقط. يظهر الطلاب المتعادلون بالمركز نفسه.</p></section>':'';
  const latestAtt=a[0],todayNext=next[0]?.date||'—';
  const metrics=x=>{const m=x?.recitation_metrics||{},sum=k=>['memorization','recentReview','review'].reduce((n,q)=>n+Number(m?.[q]?.[k]||0),0),e=sum('errors'),s=sum('doubts'),j=sum('tajweed');return e+s+j?('خطأ '+e+' · شك '+s+' · تجويد '+j):''};
  const outcomeHtml=o.slice(0,12).map(x=>'<article class="outcome"><div class="outcome-head"><b>حصيلة اليوم</b><time>'+esc(x.date_key)+'</time></div>'+
@@ -310,6 +346,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
     '<div class="family-badges">'+badgeHtml+'</div></section>':'');
 
  app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
+ scoreSection+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  familySections+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
@@ -323,6 +360,11 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.4.0 · 2026.10.15</div></footer>';
  app.insertAdjacentHTML('beforeend',familyMonthlyReport(d,a));
  bindFamilyActions(d,a);
+ const scoreSelector=document.getElementById('guardian-score-period');
+ if(scoreSelector)scoreSelector.addEventListener('change',()=>{
+  const chosen=scorePeriods[Number(scoreSelector.value)];if(!chosen)return;
+  document.getElementById('guardian-score-results').innerHTML=scoreNumbers(chosen)+scoreDetails(chosen);
+ });
  const tp=app.querySelector('[data-talaqqin-preview]');if(tp&&talaqqinLesson)tp.onclick=()=>window.open('/noor-bayan.html?page='+encodeURIComponent(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'&to='+encodeURIComponent(talaqqinLesson.pageTo):'')+'&title='+encodeURIComponent(talaqqinLesson.title),'_blank','noopener,noreferrer');
  const tm=app.querySelector('[data-talaqqin-media]');if(tm&&talaqqinLesson)tm.onclick=()=>openTalaqqinMedia(talaqqinLesson);
  app.querySelectorAll('[data-husary]').forEach(b=>{b.onclick=()=>openHusary(quranPrep[Number(b.dataset.husary)])});
