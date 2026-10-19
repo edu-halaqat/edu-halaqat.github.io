@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.34';
+window.__SanabilLiveBuild='20261019-v13.8.35';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2185,7 +2185,9 @@ async function outcomesPage(root){
   // Quick mode uses the same guarded draft, grading, and server-verified save pipeline.
   window.SanabilQuickOutcomes?.mount?.({
     box,form,students,states,readOnly,activeKind,needsDayAttendance,
-    gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard
+    gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard,
+    complexId:l.circles.find(c=>c.id===circle)?.complex_id||'',
+    sessionDate:date
   });
   students.forEach((s,i)=>{
     syncCard(i,false);
@@ -3311,6 +3313,14 @@ async function dashboard(root){
  const profileGreeting=String(a.profile?.display_name||'').trim();
  const greetingName=profileGreeting&&!profileGreeting.includes('@')?profileGreeting:'بك';
  root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section><div class="sl-toolbar sl-dashboard-actions"><button type="button" class="button button-primary sl-install-cta" data-action="install-pwa">⬇ تثبيت تطبيق سنابل الوحي</button>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}</div>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><details class="sl-dashboard-metrics"><summary><span aria-hidden="true">📊</span> المؤشرات والتقارير التفصيلية <small>اضغط للعرض عند الحاجة</small></summary><div class="sl-dashboard-metrics-content"><p class="sl-help">ستُحمّل الإحصائيات عند فتح هذا القسم لتبقى إجراءاتك اليومية أسرع.</p></div></details>`;
+ if(isAdmin||isSupervisor){
+  const toolbar=root.querySelector('.sl-dashboard-actions');
+  const scoreButton=document.createElement('button');scoreButton.type='button';
+  scoreButton.className='button button-soft';scoreButton.dataset.action='score-policy';
+  scoreButton.textContent='⚙️ لائحة التقدير والنقاط';
+  toolbar.append(scoreButton);
+  scoreButton.addEventListener('click',()=>window.SanabilScoreConfig?.open?.());
+ }
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
  const installButton=root.querySelector('[data-action="install-pwa"]');
  if(window.SanabilInstaller?.bind)window.SanabilInstaller.bind(installButton);

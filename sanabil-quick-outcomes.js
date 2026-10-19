@@ -1,11 +1,22 @@
 /* Sanabil 1448: optional, guarded quick outcome editor. Existing RPCs and save verification remain authoritative. */
 (()=>{'use strict';if(window.SanabilQuickOutcomes)return;
  const int=value=>Math.max(0,Math.min(100,Math.round(Number(value)||0)));
- const gradeFor=(kind,errors=0,doubts=0)=>{
-  const e=int(errors),d=int(doubts);
-  if(kind==='memorization'||kind==='recentReview')return e||d?'لم يحفظ':'ممتاز';
-  const weight=2*e+d;
-  return weight<=1?'ممتاز':weight===2?'جيد جدًا':weight<=5?'جيد':'لم يحفظ';
+ const defaultRubric={
+  memorization:{perfect_errors:0,perfect_doubts:0,very_good_errors:0,very_good_doubts:0},
+  recentReview:{perfect_errors:0,perfect_doubts:0,very_good_errors:0,very_good_doubts:0},
+  major:{error_weight:2,perfect_max:1,very_good_max:2,good_max:5}
+ };
+ const gradeFor=(kind,errors=0,doubts=0,policy=defaultRubric)=>{
+  const e=int(errors),d=int(doubts),rules=policy||defaultRubric;
+  if(kind==='memorization'||kind==='recentReview'){
+   const p=rules[kind]||defaultRubric[kind];
+   return e<=int(p.perfect_errors)&&d<=int(p.perfect_doubts)?'ممتاز':
+    e<=int(p.very_good_errors)&&d<=int(p.very_good_doubts)?'جيد جدًا':'لم يحفظ';
+  }
+  const p=rules.major||defaultRubric.major;
+  const weight=int(p.error_weight||2)*e+d;
+  return weight<=int(p.perfect_max)?'ممتاز':weight<=int(p.very_good_max)?'جيد جدًا':
+   weight<=int(p.good_max)?'جيد':'لم يحفظ';
  };
  const eligible=(student,kind)=>kind==='study'&&!!(student.memorization||student.recentReview||(student.reviews||[]).length);
  const el=(tag,klass,text)=>{const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=text;return n};
@@ -17,7 +28,8 @@
  ];
  function mount(ctx){
   const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
-   metricFor,setMetric,persistDraft,syncCard}=ctx;
+   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate}=ctx;
+  let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
   const wrap=el('section','sl-quick-outcomes');
@@ -131,7 +143,7 @@
       setMetric(i,selected,field,int(value));
       if(field!=='tajweed'){
        const a=metricFor(i,selected);
-       setGrade(states[i],selected,gradeFor(selected,int(a.errors),int(a.doubts)));
+       setGrade(states[i],selected,gradeFor(selected,int(a.errors),int(a.doubts),rubric));
        override=false;
       }
       store(i);render();
@@ -200,6 +212,11 @@
    provisional.delete(index);refresh(index);
   },true);
   refreshAll();
+  if(complexId&&sessionDate&&window.SanabilScoreConfig?.policyForDate){
+   window.SanabilScoreConfig.policyForDate(complexId,sessionDate).then(settings=>{
+    if(settings&&box.isConnected){rubric=settings;inform('تسري على هذه الجلسة لائحة التقدير الخاصة بالمجمع.');}
+   }).catch(err=>{inform('تعذر تحميل لائحة المجمع؛ لن أغير التقديرات القائمة. '+(err?.message||''));});
+  }
   const entry={refresh,refreshAll,seed:seedPresent,gradeFor};
   box._sanabilQuick=entry;
   return entry;

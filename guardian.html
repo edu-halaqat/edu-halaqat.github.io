@@ -51,6 +51,16 @@ button,a{touch-action:manipulation}
 
 .family-monthly-report{background:#fff;color:#193c32;font:14px/1.8 Alyamama,Tahoma,sans-serif}.family-monthly-report header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #d8bd88;padding-bottom:15px}.family-monthly-report h1{margin:0;color:#006b74}.family-monthly-report h2{margin:3px 0}.family-monthly-report h3{color:#006b74}.family-report-metrics{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 0}.family-report-metrics span{padding:7px 12px;background:#eef7f2;border-radius:9px}.family-monthly-report table{width:100%;border-collapse:collapse}.family-monthly-report th,.family-monthly-report td{border:1px solid #d5e5dd;padding:8px;text-align:right}.family-monthly-report th{background:#e9f3ed}.family-monthly-report footer{text-align:center;margin-top:28px;border-top:1px solid #d8bd88;padding-top:13px;font-size:12px}
 @media print{#app>:not(#guardian-month-report){display:none!important}#guardian-month-report[hidden]{display:block!important}}
+
+.guardian-scores{border:1px solid #d8bd88;background:linear-gradient(180deg,#fffdf7,#f6fbf9)}
+.score-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px}
+.score-stat{display:flex;flex-direction:column;gap:4px;border:1px solid #ddebe5;border-radius:15px;background:#fff;padding:13px}
+.score-stat small{font-size:12px;color:#547669}.score-stat strong{font-size:23px;color:#00777d}
+.score-period{font-size:12px;color:#527064;line-height:1.8}
+.score-table-wrap{overflow:auto;width:100%;border:1px solid #dce9e1;border-radius:12px}
+.score-table-wrap table{border-collapse:collapse;min-width:520px;width:100%}
+.score-table-wrap th,.score-table-wrap td{padding:9px 8px;border-bottom:1px solid #e2eee8;text-align:right;font-size:12px}
+.score-table-wrap th{background:#eaf5f1;color:#194e41}
 </style>
 </head>
 <body>
@@ -283,6 +293,21 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
     '<div class="progress-track"><span style="--width:'+esc(juz.percent)+'%"></span></div></div></div></section>'
     :'<section class="section"><div class="section-head"><h2>التقدم في الجزء</h2></div>'+
      '<div class="empty">سيظهر المؤشر عند اعتماد أول حصيلة حفظ مجتازة.</div></section>';
+ const score=d.scorecard||{};
+ const formatScore=n=>n===null||n===undefined?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(n));
+ const scoreCard=(label,value)=>'<div class="score-stat"><small>'+esc(label)+'</small><strong>'+formatScore(value)+'</strong></div>';
+ const rankCard=(label,n,total)=>'<div class="score-stat"><small>'+esc(label)+'</small><strong>'+esc(n||'—')+' / '+esc(total||'—')+'</strong></div>';
+ const scoreHtml=score.unavailable?'<section class="section"><h2>النقاط والترتيب</h2><p class="empty">'+esc(score.message||'غير متاح')+'</p></section>':
+ (score.month?'<section class="section guardian-scores"><div class="section-head"><h2>رصيد الطالب وترتيبه</h2><small>من الحصائل والحضور المعتمدين فقط</small></div>'+
+ '<div class="score-grid">'+scoreCard('نقاط اليوم',score.today?.total??0)+scoreCard('إجمالي هذا الشهر',score.month.total)+
+ scoreCard('رصيد الفترة',score.period?.total??0)+rankCard('ترتيبه في الحلقة',score.period?.circleRank,score.period?.circleCount)+
+ rankCard('ترتيبه في المجمع',score.period?.complexRank,score.period?.complexCount)+'</div>'+
+ '<p class="score-period">'+(score.periodType==='supervisor'?'المدة المعتمدة من المشرف':'الفترة الحالية')+': '+
+ esc(score.period?.from||score.month.from)+' إلى '+esc(score.period?.to||score.month.to)+'</p>'+
+ '<div class="score-table-wrap"><table><thead><tr><th>التاريخ</th><th>الحضور</th><th>الحفظ</th><th>جنب الدرس</th><th>الكبرى</th><th>المجموع</th></tr></thead><tbody>'+
+ (score.month.daily||[]).slice(0,31).map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+formatScore(x.attendance)+'</td>'+
+ '<td>'+formatScore(x.memorization)+'</td><td>'+formatScore(x.recentReview)+'</td><td>'+formatScore(x.majorReview)+'</td><td><b>'+formatScore(x.total)+'</b></td></tr>').join('')+
+ '</tbody></table></div><p class="score-period">لا تظهر أسماء الطلاب الآخرين؛ رصيد المسودات غير المعتمدة لا يُحتسب.</p></section>':'');
  const notesHtml=familyNotes(o,talaqqinHistory,receipts),badgeHtml=familyBadges(aw,a);
  const existingRequest=requests.find(x=>x.date_key===riyadhToday());
  const requestHtml=existingRequest?'<p class="guardian-feedback">طلب استئذان اليوم: '+
@@ -310,6 +335,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
     '<div class="family-badges">'+badgeHtml+'</div></section>':'');
 
  app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
+ scoreHtml+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  familySections+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+
@@ -320,7 +346,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<section class="section"><div class="section-head"><h2>الاختبارات</h2></div>'+(testsHtml?'<div class="test-list">'+testsHtml+'</div>':'<div class="empty">لا توجد اختبارات حتى الآن.</div>')+'</section>'+
  '<section class="section"><div class="section-head"><h2>الخطة التعليمية</h2></div>'+(plansHtml?'<div class="plan-list">'+plansHtml+'</div>':'<div class="empty">لا توجد خطة نشطة حاليًا.</div>')+'</section>'+
  (awardsHtml?'<section class="section"><div class="section-head"><h2>التكريم والإنجاز</h2></div><div class="award-list">'+awardsHtml+'</div></section>':'')+
- '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.4.0 · 2026.10.15</div></footer>';
+ '<p class="footer">نسبة الحضور من السجلات المدخلة خلال آخر 60 يومًا، ونسبة التقديرات المجتازة من المسارات المرصودة. آخر تحديث: '+esc(new Date(d.generatedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}))+'</p><footer class="footer"><img src="/assets/logo-sanabil-v6.png" alt=""><div>متابعة تعليمية موثوقة بين الحلقة والأسرة</div><div>سنابل الوحي · إصدار ولي الأمر V13.4.1 · 2026.10.19</div></footer>';
  app.insertAdjacentHTML('beforeend',familyMonthlyReport(d,a));
  bindFamilyActions(d,a);
  const tp=app.querySelector('[data-talaqqin-preview]');if(tp&&talaqqinLesson)tp.onclick=()=>window.open('/noor-bayan.html?page='+encodeURIComponent(talaqqinLesson.pageFrom)+(talaqqinLesson.pageTo!==talaqqinLesson.pageFrom?'&to='+encodeURIComponent(talaqqinLesson.pageTo):'')+'&title='+encodeURIComponent(talaqqinLesson.title),'_blank','noopener,noreferrer');

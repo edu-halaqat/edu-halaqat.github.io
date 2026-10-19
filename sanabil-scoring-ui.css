@@ -1,0 +1,23 @@
+/* Scoring policy editor available to each authorized complex supervisor */
+.sl-score-dialog{direction:rtl;position:fixed;width:min(96vw,880px);max-height:92dvh;overflow-y:auto;padding:20px;
+border-radius:20px;border:1px solid #d8bd88;background:#f9fbfa;color:#183c33;box-shadow:0 16px 60px #0006}
+.sl-score-dialog::backdrop{background:#041c17b0}
+.sl-score-dialog h2{font-size:1.25rem;margin:0 0 8px}
+.sl-score-dialog .sl-score-explain{font-size:.82rem;line-height:1.8;opacity:.85}
+.sl-score-dialog .sl-score-label{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+margin:8px 0;font-weight:700}
+.sl-score-dialog input,.sl-score-dialog select{min-height:44px;padding:9px 11px;border:1px solid #8faea5;border-radius:9px;
+background:transparent;color:inherit;font:inherit;max-width:100%}
+.sl-score-dialog input[type=number]{width:115px}
+.sl-score-dialog input[type=date]{width:180px}
+.sl-score-fieldset{border:1px solid #d2e1d8;border-radius:14px;margin:12px 0;padding:13px;background:#ffffff7d}
+.sl-score-fieldset legend{padding:0 7px;font-weight:800;color:#00777d}
+.sl-score-status{font-size:.86rem;line-height:1.7;color:#007179;min-height:23px}
+.sl-score-footer{display:flex;gap:10px;justify-content:end;flex-wrap:wrap;position:sticky;bottom:-20px;
+padding:12px 0 20px;background:#f9fbfa;border-top:1px solid #d2e1d8}
+.sl-score-dialog button:focus-visible{outline:3px solid #d8bd88;outline-offset:2px}
+html[data-sanabil-theme="dark"] .sl-score-dialog{background:#19362e;color:#e3eee9;border-color:#9e8865}
+html[data-sanabil-theme="dark"] .sl-score-fieldset{background:#254238;border-color:#648277}
+html[data-sanabil-theme="dark"] .sl-score-fieldset legend{color:#b7e9e6}
+html[data-sanabil-theme="dark"] .sl-score-footer{background:#19362e;border-color:#648277}
+@media(max-width:530px){.sl-score-dialog{padding:12px}.sl-score-fieldset{padding:9px}.sl-score-dialog .sl-score-label{font-size:.82rem}}
