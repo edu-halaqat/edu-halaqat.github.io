@@ -64,3 +64,34 @@ html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk
 .sl-quick-attendance select{min-height:40px;border:1px solid #739990;border-radius:10px;padding:5px 10px;max-width:170px;background:transparent;color:inherit;font:inherit}
 .sl-quick-attendance option{color:#183d34;background:#f9fbfa}
 @media(max-width:420px){.sl-quick-attendance{width:100%}.sl-quick-attendance select{width:100%;max-width:none}}
+
+/* Per-teacher favourites and visible session-efficiency summary */
+.sl-quick-favorites{border:1px solid #88a99a;border-radius:14px;margin:12px 0;padding:11px;background:color-mix(in srgb,#00808a 8%,transparent)}
+.sl-quick-favorites-heading{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.sl-quick-favorites-heading strong{flex:1;min-width:115px}
+.sl-quick-favorite-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.sl-quick-fav-action{white-space:normal;line-height:1.45;padding:7px 4px;min-width:0;font-size:.82rem}
+.sl-quick-fav-edit,.sl-quick-efficiency-open{min-height:35px;font-size:.78rem;padding:6px 8px}
+.sl-quick-search{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:8px 2px;margin-bottom:12px}
+.sl-quick-search input{flex:1;min-width:140px;min-height:44px;background:transparent;color:inherit;border:1px solid #7c9d8b;border-radius:10px;padding:8px;font:inherit}
+.sl-quick-search-count{width:100%;font-size:.8rem}
+.sl-teacher-favorite-dialog,.sl-teacher-efficiency-dialog{direction:rtl;width:min(95vw,550px);max-height:84dvh;overflow-y:auto;border:1px solid #a8bda8;border-radius:17px;padding:17px;background:#f9fcfa;color:#1b4234}
+.sl-teacher-favorite-dialog::backdrop,.sl-teacher-efficiency-dialog::backdrop{background:#071a16ad}
+.sl-teacher-favorite-dialog h3,.sl-teacher-efficiency-dialog h3{font-size:1.12rem;margin:0 0 12px}
+.sl-quick-fav-label{display:flex;flex-direction:column;gap:5px;font-weight:700;margin:9px 0}
+.sl-quick-fav-label select{width:100%;min-height:44px;border-radius:9px;border:1px solid #6e9986;color:inherit;background:transparent;font:inherit;padding:8px}
+.sl-quick-fav-label option{color:#173c30;background:#f9fcfa}
+.sl-quick-fav-error{display:block;color:#ac3f3f;margin:8px 0}
+.sl-teacher-efficiency-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.sl-teacher-efficiency-tile{display:flex;flex-direction:column;gap:6px;padding:10px 7px;border-radius:12px;background:#eaf4ee;text-align:center}
+.sl-teacher-efficiency-tile small{font-size:.72rem}
+.sl-teacher-efficiency-tile strong{font-size:1.04rem}
+.sl-teacher-click-categories{margin:13px 0}
+.sl-teacher-click-category{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #d5e3d9}
+.sl-teacher-click-category b{font-variant-numeric:tabular-nums}
+html[data-sanabil-theme="dark"] .sl-quick-favorites{background:#204439;color:#e8f2ed;border-color:#628b79}
+html[data-sanabil-theme="dark"] :is(.sl-teacher-favorite-dialog,.sl-teacher-efficiency-dialog){background:#19382f;color:#e7f0eb;border-color:#719383}
+html[data-sanabil-theme="dark"] .sl-teacher-efficiency-tile{background:#294c3c}
+html[data-sanabil-theme="dark"] .sl-teacher-click-category{border-color:#557d6b}
+html[data-sanabil-theme="dark"] .sl-quick-fav-label select{color:#e7f0eb}
+@media(max-width:420px){.sl-quick-favorite-actions{grid-template-columns:1fr 1fr 1fr}.sl-teacher-efficiency-tile strong{font-size:.94rem}}
