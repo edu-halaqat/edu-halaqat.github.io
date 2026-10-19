@@ -46,3 +46,7 @@ html[data-sanabil-theme="dark"] .sl-quick-row{background:#224137;border-color:#5
 html[data-sanabil-theme="dark"] .sl-quick-sheet{background:#19362e;color:#e3eee9;border-color:#5e8275}
 html[data-sanabil-theme="dark"] .sl-quick-sheet-footer{background:#19362e}
 html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk):not(.sl-quick-perfect):not(.sl-quick-done){color:#e3eee9}
+
+.sl-quick-mode-toggle{display:block;margin:12px 0!important}
+.sl-data:not(.sl-quick-mode) .sl-quick-outcomes{display:none!important}
+.sl-data.sl-quick-mode .sl-quick-outcomes{display:block}
