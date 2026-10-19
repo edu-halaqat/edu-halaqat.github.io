@@ -152,22 +152,22 @@ returns smallint language sql immutable set search_path='' as $$
 $$;
 create or replace function public.recompute_student_daily_points(p_student_id text,p_date date)
 returns void language plpgsql security definer set search_path='' as $$
-declare st record; att text; o record; major text; eff date;
+declare st record; att text; v_out record; major text; eff date;
 begin
  select id,org_id,complex_id,circle_id,active into st from public.students where id=p_student_id;
  if st.id is null then return;end if;
  select a.status into att from public.student_attendance a where a.student_id=p_student_id and a.date_key=p_date limit 1;
- select o.id,o.memorization_rating,o.recent_review_rating,o.review_rating
- into o from public.outcomes o where o.student_id=p_student_id and o.date_key=p_date limit 1;
- if att is null and o.id is null then
+ select oc.id,oc.memorization_rating,oc.recent_review_rating,oc.review_rating
+ into v_out from public.outcomes oc where oc.student_id=p_student_id and oc.date_key=p_date limit 1;
+ if att is null and v_out.id is null then
    delete from public.student_daily_points where student_id=p_student_id and date_key=p_date;return;
  end if;
  if exists(select 1 from public.student_day_types d where d.student_id=p_student_id and d.date_key=p_date and d.day_type in ('holiday','unaccounted'))
  or exists(select 1 from public.circle_day_types d where d.circle_id=st.circle_id and d.date_key=p_date and d.day_type in ('holiday','unaccounted')) then
    delete from public.student_daily_points where student_id=p_student_id and date_key=p_date;return;
  end if;
- major:=nullif(o.review_rating,'');
- if major is null and o.id is not null then
+ major:=nullif(v_out.review_rating,'');
+ if major is null and v_out.id is not null then
   select pd.rating into major from public.plan_days pd
   join public.plans p on p.id=pd.plan_id
   where pd.student_id=p_student_id and pd.date_key=p_date
@@ -184,8 +184,8 @@ begin
    attendance_points,memorization_points,recent_review_points,review_points,policy_effective_from)
  values (p_student_id,p_date,st.org_id,st.complex_id,st.circle_id,att,
     case att when 'present' then 5 when 'late' then 3 when 'excused' then 3 else 0 end,
-    case when att='absent' then 0 else public.student_rating_points(o.memorization_rating,'memorization') end,
-    case when att='absent' then 0 else public.student_rating_points(o.recent_review_rating,'recentReview') end,
+    case when att='absent' then 0 else public.student_rating_points(v_out.memorization_rating,'memorization') end,
+    case when att='absent' then 0 else public.student_rating_points(v_out.recent_review_rating,'recentReview') end,
     case when att='absent' then 0 else public.student_rating_points(major,'review') end,eff)
  on conflict(student_id,date_key) do update set
    org_id=excluded.org_id,complex_id=excluded.complex_id,circle_id=excluded.circle_id,
