@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.36';
+window.__SanabilLiveBuild='20261019-v13.8.37';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2247,6 +2247,15 @@ async function outcomesPage(root){
     gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard,
     complexId:l.circles.find(c=>c.id===circle)?.complex_id||'',
     sessionDate:date,
+    changeAttendance:(i,value)=>{
+      if(readOnly||!needsDayAttendance(activeKind(students[i].studentId)))return;
+      const absent=value.startsWith('absent:');
+      states[i].attendance=absent?'absent':value;
+      states[i].absenceReason=absent?value.slice(7):'';
+      const sel=box.querySelector('[data-quran-absence-reason="'+i+'"]');
+      if(sel)sel.value=states[i].absenceReason;
+      syncCard(i);persistDraft(i);
+    },
     bulkDayKind:async(studentIds,kind)=>{
       if(readOnly)throw Error('هذه الجلسة لا تسمح بالتعديل.');
       if(!studentIds?.length)throw Error('لم تحدد طلابًا.');
