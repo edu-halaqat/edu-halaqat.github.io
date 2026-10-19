@@ -27,11 +27,18 @@
   const quick=box.querySelector('.sl-quick-outcomes');
   if(!quick)return null;
   const userKey='sanabil_favorite_actions_v1:'+teacherId;
+  const usageKey='sanabil_favorite_usage_v1:'+teacherId;
   const sessionKey='sanabil_clicks_v1:'+teacherId+':'+circle+':'+date;
   const getStorage=(store,key)=>{try{return JSON.parse(store.getItem(key)||'null')}catch{return null}};
   const putStorage=(store,key,value)=>{try{store.setItem(key,JSON.stringify(value))}catch{}};
+  const usage=getStorage(localStorage,usageKey)||{};
+  const popular=()=>{
+   const totals=ACTIONS.map(([id])=>[id,num(usage[id])]);
+   if(totals.reduce((n,item)=>n+item[1],0)<6)return [...DEFAULT];
+   return totals.sort((a,b)=>b[1]-a[1]).slice(0,3).map(item=>item[0]);
+  };
   let favorites=getStorage(localStorage,userKey);
-  if(!validFavorites(favorites))favorites=[...DEFAULT];
+  if(!validFavorites(favorites))favorites=popular();
   const previous=getStorage(sessionStorage,sessionKey);
   const newId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():null;
   let counters=previous?.sessionId&&Number.isFinite(previous.clicks)&&previous.categories
@@ -88,6 +95,18 @@
    counters.activeSeconds=Math.min(86400,Math.round(activeMs/1000)+num(previous?.activeSeconds||0));
    const category=classify(target);
    counters.categories[category]=num(counters.categories[category]+1);
+   const shortcut=target.closest?.('[data-favorite-action]')?.dataset.favoriteAction;
+   const action=shortcut||
+    (target.closest?.('.sl-quick-multi')?'bulk_grade':
+     target.closest?.('.sl-quick-multi-day')?'bulk_day':
+     target.closest?.('.sl-quick-bulk')?'bulk_excellent':
+     target.closest?.('.sl-quick-details')?'details':
+     target.closest?.('[data-action="save-attendance"]')?'attendance_save':
+     target.closest?.('.sl-outcome-student-search,.sl-quick-search')?'search':null);
+   if(action&&ACTIONS.some(([id])=>id===action)){
+    usage[action]=num((usage[action]||0)+1);
+    putStorage(localStorage,usageKey,usage);
+   }
    persist();
    if(counters.clicks-lastSynced>=15)flush();else scheduleFlush();
   };
@@ -152,7 +171,8 @@
   const drawFavorites=()=>{
    actions.replaceChildren(...favorites.map(id=>{
     const item=ACTIONS.find(x=>x[0]===id);
-    return button(item?.[1]||id,()=>runAction(id),'sl-quick-fav-action');
+    const b=button(item?.[1]||id,()=>runAction(id),'sl-quick-fav-action');
+    b.dataset.favoriteAction=id;return b;
    }));
   };
   function configure(){
@@ -166,6 +186,10 @@
     for(const [id,name] of ACTIONS){const option=el('option','',name);option.value=id;control.append(option)}
     control.value=favorites[i];label.append(control);d.append(label);selects.push(control);
    }
+   const suggest=button('اقتراح الأكثر استخدامًا',()=>{
+    const best=popular();selects.forEach((field,i)=>{field.value=best[i]});
+   },'sl-quick-fav-suggest');
+   d.append(suggest);
    const err=el('small','sl-quick-fav-error');d.append(err);
    d.append(button('حفظ المفضلة',()=>{
     const values=selects.map(x=>x.value);
