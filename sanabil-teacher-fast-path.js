@@ -149,7 +149,6 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
   choose(user,mode);
   const fast=mode==='fast';
   root.classList.toggle('sl-fast-session',fast);
-  document.body.classList.toggle('sl-teacher-fast-running',fast);
   switcher.textContent=fast?'☷ الانتقال للمسار العام':'⚡ العودة للمسار السريع';
   switcher.setAttribute('aria-pressed',String(!fast));
   if(fast){
@@ -171,7 +170,7 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
  return result;
 }
 function setQuickUp(root){
- if(!root||!document.body.classList.contains('sl-teacher-fast-running'))return;
+ if(!root?.classList.contains('sl-fast-session'))return;
  root.querySelector('.sl-fast-session-bar')?.scrollIntoView?.({block:'nearest'});
 }
 async function bulkNominate({students,studentIds,circle,server}){
@@ -196,8 +195,8 @@ async function bulkNominate({students,studentIds,circle,server}){
  form.append(line('نوع الاختبار',type),line('مقرر الاختبار',syllabus),line('عدد الأسئلة',count),line('عدد الأسطر لكل سؤال',lines));
  const names=node('p','sl-fast-selected-names','الطلاب: '+picked.map(s=>s.fullName).join('، '));
  const result=node('p','sl-fast-nomination-status','');result.setAttribute('role','status');
- const save=button('إرسال الترشيحات المحددة',()=>form.requestSubmit(),'button-primary');
- save.type='submit';
+ const save=node('button','button button-primary','إرسال الترشيحات المحددة');
+ save.type='submit';save.disabled=true;
  const cancel=button('إغلاق',()=>d.close(),'button-soft');cancel.type='button';
  form.append(save,cancel);
  d.append(title,note,names,form,result);
@@ -207,6 +206,7 @@ async function bulkNominate({students,studentIds,circle,server}){
  try{
   if(typeof window.SanabilExamEnhanceForm!=='function')throw Error('تعذر تحميل اختيار مقرر الاختبار؛ أعد تحديث الصفحة.');
   await window.SanabilExamEnhanceForm(form);
+  save.disabled=false;
  }catch(error){save.disabled=true;result.textContent=error.message;return}
  form.addEventListener('submit',async event=>{
   event.preventDefault();if(save.disabled)return;
