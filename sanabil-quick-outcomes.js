@@ -299,6 +299,9 @@
   }
   const entry={refresh,refreshAll,seed:seedPresent,gradeFor,isProvisional:i=>provisional.has(i)};
   box._sanabilQuick=entry;
+  // Default only the local draft for a scheduled study day; never persist
+  // unsummoned success to the server until the teacher explicitly confirms.
+  if(!readOnly&&sessionDate)seedPresent(false);
   return entry;
  }
  window.SanabilQuickOutcomes={mount,gradeFor};
