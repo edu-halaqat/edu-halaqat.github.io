@@ -1,0 +1,36 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const read=n=>fs.readFileSync(n,'utf8');
+const live=read('sanabil-live-v12.js'),quick=read('sanabil-quick-outcomes.js'),ops=read('sanabil-live-ops.js');
+const html=read('index.html'),css=read('sanabil-quick-outcomes.css'),
+ sql=read('supabase/migrations/20261019081000_atomic_bulk_day_types.sql'),
+ metrics=read('supabase/migrations/20261019083000_circle_operation_metrics.sql');
+for(const [name,source] of [['live',live],['quick',quick],['ops',ops]])new vm.Script(source,{filename:name+'.js'});
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v4'));
+assert(html.includes('/sanabil-live-ops.js?v=20261019-v1'));
+assert(html.includes('/sanabil-live-ops.css?v=20261019-v1'));
+assert(live.includes("attendance:s.attendanceStatus||(needsDayAttendance(activeKind(s.studentId))?'present':'')"),'unrecorded attendance presented as present');
+assert(!live.includes("attendance:s.attendanceStatus||'',"),'no unset attendance by default');
+assert(live.includes("await rpc('set_day_types_bulk_guarded'"),'batch day type uses guarded server operation');
+assert(live.includes("autoPending=new Set()")&&live.includes('const saveOneStudent=async(i)=>'),'autosave reuses server-verified save routine');
+assert(live.includes("box._sanabilQuick?.isProvisional?.(i)"),'do not automatically save invented recitation grades');
+assert(live.includes("if(!drafts[students[i].studentId])continue"),'do not re-save rows without changes');
+assert(live.includes('const i=[...autoPending].find(index=>!autoInFlight.has(index))'),'do not drop edits during in-flight saves');
+assert(live.includes("await confirmSaved(s,x)"),'server readback required before marking confirmed');
+assert(quick.indexOf('const targetIndices')<quick.indexOf('const seedPresent'),'bulk operations remain in parent scope');
+assert(quick.includes("openBulkDay")&&quick.includes("openBulkGrade"),'batch UI for day types and grade');
+assert(quick.includes("if(!readOnly&&sessionDate)seedPresent(false)"),'initial perfect ratings remain local drafts');
+assert(quick.includes("isProvisional:i=>provisional.has(i)"),'autowrite gate for unverified grades');
+assert(sql.includes('public.set_day_type_guarded(')&&sql.includes('security invoker'),'reuse existing permissions and plan change constraints');
+assert(metrics.includes('duration_ms')&&!metrics.includes('student_id'),'latency records contain no student identifiers');
+const w={};vm.runInNewContext(quick,{window:w,document:{}});
+const grade=w.SanabilQuickOutcomes.gradeFor;
+assert.equal(grade('memorization',0,1),'لم يحفظ');
+assert.equal(grade('recentReview',0,1),'لم يحفظ');
+assert.equal(grade('review:a',2,2),'لم يحفظ');
+assert.equal(grade('review:a',0,2),'جيد جدًا');
+const opsWindow={};vm.runInNewContext(ops,{window:opsWindow,document:{},navigator:{onLine:false}});
+const p=opsWindow.SanabilLiveOps.percentile;
+assert.equal(p([100,200,300,400,500],.95),500);
+assert.equal(p([],0.95),null);
+console.log('PASS: default attendance is nonpersisted, autosave gates unverified grades, atomic group actions, live metric confidentiality, and strict Quran scoring');

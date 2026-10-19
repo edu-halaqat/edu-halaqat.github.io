@@ -1,0 +1,18 @@
+/* Small read-only supervisor monitor, compatible with current Sanabil light/dark palette. */
+.sl-liveops-dialog{direction:rtl;width:min(95vw,920px);max-height:90dvh;overflow:auto;border:1px solid #d8bd88;border-radius:18px;padding:16px;background:#f8fbf9;color:#163e33}
+.sl-liveops-dialog::backdrop{background:#082019b8}
+.sl-liveops-dialog h2{font-size:1.2rem;margin:0 0 7px}
+.sl-liveops-note{font-size:.8rem;color:#658173;line-height:1.65}
+.sl-liveops-filters{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:13px 0}
+.sl-liveops-filters select{flex:1;min-width:150px;border:1px solid #7c9a8c;border-radius:10px;padding:10px;background:transparent;color:inherit;font:inherit}
+.sl-liveops-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.sl-liveops-stat{background:#edf5f0;border:1px solid #c8dacf;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.sl-liveops-stat small{font-size:.76rem;color:#527267}
+.sl-liveops-stat strong{font-size:1.15rem}
+.sl-liveops-row{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:10px;padding:11px 8px;border-bottom:1px solid #cadbd2;font-size:.85rem}
+.sl-liveops-row strong{min-width:180px}
+html[data-sanabil-theme="dark"] .sl-liveops-dialog{background:#17372f;color:#e3efea;border-color:#658c7e}
+html[data-sanabil-theme="dark"] .sl-liveops-stat{background:#25483b;border-color:#5b8170}
+html[data-sanabil-theme="dark"] .sl-liveops-stat small{color:#b6cdc2}
+html[data-sanabil-theme="dark"] .sl-liveops-row{border-color:#658779}
+html[data-sanabil-theme="dark"] .sl-liveops-note{color:#b0c6bc}

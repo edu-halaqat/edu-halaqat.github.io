@@ -4,7 +4,7 @@ const read=p=>fs.readFileSync(p,'utf8');
 const live=read('sanabil-live-v12.js'),exam=read('sanabil-v13-enhancements.js'),index=read('index.html');
 new vm.Script(live,{filename:'sanabil-live-v12.js'});
 new vm.Script(exam,{filename:'sanabil-v13-enhancements.js'});
-assert(index.includes('20261019-v13.8.35'),'release build must be versioned');
+assert(index.includes('20261019-v13.8.36'),'release build must be versioned');
 assert(index.includes('sanabil-v13-enhancements.js?v=8'),'exam form cache must refresh');
 for(const name of ['activation','placement','juz','phased'])assert(exam.includes(name),'missing exam mode '+name);
 for(const label of ['اختبار تنشيطي','اختبار تحديد مستوى','اختبار الأجزاء','اختبار مرحلي','الفرع','من الفاتحة','من الناس'])assert(exam.includes(label),'missing Arabic label '+label);
