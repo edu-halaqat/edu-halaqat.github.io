@@ -28,7 +28,7 @@
  ];
  function mount(ctx){
   const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
-   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind}=ctx;
+   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance}=ctx;
   let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
@@ -180,6 +180,8 @@
    view.tick.disabled=!allowed;
    view.details.disabled=readOnly||!needsDayAttendance(kind);
    view.check.disabled=readOnly;
+   view.attSelect.disabled=readOnly||!needsDayAttendance(kind);
+   view.attSelect.value=st.attendance==='absent'?'absent:'+(st.absenceReason||'unexcused'):(st.attendance||'present');
    if(!allowed){provisional.delete(i)}
    const chips=[];
    for(const t of entries){
@@ -259,6 +261,18 @@
    const s=students[i];const row=el('article','sl-quick-row');
    const top=el('div','sl-quick-row-top'),name=el('strong','',s.fullName),state=el('small','sl-quick-row-state');
    top.append(name,state);
+   const attLabel=el('label','sl-quick-attendance','حالة الطالب');
+   const attSelect=el('select');
+   attSelect.setAttribute('aria-label','حالة حضور '+s.fullName);
+   for(const [value,label] of [['present','حاضر'],['late','متأخر'],['excused','مستأذن'],
+     ['absent:excused','غائب بعذر'],['absent:unexcused','غائب دون عذر']]){
+    const opt=el('option','',label);opt.value=value;attSelect.append(opt);
+   }
+   attSelect.addEventListener('change',()=>{
+    if(typeof changeAttendance==='function')changeAttendance(i,attSelect.value);
+    refresh(i);
+   });
+   attLabel.append(attSelect);top.append(attLabel);
    const tags=el('div','sl-quick-tags');
    const actions=el('div','sl-quick-row-actions');
    const check=el('input');check.type='checkbox';check.className='sl-quick-select';check.setAttribute('aria-label','تحديد '+s.fullName+' للتسجيل الجماعي');
@@ -266,7 +280,7 @@
    const tick=button('✓ الكل ممتاز',()=>{if(applyExcellent(i))inform('سُجّل الممتاز في مسودة '+s.fullName+'، بعد تحقق المعلم من تسميعه.')},'sl-quick-perfect');
    const details=button('التفاصيل',()=>openDetails(i),'sl-quick-details');
    actions.append(check,tick,details);row.append(top,tags,actions);list.append(row);
-   rows[i]={row,state,tags,check,tick,details};
+   rows[i]={row,state,tags,check,tick,details,attSelect};
    const saveLabel=box.querySelector('[data-save-status="'+i+'"]');
    if(saveLabel&&typeof MutationObserver==='function')new MutationObserver(()=>{if(row.isConnected)refresh(i)}).observe(saveLabel,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['data-saved']});
   }
