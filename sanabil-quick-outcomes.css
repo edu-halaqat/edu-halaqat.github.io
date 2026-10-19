@@ -1,0 +1,48 @@
+/* Sanabil 1448 quick outcome list; dark/light values inherited from app palette. */
+.sl-quick-outcomes{direction:rtl;margin:12px 0 18px;padding:12px;border:1px solid var(--line,#57786d);border-radius:18px;background:#f9fbfa;color:#183c33;box-shadow:0 8px 25px #0000000c}
+.sl-quick-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.sl-quick-heading-title{font-size:1.12rem;font-weight:800}.sl-quick-heading small,.sl-quick-explain{font-size:.79rem;line-height:1.7;opacity:.83}
+.sl-quick-toolbar,.sl-quick-row-actions,.sl-quick-sheet-tabs,.sl-quick-presets,.sl-quick-grades{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.sl-quick-toolbar{margin-bottom:9px}
+.sl-quick-btn{min-height:42px;padding:8px 12px;border-radius:12px;border:1px solid #68908a;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer;touch-action:manipulation}
+.sl-quick-btn:focus-visible{outline:3px solid #d8bd88;outline-offset:2px}
+.sl-quick-btn:disabled{opacity:.42;cursor:not-allowed}
+.sl-quick-btn.is-active,.sl-quick-perfect,.sl-quick-done,.sl-quick-bulk{background:#007e86;border-color:#d8bd88;color:white}
+.sl-quick-row-actions .sl-quick-perfect{flex:1}
+.sl-quick-notice{font-size:.83rem;line-height:1.6}
+.sl-quick-notice:empty{display:none}
+.sl-quick-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:10px}
+.sl-quick-row{border:1px solid #7e9c934b;border-radius:14px;padding:12px;background:#ffffff}
+.sl-quick-row-top{display:flex;gap:12px;align-items:start;justify-content:space-between}
+.sl-quick-row-top strong{font-size:1rem}.sl-quick-row-state{font-size:.76rem;opacity:.75;text-align:left}
+.sl-quick-tags{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}
+.sl-quick-chip{border-radius:999px;background:color-mix(in srgb,currentColor 9%,transparent);font-size:.75rem;padding:3px 8px}
+.sl-quick-row-actions{gap:6px;flex-wrap:nowrap}
+.sl-quick-select{width:22px;height:22px;accent-color:#00808a;flex-shrink:0}
+.sl-quick-mode .sl-outcome-session>.sl-student-grid{display:none}
+.sl-quick-sheet{width:min(100vw - 16px,650px);max-height:min(85dvh,850px);margin:auto auto 0;border:1px solid #7c9f91;border-radius:20px 20px 0 0;padding:14px 14px max(16px,env(safe-area-inset-bottom));overflow-y:auto;background:#f9fbfa;color:#183c33;box-shadow:0 -16px 50px #0008;direction:rtl}
+.sl-quick-sheet::backdrop{background:#081c18ac}
+.sl-quick-sheet-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sl-quick-sheet-title{font-size:1.02rem;font-weight:800}
+.sl-quick-sheet-content{margin-top:12px}
+.sl-quick-sheet-content h3{font-size:1rem;margin:5px 0}
+.sl-quick-sheet-tabs .sl-quick-btn{font-size:.8rem;min-height:36px}
+.sl-quick-metric-summary{font-size:.81rem;margin:6px 0}
+.sl-quick-counter{padding:10px 0;border-bottom:1px solid #7c9f9160;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sl-quick-counter strong{min-width:96px}
+.sl-quick-counter-controls{display:flex;gap:5px;align-items:center}
+.sl-quick-counter-controls input{min-height:44px;width:60px;text-align:center;border:1px solid #7b9a90;border-radius:9px;background:transparent;color:inherit;font:inherit}
+.sl-quick-counter-controls .sl-quick-btn{padding:6px 9px;min-width:42px}
+.sl-quick-presets .sl-quick-btn{padding:5px 8px;min-height:35px}
+.sl-quick-grade-title{font-weight:700;margin-top:12px}
+.sl-quick-grades .sl-quick-btn{font-size:.84rem}
+.sl-quick-sheet-footer{position:sticky;bottom:-15px;background:#f9fbfa;padding:9px 0 4px}
+.sl-quick-sheet-footer .sl-quick-btn{width:100%}
+@media(max-width:480px){.sl-quick-row-actions .sl-quick-btn{font-size:.78rem;padding:7px 8px}.sl-quick-outcomes{padding:9px}.sl-quick-sheet{max-height:88dvh}}
+@media(prefers-reduced-motion:no-preference){.sl-quick-sheet[open]{animation:sl-quick-rise .2s ease-out}@keyframes sl-quick-rise{from{transform:translateY(18px);opacity:.5}to{transform:translateY(0);opacity:1}}}
+
+html[data-sanabil-theme="dark"] .sl-quick-outcomes{background:#19362e;color:#e3eee9;border-color:#5e8275}
+html[data-sanabil-theme="dark"] .sl-quick-row{background:#224137;border-color:#557567}
+html[data-sanabil-theme="dark"] .sl-quick-sheet{background:#19362e;color:#e3eee9;border-color:#5e8275}
+html[data-sanabil-theme="dark"] .sl-quick-sheet-footer{background:#19362e}
+html[data-sanabil-theme="dark"] .sl-quick-btn:not(.is-active):not(.sl-quick-bulk):not(.sl-quick-perfect):not(.sl-quick-done){color:#e3eee9}
