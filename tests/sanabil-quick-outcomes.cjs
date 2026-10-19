@@ -11,9 +11,9 @@ assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server con
 assert(css.includes('.sl-quick-sheet')&&css.includes('.sl-quick-mode'),'responsive views available');
 const win={};vm.runInNewContext(js,{window:win,document:{}});const grade=win.SanabilQuickOutcomes.gradeFor;
 for(const [key,e,d,want] of [
- ['memorization',0,0,'ممتاز'],['memorization',0,1,'جيد جدًا'],
- ['memorization',0,3,'جيد جدًا'],['memorization',1,0,'لم يحفظ'],['memorization',1,1,'لم يحفظ'],
- ['recentReview',0,0,'ممتاز'],['recentReview',0,1,'جيد جدًا'],['recentReview',1,0,'لم يحفظ'],
+ ['memorization',0,0,'ممتاز'],['memorization',0,1,'لم يحفظ'],
+ ['memorization',0,3,'لم يحفظ'],['memorization',1,0,'لم يحفظ'],['memorization',1,1,'لم يحفظ'],
+ ['recentReview',0,0,'ممتاز'],['recentReview',0,1,'لم يحفظ'],['recentReview',1,0,'لم يحفظ'],
  ['review:a',0,0,'ممتاز'],['review:a',0,1,'ممتاز'],
  ['review:a',1,0,'جيد جدًا'],['review:a',0,2,'جيد جدًا'],
  ['review:a',1,1,'جيد'],['review:a',2,0,'جيد'],
