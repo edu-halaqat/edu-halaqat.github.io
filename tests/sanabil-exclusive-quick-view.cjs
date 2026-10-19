@@ -50,6 +50,6 @@ assert.equal(switchView(true),true);
 assert.equal(grid.style.getPropertyValue('display'),'none','subsequent quick toggle hides grid again');
 assert(live.includes('<form class="sl-outcome-session"><div class="sl-student-grid">'),
  'detailed form remains intact and still uses the original save pipeline');
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v7'));
-assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v7'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v8'));
+assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v8'));
 console.log('PASS: one active outcome view, no duplicate search/navigation, and lossless two-way switching.');

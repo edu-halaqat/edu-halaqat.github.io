@@ -28,7 +28,7 @@
  ];
  function mount(ctx){
   const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
-   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance}=ctx;
+   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance,bulkNominate}=ctx;
   let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
   // Switching modes must not destroy the original form: the existing guarded
@@ -81,7 +81,14 @@
   const defaults=button('تهيئة ممتاز للحاضرين',()=>seedPresent(true),'sl-quick-defaults');
   const multiGrade=button('✎ تقييم مجموعة',()=>openBulkGrade(),'sl-quick-multi');
   const multiDay=button('▦ تصنيف يوم مجموعة',()=>openBulkDay(),'sl-quick-multi-day');
-  toolbar.append(defaults,bulk,multiGrade,multiDay);
+  const nominations=button('✦ ترشيح المحددين للاختبار',()=>{
+   const ids=targetIndices().map(i=>students[i].studentId);
+   if(!ids.length){inform('حدد الطلاب المراد ترشيحهم أولًا.');return}
+   if(!bulkNominate){inform('الترشيح الجماعي غير متاح في هذه الجلسة.');return}
+   Promise.resolve(bulkNominate(ids)).catch(e=>inform('تعذر فتح الترشيحات: '+(e?.message||e)));
+  },'sl-quick-nominate');
+  if(bulkNominate)toolbar.append(defaults,bulk,multiGrade,multiDay,nominations);
+  else toolbar.append(defaults,bulk,multiGrade,multiDay);
   wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(toggle,form);form.parentNode.insertBefore(wrap,form);
   switchView(true);
   const allowAtt=st=>['present','late'].includes(st.attendance);
