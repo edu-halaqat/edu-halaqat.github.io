@@ -14,6 +14,11 @@ assert(!source.includes('set_teacher_attendance_override'),'fingerprint does not
 assert(!source.includes("status:'present'"),'no success forged without attendance Edge approval');
 assert(source.includes("action:'checkIn'"),'same existing geofenced check-in endpoint');
 assert(css.includes('body:has(.sl-fast-session) .mobile-nav'),'fast view hides unrelated navigation');
+assert(css.includes('.sl-fast-session.sl-fast-session-ready > .sl-session-filter'),'session loader only hides after cards load');
+assert(css.includes('.sl-fast-session:not(.sl-fast-session-ready) > .sl-session-filter'),'failed load keeps session retry visible');
+assert(source.includes("root.querySelector('[data-action=\"load\"]')"),'fast session explicitly opens outcomes independent from fingerprint');
+assert(source.includes('new MutationObserver(refreshSessionView)'),'student-card observer reactivates quick view after load');
+assert(source.includes('await fingerprintError(error)'),'Edge refusal is translated into actionable message');
 assert(html.includes('sanabil-teacher-fast-path.js'),'entry asset present');
 const storage=()=>{const map=new Map();return{setItem:(k,v)=>map.set(k,v),getItem:k=>map.get(k)||null,removeItem:k=>map.delete(k)}};
 const localStorage=storage(),sessionStorage=storage();
@@ -57,5 +62,16 @@ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeri
  assert.equal(calls,2);
  result=await api.fingerprint({user:'u5',circle:{id:'other'},date:today,server});
  assert.equal(result.state,'failed','circle lacking fingerprint mosque still may open');
+ online=true;
+ const failedHttp={functions:{invoke:async()=>({data:null,error:{
+   message:'Edge Function returned a non-2xx status code',
+   context:{clone:()=>({json:async()=>({error:'انتهت فترة تسجيل الحضور'})})}
+ }})}};
+ result=await api.fingerprint({user:'u6',circle:valid,date:today,server:failedHttp});
+ assert.equal(result.state,'failed','HTTP failure does not forge a fingerprint');
+ assert.match(result.message,/انتهت فترة تسجيل الحضور/,'real server reason is shown');
+ const unknownHttp={functions:{invoke:async()=>({data:null,error:{message:'Edge Function returned a non-2xx status code'}})}};
+ result=await api.fingerprint({user:'u7',circle:valid,date:today,server:unknownHttp});
+ assert.match(result.message,/رفض خادم الحضور/,'generic Edge error becomes useful Arabic guidance');
  console.log('PASS: independent fast/general selection, nonblocking guarded fingerprint, no forged presence, rejected GPS and offline review.');
 })().catch(e=>{console.error(e);process.exitCode=1});
