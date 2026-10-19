@@ -148,7 +148,7 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
    },'sl-fast-circle-option'+(selected?' is-selected':''));
    chooseCircle.setAttribute('aria-current',String(selected));
    row.append(star,chooseCircle);
-   options.append(row);
+   return row;
   }));
  };
  const setMode=mode=>{
