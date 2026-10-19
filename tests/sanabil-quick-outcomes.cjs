@@ -3,8 +3,8 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const js=fs.readFileSync('sanabil-quick-outcomes.js','utf8'),live=fs.readFileSync('sanabil-live-v12.js','utf8'),
 html=fs.readFileSync('index.html','utf8'),css=fs.readFileSync('sanabil-quick-outcomes.css','utf8');
 new vm.Script(js,{filename:'sanabil-quick-outcomes.js'});
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v4'));
-assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v4'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v5'));
+assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v5'));
 assert(live.includes('window.SanabilQuickOutcomes?.mount?.({'),'live classroom loads optional quick editor');
 assert(live.includes("rpcOffline('save_daily_outcomes_guarded'"),'existing server-guarded outcome pipeline preserved');
 assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server confirmation preserved');

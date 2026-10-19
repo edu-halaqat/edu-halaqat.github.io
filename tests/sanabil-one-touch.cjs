@@ -6,7 +6,7 @@ const html=read('index.html'),css=read('sanabil-quick-outcomes.css'),
  sql=read('supabase/migrations/20261019081000_atomic_bulk_day_types.sql'),
  metrics=read('supabase/migrations/20261019083000_circle_operation_metrics.sql');
 for(const [name,source] of [['live',live],['quick',quick],['ops',ops]])new vm.Script(source,{filename:name+'.js'});
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v4'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261019-v5'));
 assert(html.includes('/sanabil-live-ops.js?v=20261019-v1'));
 assert(html.includes('/sanabil-live-ops.css?v=20261019-v1'));
 assert(live.includes("attendance:s.attendanceStatus||(needsDayAttendance(activeKind(s.studentId))?'present':'')"),'unrecorded attendance presented as present');
@@ -19,6 +19,8 @@ assert(live.includes('const i=[...autoPending].find(index=>!autoInFlight.has(ind
 assert(live.includes("await confirmSaved(s,x)"),'server readback required before marking confirmed');
 assert(quick.indexOf('const targetIndices')<quick.indexOf('const seedPresent'),'bulk operations remain in parent scope');
 assert(quick.includes("openBulkDay")&&quick.includes("openBulkGrade"),'batch UI for day types and grade');
+assert(quick.includes('sl-quick-attendance')&&quick.includes('غائب بعذر')&&quick.includes('مستأذن'),'attendance exceptions visible in fast mode');
+assert(live.includes('changeAttendance:(i,value)=>')&&live.includes('syncCard(i);persistDraft(i);'),'attendance selector shares guarded autosave path');
 assert(quick.includes("if(!readOnly&&sessionDate)seedPresent(false)"),'initial perfect ratings remain local drafts');
 assert(quick.includes("isProvisional:i=>provisional.has(i)"),'autowrite gate for unverified grades');
 assert(sql.includes('public.set_day_type_guarded(')&&sql.includes('security invoker'),'reuse existing permissions and plan change constraints');
