@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261019-v13.8.40';
+window.__SanabilLiveBuild='20261019-v13.8.41';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2239,6 +2239,9 @@ async function outcomesPage(root){
     gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard,
     complexId:l.circles.find(c=>c.id===circle)?.complex_id||'',
     sessionDate:date,
+    bulkNominate:(!readOnly&&a.roles.includes('teacher'))?ids=>window.SanabilTeacherFastPath?.bulkNominate?.({
+     students,studentIds:ids,circle,server:sb()
+    }):null,
     changeAttendance:(i,value)=>{
       if(readOnly||!needsDayAttendance(activeKind(students[i].studentId)))return;
       const absent=value.startsWith('absent:');
@@ -2371,7 +2374,16 @@ async function outcomesPage(root){
  };
  root.querySelector('[name="circle"]').addEventListener('change',()=>{localStorage.setItem(selectedCircleKey,val(root,'circle'));refreshSelection()});
  root.querySelector('[name="date"]').addEventListener('change',refreshSelection);
- try{const active=JSON.parse(localStorage.getItem(activeSessionKey)||'null');
+ const fastPath=window.SanabilTeacherFastPath;
+ const launch=fastPath?.consumeLaunch?.(activeUserId,l.circles);
+ const fastSession=fastPath?.mountOutcomes?.({root,access:a,user:activeUserId,circles:l.circles,
+  navigate:navigateView,server:sb()});
+ if(launch){
+  root.querySelector('[name="circle"]').value=launch.circle;
+  root.querySelector('[name="date"]').value=launch.date;
+  fastSession?.update?.();
+  setTimeout(()=>{if(root.isConnected)root.querySelector('[data-action="load"]')?.click()},0);
+ }else try{const active=JSON.parse(localStorage.getItem(activeSessionKey)||'null');
   // تبقى جلسة اليوم مفتوحة عند التنقل ولو كان تاريخ الحصيلة المختار مختلفًا عن اليوم الحالي.
   const openedDay=active?.openedAt?new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(active.openedAt)):null;
   if(active?.date&&openedDay===today()&&l.circles.some(c=>c.id===active.circle)){
@@ -3429,6 +3441,12 @@ async function dashboard(root){
 
  await window.SanabilSupervision?.decorateDashboard?.(root,a);
  window.SanabilLiveOps?.mountDashboard?.(root,a);
+ if(a.roles?.includes('teacher')){
+  const user=(await sb().auth.getSession()).data?.session?.user?.id;
+  if(user)await window.SanabilTeacherFastPath?.mountDashboard?.({
+   root,access:a,user,loadCircles:()=>lookups(),navigate:navigateView,server:sb()
+  });
+ }
 }
 async function dashboardDetails(root,a){
  const rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;
