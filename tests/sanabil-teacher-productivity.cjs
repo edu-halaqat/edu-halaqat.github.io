@@ -78,7 +78,7 @@ assert.deepEqual(favorites.children.map(x=>x.textContent),['بحث عن طالب
 m.runAction('details');assert.deepEqual(called.details,[6],'selection chooses arbitrary student in existing order');
 m.runAction('bulk_grade');m.runAction('bulk_day');m.runAction('attendance_save');
 assert.equal(called.grade,1);assert.equal(called.day,1);assert.equal(called.att,1);
-const inside={closest:sel=>sel.includes('.sl-quick-perfect'),tag:'button'};
+const inside={closest:sel=>sel.includes('.sl-quick-perfect')?{}:null,tag:'button'};
 box.contains=()=>true;
 eventBus.click({isTrusted:true,target:inside});
 assert.equal(m.summary().clicks,1,'one trusted tap counts once');
