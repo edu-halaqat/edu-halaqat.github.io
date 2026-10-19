@@ -258,6 +258,36 @@ Deno.serve(async(req:Request)=>{
       prepAssignments.push(assignment(d,p));
     }
 
+    // A guardian sees only this verified student's points and numerical rankings.
+    // All aggregates are computed server-side. The service key is never sent to browsers.
+    let scorecard:any=null;
+    try{
+      const monthStart=today.slice(0,7)+"-01";
+      const periodsResult=await db.from("student_scoring_periods")
+        .select("period_type,label,start_date,end_date")
+        .eq("complex_id",g.complex_id);
+      if(periodsResult.error)throw periodsResult.error;
+      const requests=[{key:"month",label:"الشهر الحالي",start:monthStart,end:today},
+        ...(periodsResult.data||[]).filter((p:any)=>p.start_date<=today)
+          .map((p:any)=>({key:p.period_type,label:p.label,start:p.start_date,
+            end:p.end_date>today?today:p.end_date}))];
+      const reports=await Promise.all(requests.map(async (p:any)=>{
+        const result=await db.rpc("guardian_student_points_report",
+          {p_student_id:s.id,p_start:p.start,p_end:p.end});
+        if(result.error)throw result.error;
+        return {...p,...result.data};
+      }));
+      const month=reports.find((p:any)=>p.key==="month");
+      scorecard={
+        month,period:reports.find((p:any)=>p.key==="term")||month,
+        periods:reports,periodType:reports.some((p:any)=>p.key==="term")?"supervisor":"current_month",
+        today:(month?.days||[]).find((row:any)=>row.date===today)||null,
+        updatedAt:new Date().toISOString()
+      };
+    }catch(error){
+      console.error("guardian scorecard unavailable",error);
+      scorecard={unavailable:true,message:"تعذر احتساب النقاط الآن؛ لم تتأثر السجلات."};
+    }
     return out({
       ok:true,
       student:{
@@ -278,6 +308,7 @@ Deno.serve(async(req:Request)=>{
       excuseRequests:requests.data||[],
       juzProgress,
       awards:awardsRes.data||[],
+      scorecard,
       announcements,
       generatedAt:new Date().toISOString()
     });
