@@ -10,6 +10,7 @@ on:
       - 'manifest.webmanifest'
       - 'index.html'
       - 'tests/sanabil-offline-smoke.cjs'
+      - 'tests/sanabil-batch-scheduling.cjs'
 permissions:
   contents: read
 jobs:
@@ -46,4 +47,6 @@ jobs:
       - name: Install test-only IndexedDB polyfill
         run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
       - name: Exercise offline persistence and queue
-        run: node tests/sanabil-offline-smoke.cjs
+        run: |
+          node tests/sanabil-offline-smoke.cjs
+          node tests/sanabil-batch-scheduling.cjs

@@ -68,6 +68,14 @@ jobs:
           node tests/sanabil-voice-responsive.cjs
           node tests/sanabil-teacher-home-voice.cjs
 
+      - name: Verify durable batched synchronization
+        env:
+          NODE_PATH: ${{ runner.temp }}/sanabil-offline-tests/node_modules
+        run: |
+          npm install --prefix "$RUNNER_TEMP/sanabil-offline-tests" --no-save --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
+          node tests/sanabil-offline-smoke.cjs
+          node tests/sanabil-batch-scheduling.cjs
+
       - name: Set up Python for high-contrast icons
         uses: actions/setup-python@v5
         with:

@@ -23,6 +23,21 @@ const put=(store,value)=>op(store,'readwrite','put',[value]);
 const get=(store,id)=>op(store,'readonly','get',[id]);
 const list=store=>op(store,'readonly','getAll',[]);
 const del=(store,id)=>op(store,'readwrite','delete',[id]);
+async function enqueue(item){
+ const conn=await db();
+ try{await new Promise((resolve,reject)=>{
+  // A shared transactional clock preserves edit order across tabs, including
+  // writes created in the same millisecond. UUID sorting cannot preserve it.
+  const tx=conn.transaction([OPS,SNAP],'readwrite'),snap=tx.objectStore(SNAP);
+  const id=item.userId+':queue-order-v1',read=snap.get(id);
+  read.onsuccess=()=>{
+   item.enqueueOrder=Math.max(Date.now(),Number(read.result?.value||0)+1);
+   snap.put({id,userId:item.userId,value:item.enqueueOrder});
+   tx.objectStore(OPS).put(item);
+  };
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('أُلغي حفظ العملية'));
+ })}finally{conn.close()}
+}
 async function session(){
  const sdk=window.supabaseClient;
  try{if(navigator.onLine){const response=await sdk?.auth?.getSession();if(response?.data?.session?.user?.id)return response.data.session}}catch{}
@@ -34,6 +49,7 @@ async function session(){
 }
 async function userId(){const s=await session();if(!s?.user?.id)throw Error('سجّل دخولك مرة واحدة بالإنترنت قبل استخدام الحفظ دون اتصال.');return s.user.id}
 let active=false,lastFlushError='';
+const pendingReads=new Map();
 async function count(){const uid=await userId().catch(()=>null);const data=await list(OPS).catch(()=>[]);return data.filter(x=>x.userId===uid).length}
 async function status(silent=false){
  const cnt=await count();let legacy=[];try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'[]')}catch{}
@@ -46,12 +62,14 @@ async function queue(name,args,label){
  const id=crypto.randomUUID(),payload=JSON.parse(JSON.stringify(args||{}));
  if(name==='submit_offline_attendance_claim')payload.p_operation_id=id;
  const item={id,userId:uid,name,args:payload,label:label||name,createdAt:now(),status:'queued',attempts:0,lastError:''};
- await put(OPS,item);await status();
+ await enqueue(item);await status();
  return {queued:true,saved:Array.isArray(payload.p_rows)?payload.p_rows.length:0,operationId:id};
 }
 async function readThrough(key,loader){
  const uid=await userId();
  const id=uid+':'+key;
+ if(pendingReads.has(id))return pendingReads.get(id);
+ const pending=(async()=>{
  if(navigator.onLine){
   try{const value=await loader();put(SNAP,{id,userId:uid,capturedAt:now(),value}).catch(()=>window.dispatchEvent(new CustomEvent('sanabil-offline-snapshot-error')));return value}
   catch(e){if(!networkError(e))throw e}
@@ -60,15 +78,42 @@ async function readThrough(key,loader){
  if(!saved)throw Error('لا توجد نسخة محلية لهذا القسم؛ افتحه مرة واحدة أثناء الاتصال بالإنترنت لتجهيزه للعمل دون اتصال.');
  window.dispatchEvent(new CustomEvent('sanabil-offline-snapshot',{detail:{id,capturedAt:saved.capturedAt}}));
  return saved.value;
+ })();
+ pendingReads.set(id,pending);
+ try{return await pending}finally{if(pendingReads.get(id)===pending)pendingReads.delete(id)}
 }
-async function flush(callRpc){
+async function flush(callRpc,{batch=false}={}){
  if(active||!navigator.onLine||!callRpc)return;
  active=true;lastFlushError='';await status();
  try{
   const uid=await userId();
-  const all=(await list(OPS)).filter(x=>x.userId===uid).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
-  for(const item of all){
+  const all=(await list(OPS)).filter(x=>x.userId===uid).sort((a,b)=>(a.enqueueOrder||Date.parse(a.createdAt))-(b.enqueueOrder||Date.parse(b.createdAt)));
+  for(let offset=0;offset<all.length;){
+   const item=all[offset];
+   if(await userId()!==uid)break;
    try{
+    if(batch&&item.name!=='submit_offline_attendance_claim'){
+     const items=[];let size=0;
+     for(const candidate of all.slice(offset,offset+5)){
+      if(candidate.name==='submit_offline_attendance_claim')break;
+      const n=JSON.stringify(candidate.args).length;
+      if(items.length&&size+n>140000)break;
+      items.push(candidate);size+=n;
+     }
+     const response=await callRpc('apply_offline_operations_batch',{p_operations:items.map(x=>({id:x.id,name:x.name,payload:x.args}))});
+     if(!Array.isArray(response?.results)||!response.results.length)throw Error('لم يؤكد الخادم استلام دفعة المزامنة');
+     for(let i=0;i<response.results.length;i++){
+      const confirmed=response.results[i],current=items[i];
+      if(!current||confirmed.id!==current.id)throw Error('ترتيب تأكيد دفعة المزامنة غير مطابق');
+      if(confirmed.ok!==true||confirmed.result?.ok!==true){
+       const error=Error(confirmed.error?.message||'لم يؤكد الخادم حفظ العملية');
+       error.operation=current;throw error;
+      }
+      await acknowledge(current,confirmed.result);offset++;
+     }
+     if(response.results.length!==items.length)throw Error('تأكيد دفعة المزامنة غير مكتمل');
+     continue;
+    }
     let result;
     if(item.name==='submit_offline_attendance_claim'){
       result=await callRpc(item.name,item.args);
@@ -77,19 +122,24 @@ async function flush(callRpc){
       result=await callRpc('apply_offline_operation',{p_operation_id:item.id,p_rpc_name:item.name,p_payload:item.args});
       if(result?.ok!==true)throw Error('لم يؤكد الخادم حفظ العملية');
     }
-    await del(OPS,item.id);
-    try{const reg=await navigator.serviceWorker?.ready;reg?.active?.postMessage({type:'ack',id:item.id})}catch{}
-    window.dispatchEvent(new CustomEvent('sanabil-offline-confirmed',{detail:{id:item.id,label:item.label,result}}));
+    await acknowledge(item,result);offset++;
    }catch(error){
     lastFlushError=String(error?.message||error);
-    item.attempts=(item.attempts||0)+1;
-    item.lastError=lastFlushError;item.status=networkError(error)?'queued':'needs_attention';
-    await put(OPS,item);
+    const failed=error.operation||all[offset]||item;
+    failed.attempts=(failed.attempts||0)+1;
+    failed.lastError=lastFlushError;failed.status=networkError(error)?'queued':'needs_attention';
+    await put(OPS,failed);
     // Preserve order; a later version of the same record must not overtake it.
     break;
    }
   }
  }finally{active=false;await status()}
+}
+async function acknowledge(item,result){
+ await del(OPS,item.id);
+ // A missing service-worker controller must not block queue acknowledgements.
+ navigator.serviceWorker?.controller?.postMessage({type:'ack',id:item.id});
+ window.dispatchEvent(new CustomEvent('sanabil-offline-confirmed',{detail:{id:item.id,label:item.label,result}}));
 }
 async function importLegacy(){
  const uid=await userId(),raw=JSON.parse(localStorage.getItem(LEGACY)||'[]');

@@ -27,7 +27,8 @@ const helper=src.slice(src.indexOf('async function loadCircleSessionData'),src.i
  const stop=new AbortController();stop.abort();await perf.runProbes([{name:'cancel',run:()=>{throw Error('must not run')}}],{signal:stop.signal});
  const start=src.indexOf('  // Each data RPC enforces'),end=src.indexOf('  const reloadDay=',start);
  let permissionDone,dataDone,writes=0,reads=[];
- const parallel={l:{circles:[{id:'circle',circle_type:'قرآن'}]},circle:'circle',date:'2026-10-17',navigator:{onLine:true},measure:(n,f)=>f(),
+ const parallel={l:{circles:[{id:'circle',circle_type:'قرآن'}]},a:{roles:['teacher']},circle:'circle',date:'2026-10-17',navigator:{onLine:true},measure:(n,f)=>f(),
+ rpcDirect:async()=>({allowTeacherEdit:true}),
  rpc:()=>{reads.push('permission');return new Promise(r=>permissionDone=r)},
  loadCircleSessionData:()=>{reads.push('data');return new Promise(r=>dataDone=r)},
  localStorage:{setItem:()=>writes++},activeSessionKey:'test'};
