@@ -3447,6 +3447,7 @@ async function dashboard(root){
    root,access:a,user,loadCircles:()=>lookups(),navigate:navigateView,server:sb()
   });
  }
+ window.SanabilHonor?.mountDashboard?.(root);
 }
 async function dashboardDetails(root,a){
  const rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isOrgManager=rolesNow.includes('manager'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r)),canAnnounce=isAdmin||isSupervisor;

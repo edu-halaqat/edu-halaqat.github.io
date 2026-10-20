@@ -62,7 +62,7 @@ button,a{touch-action:manipulation}
 .score-table-wrap th,.score-table-wrap td{padding:9px 8px;border-bottom:1px solid #e2eee8;text-align:right;font-size:12px}
 .score-table-wrap th{background:#eaf5f1;color:#194e41}
 </style>
-</head>
+<link rel="stylesheet" href="/sanabil-honor-roll.css?v=20261020-v1"><script src="/sanabil-honor-roll.js?v=20261020-v1"></script></head>
 <body>
 <div id="app" class="wrap"><div class="loading">جارٍ فتح بوابة ولي الأمر…</div></div>
 <script>
@@ -294,6 +294,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
     :'<section class="section"><div class="section-head"><h2>التقدم في الجزء</h2></div>'+
      '<div class="empty">سيظهر المؤشر عند اعتماد أول حصيلة حفظ مجتازة.</div></section>';
  const score=d.scorecard||{};
+ const honorHtml=window.SanabilHonor?.familyCard?.(score)||'';
  const formatScore=n=>n===null||n===undefined?'—':new Intl.NumberFormat('ar-SA',{maximumFractionDigits:1}).format(Number(n));
  const scoreCard=(label,value)=>'<div class="score-stat"><small>'+esc(label)+'</small><strong>'+formatScore(value)+'</strong></div>';
  const rankCard=(label,n,total)=>'<div class="score-stat"><small>'+esc(label)+'</small><strong>'+esc(n||'—')+' / '+esc(total||'—')+'</strong></div>';
@@ -335,7 +336,7 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
     '<div class="family-badges">'+badgeHtml+'</div></section>':'');
 
  app.innerHTML='<section class="hero"><div class="brandrow"><img src="/assets/logo-sanabil-v6.png" alt="سنابل الوحي"><span class="hero-badge">متابعة الأسرة · سنابل الوحي</span></div><div class="hero-main"><h1 class="guardian-title-text">بوابة ولي الأمر</h1><div class="student">'+esc(d.student.fullName)+'</div><p>'+esc(d.student.circleName||'')+(d.student.teacherName?' · المعلم: '+esc(d.student.teacherName):'')+'</p></div><div class="hero-footer"><span class="hero-chip">'+(latestAtt?'آخر حضور: '+esc(attend[latestAtt.status]||latestAtt.status):'لا يوجد حضور حديث')+'</span><span class="hero-chip">المقرر القادم: '+esc(todayNext)+'</span></div></section>'+
- scoreHtml+
+ honorHtml+scoreHtml+
  '<section class="metrics" aria-label="ملخص السجلات المتاحة"><article class="metric"><span>الحضور</span><b>'+(a.length?attRate+'%':'—')+'</b></article><article class="metric"><span>التقديرات المجتازة</span><b>'+(all.length?outRate+'%':'—')+'</b></article><article class="metric"><span>متوسط الاختبارات</span><b>'+esc(avg)+'</b></article><article class="metric"><span>الخطط النشطة</span><b>'+p.length+'</b></article></section>'+
  familySections+
  (an.length?'<section class="section"><div class="section-head"><h2>إعلانات الحلقة</h2></div><div class="announce-list">'+an.map(x=>'<article class="announce"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+esc(x.starts_on)+(x.ends_on?' — '+esc(x.ends_on):'')+'</small></article>').join('')+'</div></section>':'')+

@@ -28,6 +28,8 @@ jobs:
 
       - name: Check Sanabil user messaging
         run: |
+          node --check sanabil-honor-roll.js
+          node tests/sanabil-honor-roll.cjs
           node --check sanabil-live-v12.js
           node --check sanabil-registry-management.js
           node --check sanabil-v13-enhancements.js
