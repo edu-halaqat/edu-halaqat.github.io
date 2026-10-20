@@ -1,4 +1,14 @@
-<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="sanabil-build" content="20261019-v13.8.41"/><script id="sanabil-theme-bootstrap">
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><script id="sanabil-landing-entry">(()=>{'use strict';
+// Only first-time, online root visits see the public introduction.
+// This is presentation routing; the original app remains the authentication owner.
+try {
+ const p=location.pathname;
+ if((p!=='/'&&p!=='/index.html')||location.search||location.hash)return;
+ if(navigator.onLine===false||navigator.standalone||window.matchMedia('(display-mode: standalone)').matches)return;
+ if(localStorage.getItem('sanabil-auth-session-v2')||sessionStorage.getItem('sanabil-auth-session-v2'))return;
+ location.replace('/welcome.html');
+} catch (_) { /* Storage unavailable: retain the working login screen. */ }
+})();</script><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="sanabil-build" content="20261019-v13.8.41"/><script id="sanabil-theme-bootstrap">
 (function(){
   'use strict';
   if(window.__sanabilThemeBootstrapped)return;
