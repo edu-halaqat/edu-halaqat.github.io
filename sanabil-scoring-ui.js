@@ -72,10 +72,7 @@
     for(const [key,label] of Object.entries(attendanceName)){
      const f=input(label,baseline.attendance[key],0,25);attendance.append(f.node);fields['attendance.'+key]=f.field;
     }
-    const period=block('فترة الترتيب المعتمدة','يُعرض لولي الأمر ترتيب ابنه لهذه المدة. اترك التاريخين فارغين لاعتماد الشهر الحالي.');
-    for(const [key,label] of [['start','بداية الفترة'],['end','نهاية الفترة']]){
-     const f=dateField(label,baseline.period?.[key]);period.append(f.node);fields['period.'+key]=f.field;
-    }
+    block('دورات الترتيب','تُدار بداية الدورة ونهايتها وموعد التصفير من لوحة الشرف ← إدارة دورات النقاط.');
     form.append(footer);status.textContent=res.data.effectiveFrom?
      'اللائحة الأحدث مسجلة من تاريخ '+res.data.effectiveFrom+'، ويمكن تعديل اللائحة التالية دون تغيير الأيام الماضية.':
      'اللائحة الافتراضية الحالية؛ أي تعديل سيبدأ من الغد.';

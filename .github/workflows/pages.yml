@@ -146,6 +146,8 @@ jobs:
                   assert 'render(isAppWindow()||justInstalled)' in install_js
                   assert 'createInvite' in read('/sanabil-free-live.js?v=approved1').decode()
                   assert 'AES-GCM' in read('/sanabil-video-crypto.js?v=1').decode()
+                  assert 'sanabil-honor-roll.js?v=20261020-cycles1' in html
+                  assert 'snabil_honor_roll_cycle' in read('/sanabil-honor-roll.js?v=20261020-cycles1').decode()
                   assert 'SanabilPerformance' in read('/sanabil-performance.js').decode()
                   assert 'sanabil-performance-deep.js' in html
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()

@@ -62,7 +62,7 @@ button,a{touch-action:manipulation}
 .score-table-wrap th,.score-table-wrap td{padding:9px 8px;border-bottom:1px solid #e2eee8;text-align:right;font-size:12px}
 .score-table-wrap th{background:#eaf5f1;color:#194e41}
 </style>
-<link rel="stylesheet" href="/sanabil-honor-roll.css?v=20261020-v1"><script src="/sanabil-honor-roll.js?v=20261020-v1"></script></head>
+<link rel="stylesheet" href="/sanabil-honor-roll.css?v=20261020-cycles1"><script src="/sanabil-honor-roll.js?v=20261020-cycles1"></script></head>
 <body>
 <div id="app" class="wrap"><div class="loading">جارٍ فتح بوابة ولي الأمر…</div></div>
 <script>
@@ -303,8 +303,10 @@ fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.s
  '<div class="score-grid">'+scoreCard('نقاط اليوم',score.today?.total??0)+scoreCard('إجمالي هذا الشهر',score.month.total)+
  scoreCard('رصيد الفترة',score.period?.total??0)+rankCard('ترتيبه في الحلقة',score.period?.circleRank,score.period?.circleCount)+
  rankCard('ترتيبه في المجمع',score.period?.complexRank,score.period?.complexCount)+'</div>'+
- '<p class="score-period">'+(score.periodType==='supervisor'?'المدة المعتمدة من المشرف':'الفترة الحالية')+': '+
- esc(score.period?.from||score.month.from)+' إلى '+esc(score.period?.to||score.month.to)+'</p>'+
+ '<p class="score-period">'+esc(score.cycle?.name||'الفترة الحالية')+' · '+
+ (score.cycle?.status==='scheduled'?'لم يبدأ احتساب النقاط بعد':('النقاط المحتسبة من '+esc(score.period?.from||score.month.from)+' إلى '+esc(score.period?.to||score.month.to)))+
+ (score.cycle?.end?' · نهاية الدورة: '+esc(score.cycle.end):'')+
+ (score.cycle?.schedule?' · التصفير القادم: '+esc(score.cycle.schedule.nextStart):'')+'</p>'+
  '<div class="score-table-wrap"><table><thead><tr><th>التاريخ</th><th>الحضور</th><th>الحفظ</th><th>جنب الدرس</th><th>الكبرى</th><th>المجموع</th></tr></thead><tbody>'+
  (score.month.daily||[]).slice(0,31).map(x=>'<tr><td>'+esc(x.date)+'</td><td>'+formatScore(x.attendance)+'</td>'+
  '<td>'+formatScore(x.memorization)+'</td><td>'+formatScore(x.recentReview)+'</td><td>'+formatScore(x.majorReview)+'</td><td><b>'+formatScore(x.total)+'</b></td></tr>').join('')+

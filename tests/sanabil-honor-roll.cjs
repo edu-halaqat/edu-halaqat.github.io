@@ -17,3 +17,7 @@ assert.ok(!family.includes('undefined'));
 const guardian=fs.readFileSync(require.resolve('../guardian.html'),'utf8');
 assert.ok(guardian.includes('honorHtml+scoreHtml'));
 console.log('PASS: tied ranks, zero scores, unavailable results, all parent motivation tiers, guardian integration');
+
+const {cyclePeriod}=require('../sanabil-honor-roll.js');
+assert.equal(cyclePeriod({from:'2026-10-19',to:'2026-10-20'}),'النقاط المحتسبة: من 2026-10-19 إلى 2026-10-20');
+assert.equal(cyclePeriod({from:'2026-11-01',to:null}),'لم يبدأ احتساب نقاط هذه الدورة بعد');

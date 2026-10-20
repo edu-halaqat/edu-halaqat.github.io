@@ -27,7 +27,7 @@ const custom={memorization:{perfect_errors:0,perfect_doubts:0,very_good_errors:0
 assert.equal(grade('memorization',0,1,custom),'جيد جدًا','supervisor may permit one doubt');
 assert.equal(grade('recentReview',0,1,custom),'جيد جدًا');
 assert.equal(grade('review:a',1,0,custom),'جيد جدًا','supervisor may alter error weight');
-assert(html.includes('sanabil-scoring-ui.js?v=20261019-v1'));
+assert(html.includes('sanabil-scoring-ui.js?v=20261020-cycles1'));
 assert(html.includes('sanabil-scoring-ui.css?v=20261019-v1'));
 assert(home.includes("data.action='score-policy'")||home.includes("dataset.action='score-policy'"));
 assert(home.includes('complexId:l.circles.find(c=>c.id===circle)?.complex_id'));

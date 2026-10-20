@@ -262,23 +262,14 @@ Deno.serve(async(req:Request)=>{
     let scorecard:any=null;
     try{
       const monthStart=today.slice(0,7)+"-01";
-      const policy=await db.from("complex_score_policies")
-        .select("rules").eq("complex_id",g.complex_id)
-        .order("valid_from",{ascending:false}).limit(1).maybeSingle();
-      if(policy.error)throw policy.error;
-      const period=policy.data?.rules?.period||{};
-      const validDate=(x:unknown)=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)?x:null;
-      const from=validDate(period.start)||monthStart,to=validDate(period.end)||today;
-      const valid=from<=to&&(Date.parse(to)-Date.parse(from))<=366*86400000;
       const month=await db.rpc("snabil_student_score_summary",{
         p_student_id:s.id,p_start:monthStart,p_end:today
       });
       if(month.error)throw month.error;
-      const term=valid&&(from!==monthStart||to!==today)?await db.rpc(
-        "snabil_student_score_summary",{p_student_id:s.id,p_start:from,p_end:to}):month;
+      const term=await db.rpc("snabil_guardian_score_cycle",{p_student_id:s.id});
       if(term.error)throw term.error;
-      scorecard={month:month.data,period:term.data,
-        periodType:valid&&period.start&&period.end?"supervisor":"current_month",
+      scorecard={month:month.data,period:term.data.period,cycle:term.data.cycle,
+        periodType:term.data.cycle?.id?"supervisor":"current_month",
         today:(month.data?.daily||[]).find((row:any)=>row.date===today)||null,
         updatedAt:new Date().toISOString()};
     }catch(error){
