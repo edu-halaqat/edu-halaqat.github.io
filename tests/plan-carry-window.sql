@@ -59,7 +59,7 @@ BEGIN
     e.carry_in,e.carry_from,e.completed_amount,e.carry_out,e.status
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.recalculate_plan_carry(p_plan_id text)
  RETURNS void
