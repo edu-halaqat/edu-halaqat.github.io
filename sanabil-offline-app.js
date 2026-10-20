@@ -65,6 +65,16 @@ async function queue(name,args,label){
  await enqueue(item);await status();
  return {queued:true,saved:Array.isArray(payload.p_rows)?payload.p_rows.length:0,operationId:id};
 }
+async function hasFreshSnapshot(key,maxAgeMs){
+ // Background prefetch only: foreground reads and authorization still use the server.
+ if(!Number.isFinite(maxAgeMs)||maxAgeMs<=0)return false;
+ try{
+  const uid=await userId(),saved=await get(SNAP,uid+':'+key);
+  if(!saved||saved.userId!==uid||!Object.prototype.hasOwnProperty.call(saved,'value'))return false;
+  const age=Date.now()-Date.parse(saved.capturedAt);
+  return Number.isFinite(age)&&age>=0&&age<maxAgeMs;
+ }catch{return false}
+}
 async function readThrough(key,loader){
  const uid=await userId();
  const id=uid+':'+key;
@@ -180,5 +190,5 @@ window.addEventListener('offline',()=>updateUi());
 window.addEventListener('sanabil-offline-queue',()=>{if(document.body)updateUiPending()});
 let renderQueued=false;function updateUiPending(){if(renderQueued)return;renderQueued=true;queueMicrotask(()=>{renderQueued=false;updateUi().catch(()=>{})})}
 document.addEventListener('DOMContentLoaded',()=>updateUi().catch(()=>{}));
-window.SanabilOffline={queue,flush,readThrough,count,status,importLegacy,networkError,updateUi,userId};
+window.SanabilOffline={queue,flush,readThrough,hasFreshSnapshot,count,status,importLegacy,networkError,updateUi,userId};
 })();
