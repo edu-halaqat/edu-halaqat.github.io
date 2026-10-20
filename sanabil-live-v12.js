@@ -10,7 +10,7 @@ const roles={admin:'مدير النظام',manager:'مدير المؤسسة',sup
 const sb=()=>{if(!window.supabaseClient)throw Error('جارٍ تهيئة الاتصال، أعد المحاولة.');return window.supabaseClient};
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const result=async q=>{const r=await q;if(r.error)throw Error(r.error.message);return r.data};
+const result=async q=>{const r=await q;if(r.error){if(String(r.error.code)==='57014')throw Error('انتهت مهلة الخادم قبل تأكيد إتمام العملية. أُلغيت المعاملة؛ حدّث البيانات ثم أعد المحاولة دون تكرار الحفظ سريعًا.');throw Error(r.error.message)}return r.data};
 const measure=(name,fn)=>window.SanabilPerformance?window.SanabilPerformance.track(name,fn):fn();
 const rpcDirect=(name,args)=>measure('rpc:'+name,()=>result(sb().rpc(name,args)));
 const CACHEABLE_RPCS=new Set(['my_access','circle_session_access','get_daily_assignments',
@@ -1978,9 +1978,14 @@ async function outcomesPage(root){
         if(!confirmed||Number(confirmed.target_from?.ayahIndex)!==Number(changed.from?.ayahIndex)
           ||Number(confirmed.target_to?.ayahIndex)!==Number(changed.to?.ayahIndex))
           throw Error('وصل طلب الحفظ، ولكن لم تتطابق بداية المقرر ونهايته مع قاعدة البيانات. راجعها قبل إعادة الإرسال.');
-        inform('حُفظ المقرر الجديد وأُعيدت جدولة الأيام غير المنجزة.');
-        // Refresh the whole session once so linked reviews and other assignments are up-to-date.
-        root.querySelector('[data-action="load"]')?.click();
+        if(changed.unchanged){
+          inform('المقرر مطابق لما هو محفوظ مسبقًا؛ لم تكن هناك حاجة إلى إعادة جدولة.');
+          toggle(false);
+        }else{
+          inform('حُفظ المقرر الجديد وأُعيدت جدولة الأيام غير المنجزة.');
+          // Refresh linked review assignments after a real change only.
+          root.querySelector('[data-action="load"]')?.click();
+        }
       }catch(e){
         inform(e?.message||'تعذر حفظ المقرر. راجع البداية والنهاية ثم أعد المحاولة.',true);
       }finally{busy=false;save.disabled=false;cancel.disabled=false;edit.disabled=false}
