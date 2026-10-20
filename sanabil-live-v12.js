@@ -845,7 +845,15 @@ async function autoPrepareSanabilOffline({manualCircle='',anchor='',force=false}
      ['get_daily_assignments',{p_circle_id:circle,p_date:date}]
     ];
     const done=[];
-    for(const [name,args] of operations){try{await rpc(name,args);done.push({status:'fulfilled'})}catch{done.push({status:'rejected'})}}
+    for(const [name,args] of operations){
+     try{
+      const key='rpc:'+name+':'+JSON.stringify(args||{});
+      const fresh=!force&&!manualCircle&&name!=='circle_session_access'&&
+       await window.SanabilOffline.hasFreshSnapshot?.(key,5*60000);
+      if(!fresh)await rpc(name,args);
+      done.push({status:'fulfilled'});
+     }catch{done.push({status:'rejected'})}
+    }
     if(!force)await new Promise(resolve=>setTimeout(resolve,1000));
     circleTotal+=done.length;circleLoaded+=done.filter(x=>x.status==='fulfilled').length;
    }
