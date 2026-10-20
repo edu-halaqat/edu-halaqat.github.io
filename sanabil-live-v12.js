@@ -1512,15 +1512,20 @@ async function outcomesPage(root){
   if(navigator.onLine)scheduleSanabilOfflineRefresh();
   // Each data RPC enforces its own server-side scope. Do not render until access resolves.
   const circleMeta=l.circles.find(x=>x.id===circle);
-  const [sessionInfo,{dayData,familyRequests,assignments,absences}]=await Promise.all([
+  const [sessionInfo,{dayData,familyRequests,assignments,absences},planEditPolicy]=await Promise.all([
    measure('session:permission',async()=>{
     const info=await rpc('circle_session_access',{p_circle_id:circle,p_date:date});
     if(navigator.onLine)return info;
     const local=localSessionAllowed(info,date);return {...info,allowed:local.allowed,reason:local.reason||info?.reason};
    }),
-   measure('session:data',()=>loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين'))
+   measure('session:data',()=>loadCircleSessionData(circle,date,circleMeta?.circle_type==='حلقات التلقين')),
+   rpcDirect('get_complex_teacher_plan_permission',{p_complex_id:circleMeta?.complex_id})
+    .catch(error=>{console.warn('تعذر قراءة صلاحية تعديل المقرر',error);return null})
   ]);
   const readOnly=!sessionInfo?.allowed;
+  const allowRangeEdit=!readOnly && (
+   a.roles?.some(role=>['admin','manager','supervisor'].includes(role)) ||
+   planEditPolicy?.allowTeacherEdit===true);
   if(!readOnly)localStorage.setItem(activeSessionKey,JSON.stringify({circle,date,openedAt:new Date().toISOString()}));
   let studentSearchText='';
   const reloadDay=()=>root.querySelector('[data-action="load"]')?.click();
@@ -1891,7 +1896,7 @@ async function outcomesPage(root){
       '<div class="sl-track-head"><div class="sl-lesson-summary"><b>'+esc(title)+'</b>'+
       '<span class="sl-lesson-range" data-range-display="'+id+'">'+display+'</span></div>'+
       '<div class="sl-lesson-tools">'+button('فتح المصحف','mushaf-'+actionId)+
-      (!readOnly&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+id+'" aria-expanded="false">تعديل المقرر</button>':'')+
+      (allowRangeEdit&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+id+'" aria-expanded="false">تعديل المقرر</button>':'')+
       '</div></div>'+editor+
       '<div class="sl-grade-grid">'+gradeButtons(i,key,gradeValue(states[i],key))+'</div>'+metricControls(i,key)+'</section>';
   };
@@ -1950,12 +1955,12 @@ async function outcomesPage(root){
       finally{loading=false;edit.disabled=false;save.disabled=!ready}
     };
     edit.addEventListener('click',async()=>{
-      if(readOnly){inform('جلسة اليوم غير متاحة للتعديل.',true);return}
+      if(readOnly||!allowRangeEdit){inform('تعديل المقرر غير متاح بحسب سياسة هذا المجمع أو ضوابط الجلسة.',true);return}
       if(panel.hidden){toggle(true);await prepare()}else toggle(false);
     });
     cancel.addEventListener('click',()=>{toggle(false);inform('')});
     save.addEventListener('click',async()=>{
-      if(busy||!ready||readOnly)return;
+      if(busy||!ready||readOnly||!allowRangeEdit)return;
       const input=name=>Number(panel.querySelector('[name="'+name+'"]')?.value);
       const values=[input('fromSurah'),input('fromAyah'),input('toSurah'),input('toAyah')];
       if(values.some(x=>!Number.isInteger(x)||x<1)){inform('حدد السورة والآية الصحيحتين لبداية المقرر ونهايته.',true);return}
@@ -3408,6 +3413,10 @@ async function dashboard(root){
   scoreButton.textContent='⚙️ لائحة التقدير والنقاط';
   toolbar.append(scoreButton);
   scoreButton.addEventListener('click',()=>window.SanabilScoreConfig?.open?.());
+  const planButton=document.createElement('button');planButton.type='button';
+  planButton.className='button button-soft';planButton.dataset.action='teacher-plan-permission';
+  planButton.textContent='⚙️ صلاحية تعديل المقرر';toolbar.append(planButton);
+  planButton.addEventListener('click',()=>window.SanabilTeacherPlanPermissions?.open?.());
  }
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
  const installButton=root.querySelector('[data-action="install-pwa"]');
