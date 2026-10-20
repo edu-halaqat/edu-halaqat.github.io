@@ -3,3 +3,20 @@
 .sh-cycle-settings{margin-block:1rem;padding:1rem;border:1px solid #b89c57;border-radius:16px}.sh-cycle-settings[hidden]{display:none}.sh-cycle-settings summary{cursor:pointer;font-weight:700}.sh-cycle-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem}.sh-cycle-fields label{display:grid;gap:.4rem}.sh-cycle-fields input{width:100%;min-width:0;box-sizing:border-box;padding:.7rem;border:1px solid #718979;border-radius:10px;background:var(--sh-card);color:var(--sh-ink);font:inherit;color-scheme:light}.sh-auto{display:flex;align-items:center;gap:.6rem;margin-block:1rem}.sh-auto input{width:20px;height:20px}.sh-cycle-meta{font-size:.9em;opacity:.8}.sh-screen .sh-cycle-settings{display:none}
 
 [data-sanabil-theme=dark] .sh-cycle-fields input{color-scheme:dark}.sh-schedule-form{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--sh-line)}
+
+/* Home actions share one responsive rhythm, with utilities below primary tasks. */
+.sl-dashboard-organized .sl-dashboard-welcome{margin-block:0 16px;padding:18px 20px}
+.sl-dashboard-organized .sl-dashboard-welcome h2{margin-block:4px 8px}
+.sl-dashboard-organized .sl-dashboard-welcome p{margin:0;line-height:1.7}
+.sl-dashboard-organized .sl-quick-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-block:0 16px;align-items:stretch}
+.sl-dashboard-organized .sl-quick-grid>.sl-quick-action{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;min-height:108px;height:100%;width:100%;min-width:0;box-sizing:border-box;margin:0;padding:16px;text-align:right;white-space:normal;border-radius:18px}
+.sl-dashboard-organized .sl-quick-action b{font-size:17px;line-height:1.5}
+.sl-dashboard-organized .sl-quick-action span{font-size:13px;line-height:1.6;opacity:.8}
+.sl-dashboard-organized .sh-home-card{border-color:#b29657!important}
+.sl-dashboard-organized .sl-dashboard-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:stretch;margin:0 0 16px;padding:0;background:transparent!important}
+.sl-dashboard-organized .sl-dashboard-actions>button{width:100%;min-width:0;min-height:58px;height:100%;box-sizing:border-box;margin:0;padding:12px;white-space:normal;line-height:1.6;font-size:15px;border-radius:14px;justify-content:center}
+.sl-dashboard-organized .sl-dashboard-actions>button[hidden]{display:none!important}
+.sl-dashboard-organized .sl-dashboard-actions>[data-live-ops],.sl-dashboard-organized .sl-dashboard-actions>[data-action="install-pwa"]{grid-column:1/-1}
+.sl-dashboard-organized .sl-dashboard-metrics{margin-block:0 16px}
+@media(max-width:640px){.sl-dashboard-organized .sl-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sl-dashboard-organized .sl-quick-grid>.sl-quick-action{min-height:100px;padding:14px}.sl-dashboard-organized .sl-dashboard-welcome{padding:16px}.sl-dashboard-organized .sl-dashboard-actions>button{font-size:14px}}
+@media(max-width:340px){.sl-dashboard-organized .sl-quick-grid{grid-template-columns:1fr}}

@@ -134,7 +134,18 @@ async function open(){
 }
 function mountDashboard(root){
  if(!root||root.querySelector('[data-honor-entry]'))return;
- const b=button('🏆 لوحة الشرف',open);b.dataset.honorEntry='true';b.classList.add('sh-entry');root.prepend(b);
+ const b=button('🏆 لوحة الشرف',open);b.dataset.honorEntry='true';
+ root.classList.add('sl-dashboard-organized');
+ const grid=root.querySelector('.sl-quick-grid'),toolbar=root.querySelector('.sl-dashboard-actions');
+ if(grid&&toolbar)grid.after(toolbar);
+ if(grid&&!root._sanabilFastDashboard){
+  b.className='sl-quick-action sh-home-card';
+  b.innerHTML='<b>🏆 لوحة الشرف</b><span>الأوائل وترتيب الطلاب</span>';grid.append(b);
+ }else{
+  b.classList.add('sh-entry');
+  const switcher=root.querySelector('.sl-fast-switcher');
+  if(switcher)switcher.after(b);else root.append(b);
+ }
  if(new URLSearchParams(location.search).get('honor')==='1'){const url=new URL(location.href);url.searchParams.delete('honor');history.replaceState(null,'',url);void open()}
 }
 window.SanabilHonor={open,mountDashboard,familyCard};
