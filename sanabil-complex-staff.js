@@ -170,7 +170,11 @@ async function refreshList(showStatus=true){
     '<small>'+escapeHtml(u.email||'')+' · '+escapeHtml(LABELS[u.role]||u.role)+
     ' · '+escapeHtml(scopes.complexes.find(c=>c.id===u.complex_id)?.name||'مستوى المؤسسة')+
     ' · '+(u.active?'نشط':'غير نشط')+'</small></div>'+
-    '<button type="button" data-edit="'+i+'">تعديل الحساب</button></div><div class="sum-edit" data-edit-box="'+i+'" hidden></div></section>'
+    '<div class="sum-actions"><button type="button" data-edit="'+i+'">تعديل الحساب</button>'+
+    (['teacher','staff','examiner','supervisor'].includes(u.role) && (u.role!=='supervisor'||scopes.is_admin)
+      ?'<button type="button" data-reassign="'+i+'">تغيير المجمع / الحلقة</button>':'')+
+    '</div></div><div class="sum-edit" data-edit-box="'+i+'" hidden></div>'+
+    '<div class="sum-edit" data-scope-box="'+i+'" hidden></div></section>'
    ).join(''):'<p>لا توجد حسابات في هذا النطاق.</p>')+'</div>'+
    '<div class="sum-actions"><button data-prev '+(page===0?'disabled':'')+'>السابق</button>'+
    '<span>الصفحة '+(page+1)+' من '+(lastPage+1)+' — إجمالي '+total+'</span>'+
@@ -198,6 +202,68 @@ async function refreshList(showStatus=true){
         phone:f.elements.phone.value,active:f.elements.active.checked});
         status('حُفظت بيانات المستخدم.');await refreshList(false);
        }catch(err){status(err.message,true)}finally{busy=false;save.disabled=false}
+      };
+    };
+  });
+  root.querySelectorAll('[data-reassign]').forEach(button=>{
+    button.onclick=()=>{
+      const index=Number(button.dataset.reassign),u=users[index];
+      const box=root.querySelector('[data-scope-box="'+index+'"]');
+      if(!u||!box)return;
+      if(!box.hidden){box.hidden=true;return}
+      const oldBox=root.querySelector('[data-edit-box="'+index+'"]');
+      if(oldBox)oldBox.hidden=true;
+      const isTeacher=u.role==='teacher';
+      const complexOptions=(scopes.complexes||[]).map(c=>
+        '<option value="'+escapeHtml(c.id)+'"'+(c.id===u.complex_id?' selected':'')+'>'+
+        escapeHtml(c.name)+'</option>').join('');
+      box.hidden=false;
+      box.innerHTML='<form><h4>تغيير مجمع المستخدم أو حلقته</h4>'+
+        '<p class="sum-note">يمكن نقل الإسناد الحالي أو إضافة إسناد آخر دون إنشاء حساب جديد. '+
+        'تُحفظ سجلات الحصائل والخطط والاختبارات القديمة في مجمعاتها الأصلية، ولا يُعاد توزيع الطلاب تلقائيًا.</p>'+
+        '<div class="sum-fields">'+
+        '<label>المجمع المستهدف<select name="target_complex" required>'+complexOptions+'</select></label>'+
+        (isTeacher?'<label>الحلقة المستهدفة<select name="target_circle" required></select></label>':'')+
+        '<label>نوع الإجراء<select name="mode" required>'+
+        '<option value="transfer">نقل الإسناد من الموقع الحالي</option>'+
+        (u.role==='staff'?'':'<option value="add">إضافة إسناد مع بقاء الحالي</option>')+
+        '</select></label></div>'+
+        '<div class="sum-actions"><button class="sum-primary" type="submit">اعتماد تغيير الإسناد</button>'+
+        '<button type="button" data-scope-cancel>إلغاء</button></div></form>';
+      const f=box.querySelector('form'),target=f.elements.target_complex;
+      const circle=f.elements.target_circle;
+      const refreshCircles=()=>{
+        if(!isTeacher)return;
+        const list=(scopes.circles||[]).filter(c=>c.complex_id===target.value);
+        circle.innerHTML='<option value="">اختر الحلقة</option>'+
+          list.map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+        if(target.value===u.complex_id&&list.some(c=>c.id===u.circle_id))
+          circle.value=u.circle_id;
+      };
+      target.onchange=refreshCircles;
+      refreshCircles();
+      box.querySelector('[data-scope-cancel]').onclick=()=>box.hidden=true;
+      f.onsubmit=async e=>{
+        e.preventDefault();
+        if(busy||!f.reportValidity())return;
+        const mode=f.elements.mode.value,complexId=target.value,circleId=isTeacher?circle.value:'';
+        const before=(scopes.complexes||[]).find(c=>c.id===u.complex_id)?.name||'غير محدد';
+        const after=(scopes.complexes||[]).find(c=>c.id===complexId)?.name||'غير محدد';
+        const newCircle=(scopes.circles||[]).find(c=>c.id===circleId)?.name||'';
+        const label=mode==='transfer'?'نقل الإسناد':'إضافة إسناد آخر';
+        const details=label+' للمستخدم '+u.display_name+'\nمن: '+before+'\nإلى: '+after+
+          (newCircle?'\nالحلقة: '+newCircle:'')+
+          '\n\nلن تُنقل سجلات الطلاب السابقة أو تُحذف. هل تؤكد تنفيذ الإجراء؟';
+        if(!window.confirm(details))return;
+        busy=true;
+        const save=f.querySelector('[type="submit"]');save.disabled=true;
+        try{
+          await api('users_reassign',{user_id:u.id,membership_id:u.membership_id,
+            complex_id:complexId,circle_id:circleId||null,mode});
+          await refreshList(false);
+          status('تم '+label+' بنجاح، مع المحافظة على السجلات السابقة.');
+        }catch(err){status(err.message,true);save.disabled=false}
+        finally{busy=false}
       };
     };
   });
