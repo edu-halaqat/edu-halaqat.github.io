@@ -3,7 +3,7 @@
 if(window.SanabilOffline)return;
 const DB='sanabil-local-first-v1',VERSION=1,OPS='operations',SNAP='snapshots',LEGACY='sanabil_offline_outcomes_v1';
 const now=()=>new Date().toISOString();
-const networkError=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request|fetch failed/i.test(String(e?.message||e||''));
+const networkError=e=>!navigator.onLine||/failed to fetch|networkerror|load failed|network request|fetch failed|statement timeout|timed out|timeout|57014|انتهت مهلة|http\\s*500|internal server error/i.test(String(e?.message||e||''));
 function db(){return new Promise((resolve,reject)=>{
  if(!window.indexedDB)return reject(Error('تخزين الجهاز غير متاح؛ افتح المنصة في متصفح يدعم IndexedDB.'));
  const r=indexedDB.open(DB,VERSION);
