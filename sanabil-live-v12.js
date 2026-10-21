@@ -46,7 +46,8 @@ const flushOfflineQueue=async()=>{
  if(offlineFlushTimer!==null){clearTimeout(offlineFlushTimer);offlineFlushTimer=null}
  if(!window.SanabilOffline)return;
  if(offlineFlushPending)return offlineFlushPending;
- const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:true});
+ // Single, idempotent operation transactions avoid exceeding Supabase's statement timeout with five heavy outcome recalculations.
+ const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:false});
  offlineFlushPending=pending;
  try{await pending}finally{if(offlineFlushPending===pending)offlineFlushPending=null}
 };
