@@ -2675,8 +2675,20 @@ async function plansPage(root){
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
    rpc('list_plan_methodologies',{}).catch(()=>[])
  ]);
- const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id));
+ const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id)).map(s=>{
+   const direct=(scope.circleTeachers||[]).filter(x=>x.circle_id===s.circle_id&&x.active!==false)
+     .sort((x,y)=>Number(y.is_primary===true)-Number(x.is_primary===true));
+   const official=direct.map(x=>scope.teachers.find(t=>t.id===x.teacher_id&&t.user_id))
+     .find(t=>t&&t.complex_id===scope.circles.find(c=>c.id===s.circle_id)?.complex_id);
+   const matched=direct.some(x=>x.teacher_id===s.teacher_id);
+   // Use the currently authorized teacher for creating new plans; preserve historical
+   // assignments and plan records until the supervisor formally reconciles them.
+   return official&&!matched?{...s,teacher_id:official.id,previous_teacher_id:s.teacher_id,
+     assignment_note:'استُخدم معلم الحلقة المسند رسميًا بدل إسناد الطالب القديم.'}:s;
+ });
  const quranStudentIds=new Set(students.map(s=>s.id));
+ const staleAssignments=students.filter(x=>x.previous_teacher_id).length;
+
  if(!students.length){root.innerHTML=sanabilPlanCatalogHtml(methodologies)+'<p class="sl-empty">لا يوجد طلاب في حلقات الحفظ بعد؛ أنشئ حلقة وأضف الطلاب للبدء.</p>';return;}
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
@@ -2730,7 +2742,7 @@ async function plansPage(root){
  const methodLabel=p=>p?.methodology_code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':p?.methodology_code==='aqom'?'برنامج أقوم':p?.methodology_code==='remedial'?'خطة علاجية':p?.methodology_code==='custom'?'خطة خاصة':'خطة خاصة';
  const targetMethodLabel=code=>code==='aqom'?'برنامج أقوم':'خطة حلقات بر الوالدين';
 
- root.innerHTML=`<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
+ root.innerHTML=`${staleAssignments?'<p role="alert" class="sl-rule-note">تنبيه: '+staleAssignments+' طالبًا لهم إسنادات معلمين قديمة. سيستخدم إنشاء الخطة المعلم الرسمي للحلقة، ولن تُعدّل السجلات التاريخية تلقائيًا.</p>':''}<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
