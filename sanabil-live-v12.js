@@ -1053,7 +1053,37 @@ async function studentsPage(root){
   if(x.circle_id&&!teacherLinkForCircle(l,x.circle_id).length&&teachersForCircle(l,x.circle_id).some(t=>t.id===x.id))assigned.push(x.circle_id);
   return assigned;
  }).filter(Boolean));const names=[...ids].map(id=>l.circles.find(c=>c.id===id)?.name||id).join('، ');return[esc(t.full_name),esc(t.user_id?'مرتبط بحساب مستخدم':'⚠️ سجل بلا حساب دخول'),esc(t.job_title||'—'),esc(t.phone||'—'),esc(names||'لا يوجد إسناد معتمد')]}))});
- action(root,root.querySelector('[data-action="circles"]'),async()=>{const b=modal('الحلقات وإسناد الطلاب');const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});b.innerHTML=teacherWarningsHtml(l)+table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],l.circles.map(ci=>{const info=teacherAssignmentInfo(l,ci.id),ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');return[esc(ci.name),esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)]}))});
+ action(root,root.querySelector('[data-action="circles"]'),async()=>{
+  const b=modal('الحلقات وإسناد الطلاب');
+  const studentRows=await result(sb().from('students').select('circle_id').eq('active',true));
+  const counts=studentRows.reduce((m,x)=>(m[x.circle_id]=(m[x.circle_id]||0)+1,m),{});
+  const groups=l.complexes.filter(x=>l.circles.some(c=>c.complex_id===x.id));
+  let scope=groups[0]?.id||'all';
+  b.innerHTML=teacherWarningsHtml(l)+
+   '<label style="display:block;margin:12px 0">عرض حلقات المجمع'+
+   '<select data-circles-complex-filter style="display:block;width:100%;padding:10px" aria-label="اختيار مجمع الحلقات">'+
+   groups.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+
+   '<option value="all">كل المجمعات</option></select></label>'+
+   '<p class="sl-help">تظهر حلقات مجمع واحد افتراضيًا. عند اختيار كل المجمعات تُفصل الحلقات حسب مجمعها.</p>'+
+   '<div data-circles-complex-table></div>';
+  const pick=b.querySelector('[data-circles-complex-filter]'),zone=b.querySelector('[data-circles-complex-table]');
+  pick.value=scope;
+  const render=()=>{
+    scope=pick.value;
+    const displayed=scope==='all'?groups:groups.filter(g=>g.id===scope);
+    zone.innerHTML=displayed.map(g=>{
+      const scoped=l.circles.filter(ci=>ci.complex_id===g.id);
+      return '<section><h3>'+esc(g.name)+' — '+scoped.length+' حلقة</h3>'+
+       table(['الحلقة','النوع','الفترة','المعلم','العدد الفعلي','بيان المصدر'],scoped.map(ci=>{
+         const info=teacherAssignmentInfo(l,ci.id);
+         const ts=(info.primary?.full_name||'')+(info.legacyConflict?' ⚠️ إسناد قديم يحتاج مراجعة':'');
+         const declared=ci.assignment_note||((ci.declared_student_count??'')!==''?'المثبت في المصدر: '+ci.declared_student_count:'—');
+         return [esc(ci.name)+'<small style="display:block;opacity:.75">'+esc(g.name)+'</small>',esc(ci.circle_type||'—'),esc(ci.session_period||'—'),esc(ts||'غير مسند'),esc(counts[ci.id]||0),esc(declared)];
+       }))+'</section>';
+    }).join('')||'<p>لا توجد حلقات في المجمع المختار.</p>';
+  };
+  pick.onchange=render;render();
+ });
  if(canImport)action(root,root.querySelector('[data-action="import-entity-db"]'),()=>{
    const b=modal('استيراد قاعدة بيانات الجهة');
    b.innerHTML=`<p>اختر ملف قاعدة بيانات الجهة الأصلي كما صدر من نموذج الجمعية. سيقرأ النظام ورقة الطلاب والحلقات، ويسند كل طالب تلقائيًا إلى الحلقة الأساسية لمعلمه.</p><label>ملف قاعدة البيانات<input type="file" name="entity_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div class="sl-import-preview"><p>لم يتم اختيار ملف بعد.</p></div><button type="button" class="button button-primary" data-action="run-import" disabled>استيراد الطلاب إلى المنصة</button>`;
@@ -3685,15 +3715,45 @@ async function settingsPage(root){
   action(b,go,async()=>{if(!parsed||parsed.validation.errors.length)throw Error('أصلح أخطاء الملف أولًا.');if(!confirm('تنفيذ الاستيراد الآن؟ سيتم تحديث السجلات المتطابقة ونقل الطالب مع تاريخه إذا تغيرت حلقته.'))return;const payload=JSON.parse(JSON.stringify(parsed.payload,(k,v)=>k==='__row'?undefined:v)),r=await rpc('bulk_import_master_data',{p_org_id:a.org_id,p_payload:payload});lookupPromise=null;preview.innerHTML=`<h3>تم الاستيراد بنجاح</h3><p>المجمعات: ${esc(r.complexes)} — المساجد: ${esc(r.mosques)} — الحلقات: ${esc(r.circles)} — المعلمون: ${esc(r.teachers)} — الطلاب: ${esc(r.students)} — الطلاب المنقولون: ${esc(r.movedStudents)}</p>`;go.disabled=true;await load()})
  };
  action(root,root.querySelector('[data-action="bulk-excel"]'),bulkPanel);
+ let selectedSettingsCircleComplex='';
  const load=async()=>{
   const [items,complexes,mosques,circles]=await Promise.all([rows('settings','*',{org_id:a.org_id}),rows('complexes','*'),rows('mosques','*'),rows('circles','*')]);
   const s=items.find(x=>x.id===a.org_id+'_settings'),v=s?.values||{},box=root.querySelector('.sl-settings');
   box.innerHTML=`<h2>إعدادات عامة</h2><form><div class="form-grid two">${field('اسم المنصة','platformName','text',v.platformName||'سنابل الوحي')}${field('أيام السماح بتعديل الحصيلة','outcomesEditDays','number',v.outcomesEditDays??7,'min="0" max="365" required')}</div><button type="submit" class="button button-primary">حفظ الإعدادات العامة</button></form>`;
   submit(box.querySelector('form'),async()=>{const values={...v,platformName:val(box,'platformName'),outcomesEditDays:Number(val(box,'outcomesEditDays')),timezone:'Asia/Riyadh'};await result(sb().from('settings').upsert({id:s?.id||a.org_id+'_settings',org_id:a.org_id,values}).select('id').single());msg(box,'تم حفظ الإعدادات العامة.')});
   const area=root.querySelector('.sl-structure');
-  area.innerHTML=`<h2>المجمعات</h2>${table(['المجمع','الحالة'],complexes.map(x=>[esc(x.name),esc(x.active?'نشط':'موقف')]))}<h2>المساجد ومواقع البصمة</h2>${table(['المسجد','المجمع','الإحداثيات','النطاق','إعدادات الحضور','إجراء'],mosques.map((m,i)=>{const cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{};return[esc(m.name),esc(complexes.find(x=>x.id===m.complex_id)?.name||m.complex_id),esc(m.latitude+', '+m.longitude),esc(m.radius_meters+'م'),esc((cfg.startPrayer||'Asr')+' → '+(cfg.endPrayer||'Maghrib')+' · تأخير '+(cfg.lateAllowMinutes??15)+'د'),button('تعديل','mosque-'+i)]}))}<h2>الحلقات</h2>${table(['الحلقة','النوع','المجمع','المسجد','الحالة','إجراء'],circles.map((x,i)=>[esc(x.name),esc(x.circle_type||'—'),esc(complexes.find(c=>c.id===x.complex_id)?.name||x.complex_id),esc(mosques.find(m=>m.id===x.mosque_id)?.name||x.mosque_id),esc(x.active?'نشطة':'موقفة'),button('تعديل','circle-'+i)]))}`;
+  area.innerHTML=`<h2>المجمعات</h2>${table(['المجمع','الحالة'],complexes.map(x=>[esc(x.name),esc(x.active?'نشط':'موقف')]))}<h2>المساجد ومواقع البصمة</h2>${table(['المسجد','المجمع','الإحداثيات','النطاق','إعدادات الحضور','إجراء'],mosques.map((m,i)=>{const cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{};return[esc(m.name),esc(complexes.find(x=>x.id===m.complex_id)?.name||m.complex_id),esc(m.latitude+', '+m.longitude),esc(m.radius_meters+'م'),esc((cfg.startPrayer||'Asr')+' → '+(cfg.endPrayer||'Maghrib')+' · تأخير '+(cfg.lateAllowMinutes??15)+'د'),button('تعديل','mosque-'+i)]}))}
+   <h2>الحلقات</h2><label style="display:block;margin:12px 0">المجمع المعروض
+   <select data-settings-circle-complex style="display:block;width:100%;padding:10px" aria-label="تصفية الحلقات حسب المجمع"></select></label>
+   <p class="sl-help">تعرض المنصة حلقات مجمع واحد أولًا لمنع الالتباس؛ اختر «كل المجمعات» للعرض الشامل المرتب حسب المجمع.</p>
+   <div data-settings-circle-results></div>`;
   mosques.forEach((m,i)=>action(area,area.querySelector(`[data-action="mosque-${i}"]`),()=>editMosque(m,complexes)));
-  circles.forEach((x,i)=>action(area,area.querySelector(`[data-action="circle-${i}"]`),()=>editCircle(x,complexes,mosques)));
+  const circleGroups=complexes.filter(c=>circles.some(x=>x.complex_id===c.id));
+  if(!circleGroups.some(c=>c.id===selectedSettingsCircleComplex)&&selectedSettingsCircleComplex!=='all'){
+    selectedSettingsCircleComplex=circleGroups[0]?.id||'all';
+  }
+  const picker=area.querySelector('[data-settings-circle-complex]');
+  picker.innerHTML=circleGroups.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+
+   '<option value="all">كل المجمعات</option>';
+  picker.value=selectedSettingsCircleComplex;
+  const displayCircles=()=>{
+    selectedSettingsCircleComplex=picker.value;
+    const target=area.querySelector('[data-settings-circle-results]');
+    const shown=selectedSettingsCircleComplex==='all'?circleGroups:circleGroups.filter(c=>c.id===selectedSettingsCircleComplex);
+    target.innerHTML=shown.map(g=>{
+      const list=circles.map((x,i)=>({x,i})).filter(item=>item.x.complex_id===g.id);
+      return '<section style="margin:12px 0 22px"><h3>'+esc(g.name)+' — '+list.length+' حلقة</h3>'+
+       table(['الحلقة','النوع','المجمع','المسجد','الحالة','إجراء'],list.map(({x,i})=>[
+         esc(x.name)+'<small style="display:block;opacity:.7">'+esc(g.name)+'</small>',
+         esc(x.circle_type||'—'),esc(g.name),
+         esc(mosques.find(m=>m.id===x.mosque_id)?.name||x.mosque_id),
+         esc(x.active?'نشطة':'موقفة'),button('تعديل','circle-'+i)
+       ]))+'</section>';
+    }).join('')||'<p>لا توجد حلقات في المجمع المختار.</p>';
+    circles.forEach((x,i)=>action(target,target.querySelector(`[data-action="circle-${i}"]`),()=>editCircle(x,complexes,mosques)));
+  };
+  picker.onchange=displayCircles;
+  displayCircles();
  };
  const editMosque=(m,complexes)=>{
   const b=modal(m?'تعديل المسجد وموقع البصمة':'إضافة مسجد وموقع بصمة');
