@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>اختبار سرعة سنابل الوحي من اتصالك</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color-scheme:light;background:#f5f8f6;color:#113d36}
+*{box-sizing:border-box}body{margin:0;padding:18px;font-size:15px;line-height:1.7}
+main{max-width:860px;margin:auto}.pane{background:#fff;border:1px solid #d9e6dd;border-radius:18px;padding:20px;margin:15px 0;box-shadow:0 3px 14px #00231b0b}
+h1{font-size:1.5rem;margin:0 0 5px;color:#064e40}h2{font-size:1.12rem;margin:0 0 8px}p{margin:9px 0;color:#36594f}
+.small{font-size:.86rem;color:#566b62}strong{color:#063f35}
+button{border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:700;background:#08654d;color:#fff;cursor:pointer;min-height:44px}
+button.secondary{background:#ebf2ed;color:#06483c}button:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.metric{padding:12px;background:#f3f8f4;border:1px solid #e1eee4;border-radius:12px}
+.metric .num{font-size:1.35rem;font-weight:800;display:block;direction:ltr;text-align:right}
+progress{width:100%;height:19px;accent-color:#08785f}.note{background:#fff9e7;border-right:4px solid #c99f34;padding:9px 13px;border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.86rem}td,th{padding:8px 6px;text-align:right;border-bottom:1px solid #e4e9e5}th{white-space:nowrap}#report{display:none}
+a{color:#085b9d}code{direction:ltr;unicode-bidi:isolate}footer{font-size:.78rem;color:#66746b;margin:20px 0}
+@media(min-width:650px){.metrics{grid-template-columns:repeat(4,1fr)}}@media(max-width:450px){body{padding:10px}.pane{padding:14px}.actions button{flex:1}}
+</style>
+</head>
+<body>
+<main>
+<section class="pane">
+<h1>قياس سنابل الوحي من اتصالك الفعلي</h1>
+<p>هذه الصفحة تجري <strong>600 تجربة شبكة</strong> من هاتفك أو جهازك الذي فتحتها منه، وليس من خوادم GitHub Actions. وتشمل 12 موردًا فعليًا من الموقع، مع ملفات صغيرة وكبيرة وطلبات عادية وجديدة وإعادة تحقق.</p>
+<div class="note">يقيس هذا الاختبار أداء <strong>Cloudflare من شبكتك</strong>، ولا يقارن مباشرةً مع GitHub Pages الأصلي؛ فلا يستطيع المتصفح تغيير Host وSNI مثل curl. ولن نعلن تحسنًا سببيًا قبل قياس مسار GitHub مباشرة من الشبكة نفسها.</div>
+<p class="small">لا يحتاج إلى تسجيل دخول، ولا يستخدم حسابك أو ملفات الطلاب أو Supabase. جميع الطلبات قراءة GET عامة. لا يرسل نتائجك إلى خادم؛ يمكنك نسخها وإرسالها هنا. قد يستهلك عشرات الميغابايت بحسب حجم الاستجابات. أبقِ الصفحة في المقدمة أثناء الاختبار للحصول على نتائج أدق.</p>
+<div class="actions"><button id="start">ابدأ 600 تجربة من هذا الجهاز</button><button id="stop" class="secondary" disabled>إيقاف التجربة</button></div>
+<p id="status" role="status" aria-live="polite">لم يبدأ الاختبار بعد.</p>
+<progress id="progress" max="600" value="0"></progress>
+<div class="small" id="connection">يجري القياس عبر اتصال الجهاز الذي يفتح الصفحة.</div>
+</section>
+
+<section class="pane" id="report">
+<h2>النتيجة المقاسة من جهازك</h2>
+<div class="metrics">
+<div class="metric"><span>التجارب المنفّذة</span><span class="num" id="count">0</span></div>
+<div class="metric"><span>الطلبات الناجحة</span><span class="num" id="ok">0</span></div>
+<div class="metric"><span>وسيط التحميل</span><span class="num" id="median">—</span></div>
+<div class="metric"><span>P95 للتحميل</span><span class="num" id="p95">—</span></div>
+</div>
+<h2 style="margin-top:20px">التفصيل بحسب نوع الطلب</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>النوع</th><th>عدد</th><th>نجاح</th><th>الوسيط</th><th>P95</th></tr></thead><tbody id="byMode"></tbody></table></div>
+<h2 style="margin-top:18px">حالات التخزين المؤقت لدى Cloudflare</h2>
+<p id="cache"></p>
+<p class="small" id="accuracy"></p>
+<div class="actions"><button id="copy">نسخ التقرير للمحادثة</button><button id="download" class="secondary">تنزيل النتائج الكاملة JSON</button></div>
+<p class="small" id="copied" role="status"></p>
+</section>
+<footer>سنابل الوحي – أداة قياس مستقلة عن التطبيق. لا تُجرى تغييرات DNS أو حفظ بيانات عبر هذه الصفحة.</footer>
+</main>
+<script>
+(function(){
+'use strict';
+var paths=[
+['الرئيسية','/','html'],
+['الترحيب','/welcome.html','html'],
+['ملف التطبيق الرئيسي','/sanabil-live-v12.js','javascript-large'],
+['واجهة الحصائل','/sanabil-quick-outcomes.js','javascript'],
+['أوامر المعلم','/sanabil-voice.js','javascript'],
+['الحفظ المحلي','/sanabil-offline-app.js','javascript'],
+['قياس الأداء','/sanabil-performance-deep.js','javascript'],
+['ملف الألوان','/sanabil-identity.css','css'],
+['ملف الجوال','/mobile-v11.css','css'],
+['لوحة الشرف','/sanabil-honor-roll.js','javascript'],
+['ملف PWA','/manifest.webmanifest','config'],
+['عامل عدم الاتصال','/sanabil-offline-sw.js','config']
+];
+var byId=function(id){return document.getElementById(id)};
+var runs=[],started='',finished='',stopped=false,running=false,reported=false;
+var labelMode={warm:'ملف معتاد',cold:'طلب جديد',revalidate:'إعادة تحقق'};
+function n2(x){return Number.isFinite(x)?x.toFixed(1)+' ms':'—'}
+function pct(values,percent){if(!values.length)return null;var a=values.slice().sort(function(x,y){return x-y});return a[Math.max(0,Math.min(a.length-1,Math.ceil(percent/100*a.length)-1))]}
+function median(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y});var mid=Math.floor(s.length/2);return s.length%2?s[mid]:(s[mid-1]+s[mid])/2}
+function summarize(items){
+var ok=items.filter(function(x){return x.status>=200&&x.status<300&&!x.error&&Number.isFinite(x.totalMs)});
+var vals=ok.map(function(x){return x.totalMs});
+return {attempts:items.length,ok:ok.length,errors:items.length-ok.length,medianMs:median(vals),p95Ms:pct(vals,95),p99Ms:pct(vals,99),meanMs:vals.length?vals.reduce(function(a,b){return a+b},0)/vals.length:null};
+}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var x=a[i];a[i]=a[j];a[j]=x}return a}
+function build(){
+var jobs=[];
+paths.forEach(function(p){
+for(var i=0;i<50;i++){
+var mode=i<30?'warm':i<45?'cold':'revalidate';
+jobs.push({name:p[0],path:p[1],category:p[2],mode:mode,variant:i});
+}
+});
+return shuffle(jobs);
+}
+function connectionSummary(){
+var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection||{};
+return {effectiveType:c.effectiveType||null,downlinkMbps:c.downlink||null,rttEstimateMs:c.rtt||null,saveData:!!c.saveData,controlledByServiceWorker:!!(navigator.serviceWorker&&navigator.serviceWorker.controller)};
+}
+function setStatus(s){byId('status').textContent=s}
+function update(){
+byId('progress').value=runs.length;
+var s=summarize(runs);byId('count').textContent=s.attempts+'/600';
+byId('ok').textContent=s.ok;
+byId('median').textContent=n2(s.medianMs);
+byId('p95').textContent=n2(s.p95Ms);
+if(!reported)byId('report').style.display='block';
+var modes=['warm','cold','revalidate'];
+byId('byMode').innerHTML=modes.map(function(m){
+var v=summarize(runs.filter(function(x){return x.mode===m}));
+return '<tr><td>'+labelMode[m]+'</td><td>'+v.attempts+'</td><td>'+v.ok+'</td><td>'+n2(v.medianMs)+'</td><td>'+n2(v.p95Ms)+'</td></tr>';
+}).join('');
+var values={};
+runs.forEach(function(r){var k=r.cfCache||'غير ظاهر';values[k]=(values[k]||0)+1});
+byId('cache').textContent=Object.keys(values).map(function(k){return k+': '+values[k]}).join('، ')||'لم تُجمع بيانات بعد';
+byId('accuracy').textContent=(s.attempts===600&&s.errors===0?'جميع طلبات القياس الـ600 اكتملت بنجاح. ':'النتائج غير مكتملة أو تحتوي إخفاقات؛ لا تستخدمها للحكم النهائي. ')+'هذه أزمنة شبكة من جهاز واحد، وليست قياسًا لفتح جلسة المعلم أو لاختبار ضغط Supabase.';
+}
+async function test(job,index){
+var url=job.path;
+if(job.mode==='cold')url+=(url.indexOf('?')>=0?'&':'?')+'sa_benchmark='+encodeURIComponent(started+'-'+index);
+var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},18000);
+var start=performance.now(),ttfb=null,total=null,bytes=0,status=0,cache='',ray='',error='',redirected=false;
+try{
+var headers=job.mode==='revalidate'?{'Cache-Control':'no-cache'}:{};
+var response=await fetch(url,{method:'GET',mode:'same-origin',credentials:'omit',cache:'no-store',headers:headers,signal:controller.signal});
+ttfb=performance.now()-start;status=response.status;cache=response.headers.get('cf-cache-status')||'غير ظاهر';ray=response.headers.get('cf-ray')||'';
+redirected=response.redirected;
+var reader=response.body&&response.body.getReader?response.body.getReader():null;
+if(reader){while(true){var b=await reader.read();if(b.done)break;bytes+=b.value.byteLength}}
+else bytes=(await response.arrayBuffer()).byteLength;
+total=performance.now()-start;
+if(!(status>=200&&status<300))error='HTTP '+status;
+}catch(e){total=performance.now()-start;error=e&&e.name==='AbortError'?'timeout':String(e&&e.message||e).slice(0,130)}
+finally{clearTimeout(timer)}
+return {id:index+1,name:job.name,path:job.path,category:job.category,mode:job.mode,
+status:status,ttfbMs:ttfb===null?null:Math.round(ttfb*100)/100,
+totalMs:Math.round(total*100)/100,bytes:bytes,cfCache:cache,cfRay:ray,
+redirected:redirected,error:error};
+}
+async function startTests(){
+if(running)return;
+runs=[];stopped=false;running=true;reported=false;
+started=new Date().toISOString();finished='';
+var jobs=build(),next=0;
+byId('start').disabled=true;byId('stop').disabled=false;byId('copy').disabled=true;
+byId('download').disabled=true;byId('copied').textContent='';
+byId('progress').value=0;byId('report').style.display='block';
+byId('connection').textContent='نوع الشبكة المبلغ عنه من المتصفح: '+(connectionSummary().effectiveType||'غير متاح')+'؛ لم يُطلب موقع الجهاز ولا بيانات الحساب.';
+setStatus('بدأ القياس من هذا المتصفح...');
+async function worker(){
+while(!stopped){
+var idx=next++;
+if(idx>=jobs.length)break;
+var rec=await test(jobs[idx],idx);
+runs.push(rec);
+if(runs.length%10===0||runs.length===600){
+update();setStatus('اكتمل '+runs.length+' من 600 اختبار — ناجح: '+runs.filter(function(x){return !x.error}).length);
+}
+}
+}
+await Promise.all([worker(),worker()]);
+finished=new Date().toISOString();
+running=false;byId('start').disabled=false;byId('stop').disabled=true;
+byId('copy').disabled=false;byId('download').disabled=false;
+update();
+setStatus(stopped?'توقف الاختبار بناءً على طلبك. النتائج جزئية.':runs.length===600?'انتهت 600 تجربة. انسخ التقرير وأرسله في المحادثة.':'لم تكتمل كل التجارب.');
+}
+function reportObject(){
+var categories={};
+paths.forEach(function(p){categories[p[0]]=summarize(runs.filter(function(x){return x.path===p[1]}))});
+var modes={};Object.keys(labelMode).forEach(function(m){modes[m]=summarize(runs.filter(function(x){return x.mode===m}))});
+var statuses={};runs.forEach(function(r){var c=r.cfCache||'غير ظاهر';statuses[c]=(statuses[c]||0)+1});
+return {method:'Sanabil browser network benchmark v1: 600 GET requests across 12 same-origin resources (30 warm,15 cold unique query,5 revalidate per resource); max concurrency 2; no browser HTTP cache; no credentials',website:location.origin,startedUtc:started,finishedUtc:finished,connection:connectionSummary(),
+browser:navigator.userAgent,overall:summarize(runs),byMode:modes,byResource:categories,cfCacheStatus:statuses,limitations:['No paired direct GitHub Pages origin measurement from browser.','Not a before/after baseline, authenticated app loading benchmark, or Supabase capacity test.','Service worker may intercept resource requests; a missing CF cache header does not prove a network request.']};
+}
+byId('start').addEventListener('click',function(){startTests().catch(function(e){running=false;setStatus('تعذّر إكمال القياس: '+String(e));byId('start').disabled=false})});
+byId('stop').addEventListener('click',function(){stopped=true;setStatus('إيقاف بعد انتهاء الطلبات الجارية...')});
+byId('copy').addEventListener('click',async function(){
+var v=JSON.stringify(reportObject(),null,2);
+try{await navigator.clipboard.writeText(v);byId('copied').textContent='تم نسخ تقرير القياس. الصقه في محادثة ChatGPT.'}
+catch(e){byId('copied').textContent='تعذّر النسخ تلقائيًا؛ استخدم تنزيل النتائج الكاملة.'}
+});
+byId('download').addEventListener('click',function(){
+var payload={summary:reportObject(),requests:runs};
+var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sanabil-sa-network-benchmark-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+});
+})();
+</script>
+</body>
+</html>
