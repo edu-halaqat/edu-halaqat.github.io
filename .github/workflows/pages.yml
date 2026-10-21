@@ -165,7 +165,8 @@ jobs:
                   assert 'sanabil-honor-roll.js?v=20261020-layout1' in html
                   assert 'snabil_honor_roll_cycle' in read('/sanabil-honor-roll.js?v=20261020-layout1').decode()
                   assert 'SanabilPerformance' in read('/sanabil-performance.js').decode()
-                  assert 'sanabil-performance-deep.js' in html
+                  assert 'sanabil-lazy.js?v=20261022-v1' in html
+                  assert "loadDeepPerformance:()=>load('deepPerformance')" in read('/sanabil-lazy.js?v=20261022-v1').decode()
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
                   v13_match=re.search(r'src="(/sanabil-v13-enhancements\.js[^"]*)"',html)
