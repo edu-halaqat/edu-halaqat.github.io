@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261021-v13.8.56';
+window.__SanabilLiveBuild='20261022-v13.8.57';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -173,7 +173,7 @@ const directionAr={toward_nas:'نحو الناس',toward_fatiha:'نحو الفا
 const segmentsOnlyText=segments=>Array.isArray(segments)&&segments.length?segments.map(s=>{const f=s.from||{},t=s.to||{},name=s.surahName||f.surahName||f.surah||'السورة';return `سورة ${name}: ${f.ayahNo||f.ayah||''}–${t.ayahNo||t.ayah||''}`}).join('، ثم '):'';
 const assignmentText=a=>{if(!a)return'لا يوجد مقرر';const fallback=segmentsOnlyText(a.segments)||(`${qref(a.from)} ← ${qref(a.to)}`),detail=a.displayLabel||fallback,meta=[];if(a.amount)meta.push(`${a.amount} ${unitAr[a.unit]||'وحدة'}`);if(a.direction&&a.planName!=='المراجعة الصغرى')meta.push(directionAr[a.direction]||a.direction);if(Number(a.cycleNo||1)>1)meta.push('الدورة '+a.cycleNo);if(Number(a.carryIn||0)>0)meta.push('كمية مرحّلة '+a.carryIn);return detail+(meta.length?' · '+meta.join(' · '):'')};
 const inlineSelect=(name,items,value='',aria='')=>`<select name="${name}" aria-label="${esc(aria||name)}"><option value="">اختر</option>${items.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(value)?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
-const waPhone=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
+const waPhone=p=>{let d=String(p||'').replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632)).replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776)).replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d};
 
 /* رسائل واتساب: بيانات منظمة بلا تفاصيل تقنية زائدة عن حاجة ولي الأمر */
 const whatsappSurahName=ref=>String(ref?.surahName||ref?.surah||'').replace(/^سورة\s+/,'').trim();
@@ -243,7 +243,15 @@ const teacherWhatsappMessage=({name,date,kind,circleName,lateMinutes=0})=>{
  return greeting+'\n'+body+'\n\nشاكرين لكم جهودكم المباركة وتعاونكم، ونسأل الله أن يبارك فيكم وفي تعليمكم لكتابه الكريم.\n\nالإشراف التعليمي';
 };
 
-const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const w=window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`,'_blank','noopener,noreferrer');if(!w)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');return w};
+const openWhatsApp=(phone,text)=>{const p=waPhone(phone);if(!p||p.length<10)throw Error('لا يوجد رقم جوال صحيح للمستلم. راجع بيانات الجوال أولًا.');const link=document.createElement('a');link.href='https://wa.me/'+p+'?text='+encodeURIComponent(text);link.target='_blank';link.rel='noopener noreferrer';document.body.append(link);link.click();link.remove();return link};
+const optionalGuardianLink=async studentId=>{let timer;try{return await Promise.race([guardianLink(studentId),new Promise(resolve=>{timer=setTimeout(()=>resolve(''),4000)})])}catch{return ''}finally{clearTimeout(timer)}};
+const readyWhatsApp=(phone,text,popup)=>{
+ const panel=modal('حصيلة جاهزة للمشاركة');
+ panel.innerHTML='<p>الرسالة جاهزة. افتح واتساب وراجع المستلم ثم اضغط إرسال هناك.</p><textarea rows="10" readonly style="width:100%;box-sizing:border-box"></textarea><div class="sl-card-actions"><a class="button button-primary" target="_blank" rel="noopener noreferrer">فتح واتساب</a></div>';
+ panel.querySelector('textarea').value=text;
+ const url='https://wa.me/'+waPhone(phone)+'?text='+encodeURIComponent(text);panel.querySelector('a').href=url;
+ if(popup){try{popup.opener=null;popup.location.replace(url)}catch{try{popup.close()}catch{}}}
+};
 const openMushaf=a=>{const r=a?.from;if(!r?.surahNo)return;const u=new URL('https://jadeerquran.web.app/mushaf.html');u.searchParams.set('surah',r.surahNo);u.searchParams.set('ayah',r.ayahNo||1);if(r.pageNo)u.searchParams.set('page',r.pageNo);window.open(u.toString(),'_blank','noopener,noreferrer')};
 const wrapCanvas=(ctx,text,x,y,maxWidth,lineHeight)=>{const words=String(text||'').split(/\s+/);let line='',yy=y;for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){ctx.fillText(line,x,yy);yy+=lineHeight;line=w}else line=test}if(line){ctx.fillText(line,x,yy);yy+=lineHeight}return yy};
 
@@ -2508,12 +2516,12 @@ async function outcomesPage(root){
       const phone=waPhone(s.guardianPhone);
       if(!phone||phone.length<10)throw Error('لا يوجد رقم جوال صحيح لولي الأمر.');
       const popup=window.open('about:blank','_blank');
-      if(!popup)throw Error('تعذر فتح واتساب؛ اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+      // A blocked popup falls back to the ready dialog's direct link.
       try{
         // لا تُرسل حصيلة غير مؤكدة؛ رسالة الغياب والاستئذان تعتمد على الحضور المحفوظ.
         try{await confirmSaved(s,x)}
         catch(e){throw Error('احفظ حصيلة الطالب أولًا وتأكد من ظهور تأكيد الحفظ قبل إرسال واتساب. '+e.message)}
-        const portal=await guardianLink(s.studentId);
+        const portal=await optionalGuardianLink(s.studentId);
         const text=guardianWhatsappMessage({
           studentName:s.fullName,date,status:x.att,
           memorization:{assignment:s.memorization,grade:x.ratings.memorization},
@@ -2524,8 +2532,9 @@ async function outcomesPage(root){
           })),
           notes:x.note,portal
         });
-        popup.location.replace('https://wa.me/'+phone+'?text='+encodeURIComponent(text));
-      }catch(err){try{popup.close()}catch{}throw err}
+        if(JSON.stringify(rowData(s,i))!==JSON.stringify(x))throw Error('تغيرت الحصيلة أثناء تجهيز الرسالة؛ احفظ التعديل ثم أعد المشاركة.');
+        readyWhatsApp(phone,text,popup);
+      }catch(err){try{popup?.close()}catch{}throw err}
     });
     const bi=box.querySelector(`[data-action="img-${i}"]`);if(bi)action(box,bi,async()=>{const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');if(!['absent','excused'].includes(x.att))validateRow(s,x);const reviewText=x.reviews.length?x.reviews.map(r=>r.name+': '+r.assignment+(r.grade?' · '+r.grade:'')).join('؛ '):'—';await shareOutcomeImage(s.fullName,date,x.lesson,x.recent,reviewText,{memorization:x.ratings.memorization,recentReview:x.ratings.recentReview,review:''},x.att,x.note)});
     const week=box.querySelector('[data-action="weekly-'+i+'"]');
@@ -3056,6 +3065,9 @@ async function plansPage(root){
        <div class="form-grid two">
          ${field('اسم المراجعة','review'+i+'Name','text',defaults.name||'المراجعة الكبرى')}
          ${select('ابتداء المراجعة','review'+i+'StartMode',[{id:'lesson',name:'من درسه'},{id:'surah',name:'من سورة محددة'}],startMode)}
+         ${select('نطاق المراجعة','review'+i+'RangeMode',[{id:'all',name:'كامل المحفوظ بعد المراجعة الصغرى'},{id:'juz',name:'نطاق أجزاء مستقل ومتكرر'}],defaults.rangeMode||'all')}
+         <div data-review-range-fields>${select('من الجزء','review'+i+'FromJuz',Array.from({length:30},(_,n)=>({id:String(n+1),name:'الجزء '+(n+1)})),String(defaults.fromJuz||21))}</div>
+         <div data-review-range-fields>${select('إلى الجزء','review'+i+'ToJuz',Array.from({length:30},(_,n)=>({id:String(n+1),name:'الجزء '+(n+1)})),String(defaults.toJuz||25))}</div>
          ${select('الوحدة','review'+i+'Unit',majorUnits,defaults.unit||'quarter_hizb')}
          ${field('المقدار اليومي','review'+i+'Amount','number',defaults.amount||1,'min="1" max="45" required')}${select('اتجاه المراجعة','review'+i+'Direction',dirs,defaults.direction||'toward_nas')}
          <div data-review-start-fields>${select('سورة البداية','review'+i+'Surah',[])}</div>
@@ -3066,8 +3078,16 @@ async function plansPage(root){
      container.append(box);
      await quranPair(box,'review'+i+'Surah','review'+i+'Ayah',{surah:defaults.surah||114,ayah:defaults.ayah||1});
      const mode=box.querySelector('[name="review'+i+'StartMode"]'),unitEl=box.querySelector('[name="review'+i+'Unit"]'),removeBtn=box.querySelector('[data-remove-review]');
-     const toggle=()=>box.querySelectorAll('[data-review-start-fields]').forEach(x=>x.style.display=mode.value==='surah'?'':'none');
-     mode.onchange=toggle;toggle();
+     const rangeMode=box.querySelector('[name="review'+i+'RangeMode"]');
+     const originalNote=box.querySelector('.sl-cycle-note').textContent;
+     const toggle=()=>{const bounded=rangeMode.value==='juz';
+       box.querySelectorAll('[data-review-range-fields]').forEach(x=>x.style.display=bounded?'':'none');
+       mode.closest('label').style.display=bounded?'none':'';
+       box.querySelectorAll('[data-review-start-fields]').forEach(x=>x.style.display=!bounded&&mode.value==='surah'?'':'none');
+       box.querySelector('.sl-cycle-note').textContent=bounded?'يبدأ المسار من أول النطاق نحو الناس أو آخره نحو الفاتحة، ثم يعود تلقائيًا إلى البداية بعد إتمامه. لا يتجاوز حدود الأجزاء المختارة.':originalNote;
+       if(bounded)box.dataset.autoMajor='0';
+     };
+     rangeMode.onchange=toggle;mode.onchange=toggle;toggle();
      box.querySelector('[name="review'+i+'Amount"]').addEventListener('input',()=>{box.dataset.autoMajor='0'});unitEl.addEventListener('change',()=>{box.dataset.autoMajor='0'});box.querySelector('[name="review'+i+'Direction"]').addEventListener('change',()=>{box.dataset.autoMajor='0'});
      removeBtn.onclick=()=>box.remove();
    };
@@ -3214,6 +3234,8 @@ async function plansPage(root){
      if(majorSection.style.display!=='none')for(const box of container.querySelectorAll('.sl-review-builder')){
        const i=box.dataset.idx,startMode=val(box,'review'+i+'StartMode')||'lesson',auto=box.dataset.autoMajor==='1';
        const direction=val(box,'review'+i+'Direction')||'toward_nas';
+       const bounded=val(box,'review'+i+'RangeMode')==='juz',rangeFromJuz=Number(val(box,'review'+i+'FromJuz')),rangeToJuz=Number(val(box,'review'+i+'ToJuz'));
+       if(bounded&&(!(rangeFromJuz>=1&&rangeToJuz<=30)||rangeFromJuz>rangeToJuz))throw Error('راجع أول جزء وآخر جزء في نطاق المراجعة.');
        // يبدأ الاتجاه نحو الناس بعد المراجعة الصغرى، مع عدم إهدار بقية المحفوظ.
        // أما الاتجاه الصاعد فيبدأ من الناس، ويستطيع المعلم توزيع المراجعة بين مسارين متقابلين.
        const startSurah=startMode==='lesson'?(direction==='toward_fatiha'?114:(Number(box.dataset.autoStartSurah)||Number(val(form,'memSurah')))):Number(val(box,'review'+i+'Surah'));
@@ -3223,8 +3245,9 @@ async function plansPage(root){
          unit:val(box,'review'+i+'Unit'),dailyAmount:Number(val(box,'review'+i+'Amount')),
          direction,startSurah,startAyah,
          methodologyMeta:{
-           reviewStartMode:startMode,
-           autoMajor:auto,
+           reviewStartMode:bounded?'surah':startMode,
+           reviewRangeMode:bounded?'juz':'all',rangeFromJuz:bounded?rangeFromJuz:null,rangeToJuz:bounded?rangeToJuz:null,
+           autoMajor:bounded?false:auto,
            cycleDays:Number(box.dataset.cycleDays||5),
            selectedStartSurah:startMode==='surah'?startSurah:null,
            coverageRule:'after_recent_to_end_of_memorized'
@@ -4177,7 +4200,7 @@ async function settingsPage(root){
  action(root,root.querySelector('[data-action="add-circle"]'),async()=>{const [complexes,mosques]=await Promise.all([rows('complexes','*',{active:true}),rows('mosques','*',{active:true})]);editCircle(null,complexes,mosques)});
  await load()
 }
-async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20261021-v13.8.56';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';window.SanabilVoice?.showLauncher?.();const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,supervision:window.SanabilSupervision?.page,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await measure('page:'+view,()=>render(b))}catch(e){msg(b,e.message,true)}}
+async function mount(root,view){root.classList.add('sl-live');root.dataset.build='20261022-v13.8.57';root.innerHTML=`<h1>${esc(titles[view]||'سنابل الوحي')}</h1><div class="sl-content"><p>جارٍ التحميل…</p></div>`;const b=root.querySelector('.sl-content');try{await access();b.innerHTML='';window.SanabilVoice?.showLauncher?.();const render={dashboard,students:studentsPage,outcomes:outcomesPage,plans:plansPage,attendance:attendancePage,tests:testsPage,supervision:window.SanabilSupervision?.page,inquiries:reportPage,reports:statisticsPage,settings:settingsPage}[view];if(!render)throw Error('الصفحة غير متاحة');await measure('page:'+view,()=>render(b))}catch(e){msg(b,e.message,true)}}
 window.SanabilLive={mount,readAccess:access,usersPanel:()=>window.SanabilComplexStaff?.open?.()};window.dispatchEvent(new Event("sanabil-live-ready"));
 window.addEventListener('sanabil-session-changed',()=>{lookupPromise=null;surahsPromise=null;accessCached=null;accessAt=0;accessPending=null;accessGeneration++});
 const style=document.createElement('style');style.textContent=`.sl-live{background:white;border:1px solid #dde5df;border-radius:20px;padding:24px;min-height:300px}.sl-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:15px 0}.sl-live label,.sl-dialog label{display:grid;gap:8px;font-weight:600}.sl-live input,.sl-live select,.sl-dialog input,.sl-dialog select{font:inherit;max-width:100%;min-width:0;padding:10px;border:1px solid #bdccc3;border-radius:8px;background:white}.sl-live table,.sl-dialog table{width:100%;border-collapse:collapse}.sl-live th,.sl-live td,.sl-dialog td,.sl-dialog th{padding:12px;text-align:right;border-bottom:1px solid #e2e9e5}.sl-dialog{direction:rtl;width:min(900px,94vw);max-height:90vh;border:0;border-radius:18px;padding:24px;color:#183c33}.sl-dialog::backdrop{background:#002c2580}.sl-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.sl-dialog fieldset{border:1px solid #ddd;border-radius:12px;margin:12px 0}.sl-live .button,.sl-dialog .button{margin:3px}.sl-message{padding:12px;background:#f3f7f4;border-radius:8px}.sl-tasks{margin:18px 0;padding:16px;border:1px solid #dde5df;border-radius:16px;background:#fbfdfc}.sl-announcement{padding:12px 0;border-bottom:1px solid #e2e9e5}.sl-announcement:last-child{border-bottom:0}.sl-announcement b{color:#00808A}.sl-announcement small{color:#63766e}.sl-import-preview{margin:14px 0}.sl-import-warning{margin:12px 0;padding:14px 16px;border:1px solid #e2c56f;background:#fff8df;color:#6b5313;border-radius:12px;font-weight:600}.sl-dialog .form-grid,.sl-live .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.sl-live .table-wrap{overflow:auto}.sl-data input{width:100%;box-sizing:border-box}.sl-live .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:650px){.sl-dialog .form-grid,.sl-live .form-grid{grid-template-columns:1fr}.sl-live{padding:14px}.sl-live .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.topbar,.tabs,.mobile-nav,.sl-toolbar,button,.more-sheet{display:none!important}.app-content,.sl-live{margin:0!important;padding:0!important;border:0}.table-wrap{overflow:visible!important}thead{display:table-header-group}tr{break-inside:avoid}body{background:white!important}}`;document.head.append(style);

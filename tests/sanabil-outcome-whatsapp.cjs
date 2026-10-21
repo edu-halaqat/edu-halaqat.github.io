@@ -1,0 +1,26 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync('sanabil-live-v12.js','utf8');
+const textArea={},anchor={},panel={querySelector:s=>s==='a'?anchor:textArea};
+let clicked=0,removed=0;
+const scope={window:{},document:{body:{append(){}},createElement(){return{click(){clicked++},remove(){removed++}}}},modal:()=>panel,setTimeout,clearTimeout};
+vm.createContext(scope);
+vm.runInContext(src.slice(src.indexOf('const waPhone='),src.indexOf('\n',src.indexOf('const waPhone=')))+';this.phone=waPhone;',scope);
+vm.runInContext(src.slice(src.indexOf('const openWhatsApp='),src.indexOf('\nconst ',src.indexOf('const readyWhatsApp=')+1))+';this.open=openWhatsApp;this.ready=readyWhatsApp;this.optional=optionalGuardianLink;',scope);
+for(const p of ['0551234567','٠٥٥١٢٣٤٥٦٧','۰۵۵۱۲۳۴۵۶۷','00966551234567','+966 55 123 4567'])assert.equal(scope.phone(p),'966551234567');
+assert.throws(()=>scope.open('bad','message'));
+scope.open('٠٥٥١٢٣٤٥٦٧','حصيلة');assert.equal(clicked,1);assert.equal(removed,1);
+scope.ready('0551234567','رسالة\nالحفظ ممتاز',null);
+assert.equal(textArea.value,'رسالة\nالحفظ ممتاز');assert.ok(anchor.href.startsWith('https://wa.me/966551234567?text='));
+let redirected='';const popup={opener:{},location:{replace:u=>redirected=u}};
+scope.ready('0551234567','test',popup);assert.equal(popup.opener,null);assert.equal(redirected,anchor.href);
+(async()=>{
+ scope.guardianLink=async()=>{throw Error('403')};assert.equal(await scope.optional('test'),'');
+ scope.guardianLink=async()=>'https://example.invalid/guardian';assert.equal(await scope.optional('test'),'https://example.invalid/guardian');
+ const dayStart=src.indexOf('const bw=box.querySelector(`[data-action="wa-');
+ const handler=src.slice(dayStart,src.indexOf('const bi=',dayStart));
+ assert.ok(handler.indexOf('await confirmSaved(s,x)')<handler.indexOf('readyWhatsApp(phone,text,popup)'));
+ assert.ok(handler.includes('await optionalGuardianLink(s.studentId)'));
+ assert.ok(!handler.includes('if(!popup)throw'));
+ assert.ok(handler.includes('JSON.stringify(rowData(s,i))'));
+ console.log('PASS: Arabic phone digits, direct WhatsApp link, popup-blocked fallback, optional portal failure, verified saved outcome and stale-message guard');
+})().catch(e=>{console.error(e);process.exit(1)});
