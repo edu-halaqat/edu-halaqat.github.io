@@ -10,6 +10,9 @@ async function api(action,data={}){
  if(error){
   let note=reply?.error||error.message;
   try{const info=await error.context?.json?.();note=info?.error||info?.message||note}catch{}
+  if(/(?:already been registered|already registered|user_already_exists|email_exists)/i.test(String(note||''))){
+   throw Error('هذا البريد الإلكتروني مسجل مسبقًا في سنابل الوحي. لا تنشئ حسابًا ثانيًا؛ اطلب من مدير النظام إسناد الحساب الموجود إلى المجمع أو الحلقة المطلوبة مع الاحتفاظ بكلمة المرور الحالية.');
+  }
   throw Error(note||'فشل الاتصال بالخادم.');
  }
  if(reply?.error)throw Error(reply.error);
