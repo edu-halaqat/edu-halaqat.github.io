@@ -2,7 +2,7 @@
 /* Sanabil PWA shell. Never replay private POST requests from the service worker:
    auth tokens expire, 2xx alone does not guarantee domain-level acceptance,
    and only a signed-in foreground page may confirm cloud persistence. */
-const SHELL='sanabil-shell-20261021-v34-circles-complex-filter';
+const SHELL='sanabil-shell-20261022-v35-versioned-static-cache';
 const NOOR_SOURCE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
 const NOOR_CACHE='sanabil-noor-bayan-v1',NOOR_KEY='/noor-bayan.pdf';
 const LEGACY_DB='sanabil-offline-v1',LEGACY_STORE='queue';
@@ -88,10 +88,14 @@ self.addEventListener('fetch',event=>{
    catch{const hit=await cache.match('/index.html');return hit||new Response('المنصة لم تُجهّز بعد للعمل دون اتصال. افتحها مرة واحدة مع الإنترنت.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}})}
   })());return;
  }
+ // This marker makes browser-based network tests bypass local Cache Storage.
+ // Keep ordinary app assets eligible for offline caching and instant repeat opens.
+ if(req.headers.get('X-Sanabil-Benchmark')==='1')return;
  if(!isAsset(url.pathname))return;
  event.respondWith((async()=>{
   const cache=await caches.open(SHELL),immutable=url.pathname.startsWith('/_next/static/');
-  if(immutable){const hit=await cache.match(req);if(hit)return hit}
+  const immutableRevision=immutable||(/\\.(?:js|css)$/i.test(url.pathname)&&url.searchParams.has('v'));
+  if(immutableRevision){const hit=await cache.match(req);if(hit)return hit}
   try{const res=await fetch(req);if(res.ok&&res.type==='basic')await cache.put(req,res.clone());return res}
   catch{const hit=await cache.match(req);return hit||Response.error()}
  })());
