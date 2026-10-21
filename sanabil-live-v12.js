@@ -4006,7 +4006,14 @@ async function settingsPage(root){
      '<p>القياسات من المتصفح والجهاز الحالي فقط. لا يمكن تعميم نتيجتها على جميع الأجهزة أو الشبكات، ولا تشمل زمن الرسم الكامل للحصيلة.</p>';
    };
    deepButton.onclick=async()=>{
-    if(!window.SanabilDeepPerformance){b.querySelector('[data-deep-progress]').textContent='وحدة الاختبار الموسع غير محملة؛ حدّث المنصة.';return}
+    if(!window.SanabilDeepPerformance){
+     try{await window.SanabilLazy?.loadDeepPerformance?.()}catch(e){
+      b.querySelector('[data-deep-progress]').textContent=e?.message||'تعذر تنزيل وحدة الاختبار الموسع.';return
+     }
+     if(!window.SanabilDeepPerformance){
+      b.querySelector('[data-deep-progress]').textContent='وحدة الاختبار الموسع غير محملة؛ أعد المحاولة.';return
+     }
+    }
     if(!select.value||!dateInput.value){b.querySelector('[data-deep-progress]').textContent='اختر الحلقة والتاريخ.';return}
     if(deepController&&!deepController.signal.aborted)return;
     deepController=new AbortController();lastDeep=null;
