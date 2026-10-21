@@ -2620,7 +2620,7 @@ async function plansPage(root){
    const facts=recent
     ?`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>المنهج</b>نافذة متحركة تبدأ من نهاية الدرس وتتجه نحو الناس</span><span><b>الارتباط</b>تتبع خطة الحفظ تلقائيًا</span>${timeFacts}`
     :`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>الاتجاه</b>${esc(directionName[p.direction]||p.direction)}</span><span><b>البداية</b>${esc(qref(p.start_ref))}</span>${timeFacts}${remedial?`<span><b>الهدف العلاجي</b>التهيئة للانتقال إلى ${esc(targetMethodLabel(remedialTarget))}</span><span><b>طبيعة الخطة</b>مؤقتة وتنتهي عند اعتماد جاهزية الطالب للبرنامج المستهدف</span>`:''}${qpc?`<span><b>وحدة المراجعة</b>${esc(unitName[p.unit]||p.unit)}</span>`:''}${p.type==='review'?'<span><b>التكرار</b>دوري تلقائي</span>':''}`;
-   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('حذف / إنهاء','remove-'+i)}</div></article>`;
+   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('حذف / إنهاء','remove-'+i)}</div></article>`;
  };
 
  const load=async()=>{
@@ -2708,6 +2708,41 @@ async function plansPage(root){
           if(p.type!=='recent_review')days.forEach((d,j)=>{const x=b.querySelector('[data-action="x'+j+'"]');if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,'تم الاستثناء ونقل '+r.movedDays+' يومًا.');await render();await load()})});
         };await render()
      });
+
+     if(p.type==='memorization'){
+       action(root,root.querySelector('[data-action="surahs-'+i+'"]'),async()=>{
+         const b=modal('تسميع السور كاملة — '+esc(students.find(x=>x.id===p.student_id)?.full_name||'الطالب'));
+         const refreshSurahs=async()=>{
+           const tasks=await rpc('list_surah_recitation_tasks',{p_plan_id:p.id});
+           b.innerHTML='<p class="sl-help">عند إنهاء حفظ آخر آية من السورة يفتح النظام مرحلة تسميع السورة كاملة. يحدد المعلم عدد أيامها، ويعتمد التسميع اليومي. لا تُعتمد بداية السورة التالية قبل إنهاء هذه المرحلة.</p>'+
+            (tasks.length?tasks.map((task,j)=>'<section class="sl-plan-day-card" style="margin:10px 0;border:1px solid #a5c3b9;padding:12px;border-radius:12px">'+
+              '<h3>سورة '+esc(task.surahName||task.surahNo)+'</h3><p>الحالة: '+esc({pending:'بانتظار تحديد أيام التسميع',scheduled:'جارٍ تسميع السورة',completed:'اكتمل تسميع السورة'}[task.status]||task.status)+
+              ' — '+esc(task.completedDays)+' من '+esc(task.requiredDays||'غير محدد')+' يوم</p>'+
+              (task.status==='completed'?'':('<label>عدد أيام تسميع السورة<input data-recitation-days="'+j+'" type="number" min="1" max="60" value="'+esc(task.requiredDays||1)+'"></label>'+
+               '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button type="button" class="button button-soft" data-days-save="'+j+'">حفظ الأيام</button>'+
+               (task.requiredDays?'<button type="button" class="button button-primary" data-day-confirm="'+j+'">اعتماد تسميع اليوم</button>':'')+'</div>'))+
+              '</section>').join(''):'<p class="sl-empty">لا توجد سورة أنهى الطالب حفظها بالكامل بعد؛ ستظهر تلقائيًا فور اعتماد حصيلة آخر آية.</p>');
+           tasks.forEach((task,j)=>{
+             const set=b.querySelector('[data-days-save="'+j+'"]');
+             if(set)action(b,set,async()=>{
+               const days=Number(b.querySelector('[data-recitation-days="'+j+'"]')?.value);
+               if(!Number.isInteger(days)||days<1||days>60)throw Error('اختر من 1 إلى 60 يومًا.');
+               await rpc('set_surah_recitation_days',{p_task_id:task.id,p_days:days});
+               await refreshSurahs();
+               msg(b,'حُددت مدة تسميع السورة بنجاح.');
+             });
+             const done=b.querySelector('[data-day-confirm="'+j+'"]');
+             if(done)action(b,done,async()=>{
+               if(!confirm('هل سمّع الطالب سورة '+(task.surahName||task.surahNo)+' اليوم بالفعل؟'))return;
+               const recorded=await rpc('record_surah_recitation_day',{p_task_id:task.id});
+               await refreshSurahs();
+               msg(b,recorded.completed?'اكتمل تسميع السورة ويمكن بدء السورة التالية.':'حُفظ تسميع اليوم بنجاح.');
+             });
+           });
+         };
+         await refreshSurahs();
+       });
+     }
 
      const transitionBtn=root.querySelector(`[data-action="transition-${i}"]`);
      if(transitionBtn)action(root,transitionBtn,async()=>{
