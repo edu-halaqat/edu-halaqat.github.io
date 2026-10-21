@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261021-v13.8.51';
+window.__SanabilLiveBuild='20261021-v13.8.52';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -21,7 +21,7 @@ const rpc=(name,args)=>{
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261021-bulkcircles',{scope:'/'}).catch(()=>null):Promise.resolve(null));
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261021-circles-scope1',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
 const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
 const queueOfflineRpc=async(name,args,label)=>{
