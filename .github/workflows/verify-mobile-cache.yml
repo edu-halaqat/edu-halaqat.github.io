@@ -1,0 +1,27 @@
+name: Verify mobile cached assets
+on:
+  pull_request:
+    paths:
+      - 'sanabil-offline-sw.js'
+      - 'sanabil-lazy.js'
+      - 'sanabil-live-v12.js'
+      - 'network-benchmark.html'
+      - 'index.html'
+      - 'tests/sanabil-sw-versioned-cache.cjs'
+      - 'tests/sanabil-lazy.cjs'
+      - '.github/workflows/verify-mobile-cache.yml'
+permissions:
+  contents: read
+jobs:
+  cache-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline and on-demand loading regression
+        run: |
+          node --check sanabil-offline-sw.js
+          node --check sanabil-lazy.js
+          node --check sanabil-live-v12.js
+          node tests/sanabil-lazy.cjs
+          node tests/sanabil-sw-versioned-cache.cjs
+          node tests/sanabil-live-runtime-boot.cjs
