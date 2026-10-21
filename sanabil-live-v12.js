@@ -2586,7 +2586,7 @@ async function plansPage(root){
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
- <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<div class="sl-data"></div>`;
+ <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div>`;
 
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
@@ -3045,9 +3045,43 @@ async function plansPage(root){
      msg(root,'تم إنشاء '+createdName+(code==='remedial'?' كخطة مؤقتة حتى جاهزية الطالب للانتقال إلى '+targetMethodLabel(val(form,'remedialTarget'))+'.':(finish?' · الختم المتوقع: '+finish+'.':'')));
    });
  };
+ const showExamAlerts=async()=>{
+   const target=root.querySelector('.sl-juz-exam-alerts');
+   if(!target)return;
+   let entries=[];
+   try{entries=await rpc('list_juz_exam_alerts',{})}catch(error){target.textContent='تعذر تحميل تنبيهات اختبارات الأجزاء: '+error.message;return}
+   if(!entries.length){target.replaceChildren();return}
+   const saTime=x=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{
+     timeZone:'Asia/Riyadh',dateStyle:'medium',timeStyle:'short'
+   }).format(new Date(x));
+   const saInput=x=>new Date(x).toLocaleString('sv-SE',{timeZone:'Asia/Riyadh',hour12:false}).replace(' ','T').slice(0,16);
+   target.innerHTML='<section style="border:1px solid #99c4b4;border-radius:14px;padding:12px;margin:15px 0" dir="rtl">'+
+    '<h3>اختبارات الأجزاء المجدولة تلقائيًا</h3>'+
+    '<p class="sl-help">يُحدّد الموعد المبدئي بعد يومين من اعتماد إتمام الجزء. يظهر للمعلم والمشرف، ويمكن للمشرف تعديل الموعد عند الحاجة.</p>'+
+    entries.map((v,j)=>'<article style="border-top:1px solid #aecabd;padding:9px 0">'+
+     '<b>'+esc(v.studentName||'الطالب')+' — الجزء '+esc(v.juzNo)+'</b>'+
+     '<p>الموعد: '+esc(saTime(v.scheduledAt))+'</p>'+
+     (v.canReschedule?'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+       '<label>تعديل الموعد بتوقيت السعودية <input type="datetime-local" data-exam-new="'+j+'" value="'+esc(saInput(v.scheduledAt))+'"></label>'+
+       '<button type="button" class="button button-soft" data-exam-save="'+j+'">اعتماد الموعد</button></div>':'')+
+     '</article>').join('')+'</section>';
+   entries.forEach((item,j)=>{
+     const btn=target.querySelector('[data-exam-save="'+j+'"]');
+     if(btn)action(target,btn,async()=>{
+       const value=target.querySelector('[data-exam-new="'+j+'"]').value;
+       if(!value)throw Error('اختر تاريخ الاختبار ووقته.');
+       if(!confirm('اعتماد تعديل موعد اختبار الجزء '+item.juzNo+' للطالب '+item.studentName+'؟'))return;
+       const when=new Date(value+':00+03:00');
+       if(!Number.isFinite(when.valueOf()))throw Error('الموعد غير صالح.');
+       await rpc('reschedule_auto_juz_exam',{p_schedule_id:item.scheduleId,p_when:when.toISOString()});
+       await showExamAlerts();
+       msg(root,'تم تعديل موعد اختبار الجزء، وسيظهر الموعد الجديد للمعلم والمشرف.');
+     });
+   });
+ };
  action(root,root.querySelector('[data-action="new"]'),createSingle);
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
- await load()
+ await load();await showExamAlerts()
 }
 
 // Preserve a teacher's chosen circle/date between the attendance and outcomes tabs.
