@@ -18,8 +18,8 @@ const defs={
   required:['name','complex','mosque']
  },
  'المعلمون':{
-  headers:['رمز المعلم','اسم المعلم','الجوال','المجمع','الحلقة','نشط'],
-  map:{'رمز المعلم':'id','اسم المعلم':'fullName','الجوال':'phone','المجمع':'complex','الحلقة':'circle','نشط':'active'},
+  headers:['رمز المعلم','اسم المعلم','البريد الإلكتروني','الجوال','المجمع','الحلقة','نشط'],
+  map:{'رمز المعلم':'id','اسم المعلم':'fullName','البريد الإلكتروني':'email','الجوال':'phone','المجمع':'complex','الحلقة':'circle','نشط':'active'},
   required:['fullName','complex','circle']
  },
  'الطلاب':{
@@ -71,7 +71,7 @@ async function template(){
   '5) أيام الدوام تُكتب مثل: الأحد،الاثنين،الثلاثاء،الأربعاء،الخميس.',
   '6) بداية ونهاية الدوام: الفجر، الظهر، العصر، المغرب، العشاء.',
   '7) عمود نشط: نعم أو لا.',
-  '8) استيراد المعلمين هنا ينشئ سجل المعلم التشغيلي فقط؛ حسابات الدخول تُدار من «إدارة المستخدمين».',
+  '8) استيراد المعلمين يحدّث حسابات معلمين مسجلين رسميًا فقط؛ أضف الحساب الجديد عبر إدارة المستخدمين أولًا ثم ضمّن بريده الإلكتروني في القالب.',
   '9) لا تحذف الصف الأول. احذف أي صف لا تريد استيراده.',
   '10) عند إعادة رفع ملف يحتوي طالبًا موجودًا في حلقة جديدة، ينقل النظام سجلاته التعليمية معه آليًا.'
  ].forEach((x,i)=>{const r=ins.addRow([x]);r.height=i===0?34:26;r.getCell(1).alignment={horizontal:'right',vertical:'middle',wrapText:true};if(i===0){r.getCell(1).font={bold:true,size:18,color:{argb:C.white}};r.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:C.teal}}}});
@@ -167,7 +167,7 @@ async function exportMaster(data){
  add('المجمعات',(data.complexes||[]).map(x=>[x.id,x.name,x.active?'نعم':'لا']));
  add('المساجد',(data.mosques||[]).map(x=>{const w=Array.isArray(x.attendance_windows)?x.attendance_windows[0]||{}:{};const days=(w.weekdays||[]).map(v=>Object.entries(dayMap).find(([k,n])=>n===String(v)&&!/^\d$/.test(k))?.[0]||v).join('،');return[x.id,x.name,cx.get(x.complex_id)||x.complex_id,x.latitude,x.longitude,x.radius_meters,w.startPrayer||'Asr',w.endPrayer||'Maghrib',w.lateAllowMinutes??15,w.earlyArrivalMinutes??15,w.earlyLeaveMinutes??15,w.absenceAfterMinutes??60,w.checkoutGraceMinutes??120,days,x.active?'نعم':'لا']}));
  add('الحلقات',(data.circles||[]).map(x=>[x.id,x.name,cx.get(x.complex_id)||x.complex_id,mq.get(x.mosque_id)||x.mosque_id,x.active?'نعم':'لا']));
- add('المعلمون',(data.teachers||[]).map(x=>[x.id,x.full_name,x.phone||'',cx.get(x.complex_id)||x.complex_id,ci.get(x.circle_id)||x.circle_id,x.active?'نعم':'لا']));
+ add('المعلمون',(data.teachers||[]).map(x=>[x.id,x.full_name,x.email||'',x.phone||'',cx.get(x.complex_id)||x.complex_id,ci.get(x.circle_id)||x.circle_id,x.active?'نعم':'لا']));
  add('الطلاب',(data.students||[]).map(x=>[x.id,x.full_name,x.nationality||'',x.birth_date||'',x.birth_date_hijri||'',x.identity_number||'',x.identity_expiry||'',x.enrollment_date||'',x.stage||'',x.student_phone||'',x.guardian_phone||'',x.registration_status||'',x.social_status||'',x.evaluation||'',x.current_surah||'',x.current_ayah||'',cx.get(x.complex_id)||x.complex_id,ci.get(x.circle_id)||x.circle_id,te.get(x.teacher_id)||x.teacher_id||'',x.active?'نعم':'لا']));
  save(await workbookBlob(wb),'بيانات_سنابل_الوحي_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
