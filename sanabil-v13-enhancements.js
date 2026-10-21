@@ -104,7 +104,7 @@ async function openCircleBulkDetails(){
   b.innerHTML='<form>'+((new Set(permitted.map(x=>x.complex_id))).size>1?
     '<label>المجمع<select name="bulkComplex">'+[...new Set(permitted.map(x=>x.complex_id))].map(id=>opt(id,id===c.complex_id?(a.roles?.includes('admin')?'المجمع الحالي':permitted.find(x=>x.complex_id===id)?.name||id):permitted.find(x=>x.complex_id===id)?.name||id,c.complex_id)).join('')+'</select></label>':'')+
     '<div data-bulk-targets>'+circleSelectorHtml(circles,c.id)+'</div>'+
-    '<p class="sl-help">اختر الحقول التي تريد تغييرها. الحقول غير المحددة تبقى كما هي لكل حلقة. لا يتم نقل الطلاب ولا تغيير معلميهم أو حصائلهم.</p>'+
+    '<p class="sl-help">اختر الحقول التي تريد تغييرها. الحقول غير المحددة تبقى كما هي. لا يتم نقل الطلاب ولا تغيير معلميهم أو حصائلهم. عند تغيير الفترة، تحقق من ضبط بصمتها بصورة مستقلة.</p>'+
     '<div class="form-grid two"><label><input type="checkbox" name="editType"> تغيير نوع الحلقة</label>'+
     '<label>النوع الجديد<select name="circleType">'+kinds.map(k=>opt(k,k,c.circle_type)).join('')+'</select></label>'+
     '<label><input type="checkbox" name="editPeriod"> تغيير الفترة</label>'+
@@ -178,6 +178,9 @@ async function openFingerprint(complexMode){
    for(const name of ['circlePeriod','latitude','longitude','radius']){
       const input=controls.elements[name];input.disabled=true;
    }
+   for(const name of ['circlePeriod','latitude','longitude','radius','mapUrl'])controls.elements[name]?.closest('label')?.setAttribute('hidden','');
+   for(const action of ['open-map','map','gps'])b.querySelector('[data-v13-action="'+action+'"]')?.setAttribute('hidden','');
+   b.querySelector('[data-map-status]')?.setAttribute('hidden','');
    const info=document.createElement('p');info.className='sl-help';
    info.textContent='الفترة المستهدفة: '+period+'. لتغيير موقع المسجد أو فترة حلقة معينة استخدم إعدادات بصمة الفترة.';
    panel.after(info);
