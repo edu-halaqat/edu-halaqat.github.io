@@ -1,0 +1,29 @@
+name: Cloudflare 600 paired comparisons
+on:
+  pull_request:
+    paths:
+      - 'tests/cloudflare-edge-benchmark.py'
+      - '.github/workflows/cloudflare-600-benchmark.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate benchmarking script
+        run: python3 -m py_compile tests/cloudflare-edge-benchmark.py
+      - name: Run 600 paired measurements
+        run: python3 -u tests/cloudflare-edge-benchmark.py
+      - name: Upload raw evidence and summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-vs-github-pages-600-pairs
+          path: |
+            cloudflare-benchmark-pairs.csv
+            cloudflare-benchmark-summary.json
+          if-no-files-found: warn
+          retention-days: 14
