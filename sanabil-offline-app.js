@@ -183,7 +183,26 @@ async function updateUi(){
   if(!confirm('توجد عمليات قديمة محفوظة على هذا الجهاز بلا تعريف مستخدم. هل تؤكد أنها تخص حسابك الحالي؟'))return;
   try{await importLegacy();updateUi()}catch(error){alert(error.message)}
  };root.append(btn)}
- if(s.error){root.title='آخر خطأ في المزامنة: '+s.error;const retry=document.createElement('button');retry.textContent='تعذر إرسال سجل · إعادة المحاولة';retry.onclick=()=>window.dispatchEvent(new Event('sanabil-offline-retry'));root.append(retry)}
+ if(s.error){
+  root.title='آخر خطأ في المزامنة: '+s.error;
+  const retry=document.createElement('button');retry.textContent='إعادة المحاولة';
+  retry.onclick=()=>window.dispatchEvent(new Event('sanabil-offline-retry'));root.append(retry);
+  const diagnose=document.createElement('button');diagnose.textContent='تفاصيل السجلات المتعثرة';
+  diagnose.onclick=async()=>{
+    const uid=await userId().catch(()=>null);
+    const queued=(await list(OPS)).filter(x=>x.userId===uid).sort((x,y)=>(x.enqueueOrder||0)-(y.enqueueOrder||0));
+    const dlg=document.createElement('dialog');dlg.style.cssText='max-width:min(95vw,620px);max-height:85vh;overflow:auto;border:1px solid #99bdb0;border-radius:16px;padding:18px;direction:rtl;background:var(--surface,#fff);color:var(--text,#183c33)';
+    dlg.innerHTML='<h3>تشخيص المزامنة دون حذف السجلات</h3><p>هذه العمليات محفوظة محليًا على جهازك. لا تكرر حفظ الحصيلة حتى تتحقق من نتيجة المزامنة.</p>';
+    queued.slice(0,40).forEach((x,i)=>{
+      const item=document.createElement('section');item.style.cssText='padding:9px;border:1px solid #a6beb4;border-radius:9px;margin:8px 0;overflow-wrap:anywhere';
+      item.textContent=(i+1)+'. '+(x.label||x.name)+' — '+(x.status==='needs_attention'?'تحتاج معالجة':'بانتظار الإرسال')+
+        (x.lastError?' | سبب تعثر الخادم: '+x.lastError:'');
+      dlg.append(item);
+    });
+    const close=document.createElement('button');close.textContent='إغلاق';close.onclick=()=>dlg.close();dlg.append(close);
+    dlg.addEventListener('close',()=>dlg.remove(),{once:true});document.body.append(dlg);dlg.showModal();
+  };root.append(diagnose);
+}
 }
 window.addEventListener('online',()=>updateUi());
 window.addEventListener('offline',()=>updateUi());
