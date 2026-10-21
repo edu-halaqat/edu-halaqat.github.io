@@ -6,7 +6,7 @@ const backend=fs.readFileSync('supabase/functions/sanabil-user-admin/index.ts','
 // Previous entry points still have a safe, reusable invitation builder.
 const oldCode=old.slice(old.indexOf('const userWhatsAppPhone='),old.indexOf('function userWhatsAppDialog'));
 assert.ok(oldCode.includes('userWelcomeMessage'));
-const oldScope={waPhone:p=>{let d=String(p||'').replace(/\\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d;}};
+const oldScope={waPhone:p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0')&&d.length===10)d='966'+d.slice(1);return d;}};
 vm.createContext(oldScope);
 vm.runInContext(oldCode+';this.phone=userWhatsAppPhone;this.message=userWelcomeMessage;',oldScope);
 assert.equal(oldScope.phone('٠٥٥١٢٣٤٥٦٧'),'966551234567');
