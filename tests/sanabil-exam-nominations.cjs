@@ -5,7 +5,8 @@ const live=read('sanabil-live-v12.js'),exam=read('sanabil-v13-enhancements.js'),
 new vm.Script(live,{filename:'sanabil-live-v12.js'});
 new vm.Script(exam,{filename:'sanabil-v13-enhancements.js'});
 assert(/name="sanabil-build" content="\d{8}-v13\.\d+\.\d+"/.test(index),'release build must be versioned');
-const examAsset=index.match(/sanabil-v13-enhancements\.js\?v=(\d+)/);\nassert(examAsset&&Number(examAsset[1])>=8,'exam form asset must have a current version');
+const examAsset=index.match(/sanabil-v13-enhancements\.js\?v=(\d+)/);
+assert(examAsset&&Number(examAsset[1])>=8,'exam form asset must have a current version');
 for(const name of ['activation','placement','juz','phased'])assert(exam.includes(name),'missing exam mode '+name);
 for(const label of ['اختبار تنشيطي','اختبار تحديد مستوى','اختبار الأجزاء','اختبار مرحلي','الفرع','من الفاتحة','من الناس'])assert(exam.includes(label),'missing Arabic label '+label);
 assert(exam.includes("rpc('quran_juz_boundaries',{})"),'official juz boundaries must be read from QuranDB');
