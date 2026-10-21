@@ -1,0 +1,39 @@
+name: Diagnose Cloudflare GitHub Pages Edge
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/edge-origin-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare edge and GitHub Pages origin
+        shell: bash
+        run: |
+          set -u
+          probe() {
+            label="$1"; shift
+            echo "::group::$label"
+            hdr="$(mktemp)"; body="$(mktemp)"
+            code="$(curl -sS -L --max-time 22 --connect-timeout 8 -D "$hdr" -o "$body" -w '%{http_code}' "$@" 2>&1)" || true
+            echo "request_status=$code"
+            grep -iE '^(HTTP/|server:|cf-ray:|cf-mitigated:|location:|content-type:|x-github-request-id:)' "$hdr" | tr -d '\r' | head -25 || true
+            python3 - "$body" <<'PY'
+          import pathlib,sys,re
+          s=pathlib.Path(sys.argv[1]).read_text(errors='replace')[:3000]
+          m=re.search(r'<title[^>]*>(.*?)</title>',s,re.I|re.S)
+          print('response_html_title='+re.sub(r'\\s+',' ',m.group(1)).strip()[:120] if m else 'none')
+          PY
+            rm -f "$hdr" "$body"
+            echo "::endgroup::"
+          }
+          probe edge-root https://snabilalwahy.com/
+          probe edge-welcome https://snabilalwahy.com/welcome.html
+          probe edge-python-ua -A 'Python-urllib/3.12' https://snabilalwahy.com/
+          probe edge-browser-ua -A 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' https://snabilalwahy.com/
+          probe github-pages-origin --resolve snabilalwahy.com:443:185.199.108.153 https://snabilalwahy.com/
+          probe github-pages-origin-welcome --resolve snabilalwahy.com:443:185.199.108.153 https://snabilalwahy.com/welcome.html
+          echo "Diagnostic only. Do not weaken Cloudflare security rules until the blocking service is identified."
