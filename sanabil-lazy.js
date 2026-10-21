@@ -19,7 +19,7 @@
    script.onload=()=>item.ready()?resolve(true):reject(Error('تعذر تفعيل الوحدة بعد تنزيلها'));
    script.onerror=()=>reject(Error('تعذر تحميل الوحدة المطلوبة؛ افحص الاتصال وأعد المحاولة.'));
    (document.head||document.documentElement).appendChild(script);
-  }).catch(error=>{pending.delete(name);throw error});
+  }).finally(()=>{if(pending.get(name)===p)pending.delete(name)});
   pending.set(name,p);return p;
  };
  window.SanabilLazy={load,loadDeepPerformance:()=>load('deepPerformance')};
