@@ -29,6 +29,7 @@ jobs:
           assert 'for(var i=0;i<50;i++)' in scripts[0]
           assert "credentials:'omit'" in scripts[0]
           assert "cache:'no-store'" in scripts[0]
+          assert "'X-Sanabil-Benchmark':'1'" in scripts[0]
           assert 'supabase.co' not in html.lower()
           assert 'noindex,nofollow' in html
           print('PASS: 600 local browser requests, 12 valid resources, no Supabase writes')
