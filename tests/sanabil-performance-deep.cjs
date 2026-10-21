@@ -4,7 +4,9 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const src=fs.readFileSync('sanabil-performance-deep.js','utf8');
 const html=fs.readFileSync('index.html','utf8'),ui=fs.readFileSync('sanabil-live-v12.js','utf8');
 const deploy=fs.readFileSync('.github/workflows/pages.yml','utf8');
-assert(html.includes('/sanabil-performance-deep.js?v=20261018-v1'),'module must load');
+assert(html.includes('/sanabil-lazy.js?v=20261022-v1'),'on-demand module loader must be present');
+assert(fs.readFileSync('sanabil-lazy.js','utf8').includes('/sanabil-performance-deep.js?v=20261022-demand1'),'diagnostic module must remain reachable on demand');
+assert(ui.includes('loadDeepPerformance'),'diagnostic button must load its module on demand');
 assert(ui.includes('data-deep>بدء الاختبار الموسع (20 محاولة)'),'20-round UI button present');
 assert(ui.includes('data-deep-copy'),'copy report button present');
 assert(deploy.includes('node tests/sanabil-performance-deep.cjs'),'deployment guarded by regression');
