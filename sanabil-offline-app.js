@@ -92,7 +92,7 @@ async function readThrough(key,loader){
  pendingReads.set(id,pending);
  try{return await pending}finally{if(pendingReads.get(id)===pending)pendingReads.delete(id)}
 }
-async function flush(callRpc,{batch=false}={}){
+async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
  if(active||!navigator.onLine||!callRpc)return;
  active=true;lastFlushError='';await status();
  try{
@@ -105,7 +105,7 @@ async function flush(callRpc,{batch=false}={}){
    try{
     if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'){
      const items=[];let size=0;
-     for(const candidate of all.slice(offset,offset+5)){
+     for(const candidate of all.slice(offset,offset+(Number.isInteger(maxBatchSize)?Math.max(1,Math.min(5,maxBatchSize)):5))){
       if(candidate.name==='submit_offline_attendance_claim')break;
       const n=JSON.stringify(candidate.args).length;
       if(items.length&&size+n>140000)break;

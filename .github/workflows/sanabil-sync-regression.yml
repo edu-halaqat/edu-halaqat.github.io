@@ -1,0 +1,33 @@
+name: Sanabil Sync Safety
+on:
+  pull_request:
+    paths:
+      - 'sanabil-offline-app.js'
+      - 'sanabil-live-v12.js'
+      - 'sanabil-v13-enhancements.js'
+      - 'index.html'
+      - 'tests/sanabil-offline-smoke.cjs'
+      - '.github/workflows/sanabil-sync-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript syntax and live boot
+        run: |
+          node --check sanabil-offline-app.js
+          node --check sanabil-live-v12.js
+          node --check sanabil-v13-enhancements.js
+          node --check tests/sanabil-offline-smoke.cjs
+          node tests/sanabil-live-runtime-boot.cjs
+          node tests/sanabil-bulk-circle-settings.cjs
+      - name: Offline queue regression tests
+        env:
+          NODE_PATH: ${{ runner.temp }}/sanabil-offline-tests/node_modules
+        run: |
+          npm install --prefix "$RUNNER_TEMP/sanabil-offline-tests" --no-save --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
+          node tests/sanabil-offline-smoke.cjs
+          node tests/sanabil-batch-scheduling.cjs
