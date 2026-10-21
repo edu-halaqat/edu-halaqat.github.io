@@ -15,12 +15,125 @@ Deno.serve(async(req:Request)=>{
   const {data:auth,error:ae}=await admin.auth.getUser(token);
   if(ae||!auth.user)return reply({error:'جلسة الدخول غير صالحة'},401);
   const {data:p}=await admin.from('profiles').select('active,org_id').eq('id',auth.user.id).single();
-  const {data:ms}=await admin.from('memberships').select('*').eq('user_id',auth.user.id).eq('active',true).eq('role','admin');
-  const membership=ms?.find(m=>m.org_id===p?.org_id);
+  const {data:ms}=await admin.from('memberships').select('*').eq('user_id',auth.user.id).eq('active',true);
+  const membership=ms?.find(m=>m.org_id===p?.org_id&&m.role==='admin');
+  const b=await req.json();
+
+  // Dedicated complex-scoped administrative staff onboarding.
+  // The administrator controls creation per complex. Supervisors cannot grant manager/admin roles.
+  const isSystemAdmin=Boolean(p?.active&&ms?.some(m=>m.org_id===p.org_id&&m.role==='admin'));
+  const supervisorComplexes=new Set(
+    (p?.active?ms:[]).filter(m=>m.org_id===p?.org_id&&m.role==='supervisor'&&m.complex_id&&!m.circle_id).map(m=>m.complex_id)
+  );
+  const canStaffManage=isSystemAdmin||supervisorComplexes.size>0;
+  if(['staff_scopes','staff_policy_update','staff_list','create_staff'].includes(b.action)){
+    if(!p?.active||!p.org_id||!canStaffManage)
+      return reply({error:'هذه الميزة متاحة لمشرف المجمع المعتمد أو مدير النظام فقط.'},403);
+    const org=p.org_id;
+    const cx=await admin.from('complexes').select('id,name,org_id,active').eq('org_id',org).eq('active',true);
+    if(cx.error)throw cx.error;
+    const scoped=(cx.data||[]).filter(c=>isSystemAdmin||supervisorComplexes.has(c.id));
+    if(b.action==='staff_scopes'){
+      const ids=scoped.map(c=>c.id);
+      const flags=ids.length?await admin.from('complex_staff_creation_policy')
+        .select('complex_id,allow_supervisor_staff_creation').eq('org_id',org).in('complex_id',ids):{data:[],error:null};
+      if(flags.error)throw flags.error;
+      const settings=new Map((flags.data||[]).map(x=>[x.complex_id,x.allow_supervisor_staff_creation]));
+      return reply({is_admin:isSystemAdmin,complexes:scoped.map(c=>({
+        id:c.id,name:c.name,allow_staff_creation:settings.get(c.id)!==false
+      }))});
+    }
+    if(b.action==='staff_policy_update'){
+      if(!isSystemAdmin)return reply({error:'تغيير صلاحيات المجمع خاص بمدير النظام.'},403);
+      if(typeof b.allow_staff_creation!=='boolean')throw Error('اختر تمكين الصلاحية أو تعطيلها.');
+      const complex=scoped.find(c=>c.id===String(b.complex_id||''));
+      if(!complex)throw Error('المجمع خارج نطاق الإدارة.');
+      const write=await admin.from('complex_staff_creation_policy').upsert({
+        complex_id:complex.id,org_id:org,
+        allow_supervisor_staff_creation:b.allow_staff_creation,
+        updated_at:new Date().toISOString(),updated_by:auth.user.id
+      },{onConflict:'complex_id'});
+      if(write.error)throw write.error;
+      const audit=await admin.from('audit_logs').insert({
+        org_id:org,action:'complex.staff_creation_permission.updated',
+        actor_uid:auth.user.id,entity_table:'complexes',entity_id:complex.id,
+        details:{enabled:b.allow_staff_creation}
+      });
+      if(audit.error)throw audit.error;
+      return reply({ok:true,complex_id:complex.id,allow_staff_creation:b.allow_staff_creation});
+    }
+    if(b.action==='staff_list'){
+      const ids=scoped.map(c=>c.id);
+      if(!ids.length)return reply({staff:[]});
+      const members=await admin.from('memberships')
+        .select('user_id,complex_id,active,role').eq('org_id',org).eq('role','staff').in('complex_id',ids);
+      if(members.error)throw members.error;
+      const userIds=[...new Set((members.data||[]).map(m=>m.user_id))];
+      if(!userIds.length)return reply({staff:[]});
+      const [profiles,directory]=await Promise.all([
+        admin.from('profiles').select('id,display_name,email,phone,active,org_id').in('id',userIds).eq('org_id',org),
+        admin.from('complex_staff_directory').select('user_id,complex_id,job_title').in('user_id',userIds).eq('org_id',org)
+      ]);
+      if(profiles.error||directory.error)throw profiles.error||directory.error;
+      const byId=new Map((profiles.data||[]).map(u=>[u.id,u]));
+      const titles=new Map((directory.data||[]).map(x=>[x.user_id,x.job_title]));
+      return reply({staff:(members.data||[]).flatMap(m=>{
+        const u=byId.get(m.user_id);
+        return u?[{id:u.id,display_name:u.display_name,email:u.email,phone:u.phone,
+          active:!!u.active&&!!m.active,complex_id:m.complex_id,
+          complex_name:scoped.find(c=>c.id===m.complex_id)?.name||'',job_title:titles.get(u.id)||'إداري مجمع'}]:[];
+      })});
+    }
+    // Creation is only for a new, least-privilege staff account; supplied roles are ignored/denied.
+    const complex=scoped.find(c=>c.id===String(b.complex_id||''));
+    if(!complex)throw Error('لا يمكنك إنشاء حساب خارج مجمعك.');
+    if(b.role!==undefined&&b.role!=='staff')throw Error('إنشاء الإداريين يمنح دور إداري مجمع فقط.');
+    const policy=await admin.from('complex_staff_creation_policy')
+      .select('allow_supervisor_staff_creation').eq('org_id',org).eq('complex_id',complex.id).maybeSingle();
+    if(policy.error)throw policy.error;
+    if(!isSystemAdmin&&policy.data?.allow_supervisor_staff_creation===false)
+      return reply({error:'عطّل مدير النظام إنشاء حسابات إداريين لهذا المجمع.'},403);
+    const email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');
+    const name=String(b.display_name||'').trim(),phone=String(b.phone||'').trim();
+    const title=String(b.job_title||'إداري مجمع').trim();
+    if(!/^\S+@\S+\.\S+$/.test(email)||password.length<10||!name||name.length>150
+       ||title.length>100||phone.length>30)
+      throw Error('أكمل الاسم والبريد وكلمة مرور من 10 أحرف فأكثر، وتحقق من البيانات.');
+    const created=await admin.auth.admin.createUser({
+      email,password,email_confirm:true,user_metadata:{display_name:name}
+    });
+    if(created.error||!created.data.user)throw created.error||Error('تعذر إنشاء حساب الإداري.');
+    const uid=created.data.user.id;
+    const provision=await admin.rpc('provision_complex_staff',{
+      p_actor:auth.user.id,p_user:uid,p_org:org,p_complex:complex.id,
+      p_name:name,p_phone:phone,p_title:title
+    });
+    if(provision.error){
+      const cleanup=await admin.auth.admin.deleteUser(uid);
+      if(cleanup.error)console.error('Staff creation rollback failed',uid);
+      throw provision.error;
+    }
+    return reply({ok:true,user_id:uid,role:'staff',complex_id:complex.id});
+  }
+  if(b.action==='create_teacher'){
+   const org=p?.org_id,complex=String(b.complex_id||''),circle=String(b.circle_id||'');
+   if(!p?.active||!org||!complex||!circle||!ms?.some(m=>m.org_id===org&&(m.role==='admin'||(m.role==='supervisor'&&m.complex_id===complex&&!m.circle_id))))
+    return reply({error:'إضافة المعلمين متاحة داخل المجمع المسند إليك فقط.'},403);
+   if(b.role&&b.role!=='teacher')return reply({error:'يمكن إنشاء حساب معلم فقط.'},403);
+   const {data:c,error:ce}=await admin.from('circles').select('id').eq('id',circle).eq('org_id',org).eq('complex_id',complex).eq('active',true).maybeSingle();
+   if(ce||!c)return reply({error:'اختر حلقة نشطة من المجمع نفسه.'},403);
+   const email=String(b.email||'').trim().toLowerCase(),password=String(b.password||''),name=String(b.display_name||'').trim();
+   if(!/^\S+@\S+\.\S+$/.test(email)||password.length<10||!name)throw Error('أكمل الاسم والبريد وكلمة مرور من 10 أحرف فأكثر');
+   const {data:created,error:createError}=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:name}});
+   if(createError||!created.user)throw createError||Error('تعذر إنشاء الحساب');
+   const uid=created.user.id;
+   const {data:result,error:provisionError}=await admin.rpc('provision_complex_teacher',{p_actor:auth.user.id,p_user:uid,p_org:org,p_complex:complex,p_circle:circle,p_name:name,p_phone:String(b.phone||'').trim()});
+   if(provisionError){const {error:cleanupError}=await admin.auth.admin.deleteUser(uid);if(cleanupError)console.error('New teacher cleanup failed',uid);throw provisionError}
+   return reply({ok:true,user_id:uid,primary:result?.primary===true});
+  }
   if(!p?.active||!membership)return reply({error:'هذه الوظيفة متاحة لمدير النظام النشط فقط'},403);
   const org=p.org_id;
   const userClient=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
-  const b=await req.json();
   if(b.action==='scopes'){
  const [cx,ci]=await Promise.all([admin.from('complexes').select('id,name,org_id').eq('org_id',org).eq('active',true),admin.from('circles').select('id,name,complex_id,org_id').eq('org_id',org).eq('active',true)]);
  if(cx.error||ci.error)throw cx.error||ci.error;return reply({complexes:cx.data,circles:ci.data});
