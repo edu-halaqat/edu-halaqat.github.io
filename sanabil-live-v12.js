@@ -1350,7 +1350,7 @@ async function studentsPage(root){
       throw Error('لا يمكن حفظ الطالب دون معلم معتمد لهذه الحلقة. راجع إسناد المعلمين.');
    row.org_id=circle.org_id;row.circle_name=circle.name;row.teacher_name=l.teachers.find(t=>t.id===row.teacher_id)?.full_name||null;
    let moved=false;
-   if(s&&(s.circle_id!==row.circle_id||s.teacher_id!==row.teacher_id)){await rpc('move_student_with_history',{p_student_id:s.id,p_circle_id:row.circle_id,p_teacher_id:row.teacher_id});moved=s.circle_id!==row.circle_id}
+   if(supervisorOperations&&s&&(s.circle_id!==row.circle_id||s.teacher_id!==row.teacher_id)){await rpc('move_student_with_history',{p_student_id:s.id,p_circle_id:row.circle_id,p_teacher_id:row.teacher_id});moved=s.circle_id!==row.circle_id}
    if(!supervisorOperations){
      // The teacher may manage only a supervisor-delegated, officially assigned circle.
      const permitted=rosterAccess.some(x=>x.circleId===row.circle_id&&x.enabled&&!x.mayManage);
