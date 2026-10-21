@@ -128,8 +128,43 @@ window.SanabilCircleBulkSettings={open:openCircleBulkDetails};
 async function openFingerprint(complexMode){
  try{
   const {c,m}=await circleContext(),period=String(c.session_period||'غير محدد'),windows=Array.isArray(m.attendance_windows)?m.attendance_windows:[],cfg=windows.find(x=>x?.kind==='config'&&String(x.period||'')===period)||{},def=defaultsForPeriod(period);
+  const [complexCircles,complexMosques]=complexMode?await Promise.all([circlesInComplex(c),result(sb().from('mosques').select('id,name,org_id,complex_id').eq('org_id',c.org_id).eq('complex_id',c.complex_id).eq('active',true))]):[[],[]];
   const b=modal((complexMode?'إعداد بصمة المجمع':'إعداد بصمة الفترة')+' — '+m.name);
   b.innerHTML='<form><p class="sl-help">لكل فترة نافذة بصمة مستقلة، ويمكن للمشرف تعديل فترة الحلقة من هنا.</p><div class="form-grid two"><label>فترة الحلقة<select name="circlePeriod">'+([['الفجر','الفجر'],['الظهر','الظهر'],['العصر','العصر'],['المغرب','المغرب'],['العشاء','العشاء'],['وقت مرن (عن بعد)','وقت مرن (عن بعد)']].map(x=>opt(x[0],x[1],period)).join(''))+'</select></label><label>خط العرض<input name="latitude" type="number" step="any" required value="'+esc(m.latitude)+'"></label><label>خط الطول<input name="longitude" type="number" step="any" required value="'+esc(m.longitude)+'"></label><label>النطاق بالمتر<input name="radius" type="number" min="20" max="500" required value="'+esc(m.radius_meters||100)+'"></label><label>بداية الدوام<select name="startPrayer">'+prayerOptions(cfg.startPrayer||def.start)+'</select></label><label>نهاية الدوام<select name="endPrayer">'+prayerOptions(cfg.endPrayer||def.end)+'</select></label><label>مدة الحلقة بالدقائق <small>(0 = حتى الصلاة التالية)</small><input name="duration" type="number" min="0" max="360" value="'+esc(cfg.durationMinutes??def.duration)+'"></label><label>سماح التأخير<input name="late" type="number" min="0" max="180" value="'+esc(cfg.lateAllowMinutes??15)+'"></label><label>الحضور المبكر<input name="early" type="number" min="0" max="180" value="'+esc(cfg.earlyArrivalMinutes??15)+'"></label><label>الانصراف المبكر<input name="leave" type="number" min="0" max="180" value="'+esc(cfg.earlyLeaveMinutes??15)+'"></label><label>اعتبار الغياب بعد البداية بـ<input name="absent" type="number" min="0" max="360" value="'+esc(cfg.absenceAfterMinutes??60)+'"></label><label>مهلة الانصراف بعد النهاية<input name="grace" type="number" min="0" max="360" value="'+esc(cfg.checkoutGraceMinutes??120)+'"></label></div>'+weekdays(cfg.weekdays,'fp')+'<label>رابط الموقع من خرائط Google<input name="mapUrl" type="url" placeholder="ألصق رابط مشاركة الموقع"></label><div class="sl-toolbar">'+btn('فتح الموقع في خرائط Google','open-map')+btn('اعتماد رابط خرائط Google','map')+btn('استخدام موقعي الحالي','gps')+'</div><p class="sl-help" data-map-status>الموقع المحفوظ: '+esc(m.latitude)+'، '+esc(m.longitude)+'</p><button type="submit" class="button button-primary">'+(complexMode?'تطبيق على المجمع':'حفظ إعداد الفترة')+'</button></form>';
+  // Fingerprint settings are shared by mosque + period. Selecting a group
+  // means selecting every active circle of that period in the given mosque.
+  let selectedFingerprintGroups=()=>[];
+  if(complexMode){
+   const groupRows=complexMosques.map(mm=>({
+      mosque:mm,circles:complexCircles.filter(x=>x.mosque_id===mm.id&&String(x.session_period||'')===period)
+   })).filter(x=>x.circles.length);
+   const panel=document.createElement('fieldset');panel.className='sl-v13-fingerprint-groups';
+   panel.innerHTML='<legend>اختيار حلقات تطبيق ضوابط البصمة</legend>'+
+     '<p class="sl-help">البصمة إعداد مشترك لجميع حلقات المسجد في الفترة نفسها، ولذلك تُحدد مجموعات الحلقات كاملة. لا يشمل الاختيار الفترات الأخرى أو المساجد غير المحددة، ولن تُنسخ إحداثيات الموقع.</p>'+
+     '<div class="sl-toolbar"><button type="button" class="button button-soft" data-fp-all>تحديد جميع المجموعات</button>'+
+     '<button type="button" class="button button-soft" data-fp-none>إلغاء التحديد</button><span data-fp-count role="status"></span></div>'+
+     '<div style="max-height:235px;overflow:auto;display:grid;gap:8px">'+groupRows.map(g=>
+       '<label style="display:flex;align-items:center;gap:10px"><input type="checkbox" data-fp-mosque="'+esc(g.mosque.id)+'"'+(g.mosque.id===m.id?' checked':'')+'>'+
+       '<span><b>'+esc(g.mosque.name)+'</b> — '+g.circles.length+' حلقة: '+esc(g.circles.map(x=>x.name).join('، '))+'</span></label>'
+     ).join('')+'</div>';
+   const submitButton=b.querySelector('button[type="submit"]');
+   submitButton.parentElement.insertBefore(panel,submitButton);
+   const boxes=[...panel.querySelectorAll('[data-fp-mosque]')];
+   const refresh=()=>{const n=boxes.filter(x=>x.checked).length;panel.querySelector('[data-fp-count]').textContent='المحدد: '+n+' من '+boxes.length+' مجموعة'};
+   panel.querySelector('[data-fp-all]').onclick=()=>{boxes.forEach(x=>x.checked=true);refresh()};
+   panel.querySelector('[data-fp-none]').onclick=()=>{boxes.forEach(x=>x.checked=false);refresh()};
+   boxes.forEach(x=>x.addEventListener('change',refresh));
+   selectedFingerprintGroups=()=>boxes.filter(x=>x.checked).map(x=>x.dataset.fpMosque);refresh();
+   // Coordinates and circle-period changes must be edited only on their
+   // dedicated single-mosque/single-circle screens.
+   const controls=b.querySelector('form');
+   for(const name of ['circlePeriod','latitude','longitude','radius']){
+      const input=controls.elements[name];input.disabled=true;
+   }
+   const info=document.createElement('p');info.className='sl-help';
+   info.textContent='الفترة المستهدفة: '+period+'. لتغيير موقع المسجد أو فترة حلقة معينة استخدم إعدادات بصمة الفترة.';
+   panel.after(info);
+  }
   const form=b.querySelector('form'),setMap=(lat,lng,label)=>{form.latitude.value=Number(lat).toFixed(7);form.longitude.value=Number(lng).toFixed(7);b.querySelector('[data-map-status]').textContent=label+' — '+form.latitude.value+'، '+form.longitude.value};
   form.circlePeriod.onchange=()=>{const np=form.circlePeriod.value,pcfg=windows.find(x=>x?.kind==='config'&&String(x.period||'')===np),pd=defaultsForPeriod(np);form.startPrayer.value=pcfg?.startPrayer||pd.start;form.endPrayer.value=pcfg?.endPrayer||pd.end;form.duration.value=pcfg?.durationMinutes??pd.duration;form.late.value=pcfg?.lateAllowMinutes??15;form.early.value=pcfg?.earlyArrivalMinutes??15;form.leave.value=pcfg?.earlyLeaveMinutes??15;form.absent.value=pcfg?.absenceAfterMinutes??60;form.grace.value=pcfg?.checkoutGraceMinutes??120};
   b.querySelector('[data-v13-action="open-map"]').onclick=()=>{const lat=Number(form.latitude.value),lng=Number(form.longitude.value);if(!Number.isFinite(lat)||!Number.isFinite(lng))return alert('حدد الإحداثيات أولًا.');window.open('https://www.google.com/maps/@'+lat+','+lng+',18z','_blank','noopener,noreferrer')};
@@ -138,10 +173,31 @@ async function openFingerprint(complexMode){
   form.onsubmit=async e=>{e.preventDefault();try{
     const work=checkedDays(form,'fp').map(String);if(!work.length)throw Error('اختر يوم دوام واحدًا على الأقل.');
     const targetPeriod=form.circlePeriod.value||period;
-    if(targetPeriod!==period)await result(sb().from('circles').update({session_period:targetPeriod,updated_at:new Date().toISOString()}).eq('id',c.id).select('id').single());
+    if(!complexMode&&targetPeriod!==period)await result(sb().from('circles').update({session_period:targetPeriod,updated_at:new Date().toISOString()}).eq('id',c.id).select('id').single());
     const base={kind:'config',period:targetPeriod,weekdays:work,startPrayer:form.startPrayer.value,endPrayer:form.endPrayer.value,durationMinutes:Number(form.duration.value||0),lateAllowMinutes:Number(form.late.value||0),earlyArrivalMinutes:Number(form.early.value||0),earlyLeaveMinutes:Number(form.leave.value||0),absenceAfterMinutes:Number(form.absent.value||0),checkoutGraceMinutes:Number(form.grace.value||0)};
     const saveMosque=async(mm,periods,location)=>{const arr=Array.isArray(mm.attendance_windows)?mm.attendance_windows.filter(x=>x&&typeof x==='object'):[],keepCfg=arr.filter(x=>x.kind==='config'&&!periods.includes(String(x.period||''))),runtime=arr.filter(x=>x.kind!=='config'&&x.dateKey),patch={attendance_windows:[...keepCfg,...runtime,...periods.map(p=>Object.assign({},base,{period:p}))].slice(-100),updated_at:new Date().toISOString()};if(location){patch.latitude=Number(form.latitude.value);patch.longitude=Number(form.longitude.value);patch.radius_meters=Number(form.radius.value)}await result(sb().from('mosques').update(patch).eq('id',mm.id).select('id').single())};
-    if(complexMode){const cms=await result(sb().from('mosques').select('*').eq('complex_id',c.complex_id).eq('active',true)),cc=await result(sb().from('circles').select('mosque_id,session_period').eq('complex_id',c.complex_id).eq('active',true));let applied=0;for(const mm of cms){const hasPeriod=cc.some(x=>x.mosque_id===mm.id&&String(x.session_period||'')===targetPeriod);if(hasPeriod){await saveMosque(mm,[targetPeriod],mm.id===m.id);applied++}}if(!applied)await saveMosque(m,[targetPeriod],true);message('تم تطبيق إعدادات بصمة فترة «'+targetPeriod+'» على جميع حلقات المجمع الواقعة في الفترة نفسها، مع إبقاء الفترات الأخرى مستقلة.')}else{await saveMosque(m,[targetPeriod],true);message('تم حفظ فترة الحلقة وموقع المسجد وإعداد بصمة فترة «'+targetPeriod+'».')}
+    if(complexMode){
+      const ids=selectedFingerprintGroups();
+      if(!ids.length)throw Error('حدد مجموعة بصمة واحدة على الأقل.');
+      const activeNames=complexMosques.filter(mm=>ids.includes(mm.id)).map(mm=>mm.name);
+      if(!confirm('تطبيق إعدادات بصمة الفترة «'+period+'» على '+ids.length+' مسجد/مجموعة حلقات: '+activeNames.join('، ')+'؟'))return;
+      const res=await rpc('apply_fingerprint_period_bulk',{
+        p_mosque_ids:ids,p_period:period,p_config:{weekdays:work,
+          startPrayer:form.startPrayer.value,endPrayer:form.endPrayer.value,
+          durationMinutes:Number(form.duration.value||0),
+          lateAllowMinutes:Number(form.late.value||0),
+          earlyArrivalMinutes:Number(form.early.value||0),
+          earlyLeaveMinutes:Number(form.leave.value||0),
+          absenceAfterMinutes:Number(form.absent.value||0),
+          checkoutGraceMinutes:Number(form.grace.value||0)}
+      });
+      if(!res?.ok||res.updated!==ids.length)throw Error('لم يكتمل حفظ جميع مجموعات البصمة.');
+      const affected=complexCircles.filter(cc=>ids.includes(cc.mosque_id)&&String(cc.session_period||'')===period);
+      message('تم حفظ إعدادات البصمة في '+ids.length+' مسجد/مجموعة، وتشمل '+affected.length+' حلقة. لم تتغير إعدادات المساجد الأخرى.');
+    }else{
+      await saveMosque(m,[targetPeriod],true);
+      message('تم حفظ فترة الحلقة وموقع المسجد وإعداد بصمة فترة «'+targetPeriod+'».');
+    }
     b.closest('dialog').close();Q('.sl-live [data-action="load"]')?.click();
   }catch(err){alert(err.message)}};
  }catch(e){message(e.message,true)}
@@ -287,7 +343,7 @@ window.SanabilExamEnhanceForm=enhanceExamForm;
 function enhance(){
  const root=Q('.sl-live');if(!root)return;
  const fp=root.querySelector('[data-action="fingerprint-settings"]');
- if(fp&&!fp.dataset.v13){const clone=fp.cloneNode(true);clone.dataset.v13='1';clone.textContent='إعدادات بصمة الفترة';fp.replaceWith(clone);clone.onclick=()=>openFingerprint(false);const s=document.createElement('button');s.type='button';s.className='button button-soft';s.textContent='ضوابط جلسة الحصيلة';s.dataset.v13Session='1';s.onclick=openSessionRules;clone.after(s);const c=s.cloneNode(true);c.textContent='إعداد بصمة المجمع';c.onclick=()=>openFingerprint(true);s.after(c)}
+ if(fp&&!fp.dataset.v13){const clone=fp.cloneNode(true);clone.dataset.v13='1';clone.textContent='إعدادات بصمة الفترة';fp.replaceWith(clone);clone.onclick=()=>openFingerprint(false);const s=document.createElement('button');s.type='button';s.className='button button-soft';s.textContent='ضوابط جلسة الحصيلة';s.dataset.v13Session='1';s.onclick=openSessionRules;clone.after(s);const c=s.cloneNode(true);c.textContent='إعداد بصمة المجمع';c.onclick=()=>openFingerprint(true);s.after(c);const bulk=c.cloneNode(true);bulk.textContent='إعدادات حلقات متعددة';bulk.onclick=openCircleBulkDetails;c.after(bulk)}
  const users=root.querySelector('[data-action="users"]');if(users&&!root.querySelector('[data-v13-backup]')){const b=document.createElement('button');b.type='button';b.className='button button-soft';b.textContent='النسخ الاحتياطي';b.dataset.v13Backup='1';b.onclick=openBackups;users.parentElement.appendChild(b)}
  QA('.sl-live form').forEach(f=>{if(f.querySelector('[name="type"]')&&f.querySelector('[name="syllabus"]')&&f.closest('.sl-live')?.querySelector('.sl-requests'))enhanceExamForm(f).catch(()=>{})});
  const oq=(()=>{try{return JSON.parse(localStorage.getItem('sanabil_offline_outcomes_v1')||'[]')}catch{return[]}})();if(oq.length&&!root.querySelector('[data-v13-offline]')){const p=document.createElement('p');p.className='sl-message';p.dataset.v13Offline='1';p.textContent='يوجد '+oq.length+' حفظ محلي بانتظار المزامنة التلقائية عند عودة الاتصال.';root.prepend(p)}
