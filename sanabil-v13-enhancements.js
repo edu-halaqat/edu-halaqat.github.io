@@ -22,16 +22,109 @@ async function circleContext(){
  const m=await result(sb().from('mosques').select('*').eq('id',c.mosque_id).single());
  return {c,m};
 }
+
+/* Reusable scoped selection: no global checkbox may select outside this complex. */
+const circleSelectorHtml=(circles,currentId,caption='الحلقات المستهدفة')=>
+ '<fieldset class="sl-v13-circle-picker"><legend>'+esc(caption)+'</legend>'+
+ '<p class="sl-help">حدّد حلقات المجمع التي سيُطبّق عليها الإعداد نفسه. لن تتأثر الحلقات غير المحددة.</p>'+
+ '<div class="sl-toolbar"><button type="button" class="button button-soft" data-circle-all>تحديد جميع الحلقات</button>'+
+ '<button type="button" class="button button-soft" data-circle-none>إلغاء التحديد</button>'+
+ '<span role="status" data-circle-count></span></div>'+
+ '<div class="sl-v13-circle-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;max-height:225px;overflow:auto;padding:8px">'+
+ circles.map(c=>'<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" data-circle-choice="'+esc(c.id)+'"'+(c.id===currentId?' checked':'')+'> '+esc(c.name)+' <small>('+esc(c.session_period||'بدون فترة')+')</small></label>').join('')+
+ '</div></fieldset>';
+const bindCircleSelector=(root,allowed)=>{
+ const allowedIds=new Set(allowed.map(c=>c.id)),boxes=[...root.querySelectorAll('[data-circle-choice]')];
+ const refresh=()=>{const count=boxes.filter(x=>x.checked).length,el=root.querySelector('[data-circle-count]');if(el)el.textContent='المحدد: '+count+' من '+boxes.length};
+ root.querySelector('[data-circle-all]')?.addEventListener('click',()=>{boxes.forEach(x=>x.checked=true);refresh()});
+ root.querySelector('[data-circle-none]')?.addEventListener('click',()=>{boxes.forEach(x=>x.checked=false);refresh()});
+ boxes.forEach(x=>x.addEventListener('change',refresh));refresh();
+ return ()=>boxes.filter(x=>x.checked&&allowedIds.has(x.dataset.circleChoice)).map(x=>x.dataset.circleChoice);
+};
+const circlesInComplex=async c=>result(sb().from('circles')
+ .select('id,name,org_id,complex_id,session_period,mosque_id,circle_type,assignment_note')
+ .eq('org_id',c.org_id).eq('complex_id',c.complex_id).eq('active',true).order('name'));
+
 async function openSessionRules(){
  try{
   const {c}=await circleContext();
-  const rule=await result(sb().from('circle_session_rules').select('*').eq('circle_id',c.id).maybeSingle())||{weekdays:[0,1,2,3,4],start_time:'15:00',end_time:'23:30',allow_outside_hours:false,allow_previous_day_edit:false,previous_edit_days:1};
-  const b=modal('ضوابط جلسة الحصيلة — '+c.name);
-  b.innerHTML='<form><div class="sl-v13-notice"><b>وقت فتح موحّد لجميع الحلقات</b><br>تفتح جلسة الحلقة للمعلم قبل صلاة العصر بنحو 30 دقيقة، سواء كانت الحلقة في فترة العصر أو المغرب أو غيرهما، وتبقى متاحة حتى 11:30م. ويظل للمشرف والمدير حق الفتح عند الحاجة.</div><div class="form-grid two"><label>عدد الأيام السابقة المسموح بتحريرها<input type="number" name="days" min="1" max="60" value="'+esc(rule.previous_edit_days||1)+'"></label><label>السماح خارج الوقت الموحد<input type="checkbox" name="outside" '+(rule.allow_outside_hours?'checked':'')+'></label><label>السماح بتحرير يوم سابق<input type="checkbox" name="previous" '+(rule.allow_previous_day_edit?'checked':'')+'></label></div>'+weekdays(rule.weekdays,'sr')+'<button class="button button-primary" type="submit">حفظ الضوابط</button></form>';
-  const form=b.querySelector('form');
-  form.onsubmit=async e=>{e.preventDefault();try{const days=checkedDays(form,'sr');if(!days.length)throw Error('اختر يوم دوام واحدًا على الأقل.');await result(sb().from('circle_session_rules').upsert({circle_id:c.id,org_id:c.org_id,complex_id:c.complex_id,weekdays:days,start_time:'15:00',end_time:'23:30',allow_outside_hours:form.outside.checked,allow_previous_day_edit:form.previous.checked,previous_edit_days:Number(form.days.value||1),updated_at:new Date().toISOString()}).select('circle_id').single());try{const cache=JSON.parse(localStorage.getItem('sanabil_session_rules_v1')||'{}');delete cache[c.id];localStorage.setItem('sanabil_session_rules_v1',JSON.stringify(cache))}catch{}b.closest('dialog').close();message('تم حفظ ضوابط جلسة الحصيلة. وقت الفتح موحّد لجميع الحلقات قبل العصر بنحو 30 دقيقة.')}catch(err){alert(err.message)}};
+  const [circles,stored]=await Promise.all([
+   circlesInComplex(c),
+   result(sb().from('circle_session_rules').select('*').eq('circle_id',c.id).maybeSingle())
+  ]);
+  const rule=stored||{weekdays:[0,1,2,3,4],allow_outside_hours:false,allow_previous_day_edit:false,previous_edit_days:1};
+  const b=modal('ضوابط جلسة الحصيلة — إعداد جماعي');
+  b.innerHTML='<form>'+circleSelectorHtml(circles,c.id)+
+    '<div class="sl-v13-notice"><b>أوقات الجلسة موحدة</b><p>يحفظ التوقيت الموحد من 15:00 إلى 23:30 كما في إعدادات المنصة الحالية. يمكن اختيار الحلقات وتطبيق باقي الضوابط عليها دفعة واحدة.</p></div>'+
+    '<div class="form-grid two"><label>عدد الأيام السابقة المسموح بتحريرها<input type="number" name="days" min="1" max="60" required value="'+esc(rule.previous_edit_days||1)+'"></label>'+
+    '<label>السماح خارج الوقت الموحد<input type="checkbox" name="outside" '+(rule.allow_outside_hours?'checked':'')+'></label>'+
+    '<label>السماح بتحرير يوم سابق<input type="checkbox" name="previous" '+(rule.allow_previous_day_edit?'checked':'')+'></label></div>'+
+    weekdays(rule.weekdays,'sr')+
+    '<p class="sl-help" data-bulk-preview role="status">سيتم تعديل الحلقات المحددة فقط.</p>'+
+    '<button class="button button-primary" type="submit">تطبيق الضوابط على الحلقات المحددة</button></form>';
+  const form=b.querySelector('form'),selected=bindCircleSelector(form,circles),save=form.querySelector('button[type="submit"]');
+  form.onsubmit=async e=>{
+   e.preventDefault();if(save.disabled)return;
+   try{
+    const ids=selected(),days=checkedDays(form,'sr'),num=Number(form.elements.days.value);
+    if(!ids.length)throw Error('حدد حلقة واحدة على الأقل.');
+    if(!days.length)throw Error('اختر يوم دوام واحدًا على الأقل.');
+    if(!Number.isInteger(num)||num<1||num>60)throw Error('عدد الأيام السابقة من 1 إلى 60.');
+    if(!confirm('تطبيق الضوابط نفسها على '+ids.length+' حلقة؟ ستُستبدل ضوابط الجلسات الحالية للحلقات المحددة فقط.'))return;
+    save.disabled=true;
+    form.querySelector('[data-bulk-preview]').textContent='جارٍ حفظ ضوابط '+ids.length+' حلقة…';
+    const resultBulk=await rpc('apply_circle_settings_bulk',{
+      p_circle_ids:ids,p_kind:'session_rules',
+      p_values:{weekdays:days,allow_outside_hours:form.elements.outside.checked,
+       allow_previous_day_edit:form.elements.previous.checked,previous_edit_days:num}
+    });
+    if(!resultBulk?.ok||resultBulk.updated!==ids.length)throw Error('لم يؤكد الخادم حفظ جميع الحلقات.');
+    try{const cache=JSON.parse(localStorage.getItem('sanabil_session_rules_v1')||'{}');ids.forEach(id=>delete cache[id]);localStorage.setItem('sanabil_session_rules_v1',JSON.stringify(cache))}catch{}
+    b.closest('dialog').close();
+    message('تم حفظ ضوابط جلسة الحصيلة في '+ids.length+' حلقة، ولم تُعدل الحلقات الأخرى.');
+   }catch(err){form.querySelector('[data-bulk-preview]').textContent=err.message;alert(err.message)}
+   finally{save.disabled=false}
+  };
  }catch(e){message(e.message,true)}
 }
+/* Bulk editing of fields that really belong to the circle, not its mosque. */
+async function openCircleBulkDetails(){
+ try{
+  const {c}=await circleContext(),circles=await circlesInComplex(c);
+  const b=modal('تعديل إعدادات عدة حلقات');
+  const kinds=['حلقة حفظ','حلقات التلقين','حلقة إجازة','حلقة تصحيح التلاوة فقط'];
+  const periods=['الفجر','الظهر','العصر','المغرب','العشاء','وقت مرن (عن بعد)'];
+  b.innerHTML='<form>'+circleSelectorHtml(circles,c.id)+
+    '<p class="sl-help">اختر الحقول التي تريد تغييرها. الحقول غير المحددة تبقى كما هي لكل حلقة. لا يتم نقل الطلاب ولا تغيير معلميهم أو حصائلهم.</p>'+
+    '<div class="form-grid two"><label><input type="checkbox" name="editType"> تغيير نوع الحلقة</label>'+
+    '<label>النوع الجديد<select name="circleType">'+kinds.map(k=>opt(k,k,c.circle_type)).join('')+'</select></label>'+
+    '<label><input type="checkbox" name="editPeriod"> تغيير الفترة</label>'+
+    '<label>الفترة الجديدة<select name="sessionPeriod">'+periods.map(p=>opt(p,p,c.session_period)).join('')+'</select></label>'+
+    '<label><input type="checkbox" name="editNote"> تغيير ملاحظة الإسناد</label>'+
+    '<label>ملاحظة الإسناد<input type="text" name="assignmentNote" maxlength="1200" value="'+esc(c.assignment_note||'')+'"></label></div>'+
+    '<p role="status" data-bulk-preview></p>'+
+    '<button type="submit" class="button button-primary">حفظ الإعدادات في الحلقات المحددة</button></form>';
+  const form=b.querySelector('form'),selected=bindCircleSelector(form,circles),save=form.querySelector('[type="submit"]');
+  form.onsubmit=async e=>{
+   e.preventDefault();if(save.disabled)return;
+   try{
+    const ids=selected(),values={};
+    if(!ids.length)throw Error('حدد حلقة واحدة على الأقل.');
+    if(form.elements.editType.checked)values.circle_type=form.elements.circleType.value;
+    if(form.elements.editPeriod.checked)values.session_period=form.elements.sessionPeriod.value;
+    if(form.elements.editNote.checked)values.assignment_note=form.elements.assignmentNote.value;
+    if(!Object.keys(values).length)throw Error('اختر نوعًا أو فترة أو ملاحظة لتطبيقها.');
+    if(!confirm('تطبيق '+Object.keys(values).length+' إعداد/إعدادات على '+ids.length+' حلقة؟'))return;
+    save.disabled=true;form.querySelector('[data-bulk-preview]').textContent='جارٍ الحفظ…';
+    const res=await rpc('apply_circle_settings_bulk',{p_circle_ids:ids,p_kind:'circle_details',p_values:values});
+    if(!res?.ok||res.updated!==ids.length)throw Error('لم يؤكد الخادم حفظ جميع الحلقات.');
+    b.closest('dialog').close();message('تم تحديث إعدادات '+ids.length+' حلقة.');Q('.sl-live [data-action="load"]')?.click();
+   }catch(err){form.querySelector('[data-bulk-preview]').textContent=err.message;alert(err.message)}
+   finally{save.disabled=false}
+  };
+ }catch(e){message(e.message,true)}
+}
+window.SanabilCircleBulkSettings={open:openCircleBulkDetails};
 async function openFingerprint(complexMode){
  try{
   const {c,m}=await circleContext(),period=String(c.session_period||'غير محدد'),windows=Array.isArray(m.attendance_windows)?m.attendance_windows:[],cfg=windows.find(x=>x?.kind==='config'&&String(x.period||'')===period)||{},def=defaultsForPeriod(period);
