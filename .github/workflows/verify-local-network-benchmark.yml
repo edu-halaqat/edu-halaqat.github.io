@@ -1,0 +1,36 @@
+name: Verify Saudi browser benchmark
+on:
+  pull_request:
+    paths:
+      - network-benchmark.html
+      - .github/workflows/verify-local-network-benchmark.yml
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate self-contained benchmark
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('network-benchmark.html').read_text(encoding='utf8')
+          scripts=re.findall(r'<script>(.*?)</script>',html,re.S)
+          assert len(scripts)==1, 'Exactly one inline script required'
+          Path('/tmp/sanabil-sa-benchmark.js').write_text(scripts[0],encoding='utf8')
+          resources=re.findall(r"\['[^']+','(/[^']+)','[^']+'\]",scripts[0])
+          assert len(resources)==12, f'Expected 12 resources: {len(resources)}'
+          for resource in resources:
+              if resource!='/':
+                  assert Path(resource.lstrip('/')).is_file(), f'Missing asset: {resource}'
+          assert 'for(var i=0;i<50;i++)' in scripts[0]
+          assert "credentials:'omit'" in scripts[0]
+          assert "cache:'no-store'" in scripts[0]
+          assert 'supabase.co' not in html.lower()
+          assert 'noindex,nofollow' in html
+          print('PASS: 600 local browser requests, 12 valid resources, no Supabase writes')
+          PY
+          node --check /tmp/sanabil-sa-benchmark.js
