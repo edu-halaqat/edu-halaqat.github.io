@@ -163,10 +163,13 @@ jobs:
                   assert 'sanabil-performance-deep.js' in html
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
+                  assert 'sanabil-v13-enhancements.js?v=9' in html
+                  assert 'apply_circle_settings_bulk' in read('/sanabil-v13-enhancements.js?v=9').decode()
+                  assert 'apply_fingerprint_period_bulk' in read('/sanabil-v13-enhancements.js?v=9').decode()
                   assert 'data-real-results' in js
                   assert 'data-outcome-float-nav' in js
-                  assert 'sanabil-registry-management.js?v=20261019-v2' in html
-                  assert 'لا يمكن تفعيل سجل معلم بلا حساب رسمي' in read('/sanabil-registry-management.js?v=20261019-v2').decode()
+                  assert 'sanabil-registry-management.js?v=20261021-v3' in html
+                  assert 'لا يمكن تفعيل سجل معلم بلا حساب رسمي' in read('/sanabil-registry-management.js?v=20261021-v3').decode()
                   assert 'sanabil-voice.js' in html
                   assert 'sanabil-updater.js' in html
                   assert 'sanabil-update-prompt-v3' in read('/sanabil-updater.js').decode()
