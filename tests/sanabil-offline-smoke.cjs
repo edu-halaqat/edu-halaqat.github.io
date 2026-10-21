@@ -106,6 +106,17 @@ const api=window.SanabilOffline;
  await api.flush(async(name,args)=>{endpoints.push(name);return name==='submit_offline_attendance_claim'?{status:'pending_review'}:acceptBatch(name,args)},{batch:true});
  assert.deepEqual(endpoints,['apply_offline_operations_batch','submit_offline_attendance_claim','apply_offline_operations_batch']);
  assert.equal(await api.count(),0);
+ // Production-sized one-operation transactions preserve order and await each acknowledgement.
+ const one=[];for(let i=0;i<3;i++)one.push(await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'one-'+i}]},'one'));
+ const seq=[];
+ await api.flush(async(name,args)=>{
+  assert.equal(name,'apply_offline_operations_batch');
+  assert.equal(args.p_operations.length,1,'production flush must use one operation per transaction');
+  seq.push(args.p_operations[0].id);
+  return {results:[{id:args.p_operations[0].id,ok:true,result:{ok:true}}]};
+ },{batch:true,maxBatchSize:1});
+ assert.deepEqual(seq,one.map(o=>o.operationId),'single-operation batches must preserve edit order');
+ assert.equal(await api.count(),0);
  console.log('PASS: concurrent fresh reads, user isolation, bounded batches, partial failures, lost responses, acknowledgement validation, ordered fingerprint boundary');
  console.log('PASS: durable queue, retries, user isolation, snapshot, whitelisting, attendance pending-review');
 })().catch(e=>{console.error(e);process.exitCode=1});
