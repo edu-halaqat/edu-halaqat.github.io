@@ -1,120 +1,229 @@
-/* Sanabil scoped administrative staff accounts: staff onboarding and admin policy. 2026-10-21 */
+/* Sanabil unified users management: scoped roles, per-complex switches and one-time WhatsApp invitation. */
 (()=>{'use strict';
 if(window.SanabilComplexStaff)return;
-const ID='sanabil-complex-staff-dialog';
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const sb=()=>{if(!window.supabaseClient)throw Error('اتصال المنصة غير جاهز.');return window.supabaseClient};
-const check=async(action,payload={})=>{
- const {data,error}=await sb().functions.invoke('sanabil-user-admin',{body:{action,...payload}});
+const ID='sanabil-users-unified-dialog',LABELS={teacher:'معلم',staff:'إداري مجمع',examiner:'مختبر',supervisor:'مشرف مجمع',manager:'مدير مؤسسة',admin:'مدير النظام'};
+const SAFE_ROLES=['teacher','staff','examiner'],ALL_ROLES=[...SAFE_ROLES,'supervisor','manager','admin'];
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sdk=()=>{if(!window.supabaseClient)throw Error('لم يجهز الاتصال بالخادم.');return window.supabaseClient};
+async function api(action,data={}){
+ const {data:reply,error}=await sdk().functions.invoke('sanabil-user-admin',{body:{action,...data}});
  if(error){
-   let explanation=data?.error||error.message;
-   try{const details=await error.context?.json?.();explanation=details?.error||details?.message||explanation}catch{}
-   throw Error(explanation||'تعذر الاتصال بخدمة الحسابات.');
+  let note=reply?.error||error.message;
+  try{const info=await error.context?.json?.();note=info?.error||info?.message||note}catch{}
+  throw Error(note||'فشل الاتصال بالخادم.');
  }
- if(data?.error)throw Error(data.error);
- return data;
-};
-let dlg=null,busy=false,cache=null;
-function styles(){
- if(document.getElementById('sanabil-complex-staff-style'))return;
- const css=document.createElement('style');css.id='sanabil-complex-staff-style';
- css.textContent='#'+ID+'{border:0;border-radius:18px;padding:0;width:min(900px,96vw);max-height:94dvh;overflow:hidden;direction:rtl;background:#fff;color:#153b35;box-shadow:0 22px 70px #0007}#'+ID+'::backdrop{background:#051a18bb}#'+ID+' .scs-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;background:#e9f3ef;border-bottom:1px solid #cbded6}#'+ID+' .scs-head h2{margin:0;font-size:1.2rem}#'+ID+' .scs-body{max-height:calc(94dvh - 78px);overflow-y:auto;padding:18px}#'+ID+' button{font:inherit;cursor:pointer;border:1px solid #b8d0ca;border-radius:10px;background:#eaf6f2;color:#005e50;padding:9px 12px}#'+ID+' button.scs-primary{background:#006b55;color:white;border-color:#006b55;font-weight:700}#'+ID+' button:disabled{cursor:wait;opacity:.6}#'+ID+' .scs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#'+ID+' .scs-grid label{font-weight:600;display:block}#'+ID+' input:not([type="checkbox"]),#'+ID+' select{box-sizing:border-box;width:100%;border-radius:9px;padding:10px;margin-top:5px;background:inherit;color:inherit;border:1px solid #b9d0c9}#'+ID+' .scs-policy{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #dae7e3}#'+ID+' .scs-policy label{display:flex;align-items:center;gap:8px;cursor:pointer}#'+ID+' .scs-policy input{width:21px;height:21px;accent-color:#006b55}#'+ID+' .scs-note{background:#f2f7f5;border-radius:10px;padding:10px}#'+ID+' .scs-list{display:grid;gap:7px}#'+ID+' .scs-item{padding:12px;border:1px solid #d5e4de;border-radius:12px}#'+ID+' .scs-status{min-height:1.3em;font-weight:600}#'+ID+' h3{font-size:1.03rem;margin:18px 0 10px}@media(max-width:620px){#'+ID+' .scs-grid{grid-template-columns:1fr}#'+ID+' .scs-body{padding:12px}}:root[data-sanabil-theme="dark"] #'+ID+'{background:#132b28;color:#eef7f2}:root[data-sanabil-theme="dark"] #'+ID+' .scs-head{background:#1a3833}:root[data-sanabil-theme="dark"] #'+ID+' .scs-note{background:#203c35}:root[data-sanabil-theme="dark"] #'+ID+' .scs-item,:root[data-sanabil-theme="dark"] #'+ID+' .scs-policy{border-color:#345950}:root[data-sanabil-theme="dark"] #'+ID+' button{background:#25483e;color:#f0faf4}';
- document.head.appendChild(css);
+ if(reply?.error)throw Error(reply.error);
+ return reply;
 }
-const getStatus=()=>dlg?.querySelector('.scs-status');
-const message=(msg,error=false)=>{
- const el=getStatus();if(!el)return;el.textContent=msg;el.style.color=error?'#b83d48':'#00836b';
-};
-function buildShell(){
- styles();const d=document.createElement('dialog');d.id=ID;
- d.innerHTML='<header class="scs-head"><h2>إدارة الطاقم الإداري وصلاحية إضافته</h2><button type="button" data-close>إغلاق</button></header><div class="scs-body"><p class="scs-status" role="status" aria-live="polite">جارٍ تحميل الصلاحيات…</p><div class="scs-content"></div></div>';
- document.body.appendChild(d);dlg=d;
- d.querySelector('[data-close]').onclick=()=>d.close();
- d.addEventListener('close',()=>{d.remove();if(dlg===d)dlg=null},{once:true});
- d.showModal();return d;
+let dialog=null,scopes=null,page=0,complexFilter='',busy=false,latestCredentials=null;
+function css(){
+ if(document.getElementById('sanabil-users-unified-style'))return;
+ const st=document.createElement('style');st.id='sanabil-users-unified-style';
+ st.textContent='#'+ID+'{direction:rtl;padding:0;border:0;width:min(980px,96vw);max-height:95dvh;overflow:hidden;border-radius:18px;background:#fff;color:#163a34;box-shadow:0 20px 80px #0007}#'+ID+'::backdrop{background:#091c19b9}#'+ID+' .sum-head{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 18px;background:#edf5f1;border-bottom:1px solid #d1e1d8}#'+ID+' h2{font-size:1.2rem;margin:0}#'+ID+' h3{font-size:1.04rem;margin:17px 0 9px}#'+ID+' .sum-body{padding:14px 18px;max-height:calc(95dvh - 65px);overflow:auto}#'+ID+' button{font:inherit;cursor:pointer;border:1px solid #bfd3cd;background:#eef7f3;color:#005f53;border-radius:9px;padding:9px 12px}#'+ID+' button.sum-primary{background:#00705b;border-color:#00705b;color:#fff;font-weight:700}#'+ID+' button:disabled{opacity:.6;cursor:wait}#'+ID+' label{display:block;font-weight:600}#'+ID+' input:not([type="checkbox"]),#'+ID+' select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #bdd3cc;border-radius:8px;padding:10px;margin-top:5px;background:inherit;color:inherit}#'+ID+' .sum-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#'+ID+' .sum-note{background:#f0f7f4;border-radius:10px;padding:10px;margin:10px 0}#'+ID+' .sum-policy{display:grid;grid-template-columns:minmax(110px,1fr) repeat(3,minmax(80px,.5fr));align-items:center;gap:10px;padding:10px;border-bottom:1px solid #dbe8e1}#'+ID+' .sum-policy label{display:flex;align-items:center;gap:6px;font-size:.9rem}#'+ID+' .sum-policy input{width:20px;height:20px;accent-color:#00705b}#'+ID+' .sum-credential{border:2px solid #439e83;padding:13px;border-radius:14px;margin:14px 0}#'+ID+' .sum-credential pre{white-space:pre-wrap;word-break:break-word;direction:rtl;font:inherit;background:#eef7f3;padding:10px;border-radius:8px}#'+ID+' .sum-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}#'+ID+' .sum-list{display:grid;gap:8px;margin:12px 0}#'+ID+' .sum-item{border:1px solid #d6e5dd;border-radius:11px;padding:12px}#'+ID+' .sum-top{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}#'+ID+' .sum-item small{display:block;margin-top:5px;opacity:.83}#'+ID+' .sum-filter{display:flex;gap:10px;align-items:end;flex-wrap:wrap}#'+ID+' .sum-filter label{min-width:170px;flex:1}#'+ID+' .sum-status{min-height:20px}#'+ID+' .sum-edit{padding:10px 0;margin-top:9px}#'+ID+' .sum-muted{opacity:.78}@media(max-width:650px){#'+ID+' .sum-body{padding:11px}#'+ID+' .sum-fields{grid-template-columns:1fr}#'+ID+' .sum-policy{grid-template-columns:1fr 1fr}#'+ID+' .sum-policy strong{grid-column:span 2}}:root[data-sanabil-theme="dark"] #'+ID+'{background:#142d28;color:#eef8f2}:root[data-sanabil-theme="dark"] #'+ID+' .sum-head{background:#203c35}:root[data-sanabil-theme="dark"] #'+ID+' .sum-note,:root[data-sanabil-theme="dark"] #'+ID+' .sum-credential pre{background:#24453b;color:#f5f8f4}:root[data-sanabil-theme="dark"] #'+ID+' .sum-item,:root[data-sanabil-theme="dark"] #'+ID+' .sum-policy{border-color:#426257}';
+ document.head.appendChild(st);
 }
-function render(scopes,staff){
- if(!dlg)return;
- const content=dlg.querySelector('.scs-content'),admin=scopes.is_admin===true;
- const complexes=scopes.complexes||[],allowed=complexes.filter(c=>admin||c.allow_staff_creation);
- const policy=admin?
-  '<h3>صلاحية مشرف المجمع في إنشاء الإداريين</h3><p class="scs-note">التحكم مستقل لكل مجمع، ولا يؤثر تعطيله في حسابات المعلمين أو الحسابات الإدارية الموجودة.</p>'+
-  complexes.map(c=>'<div class="scs-policy"><strong>'+esc(c.name)+'</strong><label><input type="checkbox" data-policy="'+esc(c.id)+'" '+(c.allow_staff_creation?'checked':'')+'>السماح بإضافة الإداريين</label></div>').join(''):
-  '<p class="scs-note">يسمح مدير النظام أو يمنع إنشاء حسابات الإداريين لكل مجمع. كل حساب جديد يبقى مرتبطًا بالمجمع المختار دون صلاحية مدير النظام أو مدير المؤسسة.</p>';
- const create=allowed.length?'<h3>إضافة إداري للمجمع</h3><form id="scs-create"><div class="scs-grid">'+
-  '<label>المجمع<select name="complex_id" required>'+allowed.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label>'+
-  '<label>المسمى الوظيفي<input name="job_title" placeholder="مثال: مسؤول شؤون الطلاب" maxlength="100" required value="إداري مجمع"></label>'+
-  '<label>اسم الإداري الكامل<input name="display_name" maxlength="150" required autocomplete="name"></label>'+
+function status(msg,isError=false){
+ const area=dialog?.querySelector('[data-status]');if(!area)return;
+ area.textContent=msg;area.style.color=isError?'#c43c4c':'#00705b';
+}
+function selectedComplex(){return scopes?.complexes?.find(c=>c.id===dialog?.querySelector('[name="complex_id"]')?.value)}
+function availableRoles(complex){
+ if(scopes?.is_admin)return ALL_ROLES;
+ if(!complex)return [];
+ return SAFE_ROLES.filter(role=>complex.roles?.[role]===true);
+}
+function createForm(){
+ const root=dialog.querySelector('[data-create]'),complexes=scopes.complexes||[];
+ if(!complexes.length){root.textContent='لا يوجد مجمع نشط ضمن نطاق هذا الحساب.';return}
+ const options=complexes.map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+ root.innerHTML='<h3>إضافة مستخدم جديد</h3><form data-new-user>'+
+  '<div class="sum-fields">'+
+  '<label>المجمع<select name="complex_id" required>'+options+'</select></label>'+
+  '<label>دور المستخدم<select name="role" required></select></label>'+
+  '<label data-circle-label hidden>الحلقة (للمعلم)<select name="circle_id"></select></label>'+
+  '<label data-title-label hidden>المسمى الوظيفي<input name="job_title" value="إداري مجمع" maxlength="100"></label>'+
+  '<label>الاسم الكامل<input name="display_name" maxlength="150" autocomplete="off" required></label>'+
   '<label>البريد الإلكتروني<input name="email" type="email" autocomplete="off" required></label>'+
-  '<label>رقم الجوال (اختياري)<input name="phone" type="tel" maxlength="30"></label>'+
-  '<label>كلمة مرور مؤقتة (10 أحرف فأكثر)<input name="password" type="password" minlength="10" autocomplete="new-password" required></label></div>'+
-  '<p class="scs-note">ينشأ الحساب بدور «إداري مجمع» المقيد بمجمع واحد. لا تمنح هذه العملية صلاحيات مدير النظام أو تعديل بيانات المجمعات الأخرى.</p>'+
-  '<button class="scs-primary" type="submit">إنشاء حساب الإداري</button></form>':
-  '<p class="scs-note">إنشاء حسابات الإداريين غير مفعّل لأي مجمع ضمن صلاحياتك. يمكن لمدير النظام تمكينه من لوحة الإعدادات.</p>';
- const list='<h3>الإداريون المسجلون</h3><div class="scs-list">'+
-  ((staff?.length)?staff.map(u=>'<div class="scs-item"><b>'+esc(u.display_name)+'</b> — '+esc(u.job_title)+
-   '<div>'+esc(u.email)+' · '+esc(u.complex_name)+' · '+(u.active?'نشط':'غير نشط')+'</div></div>').join(''):'<p>لا توجد حسابات طاقم إداري مسجلة حتى الآن.</p>')+'</div>';
- content.innerHTML=policy+create+list;
- content.querySelectorAll('[data-policy]').forEach(box=>{
-  box.onchange=async()=>{
-   if(busy){box.checked=!box.checked;return}
-   const id=box.dataset.policy,allow=box.checked,c=complexes.find(x=>x.id===id);
-   if(!confirm((allow?'تمكين':'تعطيل')+' إضافة الإداريين لمجمع «'+c.name+'»؟')){box.checked=!allow;return}
-   busy=true;box.disabled=true;
-   try{await check('staff_policy_update',{complex_id:id,allow_staff_creation:allow});
-    message('حُفظت صلاحية «'+c.name+'» بنجاح.');
-    await reload(false);
-   }catch(e){box.checked=!allow;message(e.message,true)}finally{busy=false;box.disabled=false}
-  };
- });
- const f=content.querySelector('#scs-create');
- if(f)f.onsubmit=async e=>{
+  '<label>الجوال المرتبط بواتساب (اختياري)<input name="phone" type="tel" maxlength="30" autocomplete="off" placeholder="05xxxxxxxx"></label>'+
+  '</div><p class="sum-note">سيُنشئ النظام كلمة مرور أولية قوية تلقائيًا ويعرضها مرة واحدة بعد الحفظ. يمكنك مشاركة بيانات الدخول عبر واتساب.</p>'+
+  '<button type="submit" class="sum-primary">إنشاء الحساب وحفظه</button></form>';
+ const form=root.querySelector('form'),complexSelect=form.elements.complex_id,roleSelect=form.elements.role;
+ const refreshRoles=()=>{
+  const c=selectedComplex(),prev=roleSelect.value,allowed=availableRoles(c);
+  roleSelect.innerHTML=allowed.map(role=>'<option value="'+role+'">'+LABELS[role]+'</option>').join('');
+  if(allowed.includes(prev))roleSelect.value=prev;
+  const canCreate=allowed.length>0;
+  form.querySelector('button[type="submit"]').disabled=!canCreate;
+  refreshDetails();
+ };
+ const refreshDetails=()=>{
+  const role=roleSelect.value,complex=complexSelect.value;
+  form.querySelector('[data-circle-label]').hidden=role!=='teacher';
+  form.querySelector('[data-title-label]').hidden=role!=='staff';
+  const circle= form.elements.circle_id,ls=(scopes.circles||[]).filter(x=>x.complex_id===complex);
+  circle.innerHTML='<option value="">اختر الحلقة</option>'+ls.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join('');
+  circle.required=role==='teacher';
+  if(ls.length===1)circle.value=ls[0].id;
+  complexSelect.disabled=['admin','manager'].includes(role); // Admin-only organization-level roles.
+ };
+ complexSelect.onchange=refreshRoles;roleSelect.onchange=()=>{
+  // Reenable complex before changing roles to avoid a disabled input hiding the selected scope.
+  complexSelect.disabled=false;refreshDetails();
+ };
+ refreshRoles();
+ form.onsubmit=async e=>{
   e.preventDefault();if(busy)return;
-  if(!f.reportValidity())return;
-  const payload=Object.fromEntries(new FormData(f).entries());
-  if(payload.password.length<10){message('كلمة المرور يجب ألا تقل عن 10 أحرف.',true);return}
-  busy=true;const btn=f.querySelector('[type="submit"]');btn.disabled=true;
+  if(!form.reportValidity())return;
+  const c=selectedComplex(),role=roleSelect.value;
+  if(!availableRoles(c).includes(role)){status('هذا الدور غير مفعّل للمجمع المختار.',true);return}
+  if(role==='teacher'&&!form.elements.circle_id.value){status('اختر حلقة المعلم.',true);return}
+  const args={display_name:form.elements.display_name.value.trim(),email:form.elements.email.value.trim(),
+   phone:form.elements.phone.value.trim(),role,complex_id:c?.id||null,
+   circle_id:form.elements.circle_id.value||null,job_title:form.elements.job_title.value.trim()};
+  busy=true;const btn=form.querySelector('[type="submit"]');btn.disabled=true;
   try{
-   await check('create_staff',{...payload,role:'staff'});
-   f.reset();message('تم إنشاء حساب الإداري وربطه بالمجمع. سلّمه معلومات الدخول بطريقة آمنة.');
-   await reload(false);
-  }catch(err){message(err.message,true)}finally{busy=false;btn.disabled=false}
+   const created=await api('users_create',args);
+   const share={...args,password:created.password};
+   latestCredentials=share;
+   showCredentials(share);
+   status('تم إنشاء حساب '+share.display_name+' بنجاح. شارك بيانات الدخول مع صاحب الحساب.');
+   form.elements.display_name.value='';form.elements.email.value='';form.elements.phone.value='';
+   await refreshList(false);
+  }catch(err){status(err.message,true)}
+  finally{busy=false;btn.disabled=false}
  };
 }
-async function reload(loading=true){
- if(!dlg)return;
- if(loading)message('جارٍ قراءة الصلاحيات والحسابات…');
+function accessText(c){
+ return 'السلام عليكم ورحمة الله وبركاته\nتم إنشاء حساب دخولك في منصة سنابل الوحي.\n'+
+ 'الاسم: '+c.display_name+'\nالدور: '+(LABELS[c.role]||c.role)+'\n'+
+ 'رابط الدخول: https://snabilalwahy.com\nالبريد الإلكتروني: '+c.email+
+ '\nكلمة المرور الأولية: '+c.password+
+ '\nيرجى تغيير كلمة المرور فور أول دخول، وعدم مشاركة بيانات الحساب.';
+}
+function whatsappNumber(raw){
+ let phone=String(raw||'').replace(/\D/g,'');
+ if(phone.startsWith('00'))phone=phone.slice(2);
+ if(phone.startsWith('05')&&phone.length===10)phone='966'+phone.slice(1);
+ else if(phone.startsWith('5')&&phone.length===9)phone='966'+phone;
+ return phone.length>=9&&phone.length<=15?phone:'';
+}
+function showCredentials(data){
+ const target=dialog?.querySelector('[data-credentials]');if(!target)return;
+ const text=accessText(data);
+ target.innerHTML='<section class="sum-credential"><strong>تم إنشاء الحساب — بيانات الدخول الأولية</strong>'+
+  '<p class="sum-muted">تظهر كلمة المرور الآن فقط. تحقق من رقم المستلم قبل الإرسال عبر واتساب.</p>'+
+  '<pre></pre><div class="sum-actions"><button type="button" data-copy>نسخ بيانات الدخول</button>'+
+  '<button class="sum-primary" type="button" data-whatsapp>مشاركة عبر واتساب</button>'+
+  '<button type="button" data-hide>إخفاء بيانات الدخول</button></div></section>';
+ target.querySelector('pre').textContent=text;
+ target.querySelector('[data-copy]').onclick=async()=>{
+  try{
+   await navigator.clipboard.writeText(text);status('نُسخت بيانات الدخول.');
+  }catch{status('تعذر النسخ التلقائي. حدّد النص وانسخه يدويًا.',true)}
+ };
+ target.querySelector('[data-whatsapp]').onclick=()=>{
+  const phone=whatsappNumber(data.phone),url='https://wa.me/'+phone+'?text='+encodeURIComponent(text);
+  window.open(url,'_blank','noopener,noreferrer');
+ };
+ target.querySelector('[data-hide]').onclick=()=>{target.replaceChildren();latestCredentials=null;status('أُخفيت كلمة المرور الأولية.');};
+}
+function policyPanel(){
+ const root=dialog.querySelector('[data-policy]'),isAdmin=!!scopes.is_admin;
+ if(!isAdmin){root.replaceChildren();return}
+ root.innerHTML='<h3>صلاحيات إنشاء المستخدمين بحسب المجمع</h3>'+
+  '<p class="sum-note">يمكن تحديد دور مختلف لكل مجمع. لا يستطيع المشرف إنشاء مشرفين أو مديرين. هذا التحكم لا يوقف الحسابات الموجودة.</p>'+
+  '<div class="sum-policy sum-muted"><strong>المجمع</strong><b>إضافة معلم</b><b>إضافة إداري</b><b>إضافة مختبر</b></div>'+
+  scopes.complexes.map(c=>'<div class="sum-policy"><strong>'+escapeHtml(c.name)+'</strong>'+
+    SAFE_ROLES.map(role=>'<label><input type="checkbox" data-policy="'+role+'" data-complex="'+escapeHtml(c.id)+'"'+
+    (c.roles?.[role]?' checked':'')+'> '+LABELS[role]+'</label>').join('')+'</div>').join('');
+ root.querySelectorAll('[data-policy]').forEach(input=>input.onchange=async()=>{
+  const role=input.dataset.policy,complexId=input.dataset.complex,enabled=input.checked;
+  if(busy){input.checked=!enabled;return}
+  busy=true;input.disabled=true;
+  try{
+   await api('users_policy_update',{complex_id:complexId,role,enabled});
+   const c=scopes.complexes.find(c=>c.id===complexId);if(c)c.roles[role]=enabled;
+   status('تم حفظ صلاحية '+LABELS[role]+' في المجمع.');
+  }catch(e){input.checked=!enabled;status(e.message,true)}
+  finally{busy=false;input.disabled=false}
+ });
+}
+async function refreshList(showStatus=true){
+ if(!dialog)return;
+ const root=dialog.querySelector('[data-users]');if(showStatus)status('جارٍ تحميل حسابات المستخدمين…');
  try{
-  const [scopes,staff]=await Promise.all([check('staff_scopes'),check('staff_list')]);
-  if(!dlg)return;cache=scopes;render(scopes,staff.staff||[]);
-  if(loading)message('الصلاحيات محدثة من الخادم.');
- }catch(e){message(e.message,true)}
+  const res=await api('users_list',{page,complex_id:complexFilter});
+  if(!dialog)return;
+  const users=res.users||[],total=res.total||0,lastPage=Math.max(0,Math.ceil(total/(res.page_size||60))-1);
+  if(page>lastPage){page=lastPage;await refreshList(false);return}
+  root.innerHTML='<h3>المستخدمون المسجلون</h3><div class="sum-filter">'+
+   '<label>عرض مجمع<select data-list-complex><option value="">كل المجمعات المصرح بها</option>'+
+    (scopes.complexes||[]).map(c=>'<option value="'+escapeHtml(c.id)+'"'+(complexFilter===c.id?' selected':'')+'>'+escapeHtml(c.name)+'</option>').join('')+
+   '</select></label><button type="button" data-refresh>تحديث القائمة</button></div>'+
+   '<div class="sum-list">'+(users.length?users.map((u,i)=>
+    '<section class="sum-item"><div class="sum-top"><div><strong>'+escapeHtml(u.display_name)+'</strong>'+
+    '<small>'+escapeHtml(u.email||'')+' · '+escapeHtml(LABELS[u.role]||u.role)+
+    ' · '+escapeHtml(scopes.complexes.find(c=>c.id===u.complex_id)?.name||'مستوى المؤسسة')+
+    ' · '+(u.active?'نشط':'غير نشط')+'</small></div>'+
+    '<button type="button" data-edit="'+i+'">تعديل الحساب</button></div><div class="sum-edit" data-edit-box="'+i+'" hidden></div></section>'
+   ).join(''):'<p>لا توجد حسابات في هذا النطاق.</p>')+'</div>'+
+   '<div class="sum-actions"><button data-prev '+(page===0?'disabled':'')+'>السابق</button>'+
+   '<span>الصفحة '+(page+1)+' من '+(lastPage+1)+' — إجمالي '+total+'</span>'+
+   '<button data-next '+(page>=lastPage?'disabled':'')+'>التالي</button></div>';
+  root.querySelector('[data-list-complex]').onchange=e=>{complexFilter=e.target.value;page=0;refreshList()};
+  root.querySelector('[data-refresh]').onclick=()=>refreshList();
+  root.querySelector('[data-prev]').onclick=()=>{page=Math.max(0,page-1);refreshList()};
+  root.querySelector('[data-next]').onclick=()=>{page+=1;refreshList()};
+  root.querySelectorAll('[data-edit]').forEach(button=>{
+    button.onclick=()=>{
+      const index=Number(button.dataset.edit),u=users[index],box=root.querySelector('[data-edit-box="'+index+'"]');
+      if(!u||!box)return;
+      if(!box.hidden){box.hidden=true;return}
+      box.hidden=false;
+      box.innerHTML='<form><div class="sum-fields"><label>الاسم<input name="display_name" maxlength="150" required value="'+escapeHtml(u.display_name)+'"></label>'+
+       '<label>رقم الجوال<input name="phone" type="tel" maxlength="30" value="'+escapeHtml(u.phone||'')+'"></label></div>'+
+       '<label><input name="active" type="checkbox" '+(u.active?'checked':'')+'> الحساب نشط</label>'+
+       '<div class="sum-actions"><button class="sum-primary" type="submit">حفظ التعديل</button>'+
+       '<button type="button" data-cancel>إلغاء</button></div></form>';
+      const f=box.querySelector('form');box.querySelector('[data-cancel]').onclick=()=>box.hidden=true;
+      f.onsubmit=async e=>{
+       e.preventDefault();if(busy)return;
+       busy=true;const save=f.querySelector('[type="submit"]');save.disabled=true;
+       try{await api('users_update',{user_id:u.id,display_name:f.elements.display_name.value,
+        phone:f.elements.phone.value,active:f.elements.active.checked});
+        status('حُفظت بيانات المستخدم.');await refreshList(false);
+       }catch(err){status(err.message,true)}finally{busy=false;save.disabled=false}
+      };
+    };
+  });
+  if(showStatus)status('عُرضت الحسابات ضمن صلاحياتك.');
+ }catch(err){status(err.message,true);root.textContent='تعذر تحميل قائمة المستخدمين.'}
 }
 async function open(){
- if(dlg?.open){dlg.focus();return}
- buildShell();await reload();
+ if(dialog?.open){dialog.focus();return}
+ css();const d=document.createElement('dialog');dialog=d;page=0;complexFilter='';latestCredentials=null;
+ d.id=ID;
+ d.innerHTML='<header class="sum-head"><h2>إدارة المستخدمين</h2><button type="button" data-close>إغلاق</button></header>'+
+  '<div class="sum-body"><p role="status" aria-live="polite" class="sum-status" data-status>جارٍ تحميل الصلاحيات…</p>'+
+  '<div data-credentials></div><section data-create></section><section data-policy></section><section data-users></section></div>';
+ document.body.appendChild(d);d.querySelector('[data-close]').onclick=()=>d.close();
+ d.addEventListener('close',()=>{d.remove();if(dialog===d)dialog=null;scopes=null;latestCredentials=null},{once:true});
+ d.showModal();
+ try{scopes=await api('users_scopes');if(dialog!==d)return;createForm();policyPanel();await refreshList(false);status('يمكنك إضافة مستخدم وإدارة حساباته من هذه النافذة.')}
+ catch(err){status(err.message,true)}
 }
 async function decorateDashboard(root,access){
  if(!root||!access?.active)return;
- const roles=access.roles||[],admin=roles.includes('admin'),supervisor=roles.includes('supervisor');
- if(roles.includes('staff')&&!admin&&!supervisor){
-  const m=access.memberships?.filter(x=>x.role==='staff')||[];
-  const p=document.createElement('p');p.className='scs-note';p.textContent='حساب إداري مرتبط بالمجمع. الصلاحيات التشغيلية تحددها إدارة المنصة؛ لا يتضمن هذا الدور تعديل بيانات مجمعات أخرى.';
-  root.querySelector('.sl-dashboard-actions')?.after(p);
- }
- if(!admin&&!supervisor)return;
+ if(!(access.roles||[]).some(r=>r==='admin'||r==='supervisor'))return;
  const toolbar=root.querySelector('.sl-dashboard-actions');
  if(!toolbar||toolbar.querySelector('[data-scs-dashboard]'))return;
- const btn=document.createElement('button');btn.type='button';btn.className='button button-soft';
- btn.dataset.scsDashboard='1';btn.textContent=admin?'🔐 صلاحيات إضافة إداريي المجمعات':'👥 إضافة وإدارة الطاقم الإداري';
- btn.onclick=()=>open();toolbar.append(btn);
+ const button=document.createElement('button');button.type='button';button.className='button button-soft';
+ button.dataset.scsDashboard='1';button.textContent='👥 إدارة المستخدمين';
+ button.onclick=open;toolbar.append(button);
 }
 function decorateSettings(root){
- if(!root||root.querySelector('[data-scs-settings]'))return;
- const toolbar=root.querySelector('.sl-toolbar');if(!toolbar)return;
- const btn=document.createElement('button');btn.className='button button-soft';btn.type='button';
- btn.dataset.scsSettings='1';btn.textContent='🔐 صلاحيات إنشاء حسابات الإداريين';
- btn.onclick=()=>open();toolbar.append(btn);
+ const toolbar=root?.querySelector('.sl-toolbar');if(!toolbar||toolbar.querySelector('[data-scs-settings]'))return;
+ // The settings page already has its original "إدارة المستخدمين" entry; do not add a second page/button.
 }
 window.SanabilComplexStaff={open,decorateDashboard,decorateSettings};
 })();
