@@ -15,7 +15,7 @@ assert.ok(html.includes('data-circle-choice="b"'));
 assert.ok(html.includes('تحديد جميع الحلقات')&&html.includes('إلغاء التحديد'));
 assert.ok(!ctx.html([{id:'x',name:'<img src=x>',session_period:''}],'x').includes('<img src=x>'));
 const boxes=circles.map(c=>({dataset:{circleChoice:c.id},checked:c.id==='a',addEventListener(type,fn){this.onchange=fn}}));
-const counter={textContent:''},all={},none={};
+const counter={textContent:''},all={addEventListener(_,fn){this.click=fn}},none={addEventListener(_,fn){this.click=fn}};
 const root={querySelectorAll(q){assert.equal(q,'[data-circle-choice]');return boxes},
  querySelector(q){return q==='[data-circle-all]'?all:q==='[data-circle-none]'?none:q==='[data-circle-count]'?counter:null}};
 const selected=ctx.bind(root,circles);
