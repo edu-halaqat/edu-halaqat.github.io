@@ -21,7 +21,7 @@ jobs:
           scripts=re.findall(r'<script>(.*?)</script>',html,re.S)
           assert len(scripts)==1, 'Exactly one inline script required'
           Path('/tmp/sanabil-sa-benchmark.js').write_text(scripts[0],encoding='utf8')
-          resources=re.findall(r"\['[^']+','(/[^']+)','[^']+'\]",scripts[0])
+          resources=re.findall(r"\['[^']+','(/[^']*)','[^']+'\]",scripts[0])
           assert len(resources)==12, f'Expected 12 resources: {len(resources)}'
           for resource in resources:
               if resource!='/':
