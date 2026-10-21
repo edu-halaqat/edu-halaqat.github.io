@@ -1,0 +1,34 @@
+name: Verify Saudi pair and staging load tools
+on:
+  pull_request:
+    paths:
+      - 'tests/sa-origin-paired.py'
+      - 'tests/sanabil-staging-load.js'
+      - 'docs/sa-performance-verification.md'
+      - '.github/workflows/verify-sa-performance-tools.yml'
+permissions:
+  contents: read
+jobs:
+  tooling-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate scripts and prevent production load
+        shell: bash
+        run: |
+          python3 -m py_compile tests/sa-origin-paired.py
+          node --check tests/sanabil-staging-load.js
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('tests/sanabil-staging-load.js').read_text()
+          assert "url.includes(prodRef)" in s
+          assert "I_CONFIRM_STAGING_ONLY !== 'yes'" in s
+          assert 'http.get(' in s and 'http.post(' not in s
+          p=Path('tests/sa-origin-paired.py').read_text()
+          assert 'curl' in p and '--resolve' in p and 'TRIALS_PER_ROUTE' in p
+          print('PASS: read-only comparison, production URL guard and staging-only GET workload')
+          PY
+      - name: Local smoke requests (24 public GETs; not Saudi)
+        env:
+          SANABIL_PAIRS_PER_ROUTE: 1
+        run: python3 -u tests/sa-origin-paired.py
