@@ -90,11 +90,20 @@ async function openSessionRules(){
 /* Bulk editing of fields that really belong to the circle, not its mosque. */
 async function openCircleBulkDetails(){
  try{
-  const {c}=await circleContext(),circles=await circlesInComplex(c);
+  // Attendance provides a selected circle; the registry/roster page does not.
+  // In that case, resolve a scoped active circle without a mosque dependency.
+  const a=await access(),chosen=Q('.sl-live [name="circle"]')?.value||'';
+  const permitted=await result(sb().from('circles').select('id,name,org_id,complex_id,mosque_id,session_period,circle_type,assignment_note')
+    .eq('org_id',a.org_id).eq('active',true).order('name'));
+  const c=permitted.find(x=>x.id===chosen)||permitted[0];
+  if(!c)throw Error('لا توجد حلقات نشطة ضمن صلاحيتك.');
+  let circles=permitted.filter(x=>x.complex_id===c.complex_id);
   const b=modal('تعديل إعدادات عدة حلقات');
   const kinds=['حلقة حفظ','حلقات التلقين','حلقة إجازة','حلقة تصحيح التلاوة فقط'];
   const periods=['الفجر','الظهر','العصر','المغرب','العشاء','وقت مرن (عن بعد)'];
-  b.innerHTML='<form>'+circleSelectorHtml(circles,c.id)+
+  b.innerHTML='<form>'+((new Set(permitted.map(x=>x.complex_id))).size>1?
+    '<label>المجمع<select name="bulkComplex">'+[...new Set(permitted.map(x=>x.complex_id))].map(id=>opt(id,id===c.complex_id?(a.roles?.includes('admin')?'المجمع الحالي':permitted.find(x=>x.complex_id===id)?.name||id):permitted.find(x=>x.complex_id===id)?.name||id,c.complex_id)).join('')+'</select></label>':'')+
+    '<div data-bulk-targets>'+circleSelectorHtml(circles,c.id)+'</div>'+
     '<p class="sl-help">اختر الحقول التي تريد تغييرها. الحقول غير المحددة تبقى كما هي لكل حلقة. لا يتم نقل الطلاب ولا تغيير معلميهم أو حصائلهم.</p>'+
     '<div class="form-grid two"><label><input type="checkbox" name="editType"> تغيير نوع الحلقة</label>'+
     '<label>النوع الجديد<select name="circleType">'+kinds.map(k=>opt(k,k,c.circle_type)).join('')+'</select></label>'+
@@ -104,7 +113,15 @@ async function openCircleBulkDetails(){
     '<label>ملاحظة الإسناد<input type="text" name="assignmentNote" maxlength="1200" value="'+esc(c.assignment_note||'')+'"></label></div>'+
     '<p role="status" data-bulk-preview></p>'+
     '<button type="submit" class="button button-primary">حفظ الإعدادات في الحلقات المحددة</button></form>';
-  const form=b.querySelector('form'),selected=bindCircleSelector(form,circles),save=form.querySelector('[type="submit"]');
+  const form=b.querySelector('form'),save=form.querySelector('[type="submit"]');
+  let selected=bindCircleSelector(form,circles);
+  const choice=form.elements.bulkComplex;
+  if(choice)choice.onchange=()=>{
+   circles=permitted.filter(x=>x.complex_id===choice.value);
+   const host=form.querySelector('[data-bulk-targets]');
+   host.innerHTML=circleSelectorHtml(circles,'');
+   selected=bindCircleSelector(host,circles);
+  };
   form.onsubmit=async e=>{
    e.preventDefault();if(save.disabled)return;
    try{
