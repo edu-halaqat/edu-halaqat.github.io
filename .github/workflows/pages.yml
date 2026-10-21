@@ -168,7 +168,7 @@ jobs:
                   assert 'sanabil-performance-deep.js' in html
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
-                  v13_match=re.search(r'src="(/sanabil-v13-enhancements\\.js[^"]*)"',html)
+                  v13_match=re.search(r'src="(/sanabil-v13-enhancements\.js[^"]*)"',html)
                   assert v13_match, 'Enhanced interface JS missing from deployed HTML'
                   v13_code=read(v13_match.group(1)).decode()
                   assert 'apply_circle_settings_bulk' in v13_code
