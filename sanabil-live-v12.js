@@ -2586,7 +2586,7 @@ async function plansPage(root){
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
- <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div>`;
+ <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div><section class="sl-plan-archives"></section>`;
 
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
@@ -2626,6 +2626,36 @@ async function plansPage(root){
  const load=async()=>{
    const plans=(await rows('plans','*',{status:'active'})).filter(p=>quranStudentIds.has(p.student_id));plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
    root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
+   // Archived plans remain discoverable; no data restoration or deletion is implicit.
+   const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
+     .filter(p=>quranStudentIds.has(p.student_id));
+   const archives=root.querySelector('.sl-plan-archives');
+   if(archives){
+     archives.innerHTML='<details><summary>الخطط السابقة والمؤرشفة ('+archived.length+')</summary>'+
+       '<p class="sl-help">هذه الخطط لم تعد نشطة؛ لا تُحذف سجلاتها ولا يُعاد تنفيذها. اختر خطة لاستعراض أيامها السابقة.</p>'+
+       archived.map((p,j)=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0">'+
+        '<b>'+esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)+'</b>'+
+        '<span>'+esc(typeName[p.type]||p.type)+'</span>'+
+        '<span>بدأت '+esc(p.start_date||'—')+'</span>'+
+        '<button type="button" class="button button-soft" data-archived-plan="'+j+'">عرض السجل</button></div>').join('')+
+       '</details>';
+     archives.querySelectorAll('[data-archived-plan]').forEach(btn=>{
+       btn.onclick=async()=>{
+         const plan=archived[Number(btn.dataset.archivedPlan)],d=modal('سجل الخطة السابقة');
+         d.innerHTML='<p class="sl-help">جارٍ تحميل أيام الخطة القديمة دون تغيير السجلات...</p>';
+         try{
+           const list=await result(sb().from('plan_days').select('date_key,display_label,status,rating,target_from,target_to').eq('plan_id',plan.id)
+             .order('date_key',{ascending:true}).limit(80));
+           const statusAr={completed:'منجز',carried:'مُرحّل',planned:'مخطط',not_done:'لم يُنجز'};
+           d.innerHTML='<p>الطالب: '+esc(students.find(s=>s.id===plan.student_id)?.full_name||plan.student_id)+
+             ' · تاريخ البدء: '+esc(plan.start_date)+'</p>'+
+             '<p class="sl-help">عرض أول '+list.length+' يومًا محفوظًا من سجل الخطة. لا يمكن تعديل الخطة المؤرشفة من هذه النافذة.</p>'+
+             table(['التاريخ','المقرر','الحالة'],list.map(x=>[esc(x.date_key),
+              esc(x.display_label||qref(x.target_from)+' ← '+qref(x.target_to)),esc(statusAr[x.status]||x.status)]));
+         }catch(err){d.textContent='تعذر قراءة الأرشيف: '+err.message}
+       };
+     });
+   }
    plans.forEach((p,i)=>{
      action(root,root.querySelector(`[data-action="remove-${i}"]`),async()=>{
        const label=p.name||typeName[p.type]||'الخطة';
