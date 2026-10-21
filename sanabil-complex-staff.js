@@ -101,7 +101,8 @@ function accessText(c){
  '\nيرجى تغيير كلمة المرور فور أول دخول، وعدم مشاركة بيانات الحساب.';
 }
 function whatsappNumber(raw){
- let phone=String(raw||'').replace(/\D/g,'');
+ let phone=String(raw||'').replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-0x660))
+  .replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-0x6f0)).replace(/\D/g,'');
  if(phone.startsWith('00'))phone=phone.slice(2);
  if(phone.startsWith('05')&&phone.length===10)phone='966'+phone.slice(1);
  else if(phone.startsWith('5')&&phone.length===9)phone='966'+phone;
