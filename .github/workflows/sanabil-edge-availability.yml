@@ -1,0 +1,38 @@
+name: Sanabil edge availability watch
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sanabil-edge-availability.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Cloudflare routes and essential PWA assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() {
+            label="$1"; url="$2"
+            headers="$(mktemp)"
+            body="$(mktemp)"
+            if ! curl -fsSL --proto '=https' --connect-timeout 10 --max-time 30               -D "$headers" -o "$body" "$url"; then
+              echo "::error::Edge check failed for $label"
+              grep -iE '^(HTTP/|server:|cf-ray:|cf-mitigated:|content-type:)' "$headers" | tr -d '\r' || true
+              exit 1
+            fi
+            test -s "$body" || { echo "::error::Empty response for $label"; exit 1; }
+            echo "PASS $label"
+            rm -f "$headers" "$body"
+          }
+          check home https://snabilalwahy.com/
+          check welcome https://snabilalwahy.com/welcome.html
+          check manifest https://snabilalwahy.com/manifest.webmanifest
+          check service_worker https://snabilalwahy.com/sanabil-offline-sw.js
+          check live_app https://snabilalwahy.com/sanabil-live-v12.js
+          echo "PASS Cloudflare edge serves the core Sanabil site and PWA resources"
