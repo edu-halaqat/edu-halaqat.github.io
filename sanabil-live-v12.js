@@ -21,7 +21,7 @@ const rpc=(name,args)=>{
  return rpcDirect(name,args);
 };
 const OFFLINE_KEY='sanabil_offline_outcomes_v1',SESSION_RULE_KEY='sanabil_session_rules_v1';
-const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261019-exam3',{scope:'/'}).catch(()=>null):Promise.resolve(null));
+const offlineSw=()=>('serviceWorker'in navigator?navigator.serviceWorker.register('/sanabil-offline-sw.js?v=20261021-staff',{scope:'/'}).catch(()=>null):Promise.resolve(null));
 offlineSw();
 const networkFailure=e=>window.SanabilOffline?.networkError(e)??(!navigator.onLine);
 const queueOfflineRpc=async(name,args,label)=>{
