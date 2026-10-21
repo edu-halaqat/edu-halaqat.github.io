@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261021-v13.8.46';
+window.__SanabilLiveBuild='20261021-v13.8.47';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -958,10 +958,9 @@ function userWhatsAppDialog(u,password=''){
 }
 const userWhatsAppButton=i=>'<button type="button" class="button button-soft" data-action="user-wa-'+i+'" title="إرسال بيانات الدخول عبر واتساب" aria-label="إرسال بيانات الدخول عبر واتساب"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>';
 
-async function usersPanel(root){const [r,l]=await Promise.all([adminCall('list'),lookups()]);root.innerHTML=button('إضافة مستخدم','new')+table(['الاسم','البريد','الدور','حالة الدخول','الإجراءات'],r.users.map((u,i)=>[esc(u.display_name),esc(u.email),esc((u.memberships?.map(m=>roles[m.role]).filter(Boolean).join('، '))||roles[u.role]||'غير مسند'),esc(!u.active?'معطل':!u.email_confirmed?'بانتظار تأكيد البريد':!u.memberships?.some(m=>m.active)?'يحتاج إسناد صلاحية':'جاهز للدخول'),button('تعديل وإسناد',String(i))+(u.active?userWhatsAppButton(i):'')+(u.active&&!u.email_confirmed?button('تأكيد البريد','confirm-'+i):'')]));const edit=u=>{if(u?.memberships?.some(m=>m.role==='staff')){window.SanabilComplexStaff?.open?.();return;}const body=modal(u?'تعديل حساب وإسناد صلاحياته':'إنشاء حساب دخول');const m=u?.memberships?.[0]||{},multiple=(u?.memberships?.length||0)>1;body.innerHTML=`<form><div class="form-grid two">${field('الاسم الكامل','display_name','text',u?.display_name||'','required')}${field('رقم الجوال / واتساب','phone','tel',u?.phone||'','autocomplete="tel"')}${u?'':field('البريد الإلكتروني','email','email','','required')}${u?'':field('كلمة المرور المؤقتة','password','password','','required minlength="10" autocomplete="new-password"')}${select('الدور','role',Object.entries(roles).filter(([id])=>id!=='staff').map(([id,name])=>({id,name})),m.role||u?.role||'teacher')}${select('المجمع','complex_id',l.complexes,m.complex_id)}${select('الحلقة (للمعلم)','circle_id',l.circles,m.circle_id)}<label>نشط<input type="checkbox" name="active" ${u?.active===false?'':'checked'}></label></div><button type="submit" class="button button-primary">حفظ الحساب والصلاحيات</button><p>اختيار المجمع والحلقة يحدد البيانات التي يمكن للحساب الوصول إليها.</p></form>`;const f=body.querySelector('form');bindScope(f,l,m);const adapt=()=>{f.elements.role.disabled=multiple;f.elements.complex_id.disabled=multiple||['admin','manager'].includes(f.elements.role.value);f.elements.circle_id.disabled=multiple||!['teacher'].includes(f.elements.role.value)};f.elements.role.onchange=adapt;adapt();if(multiple)msg(body,'للحساب إسنادات متعددة؛ سيحافظ الحفظ عليها ويحدّث الاسم والحالة فقط.');submit(f,async()=>{const invitation=u?null:{display_name:val(f,'display_name'),email:val(f,'email'),phone:val(f,'phone'),active:f.elements.active.checked};let temporaryPassword=u?'':val(f,'password');await adminCall(u?'update':'create',{user_id:u?.id,preserve_memberships:multiple,phone:val(f,'phone'),display_name:val(f,'display_name'),email:u?undefined:val(f,'email'),password:u?undefined:val(f,'password'),role:val(f,'role'),complex_id:val(f,'complex_id'),circle_id:val(f,'circle_id'),active:f.elements.active.checked});lookupPromise=null;body.closest('dialog').close();await usersPanel(root);msg(root,'تم حفظ الحساب وصلاحياته.');if(invitation?.active){userWhatsAppDialog(invitation,temporaryPassword)}temporaryPassword='';})};action(root,root.querySelector('[data-action="new"]'),()=>edit(null));r.users.forEach((u,i)=>{action(root,root.querySelector(`[data-action="user-wa-${i}"]`),()=>userWhatsAppDialog(u));action(root,root.querySelector(`[data-action="${i}"]`),()=>edit(u));const cb=root.querySelector(`[data-action="confirm-${i}"]`);if(cb)action(root,cb,async()=>{if(!confirm('تأكيد البريد لهذا الحساب المصرّح له؟'))return;await adminCall('confirm_email',{user_id:u.id});await usersPanel(root)})})}
 async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','supervisor'].includes(r));
- root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إضافة معلم','add-teacher')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
 
  if(supervisorOperations){
@@ -970,49 +969,7 @@ async function studentsPage(root){
    await studentsPage(root);
    if(message)msg(root,message);
   };
-  action(root,root.querySelector('[data-action="add-teacher"]'),()=>{
-   const b=modal('إضافة معلم إلى المجمع');
-   b.innerHTML='<form><p class="sl-help">يمكن إضافة المعلم إلى السجل فقط، أو إنشاء حساب دخول له عند إدخال البريد وكلمة مرور مؤقتة. لا يُغيَّر معلم الحلقة الحالي تلقائيًا.</p><div class="form-grid two">'+
-    select('المجمع','complex_id',l.complexes)+select('الحلقة','circle_id',[])+
-    field('اسم المعلم الكامل','full_name','text','','required maxlength="150"')+
-    field('رقم الجوال','phone','tel','','autocomplete="tel"')+
-    field('البريد الإلكتروني لحساب الدخول (اختياري)','email','email','','autocomplete="email"')+
-    field('كلمة المرور المؤقتة (عند إنشاء حساب)','password','password','','minlength="10" autocomplete="new-password"')+
-    '</div><button type="submit" class="button button-primary">إضافة المعلم</button></form>';
-   const f=b.querySelector('form'),cx=f.elements.complex_id,ci=f.elements.circle_id;
-   if(l.complexes.length===1)cx.value=l.complexes[0].id;
-   const circles=()=>{
-    const scoped=l.circles.filter(c=>c.complex_id===cx.value);
-    ci.innerHTML='<option value="">اختر الحلقة</option>'+scoped.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+' — '+esc(c.session_period||'')+'</option>').join('');
-    if(scoped.length===1)ci.value=scoped[0].id;
-   };
-   cx.onchange=circles;circles();
-   submit(f,async()=>{
-    const complexId=cx.value,circleId=ci.value,name=val(f,'full_name').trim(),phone=val(f,'phone').trim();
-    const email=val(f,'email').trim().toLowerCase(),password=val(f,'password');
-    const circle=l.circles.find(c=>c.id===circleId&&c.complex_id===complexId);
-    if(!l.complexes.some(c=>c.id===complexId)||!circle)throw Error('اختر مجمعك وحلقة تابعة له.');
-    if(name.split(/\s+/).length<2)throw Error('اكتب اسم المعلم الكامل.');
-    if(phone&&!/^(?:05\d{8}|\+?9665\d{8}|\d{9,15})$/.test(phone.replace(/[\s()-]/g,'')))throw Error('رقم الجوال غير صحيح.');
-    if(!!email!==!!password)throw Error('لإنشاء حساب دخول أدخل البريد وكلمة المرور معًا، أو اتركهما فارغين لإضافة سجل فقط.');
-    if(email&&password.length<10)throw Error('كلمة المرور المؤقتة لا تقل عن 10 أحرف.');
-    const primary=teacherAssignmentInfo(l,circleId).primary;
-    if(primary&&!confirm('الحلقة مسندة حاليًا إلى «'+primary.full_name+'». سيُضاف المعلم الجديد دون إلغاء إسناد المعلم الحالي. متابعة؟'))return;
-    let notice='تمت إضافة المعلم إلى سجل المجمع.';
-    if(email){
-     const response=await adminCall('create_teacher',{display_name:name,phone,email,password,role:'teacher',complex_id:complexId,circle_id:circleId});
-     if(!response?.ok)throw Error('تعذر إنشاء حساب المعلم.');
-     notice=response.primary?'أُنشئ حساب المعلم وأُسند إلى الحلقة.':'أُنشئ حساب المعلم، ويمكن إسناده من زر إسناد حلقات للمعلم.';
-    }else{
-     const teacherId='teacher-'+crypto.randomUUID();
-     await result(sb().from('teachers').insert({id:teacherId,org_id:a.org_id,complex_id:complexId,circle_id:null,full_name:name,phone:phone||null,active:false}).select('id').single());
-     notice='أُنشئ سجل المعلم كمسودة غير مفعلة، دون إسناد. يجب إنشاء حساب مستخدم رسمي وربطه قبل تفعيل المعلم.';
-    }
-    b.closest('dialog').close();
-    await reloadDirectory(notice);
-    if(email)userWhatsAppDialog({display_name:name,email,phone,active:true},password);
-   });
-  });
+  action(root,root.querySelector('[data-action="manage-users"]'),()=>window.SanabilComplexStaff?.open?.());
   action(root,root.querySelector('[data-action="add-circle"]'),async()=>{
    const mosques=await result(sb().from('mosques').select('id,name,complex_id').eq('active',true).order('name'));
    const b=modal('إنشاء حلقة في المجمع');
@@ -3574,7 +3531,7 @@ async function dashboardDetails(root,a){
       ': '+(day[key]===null?'لا توجد سجلات':day[key]+'%')+
       ' · عدد السجلات: '+(key==='attendance'?day.attendanceCount:day.planCount);
  }));
-  if(isAdmin)action(root,root.querySelector('[data-action="users"]'),async()=>{const m=modal('الحسابات والصلاحيات');await usersPanel(m)});
+  if(isAdmin)action(root,root.querySelector('[data-action="users"]'),()=>window.SanabilComplexStaff?.open?.());
  if(canAnnounce)action(root,root.querySelector('[data-action="announce"]'),async()=>{
   const l=await lookups(),m=modal('إضافة إعلان أو مناسبة');
   m.innerHTML=`<form><div class="form-grid two">${field('العنوان','title','text','','required')}${select('المجمع (فارغ = كل المؤسسة)','complex_id',l.complexes)}${select('الحلقة (اختياري)','circle_id',l.circles)}${field('يبدأ في','starts_on','date',today(),'required')}${field('ينتهي في','ends_on','date','')}</div><label>نص الإعلان<textarea name="body" rows="5" required style="width:100%"></textarea></label><button class="button button-primary" type="submit">نشر الإعلان</button></form>`;
@@ -3717,7 +3674,7 @@ async function settingsPage(root){
   }catch(e){b.textContent='تعذر تجهيز الاختبار: '+e.message}
  });
 
- action(root,root.querySelector('[data-action="users"]'),async()=>{const b=modal('الحسابات والصلاحيات');await usersPanel(b)});
+ action(root,root.querySelector('[data-action="users"]'),()=>window.SanabilComplexStaff?.open?.());
  const bulkPanel=async()=>{
   const b=modal('الاستيراد والتصدير الجماعي عبر Excel');let parsed=null;
   b.innerHTML=`<p>قالب واحد متعدد الأوراق للمجمعات والمساجد والحلقات والمعلمين والطلاب. يتم التحقق أولًا ثم يحفظ الخادم الدفعة كاملة أو يلغيها كاملة عند وجود خطأ.</p><div class="sl-toolbar">${button('تحميل قالب فارغ','template')}${button('تصدير البيانات الحالية','export-master')}</div><label>اختر ملف Excel بعد تعبئته<input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div class="sl-import-preview"><p>لم يتم اختيار ملف بعد.</p></div><button type="button" class="button button-primary" data-action="import" disabled>استيراد البيانات المعاينة</button><p>ملاحظة: ورقة المعلمين تنشئ سجلات المعلمين التشغيلية؛ حسابات الدخول وكلمات المرور تبقى من «إدارة المستخدمين» حفاظًا على أمان الحسابات.</p>`;
