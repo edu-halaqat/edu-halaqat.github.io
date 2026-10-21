@@ -19,6 +19,183 @@ Deno.serve(async(req:Request)=>{
   const membership=ms?.find(m=>m.org_id===p?.org_id&&m.role==='admin');
   const b=await req.json();
 
+
+  // A single, scoped API for all user roles; passwords are created on the server.
+  if(['users_scopes','users_list','users_policy_update','users_create','users_update'].includes(b.action)){
+    if(!p?.active||!p.org_id)return reply({error:'حساب غير نشط.'},403);
+    const org=p.org_id;
+    const adminRole=ms?.some(m=>m.org_id===org&&m.role==='admin')===true;
+    const myComplexes=new Set((ms||[]).filter(m=>m.org_id===org&&m.role==='supervisor'&&m.complex_id&&!m.circle_id).map(m=>m.complex_id));
+    if(!adminRole&&!myComplexes.size)return reply({error:'إدارة المستخدمين متاحة لمدير النظام ومشرف المجمع فقط.'},403);
+    const {data:allComplexes,error:complexError}=await admin.from('complexes').select('id,name,org_id')
+       .eq('org_id',org).eq('active',true).order('name');
+    if(complexError)throw complexError;
+    const complexes=(allComplexes||[]).filter(c=>adminRole||myComplexes.has(c.id));
+    const ids=complexes.map(c=>c.id);
+    const {data:policyRows,error:policyError}=ids.length
+      ?await admin.from('complex_staff_creation_policy')
+       .select('complex_id,allow_supervisor_teacher_creation,allow_supervisor_staff_creation,allow_supervisor_examiner_creation')
+       .eq('org_id',org).in('complex_id',ids)
+      :{data:[],error:null};
+    if(policyError)throw policyError;
+    const policyMap=new Map((policyRows||[]).map(x=>[x.complex_id,x]));
+    const flags=id=>{
+      const x=policyMap.get(id)||{};
+      return {teacher:x.allow_supervisor_teacher_creation!==false,
+        staff:x.allow_supervisor_staff_creation!==false,
+        examiner:x.allow_supervisor_examiner_creation===true};
+    };
+    const allowedRole=(role,complexId)=>adminRole||
+      (myComplexes.has(complexId)&&['teacher','staff','examiner'].includes(role)&&flags(complexId)[role]===true);
+    if(b.action==='users_scopes'){
+      const {data:circles,error:ce}=ids.length
+        ?await admin.from('circles').select('id,name,complex_id').eq('org_id',org).eq('active',true).in('complex_id',ids)
+        :{data:[],error:null};
+      if(ce)throw ce;
+      return reply({is_admin:adminRole,
+        complexes:complexes.map(c=>({id:c.id,name:c.name,roles:flags(c.id)})),circles:circles||[]});
+    }
+    if(b.action==='users_policy_update'){
+      if(!adminRole)return reply({error:'تعديل منح الأدوار خاص بمدير النظام.'},403);
+      const c=complexes.find(x=>x.id===String(b.complex_id||''));
+      const role=String(b.role||''),enabled=b.enabled;
+      if(!c||!['teacher','staff','examiner'].includes(role)||typeof enabled!=='boolean')
+        throw Error('حدد المجمع والدور وحالة الصلاحية.');
+      const key={teacher:'allow_supervisor_teacher_creation',staff:'allow_supervisor_staff_creation',
+        examiner:'allow_supervisor_examiner_creation'}[role];
+      const write=await admin.from('complex_staff_creation_policy')
+        .upsert({complex_id:c.id,org_id:org,[key]:enabled,
+          updated_by:auth.user.id,updated_at:new Date().toISOString()},{onConflict:'complex_id'});
+      if(write.error)throw write.error;
+      const audit=await admin.from('audit_logs').insert({
+        org_id:org,action:'complex.user_creation_role.updated',actor_uid:auth.user.id,
+        entity_table:'complexes',entity_id:c.id,details:{role,enabled}});
+      if(audit.error)throw audit.error;
+      return reply({ok:true,complex_id:c.id,role,enabled});
+    }
+    if(b.action==='users_list'){
+      const complexFilter=String(b.complex_id||'');
+      if(complexFilter&&!ids.includes(complexFilter))return reply({error:'المجمع خارج نطاقك.'},403);
+      const page=Math.min(100000,Math.max(0,Math.floor(Number(b.page)||0))),size=60;
+      let q=admin.from('memberships').select('id,user_id,role,org_id,complex_id,circle_id,active',{count:'exact'})
+        .eq('org_id',org).order('id',{ascending:false}).range(page*size,page*size+size-1);
+      if(complexFilter)q=q.eq('complex_id',complexFilter);
+      else if(!adminRole)q=q.in('complex_id',ids);
+      if(!adminRole)q=q.in('role',['teacher','staff','examiner']);
+      const {data:members,count,error:listError}=await q;
+      if(listError)throw listError;
+      const userIds=[...new Set((members||[]).map(m=>m.user_id))];
+      if(!userIds.length)return reply({users:[],total:count||0,page,page_size:size});
+      const [pr,staffDirs]=await Promise.all([
+        admin.from('profiles').select('id,display_name,email,phone,active').eq('org_id',org).in('id',userIds),
+        admin.from('complex_staff_directory').select('user_id,job_title').eq('org_id',org).in('user_id',userIds)
+      ]);
+      if(pr.error||staffDirs.error)throw pr.error||staffDirs.error;
+      const byUser=new Map((pr.data||[]).map(u=>[u.id,u]));
+      const jobTitles=new Map((staffDirs.data||[]).map(u=>[u.user_id,u.job_title]));
+      return reply({users:(members||[]).flatMap(m=>{
+        const u=byUser.get(m.user_id);if(!u)return[];
+        return [{...u,role:m.role,complex_id:m.complex_id,circle_id:m.circle_id,
+          active:u.active&&m.active,membership_id:m.id,
+          job_title:jobTitles.get(u.id)||null}];
+      }),total:count||0,page,page_size:size});
+    }
+    if(b.action==='users_update'){
+      const uid=String(b.user_id||'');
+      if(uid===auth.user.id)return reply({error:'لا يمكن تغيير حسابك بهذه النافذة.'},403);
+      const {data:profile,error:pe}=await admin.from('profiles').select('id,org_id,display_name,active')
+        .eq('id',uid).maybeSingle();
+      if(pe||!profile||profile.org_id!==org)return reply({error:'الحساب خارج المؤسسة.'},403);
+      const {data:members,error:me}=await admin.from('memberships').select('role,org_id,complex_id,circle_id,active')
+        .eq('user_id',uid);
+      if(me)throw me;
+      if(!adminRole){
+        if((members||[]).length!==1||!['teacher','staff','examiner'].includes(members[0].role)
+          ||!myComplexes.has(members[0].complex_id)||members[0].org_id!==org)
+          return reply({error:'لا يسمح بتحرير حسابات الإدارة أو الحسابات المشتركة بين المجمعات.'},403);
+      }
+      const name=String(b.display_name||profile.display_name||'').trim();
+      const phone=String(b.phone||'').trim();
+      if(!name||name.length>150||phone.length>30)throw Error('تحقق من الاسم ورقم الجوال.');
+      const active=typeof b.active==='boolean'?b.active:profile.active;
+      const {error:ue}=await admin.from('profiles').update({display_name:name,phone:phone||null,active}).eq('id',uid);
+      if(ue)throw ue;
+      const {error:mue}=await admin.from('memberships').update({active}).eq('user_id',uid).eq('org_id',org);
+      if(mue)throw mue;
+      const {error:ta}=await admin.from('teachers').update({active,full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
+      if(ta)throw ta;
+      const {error:ea}=await admin.from('examiners').update({active,full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
+      if(ea)throw ea;
+      await admin.from('audit_logs').insert({org_id:org,action:'user.scoped_account.updated',actor_uid:auth.user.id,
+        entity_table:'profiles',entity_id:uid,details:{active,scope:adminRole?'system':members?.[0]?.complex_id}});
+      return reply({ok:true});
+    }
+    // users_create: generate a strong, one-time visible initial password; never store it in application tables.
+    const role=String(b.role||'');
+    if(!['teacher','staff','examiner','supervisor','manager','admin'].includes(role))
+      throw Error('اختر دورًا معتمدًا.');
+    if(!adminRole&&!['teacher','staff','examiner'].includes(role))
+      return reply({error:'لا يمكن لمشرف المجمع إنشاء أدوار الإدارة العليا.'},403);
+    const complex=String(b.complex_id||'');
+    const chosen=complexes.find(c=>c.id===complex);
+    if(['teacher','staff','examiner','supervisor'].includes(role)&&!chosen)
+      throw Error('اختر مجمعًا نشطًا ضمن نطاقك.');
+    if(!allowedRole(role,complex))
+      return reply({error:'مدير النظام لم يمنح مجمعك صلاحية إنشاء هذا الدور.'},403);
+    const circle=String(b.circle_id||'');
+    if(role==='teacher'){
+      const {data:c,error:circleError}=await admin.from('circles').select('id')
+        .eq('id',circle).eq('org_id',org).eq('complex_id',complex).eq('active',true).maybeSingle();
+      if(circleError||!c)throw Error('اختر حلقة نشطة تتبع المجمع نفسه.');
+    }
+    const name=String(b.display_name||'').trim(),phone=String(b.phone||'').trim();
+    const email=String(b.email||'').trim().toLowerCase(),title=String(b.job_title||'إداري مجمع').trim();
+    if(!name||name.length>150||!/^\S+@\S+\.\S+$/.test(email)||phone.length>30
+      ||title.length>100)throw Error('أكمل الاسم والبريد الإلكتروني وتحقق من المدخلات.');
+    const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);
+    const password=Array.from(bytes.slice(0,20),x=>alphabet[x%alphabet.length]).join('');
+    const created=await admin.auth.admin.createUser({
+      email,password,email_confirm:true,user_metadata:{display_name:name}
+    });
+    if(created.error||!created.data.user)throw created.error||Error('تعذر إنشاء الحساب.');
+    const uid=created.data.user.id;
+    try{
+      if(role==='teacher'){
+        const r=await admin.rpc('provision_complex_teacher',{
+          p_actor:auth.user.id,p_user:uid,p_org:org,p_complex:complex,p_circle:circle,p_name:name,p_phone:phone});
+        if(r.error)throw r.error;
+      }else if(role==='staff'){
+        const r=await admin.rpc('provision_complex_staff',{
+          p_actor:auth.user.id,p_user:uid,p_org:org,p_complex:complex,p_name:name,p_phone:phone,p_title:title});
+        if(r.error)throw r.error;
+      }else if(role==='examiner'){
+        const r=await admin.rpc('provision_complex_examiner',{
+          p_actor:auth.user.id,p_user:uid,p_org:org,p_complex:complex,p_name:name,p_phone:phone});
+        if(r.error)throw r.error;
+      }else{
+        if(!adminRole)throw Error('إنشاء حسابات الإدارة العليا خاص بمدير النظام.');
+        const userClient=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{
+          global:{headers:{Authorization:'Bearer '+token}},
+          auth:{persistSession:false,autoRefreshToken:false}});
+        const r=await userClient.rpc('set_user_access',{
+          p_user_id:uid,p_org_id:org,p_active:true,p_display_name:name,
+          p_memberships:[{role,orgId:org,complexId:role==='supervisor'?complex:null,circleId:null}]
+        });
+        if(r.error)throw r.error;
+        if(phone){
+          const w=await admin.from('profiles').update({phone}).eq('id',uid);
+          if(w.error)throw w.error;
+        }
+      }
+    }catch(e){
+      const cleanup=await admin.auth.admin.deleteUser(uid);
+      if(cleanup.error)console.error('Unified user rollback failed',uid);
+      throw e;
+    }
+    return reply({ok:true,user_id:uid,role,display_name:name,email,phone,password});
+  }
+
   // Dedicated complex-scoped administrative staff onboarding.
   // The administrator controls creation per complex. Supervisors cannot grant manager/admin roles.
   const isSystemAdmin=Boolean(p?.active&&ms?.some(m=>m.org_id===p.org_id&&m.role==='admin'));
@@ -120,6 +297,15 @@ Deno.serve(async(req:Request)=>{
    if(!p?.active||!org||!complex||!circle||!ms?.some(m=>m.org_id===org&&(m.role==='admin'||(m.role==='supervisor'&&m.complex_id===complex&&!m.circle_id))))
     return reply({error:'إضافة المعلمين متاحة داخل المجمع المسند إليك فقط.'},403);
    if(b.role&&b.role!=='teacher')return reply({error:'يمكن إنشاء حساب معلم فقط.'},403);
+   // Respect the same per-complex switch on older teacher-onboarding clients.
+   if(!ms?.some(m=>m.org_id===org&&m.role==='admin')){
+     const flag=await admin.from('complex_staff_creation_policy')
+       .select('allow_supervisor_teacher_creation').eq('org_id',org).eq('complex_id',complex).maybeSingle();
+     if(flag.error)throw flag.error;
+     if(flag.data?.allow_supervisor_teacher_creation===false)
+       return reply({error:'مدير النظام عطّل إنشاء حسابات المعلمين لهذا المجمع.'},403);
+   }
+
    const {data:c,error:ce}=await admin.from('circles').select('id').eq('id',circle).eq('org_id',org).eq('complex_id',complex).eq('active',true).maybeSingle();
    if(ce||!c)return reply({error:'اختر حلقة نشطة من المجمع نفسه.'},403);
    const email=String(b.email||'').trim().toLowerCase(),password=String(b.password||''),name=String(b.display_name||'').trim();
