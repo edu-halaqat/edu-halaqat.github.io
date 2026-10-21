@@ -2679,16 +2679,19 @@ async function plansPage(root){
             return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(dt);
           };
           const cardHtml=d=>{
+            const oldCrossing=p.type==='memorization'&&!d.specialHoliday&&
+              Number(d.target_from?.surahNo||0)!==Number(d.target_to?.surahNo||0);
             const scored=!!d.rating||Number(d.completed_amount||0)>0||d.status!=='planned';
             const historical=!!latestMarked&&String(d.date_key)<latestMarked;
-            const excluded= p.type==='recent_review'?'تتبع خطة الحفظ':scored?'تم اعتماد الحصيلة':
+            const excluded=oldCrossing?'يحتاج المقرر إلى إعادة توزيع قبل اعتماد حصيلته':p.type==='recent_review'?'تتبع خطة الحفظ':scored?'تم اعتماد الحصيلة':
               historical?'لا يمكن الاستثناء بعد رصد يوم لاحق':
               '<button type="button" class="button button-soft" data-action="x'+days.indexOf(d)+'">استثناء اليوم القادم</button>';
             return '<article class="sl-plan-day-card" style="border:1px solid #b5cfc6;border-radius:13px;padding:13px;margin:9px 0;max-width:100%;overflow-wrap:anywhere">'+
               '<div style="display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap">'+
               '<strong>'+esc(fmtDate(d.date_key))+'</strong>'+
               '<span style="padding:5px 9px;border:1px solid #9cbdb0;border-radius:999px">'+esc(statusText(d))+'</span></div>'+
-              '<p style="font-size:1.02rem;line-height:1.85;margin:10px 0">'+(d.specialHoliday?'إجازة تعليمية — لا يوجد مقرر':esc(labelFor(d)))+'</p>'+
+              '<p style="font-size:1.02rem;line-height:1.85;margin:10px 0">'+(d.specialHoliday?'إجازة تعليمية — لا يوجد مقرر':esc(labelFor(d)))+'</p>'+ 
+              (oldCrossing?'<p role="alert" style="color:#e4b15a;font-weight:700">تنبيه: هذا مقرر قديم يجمع بين سورتين؛ يلزم تصحيح توزيع الأيام المستقبلية.</p>':'')+
               (d.specialHoliday?'':('<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:.9rem;opacity:.92">'+
                 '<span><b>المطلوب:</b> '+esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit)+'</span>'+
                 '<span><b>المنجز:</b> '+esc(Number(d.completed_amount||0))+'</span>'+
