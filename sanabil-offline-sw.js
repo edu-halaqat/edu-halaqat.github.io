@@ -2,7 +2,7 @@
 /* Sanabil PWA shell. Never replay private POST requests from the service worker:
    auth tokens expire, 2xx alone does not guarantee domain-level acceptance,
    and only a signed-in foreground page may confirm cloud persistence. */
-const SHELL='sanabil-shell-20261021-v31-unified-users';
+const SHELL='sanabil-shell-20261021-v32-recovery';
 const NOOR_SOURCE='https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/noor-bayan-book';
 const NOOR_CACHE='sanabil-noor-bayan-v1',NOOR_KEY='/noor-bayan.pdf';
 const LEGACY_DB='sanabil-offline-v1',LEGACY_STORE='queue';
@@ -22,12 +22,21 @@ async function warmShell(){
    }
   }
  }catch{}
+ // Keep offline coverage, but never compete with the foreground page using
+ // 75 simultaneous fetches (especially costly on Android/mobile networks).
  paths=[...new Set(paths)].slice(0,75);
- await Promise.allSettled(paths.map(async path=>{
-  if(await cache.match(path))return;
-  const response=await fetch(path,{cache:'reload'});
-  if(response.ok&&response.type==='basic')await cache.put(path,response);
- }));
+ let next=0;
+ const warmWorker=async()=>{
+  while(next<paths.length){
+   const path=paths[next++];
+   try{
+    if(await cache.match(path))continue;
+    const response=await fetch(path,{cache:'reload'});
+    if(response.ok&&response.type==='basic')await cache.put(path,response);
+   }catch{/* A missing optional asset must never block PWA activation. */}
+  }
+ };
+ await Promise.all(Array.from({length:Math.min(4,paths.length)},()=>warmWorker()));
 }
 async function noorBook(){
  const cache=await caches.open(NOOR_CACHE);
