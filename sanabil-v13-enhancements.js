@@ -135,7 +135,7 @@ async function openCircleBulkDetails(){
     save.disabled=true;form.querySelector('[data-bulk-preview]').textContent='جارٍ الحفظ…';
     const res=await rpc('apply_circle_settings_bulk',{p_circle_ids:ids,p_kind:'circle_details',p_values:values});
     if(!res?.ok||res.updated!==ids.length)throw Error('لم يؤكد الخادم حفظ جميع الحلقات.');
-    b.closest('dialog').close();message('تم تحديث إعدادات '+ids.length+' حلقة.');Q('.sl-live [data-action="load"]')?.click();
+    b.closest('dialog').close();window.dispatchEvent(new Event('sanabil-circles-bulk-updated'));message('تم تحديث إعدادات '+ids.length+' حلقة.');Q('.sl-live [data-action="load"]')?.click();
    }catch(err){form.querySelector('[data-bulk-preview]').textContent=err.message;alert(err.message)}
    finally{save.disabled=false}
   };
