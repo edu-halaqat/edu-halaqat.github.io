@@ -960,8 +960,156 @@ const userWhatsAppButton=i=>'<button type="button" class="button button-soft" da
 
 async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','supervisor'].includes(r));
- root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ const rosterAccess=await rpc('list_teacher_student_roster_access',{}).catch(()=>[]);
+ const canRoster=supervisorOperations||rosterAccess.some(x=>x.enabled&&!x.mayManage);
+ root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${supervisorOperations?button('تفويض إدارة الطلاب','delegate-roster'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
+
+
+ if(supervisorOperations)action(root,root.querySelector('[data-action="delegate-roster"]'),()=>{
+   const d=modal('تفويض المعلم بإدارة طلاب حلقته');
+   const allowed=rosterAccess.filter(x=>x.mayManage);
+   d.innerHTML='<p class="sl-help">التفويض اختياري لكل حلقة. عند تفعيله يستطيع المعلم استيراد الطلاب وتحديث بياناتهم وإيقاف قيد الطالب دون حذف الحصائل والخطط والاختبارات. لا يشمل المعلمين أو الحلقات.</p>'+
+     (allowed.length?allowed.map((x,i)=>'<label style="display:flex;justify-content:space-between;gap:10px;margin:10px 0">'+
+       '<strong>'+esc(x.name)+'</strong><input type="checkbox" data-delegate-circle="'+i+'" '+(x.enabled?'checked':'')+'></label>').join(''):
+       '<p>أنشئ حلقة أو اختر مجمعًا تملك صلاحيته أولًا.</p>');
+   d.querySelectorAll('[data-delegate-circle]').forEach(input=>{
+     input.onchange=async()=>{
+       const circle=allowed[Number(input.dataset.delegateCircle)];
+       input.disabled=true;
+       try{await rpc('manage_teacher_student_import_permission',{p_circle_id:circle.circleId,p_enabled:input.checked});
+         circle.enabled=input.checked;msg(d,'تم حفظ تفويض المعلم للحلقة.')}
+       catch(e){input.checked=!input.checked;msg(d,e.message,true)}
+       finally{input.disabled=false}
+     };
+   });
+ });
+ if(canRoster)action(root,root.querySelector('[data-action="roster-excel"]'),async()=>{
+   const d=modal('استيراد وتصدير قاعدة الحلقات والطلاب');
+   const isManager=supervisorOperations;
+   const permitted=rosterAccess.filter(x=>isManager?x.mayManage:x.enabled&&!x.mayManage);
+   const complexOptions=isManager?l.complexes.map(c=>({id:c.id,name:c.name})):
+     l.complexes.filter(c=>permitted.some(x=>x.complexId===c.id)).map(c=>({id:c.id,name:c.name}));
+   d.innerHTML='<p class="sl-help">حمّل القالب ثم عبّئ الورقة المطلوبة وأعد رفع الملف. التحديث يطابق الرمز أو الهوية ويحافظ على التاريخ السابق، ولا يحذف غياب الصف من Excel أي طالب.</p>'+
+     '<div class="form-grid two">'+
+     '<label>المجمع<select name="import_complex">'+complexOptions.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label>'+
+     '<label>الحلقة<select name="import_circle"></select></label>'+
+     '<label>نوع البيانات<select name="import_mode">'+
+       (isManager?'<option value="all">الحلقات والمعلمون والطلاب</option><option value="circles">الحلقات فقط</option><option value="teachers">المعلمون فقط</option>':'')+
+       '<option value="students">الطلاب فقط</option></select></label>'+
+     '</div><p class="sl-help">المعلم الجديد يحتاج حساب مستخدم رسميًا مسبقًا؛ يُستخدم بريد حسابه لمطابقة الإسناد. تفويض المعلم يقتصر على طلاب حلقته.</p>'+
+     '<div style="display:flex;gap:9px;flex-wrap:wrap;margin:10px 0">'+
+       '<button type="button" class="button button-soft" data-roster-template>تنزيل نموذج Excel</button>'+
+       '<button type="button" class="button button-soft" data-roster-export>تصدير البيانات المحددة</button></div>'+
+     '<label>رفع ملف Excel بعد تعبئته<input type="file" name="roster_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>'+
+     '<div data-roster-preview role="status"></div>'+
+     '<button type="button" class="button button-primary" data-roster-commit disabled>تدقيق واعتماد الاستيراد</button>'+
+     (!isManager?'<div style="margin-top:18px"><button type="button" class="button button-soft" data-roster-students>تعديل الطلاب وإيقاف القيود</button><div data-roster-student-actions></div></div>':'');
+   const cx=d.querySelector('[name="import_complex"]'),ci=d.querySelector('[name="import_circle"]'),
+     mode=d.querySelector('[name="import_mode"]'),file=d.querySelector('[name="roster_file"]'),
+     preview=d.querySelector('[data-roster-preview]'),go=d.querySelector('[data-roster-commit]');
+   const allowedInComplex=id=>permitted.filter(x=>x.complexId===id);
+   const fill=()=>{
+     ci.innerHTML=(isManager?'<option value="">جميع حلقات المجمع</option>':'')+
+       allowedInComplex(cx.value).map(x=>'<option value="'+esc(x.circleId)+'">'+esc(x.name)+'</option>').join('');
+     if(!isManager&&allowedInComplex(cx.value).length)ci.value=allowedInComplex(cx.value)[0].circleId;
+   };
+   cx.onchange=fill;fill();
+   if(!complexOptions.length){preview.textContent='لا توجد حلقات مفوضة أو مجمعات مصرح بها.';go.disabled=true;return}
+   d.querySelector('[data-roster-template]').onclick=()=>excelApi().template();
+   const fetchAll=async(table,where)=>{
+     const out=[];
+     for(let n=0;n<15000;n+=500){
+       let q=sb().from(table).select('*').order('id').range(n,n+499);
+       for(const [k,v]of Object.entries(where||{}))q=q.eq(k,v);
+       const chunk=await result(q);out.push(...chunk);
+       if(chunk.length<500)break;
+       if(n+500>=15000)throw Error('تجاوز السجل 15000 صف. قسّم التصدير حسب الحلقة.');
+     }
+     return out;
+   };
+   d.querySelector('[data-roster-export]').onclick=async()=>{
+     preview.textContent='جارٍ إعداد تصدير Excel...';
+     try{
+       const cid=cx.value, circle=ci.value;
+       const complex=l.complexes.filter(x=>x.id===cid);
+       const circles=l.circles.filter(x=>x.complex_id===cid&&(!circle||x.id===circle));
+       const teachers=l.teachers.filter(x=>x.complex_id===cid&&(!circle||x.circle_id===circle));
+       const mosques=await fetchAll('mosques',{complex_id:cid});
+       const students=await fetchAll('students',circle?{circle_id:circle}:{complex_id:cid});
+       const what=mode.value;
+       await excelApi().exportMaster({
+         complexes:isManager?complex:[],
+         mosques:isManager?mosques:[],
+         circles:isManager&&['all','circles'].includes(what)?circles:[],
+         teachers:isManager&&['all','teachers'].includes(what)?teachers:[],
+         students:['all','students'].includes(what)?students:[]});
+       preview.textContent='اكتمل إنشاء ملف Excel ضمن نطاق صلاحياتك.';
+     }catch(e){preview.textContent='تعذر التصدير: '+e.message}
+   };
+   let parsed=null;
+   file.onchange=async()=>{
+     go.disabled=true;parsed=null;
+     try{
+       if(!file.files?.[0])return;
+       parsed=await excelApi().parse(file.files[0]);
+       const what=mode.value;
+       const filtered={complexes:[],mosques:[],
+         circles:isManager&&['all','circles'].includes(what)?parsed.payload.circles:[],
+         teachers:isManager&&['all','teachers'].includes(what)?parsed.payload.teachers:[],
+         students:['all','students'].includes(what)?parsed.payload.students:[]};
+       const cid=cx.value,cp=l.complexes.find(x=>x.id===cid);
+       const allowed=new Set(allowedInComplex(cid).map(x=>x.circleId));
+       for(const type of ['circles','teachers','students'])for(const row of filtered[type]){
+         if(!row.complex)row.complex=cp.name;
+         if(row.complex!==cp.name&&row.complex!==cid)
+           throw Error('يوجد في ملف Excel سجل تابع لمجمع مختلف عن المجمع المختار.');
+         if(ci.value&&type==='students'){
+           const rec=l.circles.find(x=>x.id===ci.value);
+           if(!isManager){row.circle=rec?.name||row.circle;row.complex=cp.name;row.teacher=l.teachers.find(t=>t.id===permitted.find(x=>x.circleId===ci.value)?.teacherId)?.full_name||row.teacher}
+           else if(row.circle!==rec?.name&&row.circle!==rec?.id)throw Error('الملف يحتوي طالبًا من حلقة أخرى؛ اختر جميع الحلقات أو صحّح الملف.');
+         }
+       }
+       if(!isManager&&filtered.students.length>300)throw Error('استيراد المعلم لا يتجاوز 300 طالب دفعة واحدة.');
+       const total=filtered.circles.length+filtered.teachers.length+filtered.students.length;
+       if(!total)throw Error('ورقة البيانات المختارة فارغة.');
+       preview.textContent='جاهز للمراجعة: '+filtered.circles.length+' حلقة، '+filtered.teachers.length+
+         ' معلمًا، '+filtered.students.length+' طالبًا. لن يتم حذف السجلات غير الموجودة في الملف.';
+       parsed.filtered=filtered;go.disabled=false;
+     }catch(e){parsed=null;preview.textContent=e.message}
+   };
+   mode.onchange=()=>{parsed=null;file.value='';go.disabled=true;preview.textContent='اختر ملف Excel بعد تحديد نوع البيانات.'};
+   go.onclick=async()=>{
+     if(!parsed?.filtered)return;
+     const payload=parsed.filtered;
+     if(!confirm('تأكيد استيراد البيانات المحددة؟ لن تُحذف السجلات غير الواردة في الملف، وستبقى الحصائل والخطط السابقة محفوظة.'))return;
+     go.disabled=true;
+     try{
+       const resultData=isManager?await rpc('import_scoped_roster_guarded',{p_org_id:a.org_id,p_payload:payload}):
+         await rpc('import_teacher_students_guarded',{p_circle_id:ci.value,p_rows:payload.students});
+       preview.textContent='تم تنفيذ الاستيراد: '+(resultData.students||0)+' طالب، '+(resultData.teachers||0)+' معلم، '+(resultData.circles||0)+' حلقة.';
+       lookupPromise=null;lookupAt=0;await load();
+     }catch(e){preview.textContent='تعذر الاستيراد، ولم يعتمد الخادم الدفعة: '+e.message;go.disabled=false}
+   };
+   if(!isManager){
+     const edit=d.querySelector('[data-roster-students]'),target=d.querySelector('[data-roster-student-actions]');
+     edit.onclick=async()=>{
+       if(!ci.value)throw Error('اختر الحلقة.');
+       const people=await result(sb().from('students').select('id,full_name').eq('circle_id',ci.value).eq('active',true).order('full_name').limit(250));
+       target.innerHTML='<p class="sl-help">الإيقاف يحفظ الخطط والحصائل والاختبارات السابقة، ويمكن للمشرف إعادة تنشيط القيد لاحقًا.</p>'+
+         people.map((x,i)=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0"><span>'+esc(x.full_name)+'</span>'+
+           '<button type="button" class="button button-soft" data-roster-deactivate="'+i+'">إيقاف قيد الطالب</button></div>').join('');
+       target.querySelectorAll('[data-roster-deactivate]').forEach(b=>{
+         b.onclick=async()=>{
+           const person=people[Number(b.dataset.rosterDeactivate)];
+           if(!confirm('تأكيد إيقاف قيد «'+person.full_name+'» مع إبقاء جميع سجلاته التاريخية؟'))return;
+           await rpc('deactivate_teacher_student_guarded',{p_student_id:person.id});
+           b.closest('div').remove();msg(d,'أُوقف القيد مع حفظ التاريخ السابق.');
+         };
+       });
+     };
+   }
+ });
 
  if(supervisorOperations){
   const reloadDirectory=async(message)=>{
