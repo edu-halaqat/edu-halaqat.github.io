@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only paired HTTP benchmark of Cloudflare edge vs GitHub Pages origin.
 
-600 randomized, matched comparisons = 1,200 GET requests. Results are specific
+800 randomized, matched comparisons = 1,600 GET requests. Results are specific
 to GitHub Actions runner location, public pages, and current caching state.
 Does not sign in, write student data, or test Supabase API throughput.
 """
@@ -34,6 +34,10 @@ ROUTES = [
     ("honor_roll_css", "/sanabil-honor-roll.css", "static"),
     ("free_live_css", "/sanabil-free-live.css", "static"),
     ("mobile_css", "/mobile-v11.css", "static"),
+    ("live_main_large", "/sanabil-live-v12.js", "large"),
+    ("fixes_large", "/fixes.js", "large"),
+    ("identity_css_large", "/sanabil-identity.css", "large"),
+    ("guardian_large", "/guardian.html", "large"),
 ]
 TRIALS_PER_ROUTE = 50
 DESKTOP_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36"
@@ -152,9 +156,9 @@ def main():
     summary = {"timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                "runner": os.environ.get("RUNNER_NAME", "github-actions"),
                "origin_ipv4": ORIGIN_IP,
-               "methodology": "600 randomized paired cases (1200 public GETs) from one GitHub Actions runner; same HTTPS Host/SNI, origin bypassed using curl --resolve; 12 routes x 50 cases; 30 warm, 15 cache-busted, 5 revalidate per route; user agents balanced; order alternated",
+               "methodology": "800 randomized paired cases (1600 public GETs) from one GitHub Actions runner; same HTTPS Host/SNI, origin bypassed using curl --resolve; 16 routes x 50 cases; 30 warm, 15 cache-busted, 5 revalidate per route; user agents balanced; order alternated",
                "overall": summarize(output),
-               "by_category": {cat: summarize([x for x in output if x["category"] == cat]) for cat in ["html", "config", "static"]},
+               "by_category": {cat: summarize([x for x in output if x["category"] == cat]) for cat in ["html", "config", "static", "large"]},
                "by_mode": {mode: summarize([x for x in output if x["mode"] == mode]) for mode in ["warm", "cold_unique_query", "revalidate"]},
                "by_route": {route[0]: summarize([x for x in output if x["name"] == route[0]]) for route in ROUTES},
                "status_counts": {"edge": dict(collections.Counter(x["edge_code"] for x in output)),
