@@ -2661,17 +2661,48 @@ async function plansPage(root){
           const displayed=[...days,...holidays].sort((a,b)=>
             String(a.date_key).localeCompare(String(b.date_key))||Number(!!b.specialHoliday)-Number(!!a.specialHoliday));
           const intro=p.type==='recent_review'
-            ?'<p class="sl-help">هذه الأيام مشتقة تلقائيًا من نهاية درس الطالب. لا تُستثنى المراجعة الصغرى منفردة؛ عند غياب الطالب أو استثناء يوم الدرس يعيد النظام اشتقاقها من خطة الحفظ.</p>'
-            :qpcUnits.has(p.unit)?'<p class="sl-help">المقادير هنا وحدات تحزيب كاملة من المصحف المدني وليست تقديرًا بعدد الصفحات.</p>':'<p>المقرر يعرض مقاطع كل سورة صراحةً.</p>';
-          b.innerHTML=intro+'<div class="sl-toolbar"><span>عرض '+(currentPage*pageSize+1)+'–'+Math.min(total,(currentPage+1)*pageSize)+' من '+total+' يوم · الصفحة '+(currentPage+1)+' من '+totalPages+'</span>'
-            +'<button type="button" class="button button-soft" data-action="plan-prev" '+(currentPage===0?'disabled':'')+'>السابق</button>'
-            +'<button type="button" class="button button-soft" data-action="plan-next" '+(currentPage>=totalPages-1?'disabled':'')+'>التالي</button></div>'
-            +table(['التاريخ','المقرر بالتفصيل','المطلوب','الدورة','المنجز','الحالة','إجراء'],displayed.map(d=>
-            d.specialHoliday?[esc(d.date_key),'إجازة ضمن تقويم الخطة — دون مقرر أو تقصير','—','—','—','إجازة','—']:[
-            esc(d.date_key),esc(segmentsOnlyText(d.segments)||(qref(d.target_from)+' ← '+qref(d.target_to))),
-            esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit),esc(d.cycle_no||1),esc(d.completed_amount),esc(d.status),
-            p.type==='recent_review'?'يتبع الدرس':d.rating?'تم الرصد':button('استثناء اليوم','x'+days.indexOf(d))
-          ]));
+            ?'<p class="sl-help">المراجعة الصغرى تتبع نهاية درس الحفظ ولا تُستثنى بشكل مستقل.</p>'
+            :qpcUnits.has(p.unit)&&p.type==='review'?'<p class="sl-help">تُحتسب المراجعات وفق حدود التحزيب المعتمدة في المصحف المدني.</p>'
+            :'<p class="sl-help">كل درس من دروس الحفظ الجديد ينتهي عند نهاية السورة، ولا يجمع مع سورة أخرى.</p>';
+          const markedQuery=await sb().from('plan_days').select('date_key').eq('plan_id',p.id)
+            .neq('status','planned').order('date_key',{ascending:false}).limit(1);
+          if(markedQuery.error)throw Error(markedQuery.error.message);
+          const latestMarked=markedQuery.data?.[0]?.date_key||'';
+          const statuses={planned:'مجدول',completed:'منجز',carried:'مُرحّل إلى اليوم التالي',
+            not_done:'لم يُنجز',excluded:'مستثنى',cancelled:'ملغى'};
+          const statusText=d=>d.specialHoliday?'إجازة':statuses[d.status]||'قيد المتابعة';
+          const labelFor=d=>segmentsOnlyText(d.segments)||
+            (d.display_label||qref(d.target_from)+' ← '+qref(d.target_to));
+          const fmtDate=date=>{
+            const y=String(date||'').split('-');if(y.length!==3)return String(date||'');
+            const dt=new Date(y[0]+'-'+y[1]+'-'+y[2]+'T12:00:00Z');
+            return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(dt);
+          };
+          const cardHtml=d=>{
+            const scored=!!d.rating||Number(d.completed_amount||0)>0||d.status!=='planned';
+            const historical=!!latestMarked&&String(d.date_key)<latestMarked;
+            const excluded= p.type==='recent_review'?'تتبع خطة الحفظ':scored?'تم اعتماد الحصيلة':
+              historical?'لا يمكن الاستثناء بعد رصد يوم لاحق':
+              '<button type="button" class="button button-soft" data-action="x'+days.indexOf(d)+'">استثناء اليوم القادم</button>';
+            return '<article class="sl-plan-day-card" style="border:1px solid #b5cfc6;border-radius:13px;padding:13px;margin:9px 0;max-width:100%;overflow-wrap:anywhere">'+
+              '<div style="display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap">'+
+              '<strong>'+esc(fmtDate(d.date_key))+'</strong>'+
+              '<span style="padding:5px 9px;border:1px solid #9cbdb0;border-radius:999px">'+esc(statusText(d))+'</span></div>'+
+              '<p style="font-size:1.02rem;line-height:1.85;margin:10px 0">'+(d.specialHoliday?'إجازة تعليمية — لا يوجد مقرر':esc(labelFor(d)))+'</p>'+
+              (d.specialHoliday?'':('<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:.9rem;opacity:.92">'+
+                '<span><b>المطلوب:</b> '+esc(Number(d.target_amount||0))+' '+esc(unitName[p.unit]||p.unit)+'</span>'+
+                '<span><b>المنجز:</b> '+esc(Number(d.completed_amount||0))+'</span>'+
+                (Number(d.cycle_no||1)>1?'<span><b>الدورة:</b> '+esc(d.cycle_no)+'</span>':'')+
+                '</div><div style="margin-top:8px">'+excluded+'</div>'))+'</article>';
+          };
+          b.innerHTML=intro+
+            '<div class="sl-toolbar" style="justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+            '<span>الأيام '+(currentPage*pageSize+1)+'–'+Math.min(total,(currentPage+1)*pageSize)+' من '+total+
+            ' · الصفحة '+(currentPage+1)+' من '+totalPages+'</span>'+
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+            '<button type="button" class="button button-soft" data-action="plan-prev" '+(currentPage===0?'disabled':'')+'>السابق</button>'+
+            '<button type="button" class="button button-soft" data-action="plan-next" '+(currentPage>=totalPages-1?'disabled':'')+'>التالي</button>'+
+            '</div></div><div class="sl-plan-day-list" style="max-width:100%;overflow:hidden">'+displayed.map(cardHtml).join('')+'</div>';
           action(b,b.querySelector('[data-action="plan-prev"]'),async()=>{if(currentPage>0){currentPage--;await render()}});
           action(b,b.querySelector('[data-action="plan-next"]'),async()=>{if(currentPage<totalPages-1){currentPage++;await render()}});
           if(p.type!=='recent_review')days.forEach((d,j)=>{const x=b.querySelector('[data-action="x'+j+'"]');if(x)action(b,x,async()=>{if(!confirm('استثناء '+d.date_key+' وإعادة جدولة الأيام التالية؟'))return;const r=await rpc('exclude_plan_date',{p_plan_id:p.id,p_date:d.date_key});msg(b,'تم الاستثناء ونقل '+r.movedDays+' يومًا.');await render();await load()})});
