@@ -37,6 +37,9 @@ BEGIN
      SELECT * INTO mem FROM public.plans WHERE id=any(ids) AND type='memorization';
      IF mem.unit::text<>'lines' OR coalesce(mem.cycle_enabled,false) OR mem.start_date>today
        OR mem.end_date IS NULL THEN RAISE EXCEPTION 'unsupported_memorization'; END IF;
+     IF EXISTS(SELECT 1 FROM public.plans WHERE id=any(ids) AND type<>'memorization' AND end_date>mem.end_date) THEN
+       RAISE EXCEPTION 'dependent_plan_outlives_memorization';
+     END IF;
      SELECT count(*) INTO n FROM public.plans WHERE id=any(ids) AND type='recent_review';
      IF n>1 THEN RAISE EXCEPTION 'ambiguous_recent_review'; END IF;
      SELECT * INTO recent FROM public.plans WHERE id=any(ids) AND type='recent_review';

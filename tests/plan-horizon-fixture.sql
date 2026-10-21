@@ -1683,4 +1683,6 @@ $function$;
 CREATE TRIGGER display_label BEFORE INSERT OR UPDATE ON plan_days FOR EACH ROW EXECUTE FUNCTION private.populate_plan_day_display_label();
 
 CREATE TABLE public.students(id text primary key); INSERT INTO public.students VALUES('student');
-CREATE SCHEMA cron; CREATE TABLE cron.job(jobname text,active boolean); INSERT INTO cron.job VALUES('sanabil-plan-horizon-refill',true);
+CREATE SCHEMA cron; CREATE TABLE cron.job(jobname text primary key,active boolean); INSERT INTO cron.job VALUES('sanabil-plan-horizon-refill',true);
+
+CREATE FUNCTION cron.schedule(text,text,text) RETURNS bigint LANGUAGE sql AS $$ INSERT INTO cron.job VALUES($1,true) ON CONFLICT(jobname) DO UPDATE SET active=true RETURNING 1::bigint $$;

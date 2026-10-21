@@ -4,6 +4,7 @@
 \ir ../db/maintenance/plan-horizon-state.sql
 \ir ../db/maintenance/plan-horizon-helpers.sql
 \ir ../db/maintenance/plan-horizon-safe.sql
+\ir ../db/maintenance/plan-horizon-schedule.sql
 DO $test$
 DECLARE r jsonb; original jsonb; retained jsonb; rejected boolean; v text; t text; dir text; dyn boolean;
 BEGIN
@@ -72,3 +73,18 @@ BEGIN
 END;
 $test$;
 SELECT 'PASS: 6 curriculum combinations; rollback, scope, protected/manual future, idempotence and refill' AS result;
+
+DO $scheduler$
+DECLARE r jsonb; denied boolean:=false;
+BEGIN
+ UPDATE cron.job SET active=false;
+ BEGIN PERFORM private.maintain_plan_horizon(ARRAY['student'],120,60,false); EXCEPTION WHEN OTHERS THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'Trimming allowed without refill scheduler'; END IF;
+ UPDATE cron.job SET active=true;
+ UPDATE private.plan_horizon_targets SET next_check_at=now();
+ r:=private.run_plan_horizon_refill();
+ IF jsonb_array_length(r)<>1 THEN RAISE EXCEPTION 'Scheduler did not process enrollment: %',r; END IF;
+ IF private.run_plan_horizon_refill()<>'[]'::jsonb THEN RAISE EXCEPTION 'Scheduler repeated fresh enrollment'; END IF;
+ IF has_function_privilege('anon','private.maintain_plan_horizon(text[],integer,integer,boolean)','EXECUTE') THEN RAISE EXCEPTION 'Anonymous execution allowed'; END IF;
+END;
+$scheduler$;
