@@ -31,6 +31,8 @@ jobs:
           node --check sanabil-honor-roll.js
           node tests/sanabil-honor-roll.cjs
           node --check sanabil-live-v12.js
+          node tests/sanabil-live-runtime-boot.cjs
+          node --check sanabil-complex-staff.js
           node --check sanabil-registry-management.js
           node --check sanabil-v13-enhancements.js
           node tests/sanabil-exam-nominations.cjs
