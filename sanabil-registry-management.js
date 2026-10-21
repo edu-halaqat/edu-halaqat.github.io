@@ -42,6 +42,7 @@ function show(){
  data.teachers.map(t=>{const names=data.links.filter(a=>a.teacher_id===t.id).map(a=>circle(a.circle_id)?.name).filter(Boolean);
  return '<tr><td>'+esc(t.full_name)+'<small>'+esc(t.job_title||'')+'</small></td><td'+(!t.user_id?' class="sr-warning"':'')+'>'+esc(teacherStatus(t))+'</td><td>'+esc(names.join('، ')||'لا يوجد إسناد نشط')+'</td><td><button data-edit-teacher="'+esc(t.id)+'">تحرير</button></td></tr>'}).join('')+'</tbody></table></div>';
  }else if(tab==='circles'){
+ html+='<div class="sr-actions"><button type="button" data-bulk-circle-settings class="sr-primary">تعديل إعدادات عدة حلقات</button></div>';
  html+='<p>تعديل اسم الحلقة ونوعها وفترتها ومسجدها، مع إبقاء الطلاب والنتائج والإسنادات محفوظة.</p><div class="sr-scroller"><table><thead><tr><th>الحلقة</th><th>النوع والفترة</th><th>الطلاب</th><th>المعلم المسند</th><th>إجراء</th></tr></thead><tbody>'+
  data.circles.map(c=>{const links=data.links.filter(a=>a.circle_id===c.id);
  return '<tr><td>'+esc(c.name)+'<small>'+(c.active?'نشطة':'متوقفة')+'</small></td><td>'+esc(c.circle_type||'—')+' / '+esc(c.session_period||'—')+'</td><td>'+data.students.filter(s=>s.circle_id===c.id).length+'</td><td>'+esc(links.map(a=>teacher(a.teacher_id)?.full_name||'سجل غير معروف').join('، ')||'غير مسند')+'</td><td><button data-edit-circle="'+esc(c.id)+'">تحرير</button></td></tr>'}).join('')+'</tbody></table></div>';
@@ -52,11 +53,13 @@ function show(){
  }
  body.innerHTML=html+'<div id="sr-edit-area"></div><p class="sr-status" role="status" aria-live="polite"></p>';
  body.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;show()});
+ const bulk=body.querySelector('[data-bulk-circle-settings]');if(bulk)bulk.onclick=()=>window.SanabilCircleBulkSettings?.open?.();
  body.querySelectorAll('[data-edit-teacher]').forEach(b=>b.onclick=()=>editTeacher(b.dataset.editTeacher));
  body.querySelectorAll('[data-edit-circle]').forEach(b=>b.onclick=()=>editCircle(b.dataset.editCircle));
  body.querySelectorAll('[data-set-assign]').forEach(b=>b.onclick=()=>editAssignment(b.dataset.setAssign));
  body.querySelectorAll('[data-unassign]').forEach(b=>b.onclick=()=>unassign(b.dataset.unassign,b.dataset.teacher));
 }
+window.addEventListener('sanabil-circles-bulk-updated',()=>{if(!dialog||!data)return;refresh().then(show).catch(e=>message(errorMessage(e),true))});
 function message(text,bad=false){const e=dialog?.querySelector('.sr-status');if(e){e.textContent=text;e.className='sr-status'+(bad?' sr-error':'')}}
 function editTeacher(id){
  const t=teacher(id);if(!t)return;const b=dialog.querySelector('#sr-edit-area');
