@@ -98,11 +98,12 @@ async function flush(callRpc,{batch=false}={}){
  try{
   const uid=await userId();
   const all=(await list(OPS)).filter(x=>x.userId===uid).sort((a,b)=>(a.enqueueOrder||Date.parse(a.createdAt))-(b.enqueueOrder||Date.parse(b.createdAt)));
+  let singleAfterTimeout=false;
   for(let offset=0;offset<all.length;){
    const item=all[offset];
    if(await userId()!==uid)break;
    try{
-    if(batch&&item.name!=='submit_offline_attendance_claim'){
+    if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'){
      const items=[];let size=0;
      for(const candidate of all.slice(offset,offset+5)){
       if(candidate.name==='submit_offline_attendance_claim')break;
@@ -134,6 +135,19 @@ async function flush(callRpc,{batch=false}={}){
     }
     await acknowledge(item,result);offset++;
    }catch(error){
+    // If a five-operation transaction times out, fall back to independent
+    // idempotent operations. The server remembers each operation ID, so a
+    // lost acknowledgement can never double-apply a result.
+    if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'&&networkError(error)){
+      singleAfterTimeout=true;
+      try{
+        const confirmed=await callRpc('apply_offline_operation',{
+          p_operation_id:item.id,p_rpc_name:item.name,p_payload:item.args
+        });
+        if(confirmed?.ok!==true)throw Error('لم يؤكد الخادم حفظ العملية المفردة.');
+        await acknowledge(item,confirmed);offset++;continue;
+      }catch(singleError){error=singleError}
+    }
     lastFlushError=String(error?.message||error);
     const failed=error.operation||all[offset]||item;
     failed.attempts=(failed.attempts||0)+1;
