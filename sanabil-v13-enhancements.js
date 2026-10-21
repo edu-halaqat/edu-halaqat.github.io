@@ -12,6 +12,8 @@ const modal=title=>{const d=document.createElement('dialog');d.className='sl-dia
 // Coalesce concurrent access reads; do not reuse a completed result after permissions change.
 let accessPending=null;
 const access=()=>{
+ // Reuse the existing session-aware, short-lived access guard from the core application.
+ if(typeof window.SanabilLive?.readAccess==='function')return window.SanabilLive.readAccess();
  if(accessPending)return accessPending;
  const pending=rpc('my_access',{}).finally(()=>{if(accessPending===pending)accessPending=null});
  accessPending=pending;return pending;
