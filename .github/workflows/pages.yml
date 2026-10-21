@@ -119,14 +119,19 @@ jobs:
       - name: Verify published Sanabil PWA and user WhatsApp release
         run: |
           python3 - <<'PY'
-          import json, time, urllib.request, struct, re
+          import json, time, subprocess, struct, re
           from pathlib import Path
           base='https://snabilalwahy.com'
           expected=re.search(r'name="sanabil-build" content="([^"]+)"',Path('index.html').read_text()).group(1)
           def read(path):
-              with urllib.request.urlopen(base+path, timeout=25) as r:
-                  assert r.status == 200, path
-                  return r.read()
+              # Default Python-urllib user-agent is rejected with HTTP 403 by Cloudflare,
+              # while curl and a normal browser return 200 for the same public endpoint.
+              # Keep HTTPS verification and fail on any HTTP error or absent asset.
+              completed=subprocess.run(
+                  ['curl','-fsSL','--proto','=https','--connect-timeout','10',
+                   '--max-time','25',base+path],
+                  capture_output=True,check=True)
+              return completed.stdout
           for attempt in range(8):
               try:
                   html=read('/?verify='+expected).decode()
@@ -163,9 +168,11 @@ jobs:
                   assert 'sanabil-performance-deep.js' in html
                   assert 'sanabil_performance_save_dryrun' in read('/sanabil-performance-deep.js').decode()
                   assert 'data-deep>بدء الاختبار الموسع' in js
-                  assert 'sanabil-v13-enhancements.js?v=9' in html
-                  assert 'apply_circle_settings_bulk' in read('/sanabil-v13-enhancements.js?v=9').decode()
-                  assert 'apply_fingerprint_period_bulk' in read('/sanabil-v13-enhancements.js?v=9').decode()
+                  v13_match=re.search(r'src="(/sanabil-v13-enhancements\\.js[^"]*)"',html)
+                  assert v13_match, 'Enhanced interface JS missing from deployed HTML'
+                  v13_code=read(v13_match.group(1)).decode()
+                  assert 'apply_circle_settings_bulk' in v13_code
+                  assert 'apply_fingerprint_period_bulk' in v13_code
                   assert 'data-real-results' in js
                   assert 'data-outcome-float-nav' in js
                   assert 'sanabil-registry-management.js?v=20261021-circles-scope1' in html
