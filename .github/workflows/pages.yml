@@ -35,6 +35,7 @@ jobs:
           node --check sanabil-complex-staff.js
           node --check sanabil-registry-management.js
           node --check sanabil-v13-enhancements.js
+          node tests/sanabil-bulk-circle-settings.cjs
           node tests/sanabil-exam-nominations.cjs
           node --check sanabil-exam-distribution.js
           node tests/sanabil-user-whatsapp.cjs
