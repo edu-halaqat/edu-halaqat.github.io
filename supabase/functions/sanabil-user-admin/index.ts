@@ -21,7 +21,7 @@ Deno.serve(async(req:Request)=>{
 
 
   // A single, scoped API for all user roles; passwords are created on the server.
-  if(['users_scopes','users_list','users_policy_update','users_create','users_update'].includes(b.action)){
+  if(['users_scopes','users_list','users_policy_update','users_create','users_update','users_reassign'].includes(b.action)){
     if(!p?.active||!p.org_id)return reply({error:'حساب غير نشط.'},403);
     const org=p.org_id;
     const adminRole=ms?.some(m=>m.org_id===org&&m.role==='admin')===true;
@@ -99,6 +99,23 @@ Deno.serve(async(req:Request)=>{
           active:u.active&&m.active,membership_id:m.id,
           job_title:jobTitles.get(u.id)||null}];
       }),total:count||0,page,page_size:size});
+    }
+    if(b.action==='users_reassign'){
+      const uid=String(b.user_id||'');
+      const membershipId=Number(b.membership_id);
+      const targetComplex=String(b.complex_id||'');
+      const targetCircle=String(b.circle_id||'').trim();
+      const mode=String(b.mode||'transfer');
+      if(!uid||!Number.isSafeInteger(membershipId)||membershipId<1||!['transfer','add'].includes(mode))
+        throw Error('تحقق من بيانات الإسناد ونوع الإجراء.');
+      if(!ids.includes(targetComplex))
+        return reply({error:'ليس لديك صلاحية لإسناد مستخدم إلى المجمع المختار.'},403);
+      const {data,error}=await admin.rpc('reassign_complex_user',{
+        p_actor:auth.user.id,p_user:uid,p_membership_id:membershipId,
+        p_target_complex:targetComplex,p_target_circle:targetCircle||null,p_mode:mode
+      });
+      if(error)throw error;
+      return reply(data||{ok:true});
     }
     if(b.action==='users_update'){
       const uid=String(b.user_id||'');
