@@ -1303,7 +1303,7 @@ async function studentsPage(root){
    action(root,root.querySelector(`[data-action="award-${i}"]`),()=>awardStudent(root,s,load));
    action(root,root.querySelector(`[data-action="card-${i}"]`),()=>showStudentCard(root,s,l));
    action(root,root.querySelector(`[data-action="guardian-${i}"]`),()=>showGuardianLink(root,s.id,s.full_name));
-   action(root,root.querySelector(`[data-action="off-${i}"]`),async()=>{if(!confirm('إيقاف الطالب وإخفاؤه من القوائم اليومية مع حفظ سجلاته؟'))return;await result(sb().from('students').update({active:false}).eq('id',s.id).select('id').single());selected.delete(s.id);await load();status()})
+   action(root,root.querySelector(`[data-action="off-${i}"]`),async()=>{if(!confirm('إيقاف الطالب وإخفاؤه من القوائم اليومية مع حفظ سجلاته؟'))return;if(!supervisorOperations)await rpc('deactivate_teacher_student_guarded',{p_student_id:s.id});else await result(sb().from('students').update({active:false}).eq('id',s.id).select('id').single());selected.delete(s.id);await load();status()})
   });
   status()
  };
@@ -1347,7 +1347,21 @@ async function studentsPage(root){
    row.org_id=circle.org_id;row.circle_name=circle.name;row.teacher_name=l.teachers.find(t=>t.id===row.teacher_id)?.full_name||null;
    let moved=false;
    if(s&&(s.circle_id!==row.circle_id||s.teacher_id!==row.teacher_id)){await rpc('move_student_with_history',{p_student_id:s.id,p_circle_id:row.circle_id,p_teacher_id:row.teacher_id});moved=s.circle_id!==row.circle_id}
-   if(s)await result(sb().from('students').update(row).eq('id',s.id).select('id').single());else await result(sb().from('students').insert({...row,id:crypto.randomUUID(),active:true}).select('id').single());
+   if(!supervisorOperations){
+     // The teacher may manage only a supervisor-delegated, officially assigned circle.
+     const permitted=rosterAccess.some(x=>x.circleId===row.circle_id&&x.enabled&&!x.mayManage);
+     if(!permitted||(s&&s.circle_id!==row.circle_id))throw Error('هذه الحلقة خارج التفويض؛ النقل بين الحلقات متاح للمشرف فقط.');
+     if(!s&&!row.identity_number&&!row.birth_date)throw Error('أدخل هوية الطالب أو تاريخ ميلاده لمنع تكرار القيد.');
+     await rpc('import_teacher_students_guarded',{p_circle_id:row.circle_id,p_rows:[{
+       id:s?.id||null,fullName:row.full_name,identityNumber:row.identity_number,
+       birthDate:row.birth_date,birthDateHijri:row.birth_date_hijri,identityExpiry:row.identity_expiry,
+       nationality:row.nationality,stage:row.stage,memorizationLevel:row.memorization_level,
+       studentPhone:row.student_phone,guardianPhone:row.guardian_phone,
+       complex:l.complexes.find(x=>x.id===row.complex_id)?.name||row.complex_id,
+       circle:circle.name,teacher:row.teacher_name
+     }]});
+   }else if(s)await result(sb().from('students').update(row).eq('id',s.id).select('id').single());
+   else await result(sb().from('students').insert({...row,id:crypto.randomUUID(),active:true}).select('id').single());
    b.closest('dialog').close();lookupPromise=null;await load();msg(root,moved?'نُقل الطالب وحصيلته وخططه واختباراته إلى الحلقة الجديدة وحُفظت بياناته.':'حُفظت بيانات الطالب.')
   })
  };
