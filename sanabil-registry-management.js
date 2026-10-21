@@ -37,7 +37,8 @@ const teacherStatus=t=>!t.active?'موقوف':!t.user_id?'مستورد أو مض
 function show(){
  if(!dialog||!data)return;
  const body=dialog.querySelector('.sr-content');
- const available=(data.complexes||[]).filter(c=>data.circles.some(x=>x.complex_id===c.id));
+ const relevantComplexIds=[...new Set([...data.circles,...data.teachers].map(x=>x.complex_id).filter(Boolean))];
+ const available=relevantComplexIds.map(id=>data.complexes?.find(c=>c.id===id)||{id,name:'المجمع '+id});
  if(!available.some(c=>c.id===complexFilter)&&complexFilter!=='all')complexFilter=available[0]?.id||'all';
  const circleSubset=data.circles.filter(c=>complexFilter==='all'||c.complex_id===complexFilter);
  const groupRows=(items,render,colspan)=>available
