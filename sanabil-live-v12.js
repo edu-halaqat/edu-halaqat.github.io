@@ -962,7 +962,19 @@ async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','supervisor'].includes(r));
  const rosterAccess=await rpc('list_teacher_student_roster_access',{}).catch(()=>[]);
  const canRoster=supervisorOperations||rosterAccess.some(x=>x.enabled&&!x.mayManage);
- root.innerHTML=`<div class="sl-toolbar">${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}${button('إضافة طالب','add')}${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${supervisorOperations?button('تفويض إدارة الطلاب','delegate-roster'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}${canMove?button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle'):''}${button('تصدير المعروض','export')}</div><div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data"></div><div class="sl-toolbar">${button('السابق','prev')}<span class="sl-page"></span>${button('التالي','next')}</div>`;
+ root.innerHTML=
+  '<section class="sl-students-workspace">'+
+  '<div class="sl-toolbar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:9px">'+
+  `${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}`+
+  '</div><div class="sl-toolbar">'+
+  `${button('إضافة طالب','add')}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${button('تصدير المعروض','export')}`+
+  '</div>'+
+  '<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">إدارة المعلمين والحلقات والمجمع</summary><div class="sl-toolbar">'+
+  `${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque')+button('تفويض إدارة الطلاب','delegate-roster'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}`+
+  '</div></details>'+
+  `${canMove?'<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">تحديد الطلاب والنقل الجماعي</summary><div class="sl-toolbar">'+button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle')+'</div></details>':''}`+
+  '<div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data" style="max-width:100%;overflow-x:auto"></div>'+
+  '<div class="sl-toolbar">'+`${button('السابق','prev')}`+'<span class="sl-page"></span>'+`${button('التالي','next')}`+'</div></section>';
  const status=()=>{const el=root.querySelector('.sl-selection-status');if(el)el.textContent=canMove?(selected.size?'تم تحديد '+selected.size+' طالبًا للنقل الجماعي.':'يمكن تحديد عدة طلاب ثم نقلهم دفعة واحدة إلى حلقة أخرى.'):'عرض بيانات الطلاب والإسناد حسب صلاحيتك.'};
 
 
