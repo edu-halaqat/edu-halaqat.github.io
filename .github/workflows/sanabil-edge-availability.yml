@@ -35,4 +35,5 @@ jobs:
           check manifest https://snabilalwahy.com/manifest.webmanifest
           check service_worker https://snabilalwahy.com/sanabil-offline-sw.js
           check live_app https://snabilalwahy.com/sanabil-live-v12.js
+          check mobile_benchmark https://snabilalwahy.com/network-benchmark.html
           echo "PASS Cloudflare edge serves the core Sanabil site and PWA resources"
