@@ -120,7 +120,8 @@ if(job.mode==='cold')url+=(url.indexOf('?')>=0?'&':'?')+'sa_benchmark='+encodeUR
 var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},18000);
 var start=performance.now(),ttfb=null,total=null,bytes=0,status=0,cache='',ray='',error='',redirected=false;
 try{
-var headers=job.mode==='revalidate'?{'Cache-Control':'no-cache'}:{};
+var headers={'X-Sanabil-Benchmark':'1'};
+if(job.mode==='revalidate')headers['Cache-Control']='no-cache';
 var response=await fetch(url,{method:'GET',mode:'same-origin',credentials:'omit',cache:'no-store',headers:headers,signal:controller.signal});
 ttfb=performance.now()-start;status=response.status;cache=response.headers.get('cf-cache-status')||'غير ظاهر';ray=response.headers.get('cf-ray')||'';
 redirected=response.redirected;
@@ -170,7 +171,7 @@ paths.forEach(function(p){categories[p[0]]=summarize(runs.filter(function(x){ret
 var modes={};Object.keys(labelMode).forEach(function(m){modes[m]=summarize(runs.filter(function(x){return x.mode===m}))});
 var statuses={};runs.forEach(function(r){var c=r.cfCache||'غير ظاهر';statuses[c]=(statuses[c]||0)+1});
 return {method:'Sanabil browser network benchmark v1: 600 GET requests across 12 same-origin resources (30 warm,15 cold unique query,5 revalidate per resource); max concurrency 2; no browser HTTP cache; no credentials',website:location.origin,startedUtc:started,finishedUtc:finished,connection:connectionSummary(),
-browser:navigator.userAgent,overall:summarize(runs),byMode:modes,byResource:categories,cfCacheStatus:statuses,limitations:['No paired direct GitHub Pages origin measurement from browser.','Not a before/after baseline, authenticated app loading benchmark, or Supabase capacity test.','Service worker may intercept resource requests; a missing CF cache header does not prove a network request.']};
+browser:navigator.userAgent,overall:summarize(runs),byMode:modes,byResource:categories,cfCacheStatus:statuses,limitations:['No paired direct GitHub Pages origin measurement from browser.','Not a before/after baseline, authenticated app loading benchmark, or Supabase capacity test.','Benchmark header bypasses version 36+ service worker; older worker versions may still intercept network requests.']};
 }
 byId('start').addEventListener('click',function(){startTests().catch(function(e){running=false;setStatus('تعذّر إكمال القياس: '+String(e));byId('start').disabled=false})});
 byId('stop').addEventListener('click',function(){stopped=true;setStatus('إيقاف بعد انتهاء الطلبات الجارية...')});
