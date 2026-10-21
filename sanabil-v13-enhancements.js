@@ -9,7 +9,13 @@ const rpc=async(name,args)=>result(sb().rpc(name,args));
 const invoke=async(body)=>{const r=await sb().functions.invoke('sanabil-attendance',{body});if(r.error){let t=r.error.message;try{const j=await r.error.context?.json?.();t=j?.error||j?.message||t}catch{}throw Error(t)}if(r.data?.error)throw Error(r.data.error);return r.data};
 const message=(text,bad=false)=>{const root=Q('.sl-live');if(!root)return;let p=root.querySelector('.sl-v13-message');if(!p){p=document.createElement('p');p.className='sl-message sl-v13-message';root.prepend(p)}p.textContent=text;p.style.color=bad?'#982431':'#006b55'};
 const modal=title=>{const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML='<header><h2>'+esc(title)+'</h2><button type="button" class="button button-soft" data-close>إغلاق</button></header><div class="sl-v13-body"></div>';document.body.appendChild(d);d.querySelector('[data-close]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-v13-body')};
-const access=()=>rpc('my_access',{});
+// Coalesce concurrent access reads; do not reuse a completed result after permissions change.
+let accessPending=null;
+const access=()=>{
+ if(accessPending)return accessPending;
+ const pending=rpc('my_access',{}).finally(()=>{if(accessPending===pending)accessPending=null});
+ accessPending=pending;return pending;
+};
 const weekdays=(selected,prefix)=>{selected=(selected||[0,1,2,3,4]).map(Number);return '<fieldset><legend>أيام الدوام</legend><div class="sl-checks">'+[['0','الأحد'],['1','الاثنين'],['2','الثلاثاء'],['3','الأربعاء'],['4','الخميس'],['5','الجمعة'],['6','السبت']].map(x=>'<label><input type="checkbox" name="'+prefix+x[0]+'" '+(selected.includes(Number(x[0]))?'checked':'')+'> '+x[1]+'</label>').join('')+'</div></fieldset>'};
 const checkedDays=(form,prefix)=>[0,1,2,3,4,5,6].filter(i=>form.elements[prefix+i]?.checked);
 const prayerOptions=(selected)=>[['Fajr','الفجر'],['Dhuhr','الظهر'],['Asr','العصر'],['Maghrib','المغرب'],['Isha','العشاء']].map(x=>opt(x[0],x[1],selected)).join('');
