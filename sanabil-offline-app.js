@@ -138,7 +138,7 @@ async function flush(callRpc,{batch=false}={}){
     // If a five-operation transaction times out, fall back to independent
     // idempotent operations. The server remembers each operation ID, so a
     // lost acknowledgement can never double-apply a result.
-    if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'&&networkError(error)){
+    if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'&&/statement timeout|timed out|timeout|57014|انتهت مهلة|http\s*500|internal server error/i.test(String(error?.message||error||''))){
       singleAfterTimeout=true;
       try{
         const confirmed=await callRpc('apply_offline_operation',{
