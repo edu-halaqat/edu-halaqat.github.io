@@ -3578,7 +3578,7 @@ const cancelCustomTalaqqinLesson=async(root,row,refresh)=>{
 };
 async function dashboard(root){
  const a=await access(),rolesNow=a.roles||[],isAdmin=rolesNow.includes('admin'),isSupervisor=rolesNow.some(r=>['manager','supervisor'].includes(r));
- const quick=isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:isSupervisor?[['إدارة مجمعي','students','إضافة المعلمين والحلقات والمساجد واستيعاب الطلاب'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء']]:rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:rolesNow.includes('staff')?[['حسابي الإداري','dashboard','حساب مقيد بالمجمع دون صلاحيات إشرافية']]:[['الاختبارات','tests','إدارة الاختبارات']];
+ const quick=isAdmin?[['إدارة اليوم','dashboard','ملخص التشغيل'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['الطلاب والمعلمون','students','السجلات والإسناد'],['الخطط التعليمية','plans','دليل المناهج وأنواع الخطط'],['التقارير','reports','المؤشرات والتصدير'],['الإعدادات','settings','المجمعات والحسابات']]:isSupervisor?[['إدارة مجمعي','students','إضافة المعلمين والحلقات والمساجد واستيعاب الطلاب'],['دليل الخطط التعليمية','plans','استعراض المناهج قبل إنشاء الحلقات'],['الزيارات الإشرافية','supervision','الدورات والجدولة والتقييم'],['متابعة الحصيلة','outcomes','مراجعة جلسات الحلقات'],['حضور المعلمين','attendance','البصمة والتأخر والغياب'],['التقارير','reports','مؤشرات الأداء']]:rolesNow.includes('teacher')?[['ابدأ جلسة الحلقة','outcomes','تحضير وحصيلة اليوم'],['خطط الطلاب','plans','المقررات والتوزيع'],['زياراتي الإشرافية','supervision','المواعيد والنتائج وخطط التحسين'],['الاختبارات','tests','طلب اختبار ومتابعة النتيجة']]:rolesNow.includes('staff')?[['حسابي الإداري','dashboard','حساب مقيد بالمجمع دون صلاحيات إشرافية']]:[['الاختبارات','tests','إدارة الاختبارات']];
  const profileGreeting=String(a.profile?.display_name||'').trim();
  const greetingName=profileGreeting&&!profileGreeting.includes('@')?profileGreeting:'بك';
  root.innerHTML=`<section class="sl-session-head sl-dashboard-welcome"><div><span class="sl-kicker">لوحة العمل</span><h2>أهلًا ${esc(greetingName)}</h2><p>${esc(today())} — أهم ما تحتاجه الآن ضمن صلاحيات حسابك.</p></div></section><div class="sl-toolbar sl-dashboard-actions"><button type="button" class="button button-primary sl-install-cta" data-action="install-pwa">⬇ تثبيت تطبيق سنابل الوحي</button>${button(document.documentElement.dataset.sanabilTheme==='dark'?'☀️ الوضع الفاتح':'🌙 الوضع الليلي','toggle-theme')}</div>${a.requires_scope_assignment?'<p role="alert">الحساب يحتاج إسنادًا إلى مجمع أو حلقة قبل ظهور البيانات.</p>':''}<div class="sl-quick-grid">${quick.map(([label,key,sub])=>`<button type="button" class="sl-quick-action" data-go="${key}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`).join('')}</div><details class="sl-dashboard-metrics"><summary><span aria-hidden="true">📊</span> المؤشرات والتقارير التفصيلية <small>اضغط للعرض عند الحاجة</small></summary><div class="sl-dashboard-metrics-content"><p class="sl-help">ستُحمّل الإحصائيات عند فتح هذا القسم لتبقى إجراءاتك اليومية أسرع.</p></div></details>`;
@@ -3596,6 +3596,21 @@ async function dashboard(root){
  }
  await window.SanabilComplexStaff?.decorateDashboard?.(root,a);
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));
+ // Lightweight, non-blocking alert for teachers and supervisors.
+ if(rolesNow.some(r=>['teacher','admin','manager','supervisor'].includes(r))){
+   rpc('list_juz_exam_alerts',{}).then(items=>{
+     if(!Array.isArray(items)||!items.length||!root.isConnected)return;
+     const box=document.createElement('section');
+     box.className='sl-message';box.setAttribute('role','status');
+     box.style.cssText='margin:12px 0;border:1px solid #9fc8b6;border-radius:12px;direction:rtl';
+     box.innerHTML='<b>اختبارات الأجزاء القادمة ('+items.length+')</b>'+
+       '<p>'+items.slice(0,3).map(x=>esc(x.studentName||'الطالب')+' — الجزء '+esc(x.juzNo)).join('، ')+'</p>'+
+       '<button type="button" class="button button-soft">عرض المواعيد</button>';
+     box.querySelector('button').onclick=()=>navigateView('plans');
+     root.querySelector('.sl-dashboard-actions')?.insertAdjacentElement('afterend',box);
+   }).catch(()=>{});
+ }
+
  const installButton=root.querySelector('[data-action="install-pwa"]');
  if(window.SanabilInstaller?.bind)window.SanabilInstaller.bind(installButton);
  else if(installButton){
