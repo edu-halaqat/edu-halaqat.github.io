@@ -32,8 +32,9 @@ vm.runInContext(prefix+'\nglobalThis.testApi={rpcOffline,flushOfflineQueue};})()
  assert.equal(timers.size,1,'edits share one timer, no timer reset starvation');
  const scheduled=[...timers.values()][0];assert(scheduled.delay>=46000&&scheduled.delay<=55000);
  await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'final'}]},'manual');
- assert.deepEqual(requests.map(x=>x.name),['apply_offline_operations_batch','save_daily_outcomes_guarded'],'manual save flushes older versions before newer values');
- assert.equal(requests[0].args.p_operations.length,2);
+ assert.deepEqual(requests.map(x=>x.name),['apply_offline_operations_batch','apply_offline_operations_batch','save_daily_outcomes_guarded'],'manual save flushes older versions one-by-one before the newer explicit save');
+ assert.equal(requests[0].args.p_operations.length,1);
+ assert.equal(requests[1].args.p_operations.length,1);
  assert.equal(await offline.count(),0);
  assert.equal(timers.size,0,'explicit save cancels delayed send');
  await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'network'}]},'network',{defer:true});
