@@ -96,7 +96,7 @@ Deno.serve(async(req:Request)=>{
       return reply({users:(members||[]).flatMap(m=>{
         const u=byUser.get(m.user_id);if(!u)return[];
         return [{...u,role:m.role,complex_id:m.complex_id,circle_id:m.circle_id,
-          active:u.active&&m.active,membership_id:m.id,
+          active:u.active&&m.active,membership_active:m.active,profile_active:u.active,membership_id:m.id,
           job_title:jobTitles.get(u.id)||null}];
       }),total:count||0,page,page_size:size});
     }
@@ -137,12 +137,12 @@ Deno.serve(async(req:Request)=>{
       const active=typeof b.active==='boolean'?b.active:profile.active;
       const {error:ue}=await admin.from('profiles').update({display_name:name,phone:phone||null,active}).eq('id',uid);
       if(ue)throw ue;
-      const {error:mue}=await admin.from('memberships').update({active}).eq('user_id',uid).eq('org_id',org);
-      if(mue)throw mue;
-      const {error:ta}=await admin.from('teachers').update({active,full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
-      if(ta)throw ta;
-      const {error:ea}=await admin.from('examiners').update({active,full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
-      if(ea)throw ea;
+      // Account activation is global; inactive memberships record past assignments.
+       // A profile edit must never reactivate previously transferred memberships/teachers.
+       const {error:ta}=await admin.from('teachers').update({full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
+       if(ta)throw ta;
+       const {error:ea}=await admin.from('examiners').update({full_name:name,phone:phone||null}).eq('user_id',uid).eq('org_id',org);
+       if(ea)throw ea;
       await admin.from('audit_logs').insert({org_id:org,action:'user.scoped_account.updated',actor_uid:auth.user.id,
         entity_table:'profiles',entity_id:uid,details:{active,scope:adminRole?'system':members?.[0]?.complex_id}});
       return reply({ok:true});
