@@ -47,6 +47,9 @@ jobs:
           node tests/sanabil-install.cjs
           node --check sanabil-performance-deep.js
           node tests/sanabil-performance-deep.cjs
+          node --check sanabil-lazy.js
+          node tests/sanabil-lazy.cjs
+          node tests/sanabil-sw-versioned-cache.cjs
           node --check sanabil-performance.js
           node tests/sanabil-performance-real.cjs
           node tests/sanabil-student-float-nav.cjs
