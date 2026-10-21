@@ -959,7 +959,7 @@ function userWhatsAppDialog(u,password=''){
 const userWhatsAppButton=i=>'<button type="button" class="button button-soft" data-action="user-wa-'+i+'" title="إرسال بيانات الدخول عبر واتساب" aria-label="إرسال بيانات الدخول عبر واتساب"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.7a7 7 0 0 0 5.4 5.4l1.3-1.1"/></svg><span>واتساب</span></button>';
 
 async function studentsPage(root){
- const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','supervisor'].includes(r));
+ const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','manager','supervisor'].includes(r));
  const rosterAccess=await rpc('list_teacher_student_roster_access',{}).catch(()=>[]);
  const canRoster=supervisorOperations||rosterAccess.some(x=>x.enabled&&!x.mayManage);
  root.innerHTML=
@@ -967,7 +967,7 @@ async function studentsPage(root){
   '<div class="sl-toolbar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:9px">'+
   `${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}`+
   '</div><div class="sl-toolbar">'+
-  `${button('إضافة طالب','add')}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${button('تصدير المعروض','export')}`+
+  `${canRoster?button('إضافة طالب','add'):''}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${button('تصدير المعروض','export')}`+
   '</div>'+
   '<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">إدارة المعلمين والحلقات والمجمع</summary><div class="sl-toolbar">'+
   `${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque')+button('تفويض إدارة الطلاب','delegate-roster'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}`+
@@ -1065,6 +1065,7 @@ async function studentsPage(root){
      try{
        if(!file.files?.[0])return;
        parsed=await excelApi().parse(file.files[0]);
+       if(parsed.validation?.errors?.length)throw Error('يرجى تصحيح ملف Excel قبل اعتماده:\n'+parsed.validation.errors.slice(0,12).join('\n'));
        const what=mode.value;
        const filtered={complexes:[],mosques:[],
          circles:isManager&&['all','circles'].includes(what)?parsed.payload.circles:[],
@@ -1085,8 +1086,11 @@ async function studentsPage(root){
        if(!isManager&&filtered.students.length>300)throw Error('استيراد المعلم لا يتجاوز 300 طالب دفعة واحدة.');
        const total=filtered.circles.length+filtered.teachers.length+filtered.students.length;
        if(!total)throw Error('ورقة البيانات المختارة فارغة.');
-       preview.textContent='جاهز للمراجعة: '+filtered.circles.length+' حلقة، '+filtered.teachers.length+
-         ' معلمًا، '+filtered.students.length+' طالبًا. لن يتم حذف السجلات غير الموجودة في الملف.';
+       if(total>1000)throw Error('الحد الأعلى 1000 سجل للدفعة. قسّم الملف حسب الحلقات أو المجمعات.');
+       const missingEmails=filtered.teachers.filter(t=>!t.email&&!t.id);
+       if(missingEmails.length)throw Error('أضف البريد الإلكتروني الرسمي لكل معلم جديد في ورقة المعلمين: '+missingEmails.slice(0,4).map(t=>t.fullName).join('، '));
+       preview.textContent='اجتاز الملف الفحص الأولي: '+filtered.circles.length+' حلقة، '+filtered.teachers.length+
+         ' معلمًا، '+filtered.students.length+' طالبًا. لن تُحذف السجلات الغائبة عن الملف، وستتم مراجعة الإسنادات والصلاحيات مرة ثانية في الخادم.';
        parsed.filtered=filtered;go.disabled=false;
      }catch(e){parsed=null;preview.textContent=e.message}
    };
