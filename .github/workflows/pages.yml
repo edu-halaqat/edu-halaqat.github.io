@@ -168,8 +168,8 @@ jobs:
                   assert 'apply_fingerprint_period_bulk' in read('/sanabil-v13-enhancements.js?v=9').decode()
                   assert 'data-real-results' in js
                   assert 'data-outcome-float-nav' in js
-                  assert 'sanabil-registry-management.js?v=20261021-v3' in html
-                  assert 'لا يمكن تفعيل سجل معلم بلا حساب رسمي' in read('/sanabil-registry-management.js?v=20261021-v3').decode()
+                  assert 'sanabil-registry-management.js?v=20261021-circles-scope1' in html
+                  assert 'لا يمكن تفعيل سجل معلم بلا حساب رسمي' in read('/sanabil-registry-management.js?v=20261021-circles-scope1').decode()
                   assert 'sanabil-voice.js' in html
                   assert 'sanabil-updater.js' in html
                   assert 'sanabil-update-prompt-v3' in read('/sanabil-updater.js').decode()
