@@ -169,9 +169,9 @@ async function refreshList(showStatus=true){
     '<section class="sum-item"><div class="sum-top"><div><strong>'+escapeHtml(u.display_name)+'</strong>'+
     '<small>'+escapeHtml(u.email||'')+' · '+escapeHtml(LABELS[u.role]||u.role)+
     ' · '+escapeHtml(scopes.complexes.find(c=>c.id===u.complex_id)?.name||'مستوى المؤسسة')+
-    ' · '+(u.active?'نشط':'غير نشط')+'</small></div>'+
+    ' · '+(u.membership_active===false?'إسناد سابق':(u.profile_active===false?'الحساب معطّل':'نشط'))+'</small></div>'+
     '<div class="sum-actions"><button type="button" data-edit="'+i+'">تعديل الحساب</button>'+
-    (['teacher','staff','examiner','supervisor'].includes(u.role) && (u.role!=='supervisor'||scopes.is_admin)
+    (u.membership_active!==false && ['teacher','staff','examiner','supervisor'].includes(u.role) && (u.role!=='supervisor'||scopes.is_admin)
       ?'<button type="button" data-reassign="'+i+'">تغيير المجمع / الحلقة</button>':'')+
     '</div></div><div class="sum-edit" data-edit-box="'+i+'" hidden></div>'+
     '<div class="sum-edit" data-scope-box="'+i+'" hidden></div></section>'
@@ -191,7 +191,7 @@ async function refreshList(showStatus=true){
       box.hidden=false;
       box.innerHTML='<form><div class="sum-fields"><label>الاسم<input name="display_name" maxlength="150" required value="'+escapeHtml(u.display_name)+'"></label>'+
        '<label>رقم الجوال<input name="phone" type="tel" maxlength="30" value="'+escapeHtml(u.phone||'')+'"></label></div>'+
-       '<label><input name="active" type="checkbox" '+(u.active?'checked':'')+'> الحساب نشط</label>'+
+       '<label><input name="active" type="checkbox" '+(u.profile_active!==false?'checked':'')+'> الحساب نشط</label>'+
        '<div class="sum-actions"><button class="sum-primary" type="submit">حفظ التعديل</button>'+
        '<button type="button" data-cancel>إلغاء</button></div></form>';
       const f=box.querySelector('form');box.querySelector('[data-cancel]').onclick=()=>box.hidden=true;
