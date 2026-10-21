@@ -5,7 +5,7 @@ const sdk=()=>{if(!window.supabaseClient)throw Error('لم تكتمل تهيئة
 const check=async p=>{const r=await p;if(r.error)throw Error(r.error.message);return r.data};
 const opts=(list,current,empty='اختر')=>'<option value="">'+esc(empty)+'</option>'+list.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===current?' selected':'')+'>'+esc(x.name)+'</option>').join('');
 const errorMessage=e=>e?.message||'تعذر تنفيذ العملية';
-let accessCache=null,accessAt=0,loadingAccess=null,dialog=null,dirty=false,tab='teachers',data=null;
+let accessCache=null,accessAt=0,loadingAccess=null,dialog=null,dirty=false,tab='teachers',data=null,complexFilter='';
 const roles=new Set(['admin','manager','supervisor']);
 async function isManager(){
  if(accessCache&&Date.now()-accessAt<25000)return accessCache;
@@ -15,20 +15,21 @@ async function isManager(){
 }
 function css(){
  if(document.getElementById('sr-manage-style'))return;
- const el=document.createElement('style');el.id='sr-manage-style';el.textContent='#'+ID+'{border:0;border-radius:18px;padding:0;width:min(1020px,96vw);max-height:92vh;overflow:hidden;color:#133d36;background:#fff;box-shadow:0 22px 80px #0006;direction:rtl}#'+ID+'::backdrop{background:#071b18b0}#'+ID+' .sr-header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:15px 20px;background:#e9f3ef;border-bottom:1px solid #bcd6cc}#'+ID+' .sr-content{overflow:auto;max-height:calc(92vh - 76px);padding:16px}#'+ID+' button{font:inherit;border:1px solid #c0d4cf;border-radius:9px;padding:7px 11px;color:#075c50;background:#eff7f4;cursor:pointer}#'+ID+' button:disabled{opacity:.5;cursor:wait}#'+ID+' button.sr-primary{color:#fff;background:#00808a;border-color:#00808a}#'+ID+' .sr-tabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}#'+ID+' .sr-selected{background:#006b55!important;color:#fff!important}#'+ID+' .sr-scroller{overflow:auto;max-width:100%}#'+ID+' table{width:100%;border-collapse:collapse;min-width:660px}#'+ID+' th,#'+ID+' td{padding:10px;border-bottom:1px solid #dce7e3;text-align:right;vertical-align:middle}#'+ID+' th{background:#f2f6f4}#'+ID+' small{display:block;opacity:.8}#'+ID+' .sr-warning{color:#915923}#'+ID+' .sr-error{color:#a32936}#'+ID+' .sr-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#'+ID+' label{display:block;font-weight:600}#'+ID+' input:not([type="checkbox"]),#'+ID+' select,#'+ID+' textarea{display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:5px;border:1px solid #bfd0ca;border-radius:8px;background:inherit;color:inherit}#'+ID+' .sr-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}#'+ID+' .sr-panel{border:1px solid #c5d5d0;border-radius:12px;padding:16px;margin-top:15px}#'+ID+' .sr-status{margin:8px 0;min-height:1.5em}@media(max-width:650px){#'+ID+' .sr-fields{grid-template-columns:1fr}#'+ID+' .sr-content{padding:10px}}:root[data-sanabil-theme="dark"] #'+ID+'{background:#142b2a;color:#eef9f4}:root[data-sanabil-theme="dark"] #'+ID+' .sr-header,:root[data-sanabil-theme="dark"] #'+ID+' th{background:#1d3937}:root[data-sanabil-theme="dark"] #'+ID+' td{border-color:#36524b}:root[data-sanabil-theme="dark"] #'+ID+' button{background:#244944;color:#e1f7f0;border-color:#42655d}';
+ const el=document.createElement('style');el.id='sr-manage-style';el.textContent='#'+ID+'{border:0;border-radius:18px;padding:0;width:min(1020px,96vw);max-height:92vh;overflow:hidden;color:#133d36;background:#fff;box-shadow:0 22px 80px #0006;direction:rtl}#'+ID+'::backdrop{background:#071b18b0}#'+ID+' .sr-header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:15px 20px;background:#e9f3ef;border-bottom:1px solid #bcd6cc}#'+ID+' .sr-content{overflow:auto;max-height:calc(92vh - 76px);padding:16px}#'+ID+' button{font:inherit;border:1px solid #c0d4cf;border-radius:9px;padding:7px 11px;color:#075c50;background:#eff7f4;cursor:pointer}#'+ID+' button:disabled{opacity:.5;cursor:wait}#'+ID+' button.sr-primary{color:#fff;background:#00808a;border-color:#00808a}#'+ID+' .sr-tabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}#'+ID+' .sr-selected{background:#006b55!important;color:#fff!important}#'+ID+' .sr-scroller{overflow:auto;max-width:100%}#'+ID+' table{width:100%;border-collapse:collapse;min-width:660px}#'+ID+' th,#'+ID+' td{padding:10px;border-bottom:1px solid #dce7e3;text-align:right;vertical-align:middle}#'+ID+' th{background:#f2f6f4}#'+ID+' .sr-complex-heading th{font-weight:800;background:#e8f1ed;border-top:2px solid #b6d0c5}#'+ID+' small{display:block;opacity:.8}#'+ID+' .sr-warning{color:#915923}#'+ID+' .sr-error{color:#a32936}#'+ID+' .sr-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#'+ID+' label{display:block;font-weight:600}#'+ID+' input:not([type="checkbox"]),#'+ID+' select,#'+ID+' textarea{display:block;width:100%;box-sizing:border-box;padding:9px;margin-top:5px;border:1px solid #bfd0ca;border-radius:8px;background:inherit;color:inherit}#'+ID+' .sr-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}#'+ID+' .sr-panel{border:1px solid #c5d5d0;border-radius:12px;padding:16px;margin-top:15px}#'+ID+' .sr-status{margin:8px 0;min-height:1.5em}@media(max-width:650px){#'+ID+' .sr-fields{grid-template-columns:1fr}#'+ID+' .sr-content{padding:10px}}:root[data-sanabil-theme="dark"] #'+ID+'{background:#142b2a;color:#eef9f4}:root[data-sanabil-theme="dark"] #'+ID+' .sr-header,:root[data-sanabil-theme="dark"] #'+ID+' th{background:#1d3937}:root[data-sanabil-theme="dark"] #'+ID+' td{border-color:#36524b}:root[data-sanabil-theme="dark"] #'+ID+' button{background:#244944;color:#e1f7f0;border-color:#42655d}';
  document.head.appendChild(el);
 }
 async function refresh(){
  const s=sdk();
- const [teachers,circles,links,students,mosques,rules]=await Promise.all([
+ const [teachers,circles,links,students,mosques,rules,complexes]=await Promise.all([
   check(s.from('teachers').select('id,org_id,complex_id,circle_id,full_name,phone,job_title,user_id,source_ref,active').order('full_name')),
   check(s.from('circles').select('id,org_id,complex_id,mosque_id,name,circle_type,session_period,assignment_note,active').order('name')),
   check(s.from('circle_teachers').select('circle_id,teacher_id,is_primary,active').eq('active',true)),
   check(s.from('students').select('id,circle_id,teacher_id').eq('active',true)),
   check(s.from('mosques').select('id,complex_id,name').eq('active',true)),
-  check(s.from('circle_session_rules').select('circle_id,weekdays'))
+  check(s.from('circle_session_rules').select('circle_id,weekdays')),
+  check(s.from('complexes').select('id,name,active').order('name'))
  ]);
- data={teachers,circles,links,students,mosques,rules};
+ data={teachers,circles,links,students,mosques,rules,complexes};
 }
 const teacher=id=>data.teachers.find(t=>t.id===id),circle=id=>data.circles.find(c=>c.id===id);
 const head=()=>'<div class="sr-tabs">'+[['teachers','المعلمون'],['circles','الحلقات'],['assign','الإسناد']].map(([id,label])=>'<button type="button" data-tab="'+id+'"'+(id===tab?' class="sr-selected"':'')+'>'+label+'</button>').join('')+'</div>';
@@ -36,22 +37,38 @@ const teacherStatus=t=>!t.active?'موقوف':!t.user_id?'مستورد أو مض
 function show(){
  if(!dialog||!data)return;
  const body=dialog.querySelector('.sr-content');
- let html=head();
+ const available=(data.complexes||[]).filter(c=>data.circles.some(x=>x.complex_id===c.id));
+ if(!available.some(c=>c.id===complexFilter)&&complexFilter!=='all')complexFilter=available[0]?.id||'all';
+ const circleSubset=data.circles.filter(c=>complexFilter==='all'||c.complex_id===complexFilter);
+ const groupRows=(items,render,colspan)=>available
+   .filter(g=>complexFilter==='all'||g.id===complexFilter)
+   .map(g=>{
+     const subset=items.filter(x=>x.complex_id===g.id);
+     if(!subset.length)return '';
+     return '<tr class="sr-complex-heading"><th colspan="'+colspan+'">'+esc(g.name)+' — '+subset.length+'</th></tr>'+
+      subset.map(x=>render(x,g)).join('');
+   }).join('')||'<tr><td colspan="'+colspan+'">لا توجد بيانات للمجمع المختار.</td></tr>';
+ let html=head()+'<label style="display:block;margin-bottom:12px">المجمع المعروض'+
+  '<select data-registry-complex-filter aria-label="اختيار مجمع الحلقات">'+
+  available.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===complexFilter?' selected':'')+'>'+esc(c.name)+'</option>').join('')+
+  '<option value="all"'+(complexFilter==='all'?' selected':'')+'>كل المجمعات</option>'+
+  '</select></label>';
  if(tab==='teachers'){
  html+='<p>يمكن تحرير بيانات المعلم أو إيقاف سجله دون حذف طلابه أو حصائله. ربط حساب الدخول يتم من إدارة المستخدمين، ولا يحدث تلقائيًا.</p><div class="sr-scroller"><table><thead><tr><th>المعلم</th><th>حالة التسجيل</th><th>الحلقات الحالية</th><th>إجراء</th></tr></thead><tbody>'+
- data.teachers.map(t=>{const names=data.links.filter(a=>a.teacher_id===t.id).map(a=>circle(a.circle_id)?.name).filter(Boolean);
- return '<tr><td>'+esc(t.full_name)+'<small>'+esc(t.job_title||'')+'</small></td><td'+(!t.user_id?' class="sr-warning"':'')+'>'+esc(teacherStatus(t))+'</td><td>'+esc(names.join('، ')||'لا يوجد إسناد نشط')+'</td><td><button data-edit-teacher="'+esc(t.id)+'">تحرير</button></td></tr>'}).join('')+'</tbody></table></div>';
+ groupRows(data.teachers,t=>{const names=data.links.filter(a=>a.teacher_id===t.id).map(a=>circle(a.circle_id)?.name).filter(Boolean);
+ return '<tr><td>'+esc(t.full_name)+'<small>'+esc((data.complexes||[]).find(c=>c.id===t.complex_id)?.name||t.complex_id)+' · '+esc(t.job_title||'')+'</small></td><td'+(!t.user_id?' class="sr-warning"':'')+'>'+esc(teacherStatus(t))+'</td><td>'+esc(names.join('، ')||'لا يوجد إسناد نشط')+'</td><td><button data-edit-teacher="'+esc(t.id)+'">تحرير</button></td></tr>'},4)+'</tbody></table></div>';
  }else if(tab==='circles'){
  html+='<div class="sr-actions"><button type="button" data-bulk-circle-settings class="sr-primary">تعديل إعدادات عدة حلقات</button></div>';
  html+='<p>تعديل اسم الحلقة ونوعها وفترتها ومسجدها، مع إبقاء الطلاب والنتائج والإسنادات محفوظة.</p><div class="sr-scroller"><table><thead><tr><th>الحلقة</th><th>النوع والفترة</th><th>الطلاب</th><th>المعلم المسند</th><th>إجراء</th></tr></thead><tbody>'+
- data.circles.map(c=>{const links=data.links.filter(a=>a.circle_id===c.id);
- return '<tr><td>'+esc(c.name)+'<small>'+(c.active?'نشطة':'متوقفة')+'</small></td><td>'+esc(c.circle_type||'—')+' / '+esc(c.session_period||'—')+'</td><td>'+data.students.filter(s=>s.circle_id===c.id).length+'</td><td>'+esc(links.map(a=>teacher(a.teacher_id)?.full_name||'سجل غير معروف').join('، ')||'غير مسند')+'</td><td><button data-edit-circle="'+esc(c.id)+'">تحرير</button></td></tr>'}).join('')+'</tbody></table></div>';
+ groupRows(circleSubset,(c,g)=>{const links=data.links.filter(a=>a.circle_id===c.id);
+ return '<tr><td>'+esc(c.name)+'<small>'+esc(g.name)+' · '+(c.active?'نشطة':'متوقفة')+'</small></td><td>'+esc(c.circle_type||'—')+' / '+esc(c.session_period||'—')+'</td><td>'+data.students.filter(s=>s.circle_id===c.id).length+'</td><td>'+esc(links.map(a=>teacher(a.teacher_id)?.full_name||'سجل غير معروف').join('، ')||'غير مسند')+'</td><td><button data-edit-circle="'+esc(c.id)+'">تحرير</button></td></tr>'},5)+'</tbody></table></div>';
  }else{
  html+='<p>يمكن إعادة الإسناد أو إلغاؤه دون نقل الطلاب أو تعديل نتائجهم. لا تُنشأ إسنادات جديدة لمعلم بلا حساب رسمي نشط.</p><div class="sr-scroller"><table><thead><tr><th>الحلقة</th><th>الفترة</th><th>الإسناد المعتمد</th><th>إجراء</th></tr></thead><tbody>'+
- data.circles.filter(c=>c.active).map(c=>{const links=data.links.filter(a=>a.circle_id===c.id);
- return '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.session_period||'—')+'</td><td>'+esc(links.map(a=>teacher(a.teacher_id)?.full_name||'معلم غير معروف').join('، ')||'غير مسند')+'</td><td><button data-set-assign="'+esc(c.id)+'">تعديل الإسناد</button> '+links.map(a=>'<button data-unassign="'+esc(c.id)+'" data-teacher="'+esc(a.teacher_id)+'">إلغاء</button>').join(' ')+'</td></tr>'}).join('')+'</tbody></table></div>';
+ groupRows(circleSubset.filter(c=>c.active),(c,g)=>{const links=data.links.filter(a=>a.circle_id===c.id);
+ return '<tr><td>'+esc(c.name)+'<small>'+esc(g.name)+'</small></td><td>'+esc(c.session_period||'—')+'</td><td>'+esc(links.map(a=>teacher(a.teacher_id)?.full_name||'معلم غير معروف').join('، ')||'غير مسند')+'</td><td><button data-set-assign="'+esc(c.id)+'">تعديل الإسناد</button> '+links.map(a=>'<button data-unassign="'+esc(c.id)+'" data-teacher="'+esc(a.teacher_id)+'">إلغاء</button>').join(' ')+'</td></tr>'},4)+'</tbody></table></div>';
  }
  body.innerHTML=html+'<div id="sr-edit-area"></div><p class="sr-status" role="status" aria-live="polite"></p>';
+ body.querySelector('[data-registry-complex-filter]').onchange=e=>{complexFilter=e.target.value;show()};
  body.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;show()});
  const bulk=body.querySelector('[data-bulk-circle-settings]');if(bulk)bulk.onclick=()=>window.SanabilCircleBulkSettings?.open?.();
  body.querySelectorAll('[data-edit-teacher]').forEach(b=>b.onclick=()=>editTeacher(b.dataset.editTeacher));
@@ -106,7 +123,7 @@ async function save(form,query,ok){
 async function open(selected){
  if(!(await isManager()))return;
  if(dialog?.open){tab=selected;show();return}
- css();tab=selected;dirty=false;dialog=document.createElement('dialog');dialog.id=ID;
+ css();tab=selected;dirty=false;complexFilter='';dialog=document.createElement('dialog');dialog.id=ID;
  dialog.innerHTML='<header class="sr-header"><strong>إدارة المعلمين والحلقات والإسناد</strong><button type="button" data-close>إغلاق</button></header><div class="sr-content">جارٍ تحميل البيانات...</div>';
  document.body.appendChild(dialog);
  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
