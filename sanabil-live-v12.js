@@ -2478,11 +2478,50 @@ async function talaqqinPlansPage(root,scope){
   });
 }
 
+const sanabilPlanCatalogHtml=(methods=[])=>{
+ const escPlan=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const plans=[{name:'خطة حلقات بر الوالدين',code:'bir_alwalidayn',intro:'منهج متدرج للحفظ والمراجعة بحسب مقدار الدرس.'},
+  {name:'برنامج أقوم',code:'aqom',intro:'برنامج بمسارين ومستويات أداء تراعي الفروق بين الطلاب.'},
+  {name:'خطة خاصة',code:'custom',intro:'يحدد المعلم مقدار الحفظ والمراجعة بحسب مستوى الطالب.'},
+  {name:'خطة علاجية',code:'remedial',intro:'مرحلة مؤقتة لمعالجة الضعف قبل الانتقال إلى المنهج المعتمد.'}];
+ const detail=m=>{
+  if(!m)return '<p>تُضبط التفاصيل عند اختيار المسار وإنشاء خطة الطالب.</p>';
+  const config=m.config||{};
+  let blocks=[];
+  if(Array.isArray(config.levels))blocks.push('<b>مستويات المنهج</b><ul>'+config.levels.map(x=>
+    '<li>'+escPlan(x.name||x.label||x.id||'مستوى')+
+    (x.targetLines?' — '+escPlan(x.targetLines)+' أسطر':'')+
+    (Array.isArray(x.targetPattern)?' — أنماط مقادير: '+escPlan(x.targetPattern.join('، '))+' أسطر':'')+
+    '</li>').join('')+'</ul>');
+  if(config.paths&&typeof config.paths==='object')blocks.push('<b>المسارات</b><ul>'+Object.entries(config.paths).map(([id,p])=>
+   '<li>'+escPlan(p?.name||({path1:'المسار الأول',path2:'المسار الثاني'}[id]||id))+
+   (Array.isArray(p?.levels)?' — '+p.levels.length+' مستويات':'')+'</li>').join('')+'</ul>');
+  return blocks.join('')||'<p>تظهر تفاصيل المنهج ومستوياته عند إنشاء خطة الطالب.</p>';
+ };
+ return '<section class="sl-plan-catalog" dir="rtl"><h2>دليل الخطط التعليمية</h2>'+
+  '<p>يمكن لمشرف المجمع الاطلاع على أنواع الخطط وآلياتها قبل إنشاء أي حلقة أو إضافة معلم أو طالب. العرض لا يُنشئ سجلات أو تكليفات.</p>'+
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px">'+
+  plans.map(p=>{const m=(methods||[]).find(x=>x.code===p.code);
+   return '<article style="border:1px solid #b9cec6;border-radius:12px;padding:14px"><h3>'+escPlan(m?.name||p.name)+'</h3>'+
+    '<p>'+escPlan(m?.description||p.intro)+'</p><details><summary style="cursor:pointer;font-weight:700">عرض الآلية والمستويات</summary>'+
+    '<div style="line-height:1.8;padding-top:9px">'+detail(m)+'</div></details></article>'}).join('')+'</div>'+
+  '<p class="sl-help">التسلسل: إنشاء المجمع والحلقة ← إضافة المعلم والطلاب ← إعداد خطة الطالب. المراجعة الصغرى تتبع موضع الدرس، والمراجعة الكبرى تدور بحسب المقدار المختار.</p></section>';
+};
+
 async function plansPage(root){
  const scope=await lookups();
- // Talaqqin-only accounts do not need Quran-plan methodology or student-plan reads.
- if(scope.circles.length&&scope.circles.every(c=>c.circle_type==='حلقات التلقين'))
-   return await talaqqinPlansPage(root,scope);
+ // Catalog is available before a supervisor creates the first complex/circle/teacher/student.
+ if(!scope.circles.length){
+   const methods=await rpc('list_plan_methodologies',{}).catch(()=>[]);
+   root.innerHTML=sanabilPlanCatalogHtml(methods)+'<p class="sl-empty">ابدأ بإنشاء الحلقات ثم إضافة المعلمين والطلاب لتفعيل إنشاء الخطط.</p>';
+   return;
+ }
+ if(scope.circles.every(c=>c.circle_type==='حلقات التلقين')){
+   await talaqqinPlansPage(root,scope);
+   const methods=await rpc('list_plan_methodologies',{}).catch(()=>[]);
+   root.insertAdjacentHTML('afterbegin',sanabilPlanCatalogHtml(methods));
+   return;
+ }
  const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
  const [allStudents,methodologies]=await Promise.all([
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
@@ -2490,7 +2529,7 @@ async function plansPage(root){
  ]);
  const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id));
  const quranStudentIds=new Set(students.map(s=>s.id));
- if(!students.length)return await talaqqinPlansPage(root,scope);
+ if(!students.length){root.innerHTML=sanabilPlanCatalogHtml(methodologies)+'<p class="sl-empty">لا يوجد طلاب في حلقات الحفظ بعد؛ أنشئ حلقة وأضف الطلاب للبدء.</p>';return;}
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -2547,7 +2586,7 @@ async function plansPage(root){
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
- <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div><div class="sl-data"></div>`;
+ <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<div class="sl-data"></div>`;
 
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
