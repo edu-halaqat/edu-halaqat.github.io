@@ -1295,6 +1295,8 @@ async function studentsPage(root){
    esc(l.teachers.find(t=>t.id===s.teacher_id)?.full_name||s.teacher_name||'غير مسند'),esc(s.guardian_phone||'—'),
    button('تعديل','edit-'+i)+(canMove?button('نقل','move-'+i):'')+button('التقدم','progress-'+i)+button('تكريم','award-'+i)+button('بطاقة الطالب','card-'+i)+button('بوابة ولي الأمر','guardian-'+i)+button('إيقاف','off-'+i)
   ]));
+  if(!current.length)root.querySelector('.sl-data').insertAdjacentHTML('afterbegin',
+    '<p class="sl-help" role="status">لا توجد سجلات طلاب في نطاق الاختيار الحالي. إذا لم يُستورد الطلاب إلى هذا المجمع بعد، استخدم استيراد Excel؛ لا يعني ذلك فقد بيانات المجمعات الأخرى.</p>');
   root.querySelectorAll('[data-student-select]').forEach(x=>x.onchange=()=>{x.checked?selected.add(x.dataset.studentSelect):selected.delete(x.dataset.studentSelect);status()});
   root.querySelector('.sl-page').textContent='صفحة '+(page+1);root.querySelector('[data-action="prev"]').disabled=page===0;root.querySelector('[data-action="next"]').disabled=current.length<50;
   current.forEach((s,i)=>{
@@ -1312,6 +1314,7 @@ async function studentsPage(root){
   const b=modal(s?'تعديل بيانات الطالب':'إضافة طالب');
   b.innerHTML=`<form><div class="form-grid two">${field('الاسم الثلاثي','full_name','text',s?.full_name||'','required')}${field('الهوية أو الإقامة','identity_number','text',s?.identity_number||'')}${field('الجنسية','nationality','text',s?.nationality||'')}${field('الميلاد ميلادي','birth_date','date',s?.birth_date||'')}${field('الميلاد هجري','birth_date_hijri','text',s?.birth_date_hijri||'')}${field('انتهاء الهوية','identity_expiry','date',s?.identity_expiry||'')}${field('المرحلة الدراسية','stage','text',s?.stage||'')}${field('المستوى/المقدار السابق','memorization_level','text',s?.memorization_level||s?.evaluation||'')}${field('جوال الطالب','student_phone','tel',s?.student_phone||'')}${field('جوال ولي الأمر','guardian_phone','tel',s?.guardian_phone||'')}${select('المجمع','complex_id',l.complexes,s?.complex_id)}${select('الحلقة','circle_id',l.circles,s?.circle_id)}${select('المعلم','teacher_id',teachersForCircle(l,s?.circle_id||'').map(t=>({id:t.id,name:t.full_name})),s?.teacher_id)}</div><button type="submit" class="button button-primary">حفظ الطالب</button></form>`;
   const form=b.querySelector('form');bindScope(form,l,s||{});
+  form.querySelectorAll('input[type="date"]').forEach(x=>{x.dir='ltr';x.lang='en';x.style.textAlign='left';});
   // A student's teacher is derived from the circle's explicit ACTIVE assignment.
   // Preserve old mismatching links only while the record is being reviewed.
   const ci=form.elements.circle_id,cx=form.elements.complex_id,te=form.elements.teacher_id;
@@ -2811,15 +2814,17 @@ async function plansPage(root){
    const facts=recent
     ?`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>المنهج</b>نافذة متحركة تبدأ من نهاية الدرس وتتجه نحو الناس</span><span><b>الارتباط</b>تتبع خطة الحفظ تلقائيًا</span>${timeFacts}`
     :`<span><b>المقدار</b>${esc(p.daily_amount+' '+(unitName[p.unit]||p.unit))}</span><span><b>الاتجاه</b>${esc(directionName[p.direction]||p.direction)}</span><span><b>البداية</b>${esc(qref(p.start_ref))}</span>${timeFacts}${remedial?`<span><b>الهدف العلاجي</b>التهيئة للانتقال إلى ${esc(targetMethodLabel(remedialTarget))}</span><span><b>طبيعة الخطة</b>مؤقتة وتنتهي عند اعتماد جاهزية الطالب للبرنامج المستهدف</span>`:''}${qpc?`<span><b>وحدة المراجعة</b>${esc(unitName[p.unit]||p.unit)}</span>`:''}${p.type==='review'?'<span><b>التكرار</b>دوري تلقائي</span>':''}`;
-   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('حذف / إنهاء','remove-'+i)}</div></article>`;
+   return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('أرشفة الخطة','remove-'+i)}</div></article>`;
  };
 
  const load=async()=>{
    const plans=(await rows('plans','*',{status:'active'})).filter(p=>quranStudentIds.has(p.student_id));plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
    root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
    // Archived plans remain discoverable; no data restoration or deletion is implicit.
+   const archiveStudents=await rows('students','id,full_name,circle_id');
+   const archivedIds=new Set(archiveStudents.filter(x=>(scope.circles||[]).some(c=>c.id===x.circle_id)).map(x=>x.id));
    const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
-     .filter(p=>quranStudentIds.has(p.student_id));
+     .filter(p=>archivedIds.has(p.student_id));
    const archives=root.querySelector('.sl-plan-archives');
    if(archives){
      archives.innerHTML='<details><summary>الخطط السابقة والمؤرشفة ('+archived.length+')</summary>'+
@@ -2850,9 +2855,9 @@ async function plansPage(root){
    plans.forEach((p,i)=>{
      action(root,root.querySelector(`[data-action="remove-${i}"]`),async()=>{
        const label=p.name||typeName[p.type]||'الخطة';
-       if(!confirm('هل تريد حذف/إنهاء «'+label+'»؟ إذا كانت الخطة قد بدأ تنفيذها فسيُحفظ تاريخها وتُحذف الأيام المستقبلية فقط.'))return;
+       if(!confirm('أرشفة «'+label+'» وإخفاؤها من الخطط النشطة؟ ستُحفظ جميع أيامها وحصائلها دون حذف.'))return;
        const r=await rpc('remove_plan',{p_plan_id:p.id});await load();
-       msg(root,r.mode==='deleted'?'تم حذف الخطة بالكامل ويمكن إنشاء خطة جديدة للطالب الآن.':'تم إنهاء الخطة مع حفظ الأيام والحصائل السابقة، ويمكن إنشاء خطة جديدة للطالب.');
+       msg(root,'أُرشفت الخطة دون حذف أيامها أو حصائلها؛ يمكنك مراجعتها في قسم الخطط المؤرشفة.');
      });
 
      action(root,root.querySelector(`[data-action="days-${i}"]`),async()=>{
