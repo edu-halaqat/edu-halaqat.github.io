@@ -3773,15 +3773,19 @@ async function settingsPage(root){
   })
  };
  const editCircle=(x,complexes,mosques)=>{
-  const b=modal(x?'تعديل الحلقة':'إضافة حلقة'),
+  const b=modal(x?'تعديل الحلقة: '+x.name+' — '+(complexes.find(c=>c.id===x.complex_id)?.name||'المجمع غير محدد'):'إضافة حلقة'),
     circleTypes=[{id:'حلقة حفظ',name:'حلقة حفظ'},{id:'حلقات التلقين',name:'حلقات التلقين'},{id:'حلقة إجازة',name:'حلقة إجازة'},{id:'حلقة تصحيح التلاوة فقط',name:'حلقة تصحيح التلاوة فقط'}],
     periods=[{id:'الفجر',name:'الفجر'},{id:'الظهر',name:'الظهر'},{id:'العصر',name:'العصر'},{id:'المغرب',name:'المغرب'},{id:'العشاء',name:'العشاء'},{id:'وقت مرن (عن بعد)',name:'وقت مرن (عن بعد)'}];
   b.innerHTML=`<form><div class="form-grid two">${select('المجمع','complex_id',complexes,x?.complex_id)}${select('المسجد','mosque_id',mosques.map(m=>({id:m.id,name:m.name})),x?.mosque_id)}${field('اسم الحلقة','name','text',x?.name||'','required')}${select('نوع الحلقة','circle_type',circleTypes,x?.circle_type||'حلقة حفظ')}${select('الفترة','session_period',periods,x?.session_period||'العصر')}<label>نشطة<input name="active" type="checkbox" ${x?.active===false?'':'checked'}></label></div><p class="sl-help">الفترة مرتبطة بضوابط جلسة الحصيلة وبإعدادات بصمة مستقلة لكل فترة. الاسم المعتمد لحلقات تعليم القراءة والتهجي هو «حلقات التلقين».</p><button type="submit" class="button button-primary">حفظ الحلقة</button></form>`;
   const form=b.querySelector('form');
+  if(x){form.elements.complex_id.disabled=true;form.elements.complex_id.title='لا يمكن نقل حلقة قائمة إلى مجمع آخر من تعديل بياناتها، حفاظًا على سجلات الطلاب.';}
   submit(form,async()=>{
+    if(x&&val(form,'complex_id')!==x.complex_id)throw Error('لا يمكن تغيير مجمع الحلقة من هذه النافذة.');
     const mosque=mosques.find(m=>m.id===val(form,'mosque_id'));if(!mosque||mosque.complex_id!==val(form,'complex_id'))throw Error('اختر مسجدًا تابعًا للمجمع نفسه');
     const row={org_id:a.org_id,complex_id:val(form,'complex_id'),mosque_id:mosque.id,name:val(form,'name'),circle_type:val(form,'circle_type'),session_period:val(form,'session_period')||null,active:form.elements.active.checked,updated_at:new Date().toISOString()};
-    if(x)await result(sb().from('circles').update(row).eq('id',x.id).select('id').single());else await result(sb().from('circles').insert({id:'circle-'+crypto.randomUUID(),...row}).select('id').single());
+    if(x){if(!confirm('تأكيد حفظ تعديلات الحلقة «'+x.name+'» في مجمع «'+(complexes.find(c=>c.id===x.complex_id)?.name||x.complex_id)+'»؟'))return;
+      await result(sb().from('circles').update(row).eq('id',x.id).eq('complex_id',x.complex_id).select('id').single());
+    }else await result(sb().from('circles').insert({id:'circle-'+crypto.randomUUID(),...row}).select('id').single());
     lookupPromise=null;b.closest('dialog').close();await load();msg(root,'تم حفظ الحلقة وفترتها.')
   })
  };
