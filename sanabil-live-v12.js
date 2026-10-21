@@ -46,8 +46,8 @@ const flushOfflineQueue=async()=>{
  if(offlineFlushTimer!==null){clearTimeout(offlineFlushTimer);offlineFlushTimer=null}
  if(!window.SanabilOffline)return;
  if(offlineFlushPending)return offlineFlushPending;
- // Single, idempotent operation transactions avoid exceeding Supabase's statement timeout with five heavy outcome recalculations.
- const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:true});
+ // Keep server-side user locking and idempotent acknowledgements, but apply only one heavy write per transaction to avoid 8s statement timeouts.
+ const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:true,maxBatchSize:1});
  offlineFlushPending=pending;
  try{await pending}finally{if(offlineFlushPending===pending)offlineFlushPending=null}
 };
