@@ -7,6 +7,12 @@ assert(html.includes('/sanabil-quick-outcomes.js?v=20261022-savefix3'));
 assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v8'));
 assert(live.includes('window.SanabilQuickOutcomes?.mount?.({'),'live classroom loads optional quick editor');
 assert(live.includes('sl-savebar-feedback'),'failed outcome saves must show a visible footer-level error');
+assert(live.includes('<form class="sl-outcome-session" novalidate>'),
+ 'daily outcome form must bypass silent browser-native validation of hidden editor fields');
+assert(!/name="(?:fromAyah|toAyah)"[^>]* required>/.test(live),
+ 'hidden Quran-range controls must never stop bulk outcome submit before JS validation');
+assert(live.includes('const input=name=>Number(panel.querySelector'),
+ 'explicit Quran range editor retains its own input validation');
 assert(live.includes("rpcOffline('save_daily_outcomes_guarded'"),'existing server-guarded outcome pipeline preserved');
 assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server confirmation preserved');
 assert(css.includes('.sl-quick-sheet')&&css.includes('.sl-quick-mode'),'responsive views available');
