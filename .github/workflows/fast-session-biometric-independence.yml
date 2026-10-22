@@ -1,0 +1,15 @@
+name: Fast session fingerprint independence
+on:
+  pull_request:
+    paths:
+      - 'db/maintenance/fast_session_independent_of_biometric.sql'
+      - 'tests/sanabil-fast-session-biometric-independence.cjs'
+      - '.github/workflows/fast-session-biometric-independence.yml'
+permissions:
+  contents: read
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node tests/sanabil-fast-session-biometric-independence.cjs
