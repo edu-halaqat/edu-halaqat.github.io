@@ -316,7 +316,14 @@
   const teacherConfirm=()=>{
    if(!provisional.size)return true;
    const n=provisional.size;
-   if(!window.confirm('توجد '+n+' حصيلة ممتاز مبدئية للحاضرين. أؤكد أنني سمعت واجبات هؤلاء الطلاب بالفعل، وصححت جميع الحالات الاستثنائية قبل الحفظ.'))return false;
+   if(!window.confirm('توجد '+n+' حصيلة ممتاز مبدئية للحاضرين. أؤكد أنني سمعت واجبات هؤلاء الطلاب بالفعل، وصححت جميع الحالات الاستثنائية قبل الحفظ.')){
+    const footer=form.querySelector('.sl-outcome-savebar');
+    let notice=footer?.querySelector('.sl-savebar-feedback');
+    if(footer&&!notice){notice=el('p','sl-savebar-feedback');notice.setAttribute('role','alert');notice.style.cssText='background:#fff1ec;color:#80261f;border-radius:12px;padding:12px 16px;line-height:1.8;margin:10px 0;font-weight:600';footer.insertBefore(notice,footer.querySelector('.sl-savebar-actions'))}
+    if(notice){notice.textContent='لم يبدأ الحفظ لأن اعتماد '+n+' حصيلة مبدئية لم يُؤكَّد. أكّد تسميع الطلاب أو عدّل تقديراتهم ثم أعد الضغط على حفظ الحصيلة.';notice.scrollIntoView({behavior:'smooth',block:'nearest'})}
+    inform('لم يُرسل أي حفظ جديد؛ بقيت المسودات محفوظة على الجهاز.');
+    return false;
+   }
    provisional.clear();refreshAll();return true;
   };
   form.addEventListener('submit',event=>{
