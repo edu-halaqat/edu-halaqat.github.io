@@ -5,7 +5,13 @@ const js=fs.readFileSync('sanabil-live-v12.js','utf8');
 const css=fs.readFileSync('sanabil-identity.css','utf8');
 const html=fs.readFileSync('index.html','utf8');
 
-const match=js.match(/const scopeStudentsToPlanCircle=(\([^;]+\);/);
+const prefix='const scopeStudentsToPlanCircle=';
+const pos=js.indexOf(prefix);
+assert.ok(pos>=0,'scoped-plan student filter helper must exist');
+const end=js.indexOf(';',pos);
+assert.ok(end>pos,'filter expression must terminate');
+const expression=js.slice(pos+prefix.length,end);
+const match=[null,expression];
 assert.ok(match,'scoped-plan student filter helper must exist');
 const scopeStudentsToPlanCircle=Function('return '+match[1])();
 const students=[
@@ -41,5 +47,5 @@ assert.match(css,/fieldset\.sl-review-builder/);
 assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body form select option/);
 assert.match(css,/\.sl-plan-circle-filter label/);
 assert.ok(html.includes('/sanabil-live-v12.js?v=20261022-plancircle1'));
-assert.ok(html.includes('/sanabil-identity.css?v=20261022-plan-dark1'));
+assert.ok(html.includes('/sanabil-identity.css?v=34'));
 console.log('PASS: plan lists are circle-specific, teacher choices are assigned, archived plans stay scoped, and dark modal styles are versioned.');
