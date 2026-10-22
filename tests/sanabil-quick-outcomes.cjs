@@ -14,7 +14,9 @@ assert(!/name="(?:fromAyah|toAyah)"[^>]* required>/.test(live),
 assert(live.includes('const input=name=>Number(panel.querySelector'),
  'explicit Quran range editor retains its own input validation');
 assert(live.includes("rpcOffline('save_daily_outcomes_guarded'"),'existing server-guarded outcome pipeline preserved');
-assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server confirmation preserved');
+assert(live.includes('await saveOneStudent(i);'),'whole-circle confirmation follows independent student save');
+assert(live.includes('persistDraft(i,{schedule:false})'),'saving cannot schedule another automatic save');
+assert(live.includes('updateOutcomeIssues()'),'failed student identity remains visible');
 assert(css.includes('.sl-quick-sheet')&&css.includes('.sl-quick-mode'),'responsive views available');
 const win={};vm.runInNewContext(js,{window:win,document:{}});const grade=win.SanabilQuickOutcomes.gradeFor;
 for(const [key,e,d,want] of [
