@@ -5,7 +5,7 @@ for(const event of ['pointerdown','keydown'])window.addEventListener(event,()=>{
 const track=async(name,fn)=>{
  const started=performance.now(),g=generation;let ok=false;active++;
  try{const value=await fn();ok=true;return value}
- finally{active--;if(g===generation){samples.push({name,ms:Math.round(performance.now()-started),ok});if(samples.length>200)samples.shift()}}
+ finally{active--;try{window.SanabilActivity?.record('operation',name,performance.now()-started,ok)}catch{};if(g===generation){samples.push({name,ms:Math.round(performance.now()-started),ok});if(samples.length>200)samples.shift()}}
 };
 const summary=()=>{
  const names=[...new Set(samples.map(x=>x.name))];
