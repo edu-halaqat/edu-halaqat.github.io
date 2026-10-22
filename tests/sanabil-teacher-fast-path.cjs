@@ -18,6 +18,7 @@ assert(css.includes('.sl-fast-session.sl-fast-session-ready > .sl-session-filter
 assert(css.includes('.sl-fast-session:not(.sl-fast-session-ready) > .sl-session-filter'),'failed load keeps session retry visible');
 assert(source.includes("root.querySelector('[data-action=\"load\"]')"),'fast session explicitly opens outcomes independent from fingerprint');
 assert(source.includes('new MutationObserver(refreshSessionView)'),'student-card observer reactivates quick view after load');
+assert(source.includes('quickList!==quickInitializedFor'),'fast mode must not undo teacher detailed view on a mutation');
 assert(source.includes('await fingerprintError(error)'),'Edge refusal is translated into actionable message');
 assert(html.includes('sanabil-teacher-fast-path.js'),'entry asset present');
 const storage=()=>{const map=new Map();return{setItem:(k,v)=>map.set(k,v),getItem:k=>map.get(k)||null,removeItem:k=>map.delete(k)}};
