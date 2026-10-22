@@ -36,4 +36,31 @@ const opsWindow={};vm.runInNewContext(ops,{window:opsWindow,document:{},navigato
 const p=opsWindow.SanabilLiveOps.percentile;
 assert.equal(p([100,200,300,400,500],.95),500);
 assert.equal(p([],0.95),null);
+// Regression: an autosave attempt writes a durable draft but MUST NOT
+// schedule itself again; only an actual teacher edit may enqueue another write.
+{
+ const first=live.indexOf('const persistDraft=(i,{schedule=true}={})=>{');
+ const end=live.indexOf('const clearDraft=i=>',first);
+ assert(first>=0&&end>first,'explicit scheduling option must exist');
+ const expression=live.slice(first,end);
+ let writes=0,timers=0,issues=0;
+ const student=[{studentId:'s1'}],drafts={};
+ const saveStatus={textContent:'',dataset:{}};
+ const factory=new Function('students','rowData','drafts','saveDrafts','box','normalizedMetrics',
+   'saveErrors','scheduleOutcomeAutoSave','updateOutcomeIssues',
+   expression+'\nreturn persistDraft;');
+ const persist=factory(student,()=>({
+    att:'present',absenceReason:'',note:'',ratings:{memorization:'جيد جدًا',reviewPlans:{}},metrics:{}
+   }),drafts,()=>writes++,{querySelector:()=>saveStatus},x=>x,new Map(),
+   ()=>timers++,()=>issues++);
+ persist(0,{schedule:false});
+ assert.equal(writes,1,'autosave must durably write the draft');
+ assert.equal(timers,0,'no self-requeue after attempting save');
+ assert.equal(issues,1,'UI must reflect the draft immediately');
+ persist(0);
+ assert.equal(timers,1,'a later user edit is still scheduled');
+}
+assert(live.includes("if(status?.dataset.saved==='queued'){queued.push(s.fullName);continue}"),
+ 'submit cannot enqueue a duplicate of an unacknowledged offline write');
+assert(live.includes('studentSaves.set(i,pending)'),'same student writes are serialized');
 console.log('PASS: default attendance is nonpersisted, autosave gates unverified grades, atomic group actions, live metric confidentiality, and strict Quran scoring');
