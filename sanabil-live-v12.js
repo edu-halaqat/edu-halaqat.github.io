@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.58';
+window.__SanabilLiveBuild='20261022-v13.8.59-save-feedback';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -795,7 +795,34 @@ function awardStudent(root,s,onDone){
 
 const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const url=URL.createObjectURL(new Blob(['\ufeff'+[head,...data].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
-const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');const originalLabel=b.textContent;b.textContent='جارٍ الحفظ…';try{await measure('save:form',fn)}catch(e){msg(form,e.message,true)}finally{b.disabled=false;b.removeAttribute('aria-busy');b.textContent=originalLabel}})};
+const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(!b||b.disabled)return;
+ const savebar=form.querySelector('.sl-outcome-savebar');
+ const prior=savebar?.querySelector('.sl-savebar-feedback');if(prior)prior.remove();
+ b.disabled=true;b.setAttribute('aria-busy','true');const originalLabel=b.innerHTML;b.textContent='جارٍ التحقق من الحصائل وحفظها…';
+ try{await measure('save:form',fn)}
+ catch(error){
+  const message=error?.message||'تعذر حفظ الحصيلة. بقيت المسودات محفوظة على الجهاز.';
+  if(!savebar){msg(form,message,true)}
+  else{
+   const notice=document.createElement('p');notice.className='sl-savebar-feedback';
+   notice.setAttribute('role','alert');notice.setAttribute('aria-live','assertive');
+   notice.textContent=message;notice.style.cssText='background:#fff1ec;color:#80261f;border-radius:12px;padding:12px 16px;line-height:1.8;margin:10px 0;font-weight:600';
+   const offending=[...form.querySelectorAll('[data-student-card]')].find(card=>{
+    const name=card.querySelector('h3')?.textContent?.trim();
+    return name&&message.includes(name);
+   });
+   if(offending){
+    const go=document.createElement('button');go.type='button';go.className='button button-soft';
+    go.textContent='الانتقال إلى الطالب لاستكمال الحصيلة';
+    go.style.cssText='display:block;margin-top:8px';
+    go.addEventListener('click',()=>offending.scrollIntoView({behavior:'smooth',block:'center'}));
+    notice.append(go);
+   }
+   savebar.insertBefore(notice,savebar.querySelector('.sl-savebar-actions'));
+   notice.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+ }finally{b.disabled=false;b.removeAttribute('aria-busy');b.innerHTML=originalLabel}
+})};
 let lookupPromise=null,lookupAt=0;
 async function lookups(){
  if(!lookupPromise||Date.now()-lookupAt>120000){
@@ -2548,9 +2575,15 @@ async function outcomesPage(root){
     const pg=box.querySelector(`[data-action="portal-${i}"]`);if(pg)action(box,pg,()=>showGuardianLink(box,s.studentId,s.fullName))
   });
   if(readOnly){
-    box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
+    box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
+  if(readOnly){const verify=box.querySelector('.sl-savebar-submit');if(verify){verify.title=sessionInfo?.reason||'الجلسة للعرض فقط';const label=verify.querySelector('span:last-child');if(label)label.textContent='التحقق من إتاحة حفظ الحصيلة';}}
   submit(form,async()=>{
+    if(readOnly){
+      const fresh=await rpcDirect('circle_session_access',{p_circle_id:circle,p_date:date});
+      if(fresh?.allowed){msg(root,'تجدّدت صلاحية الحفظ. أعد فتح الجلسة لاستكمال الحصائل.');reloadDay();return}
+      throw Error('الحفظ غير متاح حاليًا بحسب ضوابط الحلقة: '+(fresh?.reason||sessionInfo?.reason||'راجع مشرف المجمع')+'. لن تُفقد أي مسودة محفوظة على الجهاز.');
+    }
     const realSaveStarted=performance.now();
     validateAttendance();
     const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
