@@ -92,6 +92,12 @@ async function readThrough(key,loader){
  pendingReads.set(id,pending);
  try{return await pending}finally{if(pendingReads.get(id)===pending)pendingReads.delete(id)}
 }
+function scopeTokens(item){
+ const args=item.args||{},date=String(args.p_date||'');
+ const ids=Array.isArray(args.p_rows)?args.p_rows.map(x=>String(x?.studentId||'').trim()).filter(Boolean):[];
+ if(ids.length)return [...new Set(ids.map(id=>'student:'+date+':'+id))];
+ return [item.name+':'+date+':'+String(args.p_circle_id||item.id)];
+}
 async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
  if(active||!navigator.onLine||!callRpc)return;
  active=true;lastFlushError='';await status();
@@ -99,14 +105,16 @@ async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
   const uid=await userId();
   const all=(await list(OPS)).filter(x=>x.userId===uid).sort((a,b)=>(a.enqueueOrder||Date.parse(a.createdAt))-(b.enqueueOrder||Date.parse(b.createdAt)));
   let singleAfterTimeout=false;
+   const blockedScopes=new Set();
   for(let offset=0;offset<all.length;){
    const item=all[offset];
    if(await userId()!==uid)break;
+    if(scopeTokens(item).some(scope=>blockedScopes.has(scope))){offset++;continue}
    try{
     if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'){
      const items=[];let size=0;
      for(const candidate of all.slice(offset,offset+(Number.isInteger(maxBatchSize)?Math.max(1,Math.min(5,maxBatchSize)):5))){
-      if(candidate.name==='submit_offline_attendance_claim')break;
+      if(candidate.name==='submit_offline_attendance_claim'||scopeTokens(candidate).some(scope=>blockedScopes.has(scope)))break;
       const n=JSON.stringify(candidate.args).length;
       if(items.length&&size+n>140000)break;
       items.push(candidate);size+=n;
@@ -155,8 +163,12 @@ async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
     failed.attempts=(failed.attempts||0)+1;
     failed.lastError=lastFlushError;failed.status=networkError(error)?'queued':'needs_attention';
     await put(OPS,failed);
-    // Preserve order; a later version of the same record must not overtake it.
-    break;
+     // A business denial must not freeze independent students; preserve the
+     // failed record and later versions of that same student/date in order.
+     if(networkError(error))break;
+     for(const token of scopeTokens(failed))blockedScopes.add(token);
+     offset++;
+     continue;
    }
   }
  }finally{active=false;await status()}
@@ -180,9 +192,9 @@ async function importLegacy(){
  localStorage.removeItem(LEGACY);await status();return raw.length;
 }
 const style=document.createElement('style');
-style.textContent=`.sanabil-install-pill{position:fixed;bottom:88px;inset-inline-start:12px;z-index:2147483200;display:flex;align-items:center;gap:9px;max-width:calc(100vw - 24px);padding:9px 12px;background:#073f42;color:#fff;border:1px solid #d8bd88;border-radius:15px;box-shadow:0 3px 18px #0005;font:600 13px/1.6 system-ui;direction:rtl}.sanabil-install-pill button{border:1px solid #d8bd88;background:#d8bd88;color:#073f42;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit}.sanabil-install-pill a{color:#fff}`;
+style.textContent=`.sanabil-install-pill{position:fixed;bottom:88px;inset-inline-start:12px;z-index:2147483200;display:flex;align-items:center;gap:9px;max-width:min(330px,calc(100vw - 115px));flex-wrap:wrap;padding:7px 9px;background:#073f42;color:#fff;border:1px solid #d8bd88;border-radius:15px;box-shadow:0 3px 18px #0005;font:600 13px/1.6 system-ui;direction:rtl}.sanabil-install-pill button{border:1px solid #d8bd88;background:#d8bd88;color:#073f42;border-radius:9px;padding:5px 10px;cursor:pointer;font:inherit}.sanabil-install-pill:not([data-expanded='1']) button{display:none}.sanabil-install-pill a{color:#fff}`;
 document.head.appendChild(style);
-function uiRoot(){let root=document.getElementById('sanabil-pwa-offline');if(!root){root=document.createElement('div');root.id='sanabil-pwa-offline';root.className='sanabil-install-pill';root.setAttribute('role','status');root.setAttribute('aria-live','polite');document.body.appendChild(root)}return root}
+function uiRoot(){let root=document.getElementById('sanabil-pwa-offline');if(!root){root=document.createElement('div');root.id='sanabil-pwa-offline';root.className='sanabil-install-pill';root.setAttribute('role','status');root.setAttribute('aria-live','polite');document.body.appendChild(root);root.addEventListener('click',e=>{if(e.target.closest('button'))return;root.dataset.expanded=root.dataset.expanded==='1'?'0':'1';})}return root}
 async function updateUi(){
  if(!document.body)return;
  const root=uiRoot(),s=await status(true).catch(()=>({count:0,legacyCount:0,flushing:false,error:'',online:navigator.onLine}));
@@ -190,7 +202,7 @@ async function updateUi(){
  // Keep the status visible for offline/pending/failed operations only.
  const needsAttention=!s.online||s.count>0||s.legacyCount>0||s.flushing||!!s.error;
  root.hidden=!needsAttention;
- root.replaceChildren();
+ root.replaceChildren();root.title='انقر لعرض خيارات المزامنة';
  if(!needsAttention)return;
  const img=document.createElement('img');img.src='/assets/sanabil-app-visible-192.png';img.alt='';img.width=28;img.height=28;img.style.cssText='border-radius:7px;object-fit:contain;background:#fff';
  root.append(img);
