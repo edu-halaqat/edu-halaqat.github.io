@@ -3334,7 +3334,9 @@ async function plansPage(root){
      }
      // تُحفظ إعدادات المراجعات الكبرى ضمن save_plan_bundle بمعاملة واحدة
      // ولا تتطلب تصريح UPDATE مباشر على جدول الخطط.
-     await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
+     // save_plan_bundle_whole_ayah performs this sync inside its transaction; never run it twice.
+     if(!(hasMem&&code!=='aqom'))await rpc('sync_student_review_plans',{p_student_id:student.id});
+     b.closest('dialog').close();await load();
      const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
      const createdName=code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':code==='remedial'?'الخطة العلاجية':'الخطة الخاصة';
      msg(root,'تم إنشاء '+createdName+(code==='remedial'?' كخطة مؤقتة حتى جاهزية الطالب للانتقال إلى '+targetMethodLabel(val(form,'remedialTarget'))+'.':(finish?' · الختم المتوقع: '+finish+'.':'')));
