@@ -135,21 +135,23 @@ async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
     }
     await acknowledge(item,result);offset++;
    }catch(error){
+    // A batch can confirm its first items before a later item times out.
+    // Retry exactly the failed item, never the original first item.
+    const failed=error.operation||all[offset]||item;
     // If a five-operation transaction times out, fall back to independent
     // idempotent operations. The server remembers each operation ID, so a
     // lost acknowledgement can never double-apply a result.
-    if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'&&/statement timeout|timed out|timeout|57014|انتهت مهلة|http\s*500|internal server error/i.test(String(error?.message||error||''))){
+    if(batch&&!singleAfterTimeout&&failed.name!=='submit_offline_attendance_claim'&&/statement timeout|timed out|timeout|57014|انتهت مهلة|http\s*500|internal server error/i.test(String(error?.message||error||''))){
       singleAfterTimeout=true;
       try{
         const confirmed=await callRpc('apply_offline_operation',{
-          p_operation_id:item.id,p_rpc_name:item.name,p_payload:item.args
+          p_operation_id:failed.id,p_rpc_name:failed.name,p_payload:failed.args
         });
         if(confirmed?.ok!==true)throw Error('لم يؤكد الخادم حفظ العملية المفردة.');
-        await acknowledge(item,confirmed);offset++;continue;
+        await acknowledge(failed,confirmed);offset++;continue;
       }catch(singleError){error=singleError}
     }
     lastFlushError=String(error?.message||error);
-    const failed=error.operation||all[offset]||item;
     failed.attempts=(failed.attempts||0)+1;
     failed.lastError=lastFlushError;failed.status=networkError(error)?'queued':'needs_attention';
     await put(OPS,failed);
