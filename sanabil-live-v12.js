@@ -547,13 +547,13 @@ const _xlsxPath=(base,target)=>{
 async function _xlsxZip(buffer){
  const view=new DataView(buffer);let eocd=-1;
  for(let i=buffer.byteLength-22,stop=Math.max(0,buffer.byteLength-70000);i>=stop;i--){if(view.getUint32(i,true)===0x06054b50){eocd=i;break}}
- if(eocd<0)throw Error('ملف Excel غير صالح أو تالف.');
+ if(eocd<0)throw Error('ملف الجدول غير صالح أو تالف.');
  const total=_xlsxU16(view,eocd+10),cdOffset=_xlsxU32(view,eocd+16),entries=new Map;let off=cdOffset;
  for(let n=0;n<total;n++){
-   if(_xlsxU32(view,off)!==0x02014b50)throw Error('تعذر قراءة فهرس ملف Excel.');
+   if(_xlsxU32(view,off)!==0x02014b50)throw Error('تعذر قراءة فهرس ملف الجدول.');
    const method=_xlsxU16(view,off+10),csize=_xlsxU32(view,off+20),usize=_xlsxU32(view,off+24),flen=_xlsxU16(view,off+28),xlen=_xlsxU16(view,off+30),clen=_xlsxU16(view,off+32),local=_xlsxU32(view,off+42);
    const name=_xlsxDec.decode(new Uint8Array(buffer,off+46,flen));
-   if(_xlsxU32(view,local)!==0x04034b50)throw Error('تعذر قراءة محتوى ملف Excel.');
+   if(_xlsxU32(view,local)!==0x04034b50)throw Error('تعذر قراءة محتوى ملف الجدول.');
    const lfn=_xlsxU16(view,local+26),lex=_xlsxU16(view,local+28),start=local+30+lfn+lex;
    entries.set(name,{method,csize,usize,start});off+=46+flen+xlen+clen;
  }
@@ -562,15 +562,15 @@ async function _xlsxZip(buffer){
    const raw=new Uint8Array(buffer,e.start,e.csize);
    if(e.method===0)return new Uint8Array(raw);
    if(e.method===8){
-     if(typeof DecompressionStream!=='function')throw Error('متصفحك لا يدعم فك ضغط Excel. استخدم Chrome أو Edge محدثًا.');
+     if(typeof DecompressionStream!=='function')throw Error('متصفحك لا يدعم فك ضغط ملفات الجداول. استخدم إصدارًا حديثًا من متصفح كروم أو إيدج.');
      const ds=new DecompressionStream('deflate-raw'),ab=await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer();
      return new Uint8Array(ab);
    }
-   throw Error('طريقة ضغط غير مدعومة في ملف Excel.');
+   throw Error('طريقة ضغط غير مدعومة في ملف الجدول.');
  };
  return{has:n=>entries.has(n),text:async n=>_xlsxDec.decode(await bytes(n))};
 }
-const _xlsxXml=s=>{const d=new DOMParser().parseFromString(s,'application/xml');if(d.getElementsByTagName('parsererror').length)throw Error('تعذر تحليل ملف Excel.');return d};
+const _xlsxXml=s=>{const d=new DOMParser().parseFromString(s,'application/xml');if(d.getElementsByTagName('parsererror').length)throw Error('تعذر تحليل ملف الجدول.');return d};
 const _xlsxNodes=(d,n)=>Array.from(d.getElementsByTagNameNS('*',n));
 const _xlsxCol=ref=>{let n=0;for(const ch of String(ref||'').match(/^[A-Z]+/)?.[0]||''){n=n*26+(ch.charCodeAt(0)-64)}return n};
 async function _xlsxWorkbook(file){
@@ -1009,7 +1009,7 @@ async function studentsPage(root){
   '<div class="sl-toolbar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:9px">'+
   `${field('بحث بالاسم','search')}${select('الحلقة','circleFilter',[{id:'',name:'كل الحلقات'},...l.circles])}${select('المعلم','teacherFilter',[{id:'',name:'كل المعلمين'},...teacherDirectory(l.teachers).map(t=>({id:t.id,name:t.full_name}))])}${button('بحث','search')}`+
   '</div><div class="sl-toolbar">'+
-  `${canRoster?button('إضافة طالب','add'):''}${canRoster?button('استيراد / تصدير Excel','roster-excel'):''}${button('تصدير المعروض','export')}`+
+  `${canRoster?button('إضافة طالب','add'):''}${canRoster?button('استيراد وتصدير ملفات الجداول','roster-excel'):''}${button('تصدير البيانات المعروضة','export')}`+
   '</div>'+
   '<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">إدارة المعلمين والحلقات والمجمع</summary><div class="sl-toolbar">'+
   `${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque')+button('تفويض إدارة الطلاب','delegate-roster'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}`+
@@ -3744,7 +3744,7 @@ async function testsPage(root){
   rows('students','id,full_name,teacher_id,teacher_name,circle_id,complex_id,org_id,guardian_phone',{active:true}),
   manage?rows('examiners','id,full_name,complex_id',{active:true}):Promise.resolve([])
  ]);
- root.innerHTML=`<div class="sl-toolbar">${button('طلبات الاختبار','requests')}${canSchedule?button('جدولة مباشرة','new'):''}${select('الحلقة','filterCircle',l.circles,'','جميع الحلقات')}${select('المعلم','filterTeacher',l.teachers.map(t=>({id:t.id,name:t.full_name})),'','جميع المعلمين')}${select('الطالب','filterStudent',students.map(s=>({id:s.id,name:s.full_name})),'','جميع الطلاب')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث','reload')}${button('Excel النتائج','excel-results')}${button('تقرير مطبوع / PDF','print-results')}</div><div class="sl-data"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${button('طلبات الاختبار','requests')}${canSchedule?button('جدولة مباشرة','new'):''}${select('الحلقة','filterCircle',l.circles,'','جميع الحلقات')}${select('المعلم','filterTeacher',l.teachers.map(t=>({id:t.id,name:t.full_name})),'','جميع المعلمين')}${select('الطالب','filterStudent',students.map(s=>({id:s.id,name:s.full_name})),'','جميع الطلاب')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث','reload')}${button('جدول النتائج','excel-results')}${button('تقرير جاهز للطباعة','print-results')}</div><div class="sl-data"></div>`;
  action(root,root.querySelector('[data-action="requests"]'),async()=>{const m=modal('طلبات الاختبار');await requestPanel(m,{canSchedule,examiners,onScheduled:load})});
  const filteredTests=async()=>{
   const from=val(root,'from'),to=val(root,'to'),circle=val(root,'filterCircle');if(!from||!to||from>to)throw Error('تحقق من فترة التقرير');
@@ -3834,7 +3834,7 @@ async function testsPage(root){
  await load()
 }
 const reportTables={outcomes:{name:'الحصيلة',date:'date_key',head:['التاريخ','الطالب','الحفظ','تقدير الحفظ','المراجعة الصغرى','تقدير القريبة','المراجعة الكبرى','تقدير الكبرى'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,r.new_lesson,r.memorization_rating||'',r.recent_review,r.recent_review_rating||'',r.review,r.review_rating||'']},tests:{name:'الاختبارات',date:'performed_at',head:['التاريخ','الطالب','الحفظ','التجويد','المجموع'],map:r=>[dateText(r.performed_at),r.student_name_snapshot,r.scores?.memorization,r.scores?.tajweed,r.scores?.total]},attendance:{name:'حضور المعلمين',date:'date_key',head:['التاريخ','المعلم','الحضور','الانصراف','التأخر','الحضور المبكر','الانصراف المبكر','الحالة'],map:(r,n,t)=>[r.date_key,t[r.teacher_id]||r.teacher_id,dateText(r.check_in_at),dateText(r.check_out_at),r.late_minutes||0,r.early_arrival_minutes||0,r.early_leave_minutes||0,r.status]},student_attendance:{name:'حضور الطلاب',date:'date_key',head:['التاريخ','الطالب','الحالة','نوع الغياب','الملاحظة'],map:(r,n)=>[r.date_key,n[r.student_id]||r.student_id,attendanceAr[r.status]||r.status,r.status==='absent'?(r.absence_reason==='excused'?'بعذر':r.absence_reason==='unexcused'?'بدون عذر':'غير محدد'):'—',r.note||'']},plans:{name:'الخطط',date:'start_date',head:['الطالب','النوع','البداية','النهاية','المقدار','الحالة'],map:(r,n)=>[n[r.student_id]||r.student_id,r.type==='review'?'مراجعة':'حفظ',r.start_date,r.end_date,r.daily_amount,r.status]}};
-async function reportPage(root){const l=await lookups();root.innerHTML=`<div class="sl-toolbar">${select('السجل','kind',Object.entries(reportTables).map(([id,x])=>({id,name:x.name})),'outcomes')}${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${field('اسم الطالب','search')}${button('عرض النتائج','load')}${button('تصدير Excel','csv')}${button('تقرير منسق / PDF','print')}</div><div class="sl-data"></div>`;let exported=null;action(root,root.querySelector('[data-action="load"]'),async()=>{exported=null;const kind=val(root,'kind'),cfg=reportTables[kind],from=val(root,'from'),to=val(root,'to');if(!cfg||!from||!to||from>to)throw Error('تحقق من الفترة؛ تاريخ النهاية لا يسبق البداية.');let data=[];for(let offset=0;;offset+=500){let q=sb().from(kind).select('*').gte(cfg.date,kind==='tests'?from+'T00:00:00+03:00':from).lte(cfg.date,kind==='tests'?to+'T23:59:59.999+03:00':to).order(cfg.date).order('id').range(offset,offset+499);if(val(root,'circle'))q=q.eq('circle_id',val(root,'circle'));const part=await result(q);data.push(...part);if(part.length<500)break;}const ids=[...new Set(data.map(r=>r.student_id).filter(Boolean))];let students=[];for(let i=0;i<ids.length;i+=100)students.push(...await result(sb().from('students').select('id,full_name').in('id',ids.slice(i,i+100))));const names=Object.fromEntries(students.map(s=>[s.id,s.full_name])),teachers=Object.fromEntries(l.teachers.map(t=>[t.id,t.full_name]));const term=val(root,'search').trim();if(term)data=data.filter(r=>String(names[r.student_id]||r.student_name_snapshot||'').includes(term));const mapped=data.map(r=>cfg.map(r,names,teachers));exported={head:cfg.head,data:mapped,title:cfg.name};root.querySelector('.sl-data').innerHTML=`<p>عدد السجلات: ${mapped.length} — من ${esc(from)} إلى ${esc(to)}</p>`+table(cfg.head,mapped.map(r=>r.map(esc)))});action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().exportTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])});action(root,root.querySelector('[data-action="print"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().printTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])})}
+async function reportPage(root){const l=await lookups();root.innerHTML=`<div class="sl-toolbar">${select('السجل','kind',Object.entries(reportTables).map(([id,x])=>({id,name:x.name})),'outcomes')}${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${field('اسم الطالب','search')}${button('عرض النتائج','load')}${button('تصدير ملف جدول','csv')}${button('تقرير جاهز للطباعة','print')}</div><div class="sl-data"></div>`;let exported=null;action(root,root.querySelector('[data-action="load"]'),async()=>{exported=null;const kind=val(root,'kind'),cfg=reportTables[kind],from=val(root,'from'),to=val(root,'to');if(!cfg||!from||!to||from>to)throw Error('تحقق من الفترة؛ تاريخ النهاية لا يسبق البداية.');let data=[];for(let offset=0;;offset+=500){let q=sb().from(kind).select('*').gte(cfg.date,kind==='tests'?from+'T00:00:00+03:00':from).lte(cfg.date,kind==='tests'?to+'T23:59:59.999+03:00':to).order(cfg.date).order('id').range(offset,offset+499);if(val(root,'circle'))q=q.eq('circle_id',val(root,'circle'));const part=await result(q);data.push(...part);if(part.length<500)break;}const ids=[...new Set(data.map(r=>r.student_id).filter(Boolean))];let students=[];for(let i=0;i<ids.length;i+=100)students.push(...await result(sb().from('students').select('id,full_name').in('id',ids.slice(i,i+100))));const names=Object.fromEntries(students.map(s=>[s.id,s.full_name])),teachers=Object.fromEntries(l.teachers.map(t=>[t.id,t.full_name]));const term=val(root,'search').trim();if(term)data=data.filter(r=>String(names[r.student_id]||r.student_name_snapshot||'').includes(term));const mapped=data.map(r=>cfg.map(r,names,teachers));exported={head:cfg.head,data:mapped,title:cfg.name};root.querySelector('.sl-data').innerHTML=`<p>عدد السجلات: ${mapped.length} — من ${esc(from)} إلى ${esc(to)}</p>`+table(cfg.head,mapped.map(r=>r.map(esc)))});action(root,root.querySelector('[data-action="csv"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().exportTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])});action(root,root.querySelector('[data-action="print"]'),()=>{if(!exported)throw Error('اعرض النتائج أولًا');excelApi().printTable(exported.title,exported.head,exported.data,[['عدد السجلات',exported.data.length]])})}
 async function statisticsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]),canTemplates=(a.roles||[]).some(r=>['admin','manager'].includes(r));
  root.innerHTML=`<div class="sl-toolbar">${select('الحلقة','circle',l.circles,'','جميع الحلقات')}${field('من','from','date',today().slice(0,7)+'-01')}${field('إلى','to','date',today())}${button('تحديث المؤشرات','load')}${button('التقارير التفصيلية','detail')}${button('تصدير الملخص','csv')}${canTemplates?button('قوالب المخرجات والشهادات','output-templates'):''}</div><div class="sl-stats"></div>`;
@@ -4160,7 +4160,7 @@ async function dashboardDetails(root,a){
 }
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
- root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس سرعة الاستجابة','performance')}${button('استيراد / تصدير Excel','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس سرعة الاستجابة','performance')}${button('استيراد وتصدير ملفات الجداول','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
  window.SanabilComplexStaff?.decorateSettings?.(root);
  action(root,root.querySelector('[data-action="performance"]'),async()=>{
   const b=modal('اختبار سرعة الاستجابة المباشر');
@@ -4202,9 +4202,9 @@ async function settingsPage(root){
     ];
     const complete=data.rounds===20&&!data.cancelled;
     const passing=complete&&data.metrics.open.count===20&&data.metrics.open.errors===0&&data.metrics.open.p95<2000;
-    const verdict=!complete?'اختبار غير مكتمل':passing?'حقق هدف P95 أقل من ثانيتين في تحميل البيانات التشخيصية':'لم يتحقق الهدف أو لم تكتمل المحاولات الناجحة';
+    const verdict=!complete?'اختبار غير مكتمل':passing?'حقق هدف زمن استجابة ٩٥٪ من المحاولات أقل من ثانيتين في تحميل البيانات التشخيصية':'لم يتحقق الهدف أو لم تكتمل المحاولات الناجحة';
     return '<h4>'+esc(verdict)+'</h4>'+
-     table(['العملية','ناجحة','أخطاء','المتوسط (ث)','P95 (ث)','الأبطأ (ث)','أقل من ثانيتين'],rows.map(([name,m])=>[
+     table(['العملية','ناجحة','أخطاء','المتوسط (ث)','زمن ٩٥٪ من المحاولات (ث)','الأبطأ (ث)','أقل من ثانيتين'],rows.map(([name,m])=>[
       esc(name),m.count,m.errors,fmt(m.mean),fmt(m.p95),fmt(m.max),m.under2s===null?'—':m.under2s+'%'
      ]))+
      (data.lastError?'<p role="alert">آخر خطأ: '+esc(data.lastError)+'</p>':'')+
@@ -4246,7 +4246,7 @@ async function settingsPage(root){
    copyButton.onclick=async()=>{
     if(!lastDeep)return;
     const compact={testedAt:lastDeep.endedAt,device:lastDeep.client,rounds:lastDeep.rounds,
-     target:'فتح بيانات الجلسة التشخيصية P95 أقل من ثانيتين',
+     target:'فتح بيانات الجلسة التشخيصية بحيث لا تتجاوز ٩٥٪ من المحاولات ثانيتين',
      metrics:lastDeep.metrics,errors:lastDeep.lastError,notes:lastDeep.notes};
     await navigator.clipboard.writeText(JSON.stringify(compact,null,2));
     b.querySelector('[data-deep-progress]').textContent='نُسخت نتائج القياس دون أسماء الطلاب أو بياناتهم.';
@@ -4274,7 +4274,7 @@ async function settingsPage(root){
       row.under2s===null?'—':row.under2s+'%',esc(verdict)];
     });
     actualNode.innerHTML=(total?'<p>هذه النتائج من إجراءات حقيقية على هذا الجهاز، لا من المحاكاة.</p>':'<p>لم تُسجّل إجراءات فعلية بعد على هذا الجهاز. ابدأ من صفحة الحصيلة.</p>')+
-     table(['العملية','محاولات','المتوسط (ث)','P95 (ث)','الأبطأ (ث)','أقل من ثانيتين','الحالة'],rows);
+     table(['العملية','محاولات','المتوسط (ث)','زمن ٩٥٪ من المحاولات (ث)','الأبطأ (ث)','أقل من ثانيتين','الحالة'],rows);
    };
    b.querySelector('[data-real-refresh]').onclick=renderActual;
    b.querySelector('[data-real-reset]').onclick=()=>{
@@ -4286,7 +4286,7 @@ async function settingsPage(root){
     const rows=window.SanabilPerformance?.actualSummary?.()||[];
     const body={measuredAt:new Date().toISOString(),device:/Android|iPhone|iPad/i.test(navigator.userAgent)?'جوال أو تابلت':'كمبيوتر',
      network:navigator.connection?.effectiveType||'غير متاح',
-     target:'20 إجراء فعلي لكل نوع وP95 أقل من ثانيتين',source:'real_teacher_actions',
+     target:'عشرون إجراء فعليًا لكل نوع مع استجابة ٩٥٪ من المحاولات في أقل من ثانيتين',source:'قياسات استخدام المعلم الفعلية',
      metrics:rows,notes:'الحفظ محسوب بعد التأكيد من الخادم. لا تُدرج أسماء الطلاب أو الدرجات.'};
     try{await navigator.clipboard.writeText(JSON.stringify(body,null,2));
      b.querySelector('[data-progress]').textContent='تم نسخ تقرير الاستخدام الفعلي دون بيانات الطلاب.'}
