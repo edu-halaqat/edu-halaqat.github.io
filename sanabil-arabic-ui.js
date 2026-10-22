@@ -163,6 +163,7 @@ const fixedTerms=[
  [/\bSupabase\b/g,'سوبابيس'],[/\bDNS\b/g,'نظام أسماء النطاقات'],
  [/\bSNI\b/g,'اسم الخادم'],[/\bcurl\b/g,'أداة فحص الاتصال'],
  [/\bHTTP\b/g,'بروتوكول الاتصال'],[/\bGET\b/g,'جلب البيانات'],
+ [/\bms\b/g,'مللي ثانية'],[/\bPWA\b/g,'تطبيق قابل للتثبيت'],[/\bAPI\b/g,'واجهة الاتصال'],
  [/\badmin\b/g,'مدير النظام'],[/\bmanager\b/g,'مشرف المجمع'],
  [/\bsupervisor\b/g,'المشرف'],[/\bteacher\b/g,'المعلم'],
  [/\bmobile\b/g,'هاتف محمول'],[/\btablet\b/g,'جهاز لوحي'],
@@ -180,7 +181,7 @@ const excluded=node=>{
 const translateNode=node=>{
  if(node?.nodeType!==3||excluded(node))return;
  const old=node.nodeValue;
- if(!old||!/[A-Za-z]/.test(old))return;
+ if(!old||!/[A-Za-z]/.test(old)||/https?:\/\/|[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(old))return;
  const translated=normalizeFixedText(old);
  if(translated!==old)node.nodeValue=translated;
 };
