@@ -2399,6 +2399,7 @@ async function outcomesPage(root){
   action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
   const saveOneStudent=async(i,{defer=false}={})=>{
     const s=students[i];
+    try{
     const realSaveStarted=performance.now();
     const x=rowData(s,i);if(!x.att)throw Error('حضّر الطالب أولًا.');
     validateRow(s,x);
@@ -2416,6 +2417,7 @@ async function outcomesPage(root){
     if(r.queued){
       if(status){status.textContent='محفوظ مؤقتًا على الجهاز · بانتظار المزامنة';status.dataset.saved='queued';status.dataset.operationId=r.operationId}
       msg(box,'حصيلة '+s.fullName+' في انتظار المزامنة. لا تعتبر الحصيلة مؤكدة في الخادم بعد.');
+      updateOutcomeIssues();
       const onConfirmed=async event=>{
         if(event.detail?.id!==r.operationId)return;
         window.removeEventListener('sanabil-offline-confirmed',onConfirmed);
@@ -2426,10 +2428,14 @@ async function outcomesPage(root){
           const unchanged=JSON.stringify(drafts[s.studentId]||null)===before;
           if(unchanged)clearDraft(i);
           if(status){status.textContent=unchanged?'تمت المزامنة والتحقق من الخادم':'تمت مزامنة نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft';delete status.dataset.operationId}
+          updateOutcomeIssues();
         }catch(error){
           if(status?.dataset.operationId!==r.operationId)return;
-          if(status){status.textContent='حُفظت العملية · تعذر التحقق · المسودة محفوظة';status.dataset.saved='draft';delete status.dataset.operationId}
-          console.warn('التحقق بعد المزامنة:',error?.message||error);
+          const reason=error?.message||'تعذر التحقق بعد المزامنة';
+          saveErrors.set(i,reason);
+          if(status){status.textContent='حُفظت العملية · '+reason+' · المسودة محفوظة';status.dataset.saved='draft';delete status.dataset.operationId}
+          updateOutcomeIssues();
+          console.warn('التحقق بعد المزامنة:',reason);
         }
       };
       window.addEventListener('sanabil-offline-confirmed',onConfirmed);
@@ -2449,6 +2455,15 @@ async function outcomesPage(root){
     if(status){status.textContent=unchanged?'تم الحفظ والتحقق من الخادم':'حُفظت نسخة سابقة · توجد تعديلات أحدث';status.dataset.saved=unchanged?'saved':'draft'}
     msg(box,unchanged?'تم حفظ حصيلة '+s.fullName+' والتأكد من مطابقة التقديرات والعدادات في قاعدة البيانات.':'تم حفظ نسخة سابقة من حصيلة '+s.fullName+'، لكن توجد تعديلات أحدث لم تُحفظ بعد.');
     window.SanabilLiveOps?.record?.(circle,'outcome_save',performance.now()-realSaveStarted,true);
+    updateOutcomeIssues();
+    }catch(error){
+      const reason=error?.message||'تعذر تأكيد الحفظ من الخادم';
+      saveErrors.set(i,reason);
+      const status=box.querySelector('[data-save-status="'+i+'"]');
+      if(status){status.textContent=reason+' · لم تُؤكَّد الحصيلة';status.dataset.saved='draft'}
+      updateOutcomeIssues();
+      throw Error('حصيلة '+s.fullName+': '+reason);
+    }
   };
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),()=>saveOneStudent(i)));
   // Debounce each edited student, and use the exact existing guarded write/readback.
