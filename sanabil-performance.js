@@ -5,7 +5,7 @@ for(const event of ['pointerdown','keydown'])window.addEventListener(event,()=>{
 const track=async(name,fn)=>{
  const started=performance.now(),g=generation;let ok=false;active++;
  try{const value=await fn();ok=true;return value}
- finally{active--;if(g===generation){samples.push({name,ms:Math.round(performance.now()-started),ok});if(samples.length>200)samples.shift()}}
+ finally{active--;if(g===generation){const ms=Math.round(performance.now()-started);samples.push({name,ms,ok});if(samples.length>200)samples.shift();const kind=name.startsWith('rpc:')?'rpc':name.startsWith('action:')?'action':'render';window.SanabilTelemetry?.record(kind,name,ms,ok?'ok':'error')}}
 };
 const summary=()=>{
  const names=[...new Set(samples.map(x=>x.name))];
@@ -44,6 +44,7 @@ const realSamples=(()=>{
 const recordActual=(kind,ms)=>{
  if(!REAL_KINDS.includes(kind)||!Number.isFinite(ms)||ms<0||ms>120000)return;
  realSamples[kind].push(Math.round(ms*10)/10);
+ window.SanabilTelemetry?.record(['open','switch'].includes(kind)?'render':'save','actual:'+kind,ms,'ok');
  if(realSamples[kind].length>80)realSamples[kind].shift();
  try{sessionStorage.setItem(REAL_KEY,JSON.stringify(realSamples))}catch{}
  window.dispatchEvent(new CustomEvent('sanabil-real-performance-updated'));

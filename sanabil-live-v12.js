@@ -789,7 +789,7 @@ function awardStudent(root,s,onDone){
 
 const csv=(name,head,data)=>{const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const url=URL.createObjectURL(new Blob(['\ufeff'+[head,...data].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function modal(title){const d=document.createElement('dialog');d.className='sl-dialog';d.innerHTML=`<header><h2>${esc(title)}</h2>${button('إغلاق','close')}</header><div class="sl-body"></div>`;document.body.append(d);d.querySelector('[data-action="close"]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());d.showModal();return d.querySelector('.sl-body')}
-const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');const originalLabel=b.textContent;b.textContent='جارٍ الحفظ…';try{await measure('save:form',fn)}catch(e){msg(form,e.message,true)}finally{b.disabled=false;b.removeAttribute('aria-busy');b.textContent=originalLabel}})};
+const submit=(form,fn)=>{form.addEventListener('submit',async e=>{e.preventDefault();const b=form.querySelector('[type="submit"]');if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');const originalLabel=b.textContent;b.textContent='جارٍ الحفظ…';try{await measure('save:form',fn)}catch(e){msg(form,e.message,true);if(form.querySelector('.sl-savebar-submit')){let note=form.querySelector('[data-save-submit-error]');if(!note){note=document.createElement('p');note.dataset.saveSubmitError='1';note.className='sl-outcome-save-error';note.setAttribute('role','alert');form.querySelector('.sl-savebar-actions')?.append(note)}if(note){note.textContent=(e?.message||'تعذر حفظ الحصيلة')+' — المسودات لم تُحذف.';note.scrollIntoView({block:'nearest'})}}}finally{b.disabled=false;b.removeAttribute('aria-busy');b.textContent=originalLabel}})};
 let lookupPromise=null,lookupAt=0;
 async function lookups(){
  if(!lookupPromise||Date.now()-lookupAt>120000){
@@ -2252,12 +2252,12 @@ async function outcomesPage(root){
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
   });
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,absenceReason:st.attendance==='absent'?st.absenceReason||'':null,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
-  let scheduleOutcomeAutoSave=()=>{};
+  let scheduleOutcomeAutoSave=()=>{},manualApprovalActive=false;
   const persistDraft=i=>{const s=students[i],x=rowData(s,i);
     drafts[s.studentId]={attendance:x.att,absenceReason:x.absenceReason,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
     saveDrafts();
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft';delete status.dataset.operationId}
-    scheduleOutcomeAutoSave(i);
+    if(!manualApprovalActive)scheduleOutcomeAutoSave(i);
   };
   const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
   // Exam reviews are saved outside ordinary plan progress.
@@ -2429,7 +2429,11 @@ async function outcomesPage(root){
       autoPending.delete(i);
       const x=rowData(students[i],i);
       if(box._sanabilQuick?.isProvisional?.(i))continue;
-      try{validateRow(students[i],x)}catch{continue}
+      try{validateRow(students[i],x)}catch{
+        const badge=box.querySelector('[data-save-status="'+i+'"]');
+        if(badge&&badge.dataset.saved!=='queued'){badge.textContent='التقديرات غير مكتملة · أكملها قبل الاعتماد';badge.dataset.saved='draft'}
+        continue;
+      }
       if(!drafts[students[i].studentId])continue;
       if(box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved==='queued')continue;
       if(autoInFlight.has(i))continue;
@@ -2449,6 +2453,7 @@ async function outcomesPage(root){
         }
       })();
     }
+    if(!autoPending.size&&!autoInFlight.size)autoBadge.textContent='لا توجد حصائل تنتظر الحفظ التلقائي';
   };
   scheduleOutcomeAutoSave=i=>{
     if(readOnly||!needsDayAttendance(activeKind(students[i].studentId)))return;
@@ -2545,12 +2550,32 @@ async function outcomesPage(root){
     box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
   submit(form,async()=>{
+    manualApprovalActive=true;
+    try{
     const realSaveStarted=performance.now();
-    validateAttendance();
-    const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
-      const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
-    });
-    if(!captured.length){msg(box,'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');return}
+    // Manual approval wins over pending autosave timers. Wait for an in-flight
+    // older version to finish before sending the final circle snapshot.
+    for(const timer of autoTimers.values())clearTimeout(timer);
+    autoTimers.clear();autoPending.clear();autoBadge.textContent='جارٍ اعتماد الحصيلة الجماعية…';
+    const deadline=Date.now()+15000;
+    while(autoInFlight.size&&Date.now()<deadline)await new Promise(done=>setTimeout(done,150));
+    if(autoInFlight.size)throw Error('توجد حصيلة قيد الحفظ التلقائي؛ أعد اعتماد الحلقة بعد اكتمالها.');
+    const captured=[],incomplete=[];
+    for(const s of students.filter(item=>needsDayAttendance(activeKind(item.studentId)))){
+      const i=students.indexOf(s),x=rowData(s,i);
+      try{
+        validateRow(s,x);
+        if(box._sanabilQuick?.isProvisional?.(i))throw Error('التقدير الافتراضي يحتاج اعتماد المعلم');
+        captured.push({s,i,x,kind:activeKind(s.studentId)});
+      }catch(error){
+        incomplete.push({s,i,reason:error?.message||'التقديرات غير مكتملة'});
+      }
+    }
+    if(!captured.length){
+      throw Error(incomplete.length
+        ?'لا توجد حصيلة مكتملة للاعتماد. أكمل تقييم '+incomplete[0].s.fullName+' أولًا.'
+        :'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');
+    }
     await ensureCircleSession(circle,date,true);
     captured.forEach(({i})=>persistDraft(i));
     const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
@@ -2581,10 +2606,23 @@ async function outcomesPage(root){
       if(JSON.stringify(drafts[s.studentId]||null)===snapshots[j])clearDraft(i);
       else modified++;
     });
-    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');return}
+    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');autoBadge.textContent='توجد تعديلات أحدث غير معتمدة';return}
+    if(incomplete.length){
+      const detail=incomplete.slice(0,3).map(v=>v.s.fullName).join('، ');
+      const info='حُفظت وتأكدت '+captured.length+' حصائل. بقيت '+incomplete.length
+        +' حصائل ناقصة دون حفظ؛ الجلسة لا تزال مفتوحة. أكمل: '+detail;
+      msg(box,info,true);
+      autoBadge.textContent=incomplete.length+' حصائل ناقصة تحتاج إكمال التقديرات';
+      let notice=form.querySelector('[data-save-submit-error]');
+      if(!notice){notice=document.createElement('p');notice.className='sl-outcome-save-error';notice.dataset.saveSubmitError='1';notice.setAttribute('role','alert');form.querySelector('.sl-savebar-actions')?.append(notice)}
+      if(notice){notice.textContent=info;notice.scrollIntoView({block:'nearest'})}
+      window.SanabilTelemetry?.record('save','circle_partial',performance.now()-realSaveStarted,'queued');
+      return;
+    }
     localStorage.removeItem(activeSessionKey);
     window.SanabilPerformance?.recordActual('save_all',performance.now()-realSaveStarted);
     box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
+    }finally{manualApprovalActive=false}
   });
   window.SanabilPerformance?.record('session:render',performance.now()-renderStarted);
   // Optional navigation must never delay opening attendance or outcome controls.
@@ -2739,8 +2777,8 @@ async function plansPage(root){
  const outcomeCircleKey='sanabil_outcome_selected_circle_v1:'+actorId;
  const savedOutcomeCircle=localStorage.getItem(outcomeCircleKey);
  const savedPlanCircle=localStorage.getItem(planCircleKey);
- const selectedPlanCircle=planCircles.find(c=>c.id===savedOutcomeCircle)?.id
-   ||planCircles.find(c=>c.id===savedPlanCircle)?.id
+ const selectedPlanCircle=planCircles.find(c=>c.id===savedPlanCircle)?.id
+   ||planCircles.find(c=>c.id===savedOutcomeCircle)?.id
    ||planCircles.find(c=>allStudents.some(s=>s.active!==false&&s.circle_id===c.id))?.id
    ||planCircles[0]?.id||'';
  if(!selectedPlanCircle){
@@ -3170,7 +3208,14 @@ async function plansPage(root){
      form.elements.memUnit.disabled=false;form.elements.memAmount.disabled=false;form.elements.memDirection.disabled=false;
      recentBox.style.display='';majorSection.style.display='';
      unitOptions(form.elements.memUnit,predefinedMethods.has(code)?memUnits:customMemUnits,predefinedMethods.has(code)?'lines':(form.elements.memUnit.value||'lines'));
-     if(useStudentStart&&student){const st=await studentStart(student);if(st)setStart(st.surahNo,st.ayahNo)}
+     if(useStudentStart&&student){
+ const st=await studentStart(student);
+ if(st)setStart(st.surahNo,st.ayahNo);
+ else if(code==='bir_alwalidayn'){
+   const lv=methodologyByCode(code)?.config?.levels?.[0];
+   if(lv?.fromSurahNo)setStart(Number(lv.fromSurahNo),Number(lv.fromAyah)||1);
+ }
+}
      const pos=methodPosition();
      if(code==='custom'||code==='remedial'){
        const target=val(form,'remedialTarget')||'bir_alwalidayn';
@@ -4035,7 +4080,7 @@ async function settingsPage(root){
   b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
   try{
    const l=await lookups();if(!b.isConnected)return;
-   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
+   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-central" data-central-section hidden><h3>قياسات أداء جميع أجهزة المستخدمين — مدير النظام</h3><p>تُجمع مدد العمليات المعتمدة والتفاعلات الأساسية من الحسابات المتصلة بعد تفعيل المراقبة، دون نصوص الحصائل أو بيانات الطلاب. تعرض الأخطاء وتحدد العمليات البطيئة بحسب اسم المستخدم.</p><div class="sl-toolbar"><label>الفترة<select data-central-hours><option value="1">الساعة الماضية</option><option value="24" selected>24 ساعة</option><option value="168">7 أيام</option></select></label><button type="button" class="button" data-central-refresh>تحديث قياسات جميع المستخدمين</button></div><div data-central-results role="status" aria-live="polite"></div></section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
    const uid=(await sb().auth.getSession()).data?.session?.user?.id;
    if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
@@ -4131,6 +4176,36 @@ async function settingsPage(root){
     save_all:'حفظ حصيلة الحلقة كاملة وتأكيدها',
     save_talaqqin:'حفظ حصيلة التلقين وتأكيدها'
    };
+   const centralPanel=b.querySelector('[data-central-section]');
+   const centralResults=b.querySelector('[data-central-results]');
+   const renderCentral=async()=>{
+    if(!centralPanel||centralPanel.hidden)return;
+    centralResults.textContent='جارٍ استدعاء قياسات المستخدمين من الخادم…';
+    try{
+     const hours=Number(b.querySelector('[data-central-hours]').value)||24;
+     const data=await rpc('client_performance_admin',{p_hours:hours});
+     const actors=(data?.byActor||[]),grouped=(data?.byActorOperation||[]),failures=(data?.recentFailures||[]);
+     centralResults.innerHTML='<p><b>العمليات المسجلة:</b> '+esc(data?.events||0)+' · <b>المستخدمون:</b> '+esc(data?.actors||0)+' · <b>العمليات المتعثرة:</b> '+esc(data?.errors||0)+'</p>'
+       +(Number(data?.events||0)===0?'<p>لا توجد قياسات مركزية لهذه الفترة. يبدأ الجمع من الأجهزة بعد تحميل التحديث الجديد وتسجيل الدخول.</p>':'')
+       +'<h4>المستخدمون (معلمون وإداريون)</h4>'
+       +table(['اسم المستخدم','العمليات','الأخطاء','المتوسط (ث)','P95 (ث)'],actors.map(x=>[
+        esc(x.actor_name),x.events,x.errors,fmt(Number(x.mean_ms||0)),fmt(Number(x.p95_ms||0))]))
+       +'<h4>العمليات حسب المستخدم والنافذة</h4>'
+       +table(['المستخدم','النافذة','العملية','العدد','أخطاء','P95 (ث)'],grouped.map(x=>[
+        esc(x.actor_name),esc(x.area),esc(x.operation),x.events,x.errors,fmt(Number(x.p95_ms||0))]))
+       +'<h4>آخر العمليات المتعثرة</h4>'
+       +table(['الوقت','المستخدم','العملية','النافذة','المدة (ث)'],failures.map(x=>[
+        esc(dateText(x.created_at)),esc(x.actor_name),esc(x.operation),esc(x.area),fmt(Number(x.duration_ms||0))]))
+       +'<p class="sl-help">النقرات تعني تفاعلًا فقط؛ النجاح الحقيقي للحفظ يتطلب قياس RPC وتأكيد قاعدة البيانات. لا يشمل السجل تاريخًا يسبق تفعيل المراقبة.</p>';
+    }catch(error){centralResults.textContent='تعذر قراءة المراقبة المركزية: '+(error?.message||error)}
+   };
+   b.querySelector('[data-central-refresh]').onclick=renderCentral;
+   access().then(actor=>{
+    if(actor?.roles?.includes('admin')){
+     centralPanel.hidden=false;
+     renderCentral();
+    }
+   }).catch(()=>{});
    const actualNode=b.querySelector('[data-real-results]');
    const renderActual=()=>{
     if(!b.isConnected)return;

@@ -1,0 +1,38 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const live=fs.readFileSync('sanabil-live-v12.js','utf8');
+const css=fs.readFileSync('sanabil-identity.css','utf8');
+const perf=fs.readFileSync('sanabil-performance.js','utf8');
+const agent=fs.readFileSync('sanabil-telemetry.js','utf8');
+const html=fs.readFileSync('index.html','utf8');
+const sql=fs.readFileSync('db/maintenance/client_performance_analytics.sql','utf8');
+const filter=live.match(/const scopeStudentsToPlanCircle=([^\n]+);/);
+assert.ok(filter,'circle helper absent');
+const scope=vm.runInNewContext(filter[1]);
+const students=[{id:'A',circle_id:'first'},{id:'B',circle_id:'second'},{id:'C',circle_id:'first'}];
+assert.deepEqual(Array.from(scope(students,'first'),s=>s.id),['A','C']);
+assert.ok(live.includes('const selectedPlanCircle=planCircles.find(c=>c.id===savedPlanCircle)?.id'),
+ 'plan choice should be independent from the outcomes screen choice');
+assert.ok(live.includes("if(lv?.fromSurahNo)setStart("),
+ 'new enrolment should start from approved methodology level, not Fatiha');
+assert.ok(live.includes("const captured=[],incomplete=[]"));
+assert.ok(live.includes("if(incomplete.length){"));
+assert.ok(live.includes("await confirmSaved(s,x,confirmed)"));
+assert.ok(live.includes("box._sanabilQuick?.isProvisional?.(i)"));
+assert.ok(live.includes("data-save-submit-error"));
+assert.ok(live.includes("client_performance_admin"));
+assert.ok(live.includes("actor?.roles?.includes('admin')"));
+assert.ok(css.includes('.sl-review-builder .sl-cycle-note'));
+assert.ok(css.includes('-webkit-text-fill-color:#edf9f1!important'));
+assert.ok(html.includes('sanabil-telemetry.js?v=20261022-admin1'));
+assert.ok(perf.includes("window.SanabilTelemetry?.record"));
+assert.ok(agent.includes('MAX_QUEUE=180')&&agent.includes("getSession"));
+assert.ok(!agent.includes("e.target.value"),'never collect private field values');
+assert.ok(sql.includes("m.role='admin'"));
+assert.ok(sql.includes('REVOKE ALL ON private.client_performance_events'));
+assert.ok(sql.includes("interval '14 days'"));
+assert.ok(sql.includes("jsonb_array_length(p_events)>30"));
+assert.ok(sql.includes("v_existing >= 120"));
+console.log('PASS: circle isolation, approved plan start, partial-save safety, dark UI and admin-only bounded telemetry.');

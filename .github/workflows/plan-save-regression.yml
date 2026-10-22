@@ -1,0 +1,24 @@
+name: Plan wizard and outcome save regression
+on:
+  pull_request:
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-identity.css'
+      - 'index.html'
+      - 'tests/sanabil-plan-save-ui-regression.cjs'
+      - '.github/workflows/plan-save-regression.yml'
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated IndexedDB test polyfill
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
+      - name: Validate JS and plan save checks
+        run: |
+          node --check sanabil-live-v12.js
+          node tests/sanabil-plan-save-ui-regression.cjs
+          node tests/sanabil-live-runtime-boot.cjs
+          node tests/sanabil-batch-scheduling.cjs
