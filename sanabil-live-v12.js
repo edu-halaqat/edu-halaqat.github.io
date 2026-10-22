@@ -2745,7 +2745,8 @@ async function plansPage(root){
  const quranStudentIds=new Set(students.map(s=>s.id));
  const staleAssignments=students.filter(x=>x.previous_teacher_id).length;
 
- if(!students.length){root.innerHTML=sanabilPlanCatalogHtml(methodologies)+'<p class="sl-empty">لا يوجد طلاب في حلقات الحفظ بعد؛ أنشئ حلقة وأضف الطلاب للبدء.</p>';return;}
+ // Keep the circle selector available even if the chosen circle has no students.
+ const emptyPlanCircle=!students.length;
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -2801,19 +2802,12 @@ async function plansPage(root){
  root.innerHTML=`${staleAssignments?'<p role="alert" class="sl-rule-note">تنبيه: '+staleAssignments+' طالبًا لهم إسنادات معلمين قديمة. سيستخدم إنشاء الخطة المعلم الرسمي للحلقة، ولن تُعدّل السجلات التاريخية تلقائيًا.</p>':''}<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-toolbar sl-plan-circle-filter">${select('الحلقة المختارة لإعداد الخطط','planCircle',planCircles.map(c=>({id:c.id,name:c.name})),activePlanCircle.id)}
   <p class="sl-help">تظهر هنا أسماء طلاب هذه الحلقة وخططهم فقط. يمكنك تغيير الحلقة من القائمة دون نقل أي طالب أو تعديل خطته.</p></div>
+ ${emptyPlanCircle?'<p class="sl-empty" role="status">لا يوجد طلاب في الحلقة المختارة؛ اختر حلقة أخرى أو أضف طلابًا لهذه الحلقة أولًا.</p>':''}
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
  <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div><section class="sl-plan-archives"></section>`;
 
- const planCirclePicker=root.querySelector('[name="planCircle"]');
- planCirclePicker?.addEventListener('change',()=>{
-   const next=planCirclePicker.value;
-   if(!planCircles.some(c=>c.id===next))return;
-   localStorage.setItem(planCircleKey,next);
-   localStorage.setItem(outcomeCircleKey,next);
-   plansPage(root).catch(error=>{root.innerHTML='<p class="sl-message" role="alert">تعذر تحديث حلقة الخطط: '+esc(error.message)+'</p>'});
- });
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
    root.innerHTML='<nav class="sl-plan-type-tabs" aria-label="مسار خطط الطلاب">'
@@ -2836,6 +2830,15 @@ async function plansPage(root){
    action(root,qButton,()=>switchPlanTab('quran'));
    action(root,tButton,()=>switchPlanTab('talaqqin'));
  }
+
+ const planCirclePicker=root.querySelector('[name="planCircle"]');
+ planCirclePicker?.addEventListener('change',()=>{
+   const next=planCirclePicker.value;
+   if(!planCircles.some(c=>c.id===next))return;
+   localStorage.setItem(planCircleKey,next);
+   localStorage.setItem(outcomeCircleKey,next);
+   plansPage(root).catch(error=>{root.innerHTML='<p class="sl-message" role="alert">تعذر تحديث حلقة الخطط: '+esc(error.message)+'</p>'});
+ });
 
  const planCard=(p,i)=>{
    const recent=p.type==='recent_review',qpc=p.type==='review'&&qpcUnits.has(p.unit),mem=p.type==='memorization';
