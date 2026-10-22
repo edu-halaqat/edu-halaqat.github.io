@@ -113,6 +113,21 @@ BEGIN
       ORDER BY count(*) DESC LIMIT 100
     ) x
   ),'[]'::jsonb),
+  'byActorOperation',coalesce((
+    SELECT jsonb_agg(to_jsonb(x) ORDER BY x.errors DESC,x.p95_ms DESC)
+    FROM (
+      SELECT e.actor_id::text AS actor_id,
+       coalesce(nullif(p.full_name,''),nullif(p.display_name,''),'حساب مستخدم') AS actor_name,
+       e.area,e.operation,e.event_kind,
+       count(*) AS events,
+       count(*) FILTER(WHERE e.status='error') AS errors,
+       round(avg(e.duration_ms),1) AS mean_ms,
+       percentile_disc(0.95) WITHIN GROUP (ORDER BY e.duration_ms) AS p95_ms
+      FROM scoped e JOIN public.profiles p ON p.id=e.actor_id
+      GROUP BY e.actor_id,p.full_name,p.display_name,e.area,e.operation,e.event_kind
+      ORDER BY count(*) DESC LIMIT 240
+    ) x
+  ),'[]'::jsonb),
   'recentFailures',coalesce((
     SELECT jsonb_agg(to_jsonb(x) ORDER BY x.created_at DESC)
     FROM (
