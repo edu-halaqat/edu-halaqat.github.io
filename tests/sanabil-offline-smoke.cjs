@@ -191,7 +191,7 @@ const api=window.SanabilOffline;
        {id,ok:false,error:{code:'42501',message:'supervisor edit restriction'}}:
        {id,ok:true,result:{ok:true}}]};
    },{batch:true,maxBatchSize:1});
-   assert.equal(requests.length,n,'each virtual student's first write is attempted once');
+   assert.equal(requests.length,n,'the first write for each virtual student is attempted once');
    assert.equal(await api.count(),denied.size,'all approved writes confirmed; refused writes retained');
    let autoRetries=0;
    await api.flush(async()=>{autoRetries++;return{ok:true}},{batch:true,maxBatchSize:1});
