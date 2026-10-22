@@ -2397,7 +2397,13 @@ async function outcomesPage(root){
   form.addEventListener('input',e=>{const m=String(e.target.name||'').match(/^note(\d+)$/);if(m)persistDraft(Number(m[1]))});
   action(box,box.querySelector('[data-action="all-present"]'),()=>{states.forEach((x,i)=>{if(!needsDayAttendance(activeKind(students[i].studentId)))return;x.attendance='present';x.absenceReason='';syncCard(i);persistDraft(i)});box._sanabilQuick?.seed?.();msg(box,'تم تحضير الجميع وتعبئة الممتاز المبدئي للحصائل الجديدة؛ عدّل الاستثناءات وأكّد التسميع قبل الاعتماد.')});
   action(box,box.querySelector('[data-action="close-outcome-session"]'),()=>{if(Object.keys(drafts).length&&!confirm('توجد حصائل غير محفوظة في قاعدة البيانات. ستبقى مسوداتها على الجهاز. هل تريد إغلاق الجلسة؟'))return;localStorage.removeItem(activeSessionKey);box.innerHTML='<p class="sl-message">أغلقت جلسة الحصيلة في هذا الجهاز. يمكنك إعادة فتحها ما دام الوقت والصلاحية يسمحان بذلك.</p>'});
+  const studentSaves=new Map();
   const saveOneStudent=async(i,{defer=false}={})=>{
+    if(studentSaves.has(i)){
+      await studentSaves.get(i).catch(()=>{});
+      if(!drafts[students[i].studentId])return {ok:true,alreadyConfirmed:true};
+    }
+    const pending=(async()=>{
     const s=students[i];
     try{
     const realSaveStarted=performance.now();
@@ -2464,6 +2470,9 @@ async function outcomesPage(root){
       updateOutcomeIssues();
       throw Error('حصيلة '+s.fullName+': '+reason);
     }
+    })();
+    studentSaves.set(i,pending);
+    try{return await pending}finally{if(studentSaves.get(i)===pending)studentSaves.delete(i)}
   };
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),()=>saveOneStudent(i)));
   // Debounce each edited student, and use the exact existing guarded write/readback.
@@ -2475,7 +2484,7 @@ async function outcomesPage(root){
   box.querySelector('.sl-savebar-copy')?.append(autoBadge);
   const issuePanel=document.createElement('details');
   issuePanel.className='sl-outcome-issues';
-  issuePanel.style.cssText='margin:12px 0;padding:12px;border:1px solid #a3c5b7;border-radius:12px;direction:rtl;max-width:100%;';
+  issuePanel.style.cssText='grid-column:1 / -1;width:100%;margin:12px 0;padding:12px;border:1px solid #a3c5b7;border-radius:12px;direction:rtl;max-width:100%;';
   const issueTitle=document.createElement('summary');issueTitle.style.cssText='cursor:pointer;font-weight:800;line-height:1.7';
   const issueList=document.createElement('div');issueList.style.cssText='display:grid;gap:8px;margin-top:12px;max-height:40vh;overflow:auto';
   issuePanel.append(issueTitle,issueList);
@@ -2659,6 +2668,9 @@ async function outcomesPage(root){
     for(const {s,i} of captured){
       const status=box.querySelector('[data-save-status="'+i+'"]');
       if(!drafts[s.studentId]&&status?.dataset.saved==='saved')continue;
+      // A previously queued payload remains in IndexedDB until acknowledged.
+      // Re-submitting it here would create duplicate pending operations.
+      if(status?.dataset.saved==='queued'){queued.push(s.fullName);continue}
       try{
         const row=rowData(s,i);
         validateRow(s,row);
