@@ -112,7 +112,7 @@ begin
     'opensAt',v_open_at,'closesAt',v_close_at,'universalOpen',true
   );
 end
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION private.assert_circle_session_allowed(p_circle_id text, p_date date)
  RETURNS void
@@ -195,6 +195,6 @@ begin
       using errcode='42501';
   end if;
 end
-$function$
+$function$;
 
 COMMIT;
