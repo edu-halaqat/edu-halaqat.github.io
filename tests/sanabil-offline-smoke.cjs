@@ -140,8 +140,7 @@ const api=window.SanabilOffline;
   assert.equal(batches,1);
   assert.deepEqual(new Set(received),new Set([first.operationId,second.operationId,third.operationId]),
    'batch must contain the three queued operations');
-  console.log('OFFLINE_PARTIAL_DEBUG '+JSON.stringify({received,singles,queue:await api.status(true)}));
-  assert.deepEqual(singles,received.slice(1),
+  assert.deepEqual(singles,Array.from(received).slice(1),
    'never replay a confirmed prefix item after a later timeout');
   assert.equal(await api.count(),0);
  }
