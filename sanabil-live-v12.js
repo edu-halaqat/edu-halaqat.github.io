@@ -3170,7 +3170,14 @@ async function plansPage(root){
      form.elements.memUnit.disabled=false;form.elements.memAmount.disabled=false;form.elements.memDirection.disabled=false;
      recentBox.style.display='';majorSection.style.display='';
      unitOptions(form.elements.memUnit,predefinedMethods.has(code)?memUnits:customMemUnits,predefinedMethods.has(code)?'lines':(form.elements.memUnit.value||'lines'));
-     if(useStudentStart&&student){const st=await studentStart(student);if(st)setStart(st.surahNo,st.ayahNo)}
+     if(useStudentStart&&student){
+ const st=await studentStart(student);
+ if(st)setStart(st.surahNo,st.ayahNo);
+ else if(code==='bir_alwalidayn'){
+   const lv=methodologyByCode(code)?.config?.levels?.[0];
+   if(lv?.fromSurahNo)setStart(Number(lv.fromSurahNo),Number(lv.fromAyah)||1);
+ }
+}
      const pos=methodPosition();
      if(code==='custom'||code==='remedial'){
        const target=val(form,'remedialTarget')||'bir_alwalidayn';
