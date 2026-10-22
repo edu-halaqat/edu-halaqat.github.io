@@ -1,0 +1,22 @@
+name: Student plan circle and dark theme regression
+on:
+  pull_request:
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-identity.css'
+      - 'index.html'
+      - 'tests/sanabil-plan-circle-dark-regression.cjs'
+      - '.github/workflows/plan-circle-dark-regression.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plan isolation, dialog style, and teacher runtime
+        run: |
+          node --check sanabil-live-v12.js
+          node tests/sanabil-plan-circle-dark-regression.cjs
+          node tests/sanabil-live-runtime-boot.cjs
+          node tests/sanabil-teacher-fast-path.cjs
