@@ -152,9 +152,68 @@ const error=value=>{
  if(/[A-Za-z]/.test(raw))return 'تعذر إتمام العملية، وورد وصف تقني غير معرّب؛ راجع سجلات الخادم لتحديد السبب';
  return raw;
 };
+// Apply only to fixed interface terminology. Never translate user-entered
+// values, phone numbers, e-mail addresses, links, source code, or attributes.
+const fixedTerms=[
+ [/P95/g,'زمن استجابة ٩٥٪ من المحاولات'],
+ [/\bExcel\b/gi,'إكسل'],[/\bCSV\b/g,'ملف جدول بيانات'],
+ [/\bJSON\b/g,'بيانات مفصّلة'],[/\bPDF\b/g,'ملف جاهز للطباعة'],
+ [/\bChrome\b/g,'كروم'],[/\bEdge\b/g,'إيدج'],
+ [/\bGitHub Pages\b/g,'استضافة جيت هب'],[/\bCloudflare\b/g,'كلاودفلير'],
+ [/\bSupabase\b/g,'سوبابيس'],[/\bDNS\b/g,'نظام أسماء النطاقات'],
+ [/\bSNI\b/g,'اسم الخادم'],[/\bcurl\b/g,'أداة فحص الاتصال'],
+ [/\bHTTP\b/g,'بروتوكول الاتصال'],[/\bGET\b/g,'جلب البيانات'],
+ [/\badmin\b/g,'مدير النظام'],[/\bmanager\b/g,'مشرف المجمع'],
+ [/\bsupervisor\b/g,'المشرف'],[/\bteacher\b/g,'المعلم'],
+ [/\bmobile\b/g,'هاتف محمول'],[/\btablet\b/g,'جهاز لوحي'],
+ [/\bdesktop\b/g,'حاسوب']
+];
+const normalizeFixedText=value=>{
+ let output=String(value??'');
+ for(const [pattern,replacement] of fixedTerms)output=output.replace(pattern,replacement);
+ return output;
+};
+const excluded=node=>{
+ const parent=node?.parentElement;
+ return !parent||!!parent.closest('script,style,noscript,code,pre,textarea,input,select,option,[contenteditable="true"],[data-no-translate],[translate="no"]');
+};
+const translateNode=node=>{
+ if(node?.nodeType!==3||excluded(node))return;
+ const old=node.nodeValue;
+ if(!old||!/[A-Za-z]/.test(old))return;
+ const translated=normalizeFixedText(old);
+ if(translated!==old)node.nodeValue=translated;
+};
+const translateSubtree=root=>{
+ if(!root||root.nodeType===3){translateNode(root);return}
+ if(root.nodeType!==1||root.matches?.('script,style,pre,code,textarea,input,select,option,[translate="no"],[data-no-translate]'))return;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ for(let item=walker.nextNode();item;item=walker.nextNode())translateNode(item);
+};
+let taskPending=false;const pendingNodes=new Set();
+const flushTranslations=()=>{
+ taskPending=false;
+ const batch=[...pendingNodes];pendingNodes.clear();
+ for(const node of batch)if(node?.isConnected)translateSubtree(node);
+};
+const observeInterface=()=>{
+ if(!document.documentElement||typeof MutationObserver!=='function')return;
+ const observer=new MutationObserver(mutations=>{
+  for(const change of mutations){
+   if(change.type==='characterData')pendingNodes.add(change.target);
+   else for(const node of change.addedNodes||[])if(node.nodeType===1||node.nodeType===3)pendingNodes.add(node);
+  }
+  if(pendingNodes.size&&!taskPending){taskPending=true;setTimeout(flushTranslations,0)}
+ });
+ observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+ pendingNodes.add(document.body||document.documentElement);taskPending=true;setTimeout(flushTranslations,0);
+};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observeInterface,{once:true});
+else observeInterface();
+
 const percentile='زمن الاستجابة الذي لا تتجاوزه ٩٥٪ من المحاولات';
 const duration=n=>n===null||n===undefined||!Number.isFinite(Number(n))?'—':Number(n).toLocaleString('ar-SA')+' مللي ثانية';
 const state=value=>({success:'ناجح',error:'فشل',failed:'فشل',pending:'بانتظار الإرسال',
  timeout:'انتهاء مهلة الطلب',unknown:'غير محدد'})[strip(value)]||'غير محدد';
-window.SanabilArabicUI=Object.freeze({view,action,kind,device,network,metric,note,error,state,duration,percentile});
+window.SanabilArabicUI=Object.freeze({view,action,kind,device,network,metric,note,error,state,duration,percentile,normalizeFixedText,translateSubtree});
 })();
