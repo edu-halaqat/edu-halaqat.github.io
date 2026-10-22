@@ -1583,3 +1583,33 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
    color:#eaf7ef!important;
  }
 }
+
+
+/* Accessible night-mode lesson-plan controls including review explanations. */
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  fieldset.sl-plan-builder,fieldset.sl-review-builder,
+  .sl-plan-builders,.sl-review-builders,.sl-cycle-note,
+  [data-method-summary],[data-bundle-forecast],
+  [data-major-section],.sl-builder-head,.sl-plan-section
+){
+ background:#1b3830!important;background-image:none!important;
+ color:#f0faf4!important;border-color:#55796b!important;
+ text-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog .sl-cycle-note{
+ display:block!important;max-width:100%!important;
+ box-sizing:border-box!important;border-radius:12px!important;
+ padding:12px 14px!important;line-height:1.85!important;
+ color:#e2f5e8!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog :is(.sl-cycle-note,.sl-rule-note) :is(b,span,small){
+ color:#effdf4!important;opacity:1!important;
+}
+.sl-dialog .sl-cycle-note{display:block;white-space:normal;overflow-wrap:anywhere}
+.sl-dialog .sl-outcome-save-error,
+.sl-live .sl-outcome-save-error{
+ color:#ffe5dd!important;background:#512f2b!important;
+ border:1px solid #bb8171!important;padding:11px 13px!important;
+ border-radius:12px;max-width:100%;overflow-wrap:anywhere;
+ line-height:1.7;margin-top:10px;
+}
