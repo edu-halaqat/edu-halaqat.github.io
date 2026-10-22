@@ -1537,7 +1537,7 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
    leaving white cards and unreadable pale text on Android. */
 @media screen {
  html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form :is(
-   fieldset.sl-plan-builder,fieldset.sl-review-builder,fieldset:not(.sl-v13-syllabus fieldset),
+   fieldset.sl-plan-builder,fieldset.sl-review-builder,fieldset,
    [data-major-section],.sl-builder-head
  ) {
    background:#1c3831!important;
