@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install isolated IndexedDB test polyfill
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
       - name: Validate JS and plan save checks
         run: |
           node --check sanabil-live-v12.js
