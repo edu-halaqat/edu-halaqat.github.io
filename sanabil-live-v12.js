@@ -3247,7 +3247,7 @@ async function plansPage(root){
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
    await applyMethodology(true);setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===activePlanCircle.id);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
      if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
        const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
