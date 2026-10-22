@@ -2699,6 +2699,7 @@ const sanabilPlanCatalogHtml=(methods=[])=>{
   '<p class="sl-help">التسلسل: إنشاء المجمع والحلقة ← إضافة المعلم والطلاب ← إعداد خطة الطالب. المراجعة الصغرى تتبع موضع الدرس، والمراجعة الكبرى تدور بحسب المقدار المختار.</p></section>';
 };
 
+const scopeStudentsToPlanCircle=(records,circleId)=>records.filter(student=>student.circle_id===circleId);
 async function plansPage(root){
  const scope=await lookups();
  // Catalog is available before a supervisor creates the first complex/circle/teacher/student.
@@ -2714,11 +2715,31 @@ async function plansPage(root){
    return;
  }
  const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
- const [allStudents,methodologies]=await Promise.all([
+ const [allStudents,methodologies,actor]=await Promise.all([
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
-   rpc('list_plan_methodologies',{}).catch(()=>[])
+   rpc('list_plan_methodologies',{}).catch(()=>[]),
+   access()
  ]);
- const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id)).map(s=>{
+ const actorId=actor?.profile?.id||'';
+ const actorRoles=new Set(actor?.roles||[]);
+ const teacherOnly=actorRoles.has('teacher')&&!['admin','manager','supervisor'].some(role=>actorRoles.has(role));
+ const teacherIds=new Set((scope.teachers||[]).filter(t=>t.user_id===actorId).map(t=>t.id));
+ const assignedCircleIds=new Set((scope.teachers||[]).filter(t=>teacherIds.has(t.id)).map(t=>t.circle_id));
+ for(const link of scope.circleTeachers||[])if(link.active!==false&&teacherIds.has(link.teacher_id))assignedCircleIds.add(link.circle_id);
+ const planCircles=scope.circles.filter(c=>!talaqqinCircles.has(c.id)&&(!teacherOnly||assignedCircleIds.has(c.id)));
+ const planCircleKey='sanabil_plan_selected_circle_v1:'+actorId;
+ const outcomeCircleKey='sanabil_outcome_selected_circle_v1:'+actorId;
+ const savedOutcomeCircle=localStorage.getItem(outcomeCircleKey);
+ const savedPlanCircle=localStorage.getItem(planCircleKey);
+ const selectedPlanCircle=planCircles.find(c=>c.id===savedOutcomeCircle)?.id
+   ||planCircles.find(c=>c.id===savedPlanCircle)?.id
+   ||planCircles.find(c=>allStudents.some(s=>s.active!==false&&s.circle_id===c.id))?.id
+   ||planCircles[0]?.id||'';
+ if(!selectedPlanCircle){
+   root.innerHTML=sanabilPlanCatalogHtml(methodologies)+'<p class="sl-empty">لا توجد حلقة قرآن مسندة إلى حسابك لإعداد خطط طلابها.</p>';
+   return;
+ }
+ const students=scopeStudentsToPlanCircle(allStudents,selectedPlanCircle).filter(s=>!talaqqinCircles.has(s.circle_id)).map(s=>{
    const direct=(scope.circleTeachers||[]).filter(x=>x.circle_id===s.circle_id&&x.active!==false)
      .sort((x,y)=>Number(y.is_primary===true)-Number(x.is_primary===true));
    const official=direct.map(x=>scope.teachers.find(t=>t.id===x.teacher_id&&t.user_id))
@@ -2732,7 +2753,19 @@ async function plansPage(root){
  const quranStudentIds=new Set(students.map(s=>s.id));
  const staleAssignments=students.filter(x=>x.previous_teacher_id).length;
 
- if(!students.length){root.innerHTML=sanabilPlanCatalogHtml(methodologies)+'<p class="sl-empty">لا يوجد طلاب في حلقات الحفظ بعد؛ أنشئ حلقة وأضف الطلاب للبدء.</p>';return;}
+ if(!students.length){
+   root.innerHTML='<div class="sl-toolbar sl-plan-circle-filter">'
+     +select('الحلقة الحالية','planCircle',planCircles,selectedPlanCircle)
+     +'</div>'+sanabilPlanCatalogHtml(methodologies)
+     +'<p class="sl-empty">لا يوجد طلاب نشطون في الحلقة المحددة. اختر حلقة أخرى أو أضف طلابًا لهذه الحلقة.</p>';
+   const picker=root.querySelector('[name="planCircle"]');
+   if(picker)picker.addEventListener('change',()=>{
+     if(!planCircles.some(c=>c.id===picker.value))return;
+     localStorage.setItem(planCircleKey,picker.value);localStorage.setItem(outcomeCircleKey,picker.value);
+     plansPage(root).catch(e=>msg(root,e.message,true));
+   });
+   return;
+ }
  const typeName={memorization:'الحفظ الجديد',recent_review:'المراجعة الصغرى',review:'المراجعة الكبرى'};
  const unitName={lines:'سطر',pages:'صفحة',ayahs:'آية',surahs:'سورة',juz:'جزء',hizb:'حزب',half_hizb:'نصف حزب',quarter_hizb:'ربع حزب'};
  const directionName={toward_nas:'نحو الناس',toward_fatiha:'نحو الفاتحة'};
@@ -2785,7 +2818,7 @@ async function plansPage(root){
  const methodLabel=p=>p?.methodology_code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':p?.methodology_code==='aqom'?'برنامج أقوم':p?.methodology_code==='remedial'?'خطة علاجية':p?.methodology_code==='custom'?'خطة خاصة':'خطة خاصة';
  const targetMethodLabel=code=>code==='aqom'?'برنامج أقوم':'خطة حلقات بر الوالدين';
 
- root.innerHTML=`${staleAssignments?'<p role="alert" class="sl-rule-note">تنبيه: '+staleAssignments+' طالبًا لهم إسنادات معلمين قديمة. سيستخدم إنشاء الخطة المعلم الرسمي للحلقة، ولن تُعدّل السجلات التاريخية تلقائيًا.</p>':''}<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
+ root.innerHTML=`<div class="sl-toolbar sl-plan-circle-filter">${select('الحلقة الحالية','planCircle',planCircles,selectedPlanCircle)}</div>${staleAssignments?'<p role="alert" class="sl-rule-note">تنبيه: '+staleAssignments+' طالبًا لهم إسنادات معلمين قديمة. سيستخدم إنشاء الخطة المعلم الرسمي للحلقة، ولن تُعدّل السجلات التاريخية تلقائيًا.</p>':''}<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
@@ -2831,7 +2864,7 @@ async function plansPage(root){
    root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
    // Archived plans remain discoverable; no data restoration or deletion is implicit.
    const archiveStudents=await rows('students','id,full_name,circle_id');
-   const archivedIds=new Set(archiveStudents.filter(x=>(scope.circles||[]).some(c=>c.id===x.circle_id)).map(x=>x.id));
+   const archivedIds=new Set(scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle).map(x=>x.id));
    const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
      .filter(p=>archivedIds.has(p.student_id));
    const archives=root.querySelector('.sl-plan-archives');
@@ -3331,6 +3364,14 @@ async function plansPage(root){
      });
    });
  };
+ const planCirclePicker=root.querySelector('[name="planCircle"]');
+ if(planCirclePicker)planCirclePicker.addEventListener('change',()=>{
+   const chosen=planCirclePicker.value;
+   if(!planCircles.some(c=>c.id===chosen))return;
+   localStorage.setItem(planCircleKey,chosen);
+   localStorage.setItem(outcomeCircleKey,chosen);
+   plansPage(root).catch(e=>msg(root,e.message,true));
+ });
  action(root,root.querySelector('[data-action="new"]'),createSingle);
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
  await load();await showExamAlerts()
