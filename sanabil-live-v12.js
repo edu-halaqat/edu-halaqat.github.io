@@ -2449,6 +2449,7 @@ async function outcomesPage(root){
         }
       })();
     }
+    if(!autoPending.size&&!autoInFlight.size)autoBadge.textContent='لا توجد حصائل تنتظر الحفظ التلقائي';
   };
   scheduleOutcomeAutoSave=i=>{
     if(readOnly||!needsDayAttendance(activeKind(students[i].studentId)))return;
@@ -2546,6 +2547,13 @@ async function outcomesPage(root){
   }
   submit(form,async()=>{
     const realSaveStarted=performance.now();
+    // Manual approval wins over pending autosave timers. Wait for an in-flight
+    // older version to finish before sending the final circle snapshot.
+    for(const timer of autoTimers.values())clearTimeout(timer);
+    autoTimers.clear();autoPending.clear();autoBadge.textContent='جارٍ اعتماد الحصيلة الجماعية…';
+    const deadline=Date.now()+15000;
+    while(autoInFlight.size&&Date.now()<deadline)await new Promise(done=>setTimeout(done,150));
+    if(autoInFlight.size)throw Error('توجد حصيلة قيد الحفظ التلقائي؛ أعد اعتماد الحلقة بعد اكتمالها.');
     validateAttendance();
     const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
       const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
