@@ -2429,7 +2429,11 @@ async function outcomesPage(root){
       autoPending.delete(i);
       const x=rowData(students[i],i);
       if(box._sanabilQuick?.isProvisional?.(i))continue;
-      try{validateRow(students[i],x)}catch{continue}
+      try{validateRow(students[i],x)}catch{
+        const badge=box.querySelector('[data-save-status="'+i+'"]');
+        if(badge&&badge.dataset.saved!=='queued'){badge.textContent='التقديرات غير مكتملة · أكملها قبل الاعتماد';badge.dataset.saved='draft'}
+        continue;
+      }
       if(!drafts[students[i].studentId])continue;
       if(box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved==='queued')continue;
       if(autoInFlight.has(i))continue;
@@ -2747,8 +2751,8 @@ async function plansPage(root){
  const outcomeCircleKey='sanabil_outcome_selected_circle_v1:'+actorId;
  const savedOutcomeCircle=localStorage.getItem(outcomeCircleKey);
  const savedPlanCircle=localStorage.getItem(planCircleKey);
- const selectedPlanCircle=planCircles.find(c=>c.id===savedOutcomeCircle)?.id
-   ||planCircles.find(c=>c.id===savedPlanCircle)?.id
+ const selectedPlanCircle=planCircles.find(c=>c.id===savedPlanCircle)?.id
+   ||planCircles.find(c=>c.id===savedOutcomeCircle)?.id
    ||planCircles.find(c=>allStudents.some(s=>s.active!==false&&s.circle_id===c.id))?.id
    ||planCircles[0]?.id||'';
  if(!selectedPlanCircle){
