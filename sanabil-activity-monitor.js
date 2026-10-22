@@ -51,9 +51,15 @@ async function flush(){
 const targetName=el=>{
  const a=el?.closest?.('button,a,[role="button"]');
  if(!a)return null;
- return a.dataset?.action||a.dataset?.view||a.dataset?.nav||
-  a.getAttribute('type')&&('button:'+safe(a.getAttribute('type')))||
-  (a.tagName.toLowerCase()+':'+safe(a.id||a.classList?.[0]||'control'));
+ // Record stable action/CSS identifiers only. Never access visible text or inputs.
+ const named=a.dataset?.action||a.dataset?.view||a.dataset?.nav;
+ if(named)return safe(String(named).replace(/\d+/g,'#'));
+ if(a.id)return 'id:'+safe(a.id.replace(/\d+/g,'#'));
+ const classes=Array.from(a.classList||[]);
+ const identity=classes.find(x=>/^sl-[a-z0-9-]+$/i.test(x))
+   ||classes.find(x=>/^button-[a-z0-9-]+$/i.test(x));
+ if(identity)return 'class:'+safe(identity);
+ return (a.tagName||'button').toLowerCase()+':'+safe(a.getAttribute?.('type')||'control');
 };
 document.addEventListener('click',event=>{
  const name=targetName(event.target);if(name)record('click',name);
