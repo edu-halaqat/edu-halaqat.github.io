@@ -68,43 +68,175 @@ window.addEventListener('error',()=>record('error','javascript-runtime'));
 window.addEventListener('online',()=>flush());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)flush()});
 function mountAdminPanel(){
- const parent=document.querySelector('.sl-performance-real');
- if(!parent||parent.dataset.centralMounted)return;
+ const parent=document.querySelector('.sl-performance-real:not([data-central-mounted])');
+ if(!parent)return;
  parent.dataset.centralMounted='1';
- const box=document.createElement('section');box.className='sl-performance-real';box.dir='rtl';
- box.innerHTML='<h3>نشاط المنصة المركزي — جميع الأجهزة</h3><p>عمليات المستخدمين المسجلين منذ تفعيل هذه الميزة، بما فيها مدير النظام. يحتفظ الخادم بهوية المنفذ والتوقيت والنافذة ونوع العملية ومدتها ونجاحها دون تفاصيل الطلاب أو المدخلات.</p><button type="button" class="button" data-activity-refresh>تحديث أنشطة جميع المستخدمين</button><p data-activity-status role="status"></p><div data-activity-table style="max-height:420px;overflow:auto"></div>';
+ const box=document.createElement('section');box.className='sl-performance-real sl-central-report';box.dir='rtl';
+ box.innerHTML='<h3>مركز تشخيص أداء المنصة — جميع الأجهزة</h3>'+
+  '<p>قراءات الخادم للحسابات النشطة التي وصلت أحداثها إلى قاعدة البيانات، وليست آخر 150 حركة فقط. لا يجمع التقرير إجابات الطلاب ولا ما يكتب في الحقول. الأجهزة غير المتصلة لا تظهر حركاتها حتى تتم مزامنتها.</p>'+
+  '<div class="sl-central-tools" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">'+
+    '<button type="button" class="button" data-activity-period="live">لحظي · آخر 15 دقيقة</button>'+
+    '<button type="button" class="button" data-activity-period="today">اليوم · بتوقيت الرياض</button>'+
+    '<button type="button" class="button" data-activity-period="week">الأسبوع · آخر 7 أيام</button>'+
+    '<button type="button" class="button" data-activity-refresh>تحديث الآن</button>'+
+    '<button type="button" class="button" data-activity-csv>تصدير CSV</button>'+
+    '<button type="button" class="button" data-activity-json>تصدير JSON</button>'+
+    '<label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-activity-auto checked> تحديث تلقائي كل 30 ثانية</label>'+
+  '</div><p role="status" data-activity-status></p>'+
+  '<div data-activity-summary></div><div data-activity-insights></div>'+
+  '<div data-activity-views></div><div data-activity-actions></div>'+
+  '<div data-activity-actors></div><div data-activity-devices></div>'+
+  '<div data-activity-trend></div><div data-activity-errors></div>';
  parent.after(box);
- const status=box.querySelector('[data-activity-status]'),body=box.querySelector('[data-activity-table]');
- let busy=false;
+ const status=box.querySelector('[data-activity-status]');
+ const slots={
+  summary:box.querySelector('[data-activity-summary]'),
+  insights:box.querySelector('[data-activity-insights]'),
+  views:box.querySelector('[data-activity-views]'),
+  actions:box.querySelector('[data-activity-actions]'),
+  actors:box.querySelector('[data-activity-actors]'),
+  devices:box.querySelector('[data-activity-devices]'),
+  trend:box.querySelector('[data-activity-trend]'),
+  errors:box.querySelector('[data-activity-errors]')
+ };
+ const pretty=n=>n===null||n===undefined?'—':Number(n).toLocaleString('ar-SA');
+ const ms=n=>n===null||n===undefined?'—':pretty(n)+' مللي ثانية';
+ const date=t=>t?new Date(t).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',dateStyle:'short',timeStyle:'short'}):'—';
+ const el=(tag,text)=>{const node=document.createElement(tag);node.textContent=String(text??'');return node};
+ let period='today',busy=false,report=null;
+ const tabs=()=>box.querySelectorAll('[data-activity-period]').forEach(button=>{
+  const chosen=button.dataset.activityPeriod===period;
+  button.setAttribute('aria-pressed',String(chosen));
+  button.style.outline=chosen?'2px solid #078b80':'';
+ });
+ const table=(slot,title,columns,rows)=>{
+  slot.replaceChildren();
+  const heading=el('h4',title);heading.style.margin='18px 0 8px';slot.append(heading);
+  if(!rows?.length){slot.append(el('p','لا توجد بيانات في هذه الفترة.'));return}
+  const overflow=document.createElement('div');overflow.style.cssText='max-width:100%;max-height:400px;overflow:auto';
+  const tab=document.createElement('table');tab.style.cssText='width:100%;white-space:nowrap;direction:rtl';
+  const tr=document.createElement('tr');
+  for(const column of columns)tr.append(el('th',column[0]));
+  const thead=document.createElement('thead');thead.append(tr);tab.append(thead);
+  const tbody=document.createElement('tbody');
+  for(const row of rows){
+   const tr=document.createElement('tr');
+   for(const column of columns)tr.append(el('td',column[1](row)));
+   tbody.append(tr);
+  }
+  tab.append(tbody);overflow.append(tab);slot.append(overflow);
+ };
+ const textLine=(parent,text)=>{
+  const p=el('p',text);p.style.cssText='margin:6px 0;line-height:1.8';parent.append(p);
+ };
+ const render=payload=>{
+  report=payload;
+  const sum=payload.summary||{},actorRows=payload.byActor||[],actions=payload.byAction||[];
+  const failures=actions.filter(x=>Number(x.failures)>0);
+  const slow=actions.filter(x=>Number(x.p95_ms)>2000&&Number(x.events)>=3);
+  const labels={live:'آخر 15 دقيقة',today:'اليوم (الرياض)',week:'آخر 7 أيام'};
+  slots.summary.replaceChildren();
+  slots.summary.append(el('h4','ملخص '+labels[period]));
+  const summaryItems=[['الحركات المستلمة',sum.events],['الحسابات',sum.users],
+   ['جلسات الاستخدام',sum.sessions],['الإخفاقات المرصودة',sum.failures],
+   ['العمليات الأبطأ من ثانيتين',sum.slow],
+   ['P95 للمدد المقاسة',ms(sum.p95Ms)]];
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px';
+  for(const [label,value] of summaryItems){
+   const item=document.createElement('div');
+   item.style.cssText='border:1px solid #759e8c;border-radius:10px;padding:10px';
+   item.append(el('small',label),el('p',typeof value==='number'?pretty(value):value));
+   grid.append(item);
+  }
+  slots.summary.append(grid);
+  slots.insights.replaceChildren();
+  slots.insights.append(el('h4','أولويات معالجة الأعطال'));
+  if(failures.length)for(const item of failures.slice(0,5))
+   textLine(slots.insights,'خلل متكرر: '+item.view_key+' ← '+item.action_key+
+    ' · '+pretty(item.failures)+' إخفاقًا من '+pretty(item.events)+' حدث');
+  else textLine(slots.insights,'لم تُرصد استدعاءات فاشلة في هذه الفترة؛ هذا لا يثبت عدم وجود أعطال غير مرصودة.');
+  if(slow.length)for(const item of slow.slice(0,5))
+   textLine(slots.insights,'بطء: '+item.view_key+' ← '+item.action_key+
+    ' · P95 = '+ms(item.p95_ms)+' (عدد القياسات: '+pretty(item.events)+')');
+  table(slots.views,'النوافذ الأكثر تعثرًا',
+   [['النافذة',x=>x.view_key],['الحركات',x=>pretty(x.events)],
+    ['الإخفاقات',x=>pretty(x.failures)],['فوق ثانيتين',x=>pretty(x.slow)],
+    ['P95',x=>ms(x.p95_ms)]],payload.byView);
+  table(slots.actions,'الإجراءات والاختناقات حسب نسبة التعثر والبطء',
+   [['النافذة',x=>x.view_key],['الإجراء',x=>x.action_key],['النوع',x=>x.kind],
+    ['الحركات',x=>pretty(x.events)],['الإخفاقات',x=>pretty(x.failures)],
+    ['فوق ثانيتين',x=>pretty(x.slow)],['المتوسط',x=>ms(x.mean_ms)],
+    ['P95',x=>ms(x.p95_ms)]],actions);
+  table(slots.actors,'تغطية جميع الحسابات التي أرسلت أحداثًا',
+   [['المستخدم',x=>x.actor_name],['الأحداث',x=>pretty(x.events)],
+    ['الجلسات',x=>pretty(x.sessions)],['الإخفاقات',x=>pretty(x.failures)],
+    ['فوق ثانيتين',x=>pretty(x.slow)],['P95',x=>ms(x.p95_ms)]],actorRows);
+  table(slots.devices,'التغطية حسب نوع الجهاز',
+   [['الجهاز',x=>x.device_kind],['المستخدمون',x=>pretty(x.users)],
+    ['الأحداث',x=>pretty(x.events)],['الإخفاقات',x=>pretty(x.failures)],
+    ['P95',x=>ms(x.p95_ms)]],payload.byDevice);
+  table(slots.trend,'التطور الزمني · بتوقيت الرياض',
+   [['الفترة',x=>String(x.bucket||'').replace('T',' ')],
+    ['الأحداث',x=>pretty(x.events)],['الإخفاقات',x=>pretty(x.failures)],
+    ['المستخدمون',x=>pretty(x.users)]],payload.trend);
+  table(slots.errors,'آخر الأخطاء والأحداث الفاشلة',
+   [['التوقيت',x=>date(x.created_at)],['المستخدم',x=>x.actor_name],
+    ['النافذة',x=>x.view_key],['الإجراء',x=>x.action_key],
+    ['المدة',x=>ms(x.duration_ms)],['الجهاز',x=>x.device_kind]],payload.recentFailures);
+ };
  const load=async()=>{
-  if(busy||!client())return;busy=true;status.textContent='جارٍ جلب الأحداث من الخادم…';
+  if(busy||!box.isConnected||!client())return;
+  busy=true;status.textContent='جارٍ تحليل سجلات جميع المستخدمين…';
   try{
-   const {data,error}=await client().rpc('get_platform_activity_events',{p_limit:150});
+   const {data,error}=await client().rpc('get_platform_activity_report',{p_period:period});
    if(error)throw error;
-   const items=Array.isArray(data)?data:[];
-   status.textContent=items.length?'آخر '+items.length+' حدث مسجل؛ يعرض الأحدث أولًا.':'لا توجد أحداث مركزية مسجلة حتى الآن.';
-   const table=document.createElement('table');table.style.width='100%';
-   const head=document.createElement('tr');
-   for(const h of ['التوقيت','المستخدم','الدور','النافذة','الإجراء','المدة','النتيجة','الجهاز']){
-    const th=document.createElement('th');th.textContent=h;head.append(th);
-   }
-   const thead=document.createElement('thead');thead.append(head);table.append(thead);
-   const tbody=document.createElement('tbody');
-   for(const e of items){
-    const tr=document.createElement('tr');
-    const cols=[new Date(e.created_at).toLocaleString('ar-SA'),
-     e.actor_name||'غير معروف',e.actor_role||'—',e.view_key||'—',
-     (e.kind||'')+' · '+(e.action_key||''),e.duration_ms==null?'—':e.duration_ms+' ms',
-     e.succeeded===null?'—':e.succeeded?'نجاح':'تعثر',e.device_kind||'—'];
-    for(const v of cols){const td=document.createElement('td');td.textContent=v;tr.append(td)}
-    tbody.append(tr);
-   }
-   table.append(tbody);body.replaceChildren(table);
-  }catch(e){status.textContent='تعذر قراءة القياسات المركزية: '+(e.message||'خطأ في الاتصال')}
+   if(!data||typeof data!=='object'||!data.summary)throw Error('الرد غير صالح');
+   render(data);
+   status.textContent='آخر تحديث: '+date(data.to)+' · '+pretty(data.summary.events)+
+    ' حركة مستلمة · '+pretty(data.summary.users)+' حسابات. سجلات الأجهزة غير المتصلة تصل بعد المزامنة.';
+  }catch(error){status.textContent='تعذر إنشاء التقرير المركزي: '+(error?.message||'خطأ اتصال')}
   finally{busy=false}
  };
- box.querySelector('[data-activity-refresh]').onclick=load;
- load();
+ const rowsCSV=(data)=>{
+  const out=[['القسم','الحقل 1','الحقل 2','الحركات','الإخفاقات','P95 (ms)']];
+  const section=(name,list,fields)=>{for(const x of list||[])out.push([name,...fields(x)])};
+  section('المستخدمون',data.byActor,x=>[x.actor_name,'',x.events,x.failures,x.p95_ms]);
+  section('النوافذ',data.byView,x=>[x.view_key,'',x.events,x.failures,x.p95_ms]);
+  section('الإجراءات',data.byAction,x=>[x.view_key,x.action_key,x.events,x.failures,x.p95_ms]);
+  section('الأجهزة',data.byDevice,x=>[x.device_kind,'',x.events,x.failures,x.p95_ms]);
+  section('الزمن',data.trend,x=>[x.bucket,'',x.events,x.failures,'']);
+  section('أحدث الأعطال',data.recentFailures,x=>[x.created_at,x.action_key,'','',x.duration_ms]);
+  return out;
+ };
+ const quoteCSV=value=>{
+  let text=String(value??'');
+  // Prevent spreadsheet apps from evaluating formulas from account names.
+  if(/^[\s]*[=+\-@]/.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+ };
+ const download=format=>{
+  if(!report){status.textContent='أنشئ التقرير أولًا ثم اختر التصدير.';return}
+  const content=format==='csv'
+   ?'\uFEFF'+rowsCSV(report).map(row=>row.map(quoteCSV).join(',')).join('\r\n')
+   :JSON.stringify(report,null,2);
+  const mime=format==='csv'?'text/csv;charset=utf-8':'application/json;charset=utf-8';
+  const blob=new Blob([content],{type:mime}),url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download='sanabil-activity-'+period+'-'+new Date().toISOString().slice(0,10)+'.'+format;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ };
+ box.querySelectorAll('[data-activity-period]').forEach(btn=>btn.addEventListener('click',()=>{
+  period=btn.dataset.activityPeriod;tabs();load();
+ }));
+ box.querySelector('[data-activity-refresh]').addEventListener('click',()=>{flush().finally(load)});
+ box.querySelector('[data-activity-csv]').addEventListener('click',()=>download('csv'));
+ box.querySelector('[data-activity-json]').addEventListener('click',()=>download('json'));
+ const timer=setInterval(()=>{
+  if(!box.isConnected){clearInterval(timer);return}
+  if(box.querySelector('[data-activity-auto]').checked&&!document.hidden)load();
+ },30000);
+ tabs();load();
 }
 const observer=new MutationObserver(()=>{if(document.querySelector('.sl-performance-real:not([data-central-mounted])'))mountAdminPanel()});
 observer.observe(document.documentElement,{subtree:true,childList:true});
