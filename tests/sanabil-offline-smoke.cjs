@@ -169,6 +169,43 @@ const api=window.SanabilOffline;
    await api.flush(async(name,args)=>({results:args.p_operations.map(x=>({id:x.id,ok:true,result:{ok:true}}))}),{batch:true,maxBatchSize:1,retryAttention:true});
    assert.equal(await api.count(),0,'supervisor approval allows ordered retry');
  }
+ // Synthetic peak-load scenario: 120 independent students, every 17th
+ // denied by policy, with the local IndexedDB queue and real replay code.
+ // Does not hit production or alter any student's data.
+ {
+   const n=120,denied=new Set(),queued=[],requests=[];
+   navigator.onLine=false;
+   for(let i=0;i<n;i++){
+     const a=await api.queue('save_daily_outcomes_guarded',{
+       p_date:'2026-10-22',p_rows:[{studentId:'virtual-peak-'+i}]
+     },'virtual peak '+i);
+     queued.push(a.operationId);
+     if(i%17===0)denied.add(a.operationId);
+   }
+   assert.equal(await api.count(),n);
+   navigator.onLine=true;
+   const begin=Date.now();
+   await api.flush(async(name,args)=>{
+     const id=args.p_operations[0].id;requests.push(id);
+     return {results:[denied.has(id)?
+       {id,ok:false,error:{code:'42501',message:'supervisor edit restriction'}}:
+       {id,ok:true,result:{ok:true}}]};
+   },{batch:true,maxBatchSize:1});
+   assert.equal(requests.length,n,'each virtual student's first write is attempted once');
+   assert.equal(await api.count(),denied.size,'all approved writes confirmed; refused writes retained');
+   let autoRetries=0;
+   await api.flush(async()=>{autoRetries++;return{ok:true}},{batch:true,maxBatchSize:1});
+   assert.equal(autoRetries,0,'automatic retries must not repeat protected denials under load');
+   const retryIds=[];
+   await api.flush(async(name,args)=>{
+     const id=args.p_operations[0].id;retryIds.push(id);
+     return{results:[{id,ok:true,result:{ok:true}}]};
+   },{batch:true,maxBatchSize:1,retryAttention:true});
+   assert.deepEqual(new Set(retryIds),denied,'manual retry contains only the failed operation IDs');
+   assert.equal(await api.count(),0,'all 120 synthetic writes accounted for');
+   console.log('PASS: synthetic 120-student peak replay, '+denied.size+
+     ' refused operations preserved and eventually confirmed; elapsed local mock '+(Date.now()-begin)+' ms');
+ }
  console.log('PASS: concurrent fresh reads, user isolation, bounded batches, partial failures, lost responses, acknowledgement validation, ordered fingerprint boundary');
  console.log('PASS: durable queue, retries, user isolation, snapshot, whitelisting, attendance pending-review');
 })().catch(e=>{console.error(e);process.exitCode=1});
