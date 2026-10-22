@@ -48,6 +48,7 @@ assert.deepEqual(grid.marker,{assessment:'جيد جدًا',doubts:2},'grades sur
 assert.deepEqual(search.marker,{query:'طالب السابع'},'search state survives switching');
 assert.equal(switchView(true),true);
 assert.equal(grid.style.getPropertyValue('display'),'none','subsequent quick toggle hides grid again');
+assert(quick.includes('showDetailed:i=>'),'pending rows can navigate to an actual detailed student');
 assert(live.includes('<form class="sl-outcome-session" novalidate><div class="sl-student-grid">'),
  'detailed form remains intact and still uses the original save pipeline');
 assert(html.includes('/sanabil-quick-outcomes.js?v=20261022-savefix3'));
