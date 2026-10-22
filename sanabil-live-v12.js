@@ -2286,13 +2286,19 @@ async function outcomesPage(root){
   });
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,absenceReason:st.attendance==='absent'?st.absenceReason||'':null,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
   let scheduleOutcomeAutoSave=()=>{};
-  const persistDraft=i=>{const s=students[i],x=rowData(s,i);
+  let updateOutcomeIssues=()=>{};
+  const persistDraft=(i,{schedule=true}={})=>{const s=students[i],x=rowData(s,i);
     drafts[s.studentId]={attendance:x.att,absenceReason:x.absenceReason,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
     saveDrafts();
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft';delete status.dataset.operationId}
-    scheduleOutcomeAutoSave(i);
+    if(schedule){saveErrors.delete(i);scheduleOutcomeAutoSave(i)}
+    updateOutcomeIssues();
   };
-  const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
+  const clearDraft=i=>{
+    delete drafts[students[i].studentId];saveDrafts();
+    if(autoTimers.has(i)){clearTimeout(autoTimers.get(i));autoTimers.delete(i)}
+    autoPending.delete(i);saveErrors.delete(i);updateOutcomeIssues();
+  };
   // Exam reviews are saved outside ordinary plan progress.
   const testReviewRatings=(student,row)=>({
     ...(student.recentReview?{[student.recentReview.planId]:row.ratings.recentReview||''}:{}),
@@ -2400,7 +2406,7 @@ async function outcomesPage(root){
     if(!defer||activeKind(s.studentId)==='test')await ensureCircleSession(circle,date,true);
     window.SanabilPerformance?.recordActual('save_student_access',performance.now()-accessStarted);
     // ثبِّت المسودة قبل الإرسال حتى لا تضيع إذا اكتمل الحفظ بينما تغيرت الصفحة.
-    persistDraft(i);
+    persistDraft(i,{schedule:false});
     const payload={studentId:s.studentId,ratings:x.ratings,notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,recitationMetrics:normalizedMetrics(x.metrics)};
     const before=JSON.stringify(drafts[s.studentId]||null);
     const status=box.querySelector('[data-save-status="'+i+'"]');
@@ -2447,11 +2453,45 @@ async function outcomesPage(root){
   students.forEach((s,i)=>action(box,box.querySelector('[data-action="save-student-'+i+'"]'),()=>saveOneStudent(i)));
   // Debounce each edited student, and use the exact existing guarded write/readback.
   // Never upload provisional 'all excellent' grades before teacher verification.
-  const autoTimers=new Map(),autoPending=new Set(),autoInFlight=new Set();
-  const autoStatus=()=>autoPending.size+' حصائل تنتظر الحفظ';
+  const autoTimers=new Map(),autoPending=new Set(),autoInFlight=new Set(),saveErrors=new Map();
+  const autoStatus=()=>autoPending.size===1?'حصيلة واحدة في انتظار الحفظ التلقائي':autoPending.size+' حصائل في انتظار الحفظ التلقائي';
   const autoBadge=document.createElement('small');
   autoBadge.className='sl-autosave-message';autoBadge.setAttribute('role','status');
   box.querySelector('.sl-savebar-copy')?.append(autoBadge);
+  const issuePanel=document.createElement('details');
+  issuePanel.className='sl-outcome-issues';
+  issuePanel.style.cssText='margin:12px 0;padding:12px;border:1px solid #a3c5b7;border-radius:12px;direction:rtl;max-width:100%;';
+  const issueTitle=document.createElement('summary');issueTitle.style.cssText='cursor:pointer;font-weight:800;line-height:1.7';
+  const issueList=document.createElement('div');issueList.style.cssText='display:grid;gap:8px;margin-top:12px;max-height:40vh;overflow:auto';
+  issuePanel.append(issueTitle,issueList);
+  box.querySelector('.sl-outcome-savebar')?.prepend(issuePanel);
+  const showStudent=i=>{
+    const found=box._sanabilQuick?.showDetailed?.(i);
+    const card=box.querySelector('[data-student-card="'+i+'"]');
+    if(!found&&card){
+      if(box.classList.contains('sl-quick-mode'))box.querySelector('.sl-quick-mode-toggle')?.click();
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+    if(!card){msg(box,'تعذر تحديد بطاقة الطالب، أعد فتح الحصيلة دون حذف المسودات.',true);return}
+    card.querySelector('[data-save-status]')?.setAttribute('role','alert');
+  };
+  updateOutcomeIssues=()=>{
+    const problems=students.map((student,i)=>({student,i,status:box.querySelector('[data-save-status="'+i+'"]')}))
+      .filter(x=>!!drafts[x.student.studentId]||['draft','queued','saving'].includes(x.status?.dataset.saved)||saveErrors.has(x.i));
+    issuePanel.hidden=!problems.length;
+    issueTitle.textContent=problems.length===1?'حصيلة طالب واحد لم تُؤكَّد في الخادم — اضغط لعرضه':
+      problems.length+' حصائل لم تُؤكَّد في الخادم — اضغط لعرض الطلاب';
+    autoBadge.textContent=problems.length?issueTitle.textContent:'جميع المسودات المحفوظة أُكّدت على الخادم';
+    issueList.replaceChildren();
+    for(const {student,i,status} of problems){
+      const link=document.createElement('button');link.type='button';link.className='button button-soft';
+      link.style.cssText='display:block;text-align:right;white-space:normal;overflow-wrap:anywhere;min-height:50px';
+      const reason=saveErrors.get(i)||status?.textContent||'مسودة محلية تنتظر التحقق';
+      link.textContent=student.fullName+' — '+reason+' · عرض الحصيلة';
+      link.addEventListener('click',()=>showStudent(i));issueList.append(link);
+    }
+  };
+  updateOutcomeIssues();
   const drainAuto=async()=>{
     if(!box.isConnected||readOnly)return;
     while(autoInFlight.size<2&&autoPending.size){
@@ -2461,8 +2501,14 @@ async function outcomesPage(root){
       if(manualButton?.disabled){setTimeout(drainAuto,700);break}
       autoPending.delete(i);
       const x=rowData(students[i],i);
-      if(box._sanabilQuick?.isProvisional?.(i))continue;
-      try{validateRow(students[i],x)}catch{continue}
+      if(box._sanabilQuick?.isProvisional?.(i)){updateOutcomeIssues();continue}
+      try{validateRow(students[i],x)}catch(error){
+        const reason=error?.message||'حصيلة غير مكتملة';
+        saveErrors.set(i,reason);
+        const status=box.querySelector('[data-save-status="'+i+'"]');
+        if(status){status.textContent=reason+' · المسودة باقية';status.dataset.saved='draft'}
+        updateOutcomeIssues();continue
+      }
       if(!drafts[students[i].studentId])continue;
       if(box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved==='queued')continue;
       if(autoInFlight.has(i))continue;
@@ -2473,11 +2519,14 @@ async function outcomesPage(root){
           if(status){status.textContent='جارٍ حفظ الحصيلة تلقائيًا…';status.dataset.saved='saving'}
           await saveOneStudent(i,{defer:true});
         }catch(error){
-          if(status){status.textContent='تعذر الحفظ التلقائي · المسودة محفوظة · حاول مجددًا';status.dataset.saved='draft'}
-          console.warn('حفظ تلقائي:',error?.message||error);
+          const reason=error?.message||'تعذر الحفظ';
+          saveErrors.set(i,reason);
+          if(status){status.textContent=reason+' · المسودة محفوظة';status.dataset.saved='draft'}
+          updateOutcomeIssues();
+          console.warn('حفظ تلقائي:',reason);
         }finally{
           autoInFlight.delete(i);
-          autoBadge.textContent=autoPending.size?autoStatus():'تُحفظ التعديلات تلقائيًا عند اكتمال البيانات';
+          updateOutcomeIssues();
           drainAuto();
         }
       })();
@@ -2487,10 +2536,10 @@ async function outcomesPage(root){
     if(readOnly||!needsDayAttendance(activeKind(students[i].studentId)))return;
     if(autoTimers.has(i))clearTimeout(autoTimers.get(i));
     autoTimers.set(i,setTimeout(()=>{
-      autoTimers.delete(i);autoPending.add(i);autoBadge.textContent=autoStatus();drainAuto();
+      autoTimers.delete(i);autoPending.add(i);updateOutcomeIssues();drainAuto();
     },1100));
   };
-  autoBadge.textContent='تُحفظ التعديلات محليًا ثم تُزامَن خلال نحو دقيقة؛ الاعتماد يرسلها فورًا';
+  updateOutcomeIssues();
   action(box,box.querySelector('[data-action="save-attendance"]'),async()=>{const attendanceWriteAt=performance.now();validateAttendance();await ensureCircleSession(circle,date,true);const payload=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
     const i=students.indexOf(s);return{studentId:s.studentId,status:states[i].attendance,
       absenceReason:states[i].attendance==='absent'?states[i].absenceReason:null,note:val(form,'note'+i)||null};
