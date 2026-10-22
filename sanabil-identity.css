@@ -1531,3 +1531,54 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
 .sl-v13-syllabus [data-exam-summary]{padding:10px 12px;margin:10px 0 0;border-inline-start:3px solid #00808a;line-height:1.85;background:rgba(0,128,138,.06);border-radius:8px;white-space:normal}
 :root[data-sanabil-theme="dark"] .sl-v13-syllabus [data-exam-summary]{background:rgba(0,128,138,.18);color:#e1f0ef}
 :root[data-sanabil-theme="dark"] .sl-v13-syllabus fieldset{border-color:#51605c;color:#e1f0ef}
+
+/* 2026-10-22: Student plan builder is a <dialog> attached to document.body.
+   Prior dark rules targeted .sl-live .sl-plan-builder, missing these fieldsets.
+   Keep select inputs, notes, headers and section legends readable on Android. */
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  fieldset.sl-plan-builder,fieldset.sl-review-builder,.sl-plan-builders fieldset,
+  .sl-review-builders fieldset
+){
+  background:#1d3a32!important;
+  background-image:none!important;
+  border:1px solid #5c8575!important;
+  color:#f2fbf5!important;
+  box-shadow:none!important;
+  min-width:0;
+}
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  .sl-plan-builder legend,.sl-review-builder legend,
+  .sl-plan-builder legend label,.sl-review-builder legend label,
+  .sl-plan-builders h3,.sl-builder-head h3,.sl-builder-head p,
+  .sl-plan-builder .form-grid label,.sl-review-builder .form-grid label
+){
+  color:#f2fbf5!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog :is(
+  .sl-plan-builder .sl-help,.sl-review-builder .sl-help,
+  .sl-plan-builder .sl-cycle-note,.sl-review-builder .sl-cycle-note
+){
+  background:#24463d!important;
+  color:#d5ebe0!important;
+  border-color:#557967!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog :is(.sl-plan-builder,.sl-review-builder) :is(input,select,textarea){
+  background:#203f36!important;
+  color:#f7fff9!important;
+  -webkit-text-fill-color:#f7fff9;
+  border-color:#779989!important;
+  color-scheme:dark;
+}
+html[data-sanabil-theme="dark"] .sl-dialog .sl-builder-head{
+  background:#19342d!important;
+  color:#f2fbf5!important;
+  border-color:#527b6b!important;
+}
+@media(max-width:650px){
+  html[data-sanabil-theme="dark"] .sl-dialog :is(.sl-plan-builder,.sl-review-builder){
+    padding:12px!important;
+    margin-inline:0!important;
+  }
+}
