@@ -1,0 +1,27 @@
+name: Plans and telemetry safety checks
+on:
+  pull_request:
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-performance.js'
+      - 'sanabil-telemetry.js'
+      - 'sanabil-identity.css'
+      - 'index.html'
+      - 'db/maintenance/client_performance_analytics.sql'
+      - 'tests/sanabil-plans-save-admin-metrics.cjs'
+      - '.github/workflows/verify-plans-save-metrics.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate runtime syntax
+        run: |
+          node --check sanabil-live-v12.js
+          node --check sanabil-performance.js
+          node --check sanabil-telemetry.js
+          node tests/sanabil-plans-save-admin-metrics.cjs
+          node tests/sanabil-live-runtime-boot.cjs
+          node tests/sanabil-performance-deep.cjs
