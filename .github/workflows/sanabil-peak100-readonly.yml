@@ -1,0 +1,30 @@
+name: Sanabil 100 simultaneous visitor read-only smoke test
+on:
+  workflow_run:
+    workflows: ["Deploy GitHub Pages"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  peak-100:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run 100 simultaneous public visitor simulations (GET only)
+        run: node tests/sanabil-peak100-readonly.cjs
+      - name: Preserve measurements and error details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanabil-peak100-readonly
+          path: artifacts/peak100-readonly.json
+          if-no-files-found: warn
