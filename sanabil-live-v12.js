@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.57';
+window.__SanabilLiveBuild='20261022-v13.8.58';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2563,9 +2563,7 @@ async function outcomesPage(root){
       const payload=normal.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,
         notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,
         recitationMetrics:normalizedMetrics(x.metrics)}));
-      // Large whole-circle writes can exhaust the database RPC deadline.
-      // Commit and verify bounded groups; keep all drafts and the session open
-      // whenever even one group is still pending or fails.
+      // Guard the deadline by splitting student writes into small confirmed groups.
       for(let start=0;start<payload.length;start+=3){
         const group=payload.slice(start,start+3);
         const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:group},
@@ -3074,7 +3072,7 @@ async function plansPage(root){
    form.querySelector('[name="amount"]').addEventListener('input',()=>{if(typeEl.value==='memorization')setTimeout(refreshForecast,120)});
    refresh();
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),excluded=excludedDays(),t=val(form,'type'),track={id:crypto.randomUUID(),type:t,unit:val(form,'unit'),dailyAmount:Number(val(form,'amount'))};
      if(t!=='recent_review'){track.direction=val(form,'direction');track.startSurah=Number(val(form,'surah'));track.startAyah=Number(val(form,'ayah'));if(t==='review')track.name=val(form,'planName').trim()}
      let r;
@@ -3084,8 +3082,7 @@ async function plansPage(root){
        if(!val(form,'end')||val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
      }
-     // Whole-ayah bundle synchronizes dependent reviews inside its own transaction.
-     // Running it a second time re-materializes future days and can time out.
+     // The whole-ayah bundle already runs dependent-review synchronization.
      if(!hasMem||predefinedMethods.has(code))await rpc('sync_student_review_plans',{p_student_id:student.id});
      b.closest('dialog').close();await load();
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
@@ -3266,7 +3263,7 @@ async function plansPage(root){
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
    await applyMethodology(true);setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
      if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
        const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
