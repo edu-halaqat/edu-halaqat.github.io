@@ -46,6 +46,9 @@ const recordActual=(kind,ms)=>{
  realSamples[kind].push(Math.round(ms*10)/10);
  if(realSamples[kind].length>80)realSamples[kind].shift();
  try{sessionStorage.setItem(REAL_KEY,JSON.stringify(realSamples))}catch{}
+ // Publish real, completed user actions to the same central admin report.
+ // Never include student identifiers, inputs, or grade values.
+ try{window.SanabilActivity?.record('operation','actual:'+kind,ms,true)}catch{}
  window.dispatchEvent(new CustomEvent('sanabil-real-performance-updated'));
 };
 const actualSummary=()=>REAL_KINDS.map(kind=>{
