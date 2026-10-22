@@ -40,9 +40,9 @@ async function loadText(path){
 const clear=()=>{document.getElementById('sanabil-build-notice')?.remove();notice=null};
 const clearBadge=()=>{document.getElementById('sanabil-update-available')?.remove();badge=null};
 const isRemoteNew=remote=>{
- const local=currentApp()||currentMeta();
+ const local=currentApp()||currentMeta(),localPath=currentScriptPath();
  return newer(remote.version,local)||
-   (remote.version===local&&!!remote.path&&remote.path!==currentScriptPath());
+   (remote.version===local&&!!localPath&&!!remote.path&&remote.path!==localPath);
 };
 function showBadge(remote){
  if(!remote||!document.body)return;
