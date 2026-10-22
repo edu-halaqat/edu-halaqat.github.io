@@ -1,0 +1,23 @@
+name: Scoped student plans and night dialog
+on:
+  pull_request:
+    paths:
+      - 'sanabil-live-v12.js'
+      - 'sanabil-identity.css'
+      - 'index.html'
+      - 'tests/sanabil-plan-circle-dark-mode.cjs'
+      - '.github/workflows/scoped-plan-night-dialog.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate student plan circle isolation and dark dialog
+        run: |
+          node --check sanabil-live-v12.js
+          node --check tests/sanabil-plan-circle-dark-mode.cjs
+          node tests/sanabil-plan-circle-dark-mode.cjs
+          node tests/sanabil-live-runtime-boot.cjs
+          node tests/sanabil-secondary-circle-access.cjs
