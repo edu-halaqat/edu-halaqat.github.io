@@ -6,6 +6,12 @@
 const META='meta[name="sanabil-build"]',KEY='sanabil-update-prompt-v3';
 const currentMeta=()=>document.querySelector(META)?.content||'';
 const currentApp=()=>window.__SanabilLiveBuild||'';
+const currentScriptPath=()=>{
+ const tag=document.querySelector('script[src*="/sanabil-live-v12.js"]');
+ const src=tag?.getAttribute('src')||'';
+ return src.startsWith('/')?src:'';
+};
+const releaseKey=(version,path)=>version+'|'+path;
 const getState=()=>{try{return JSON.parse(sessionStorage.getItem(KEY)||'{}')||{}}catch{return{}}};
 const setState=patch=>{try{sessionStorage.setItem(KEY,JSON.stringify({...getState(),...patch}))}catch{}};
 const releaseParts=v=>{
@@ -18,7 +24,7 @@ const newer=(remote,local)=>{
  if(r&&l){for(let i=0;i<4;i++){if(r[i]!==l[i])return r[i]>l[i]}return false}
  return remote!==local;
 };
-let checking=false,lastCheck=0,notice=null;
+let checking=false,lastCheck=0,notice=null,badge=null,lastRemote=null;
 const getHtmlVersion=html=>String(html).match(/<meta\s+name=["']sanabil-build["']\s+content=["']([^"']+)["']/i)?.[1]||'';
 const scriptPath=html=>String(html).match(/<script\b[^>]*\bsrc=["'](\/sanabil-live-v12\.js\?[^"']+)["']/i)?.[1]||'';
 async function loadText(path){
@@ -32,9 +38,29 @@ async function loadText(path){
  }finally{clearTimeout(timeout)}
 }
 const clear=()=>{document.getElementById('sanabil-build-notice')?.remove();notice=null};
-function banner(target){
+const clearBadge=()=>{document.getElementById('sanabil-update-available')?.remove();badge=null};
+const isRemoteNew=remote=>{
+ const local=currentApp()||currentMeta(),localPath=currentScriptPath();
+ return newer(remote.version,local)||
+   (remote.version===local&&!!localPath&&!!remote.path&&remote.path!==localPath);
+};
+function showBadge(remote){
+ if(!remote||!document.body)return;
+ lastRemote=remote;
+ if(badge?.isConnected)return;
+ badge=document.createElement('button');
+ badge.id='sanabil-update-available';
+ badge.type='button';badge.dir='rtl';badge.title='توفر إصدار جديد من سنابل الوحي';
+ badge.textContent='⟳ تحديث المنصة';
+ badge.setAttribute('aria-label','تحديث المنصة إلى الإصدار الجديد');
+ badge.style.cssText='position:fixed;top:186px;left:12px;z-index:2147483001;padding:9px 13px;min-height:44px;border-radius:24px;border:2px solid #d8bd88;background:#00594c;color:#fff;box-shadow:0 6px 22px #0005;cursor:pointer;font:700 14px/1.5 Tahoma,system-ui,sans-serif';
+ badge.onclick=()=>banner(lastRemote?.signature,{force:true});
+ document.body.append(badge);
+}
+function banner(target,{force=false}={}){
  if(!target||!document.body)return;
- if(getState().shown===target||getState().applied===target)return;
+ if(getState().applied===target)return;
+ if(!force&&getState().shown===target)return;
  if(document.getElementById('sanabil-build-notice'))return;
  // Remember even after the user dismisses; do not nag about the same release.
  setState({shown:target});
@@ -52,9 +78,9 @@ function banner(target){
   try{
    // Confirm the release still exists before replacing the current document.
    const newest=await inspect();
-   if(!newest||newest.version!==target){
-    if(newest&&newer(newest.version,target)){
-     clear();setState({shown:''});banner(newest.version);return;
+   if(!newest||newest.signature!==target){
+    if(newest&&isRemoteNew(newest)){
+     clear();setState({shown:''});showBadge(newest);banner(newest.signature,{force:true});return;
     }
     throw Error('التحديث لم يكتمل وصوله بعد؛ لن أعيد تحميل الصفحة الآن.');
    }
@@ -64,7 +90,7 @@ function banner(target){
     apply.disabled=false;apply.textContent='تحديث المنصة';return;
    }
    try{const reg=await navigator.serviceWorker?.getRegistration?.();if(reg)await reg.update()}catch{}
-   setState({applied:target});
+   setState({applied:target});clearBadge();
    const url=new URL('/',location.origin);
    url.searchParams.set('sanabil_refresh',target);
    url.searchParams.set('t',String(Date.now()));
@@ -81,32 +107,33 @@ async function inspect(){
  const html=await loadText('/index.html');
  const version=getHtmlVersion(html),path=scriptPath(html);
  if(!version||!path)return null;
- const local=currentApp()||currentMeta();
- // New HTML without a matching deployed JS is a partial deployment.
- if(!newer(version,local))return {version,valid:true};
+ const remote={version,path,signature:releaseKey(version,path),valid:true};
+ // Distinguish a release by its actual application asset, even when the
+ // old build meta accidentally stayed unchanged between deployments.
+ if(!isRemoteNew(remote))return remote;
  const js=await loadText(path);
  if(!js.includes("window.__SanabilLiveBuild='"+version+"'"))return null;
- return {version,valid:true};
+ return remote;
 }
 async function check({force=false}={}){
  if(checking||document.visibilityState==='hidden')return null;
- if(!force&&Date.now()-lastCheck<15*60*1000)return null;
+ if(!force&&Date.now()-lastCheck<2*60*1000)return null;
  checking=true;lastCheck=Date.now();
  try{
   const remote=await inspect();
   if(!remote||!remote.valid)return null;
-  const local=currentApp()||currentMeta(),state=getState();
-  if(!newer(remote.version,local)){
-   if(local===remote.version||currentApp()===remote.version){
-    if(state.applied===remote.version)clear();
-   }
-   return remote;
+  const state=getState();
+  if(!isRemoteNew(remote)){
+   clear();clearBadge();return remote;
   }
-  if(state.shown===remote.version||state.applied===remote.version)return remote;
-  banner(remote.version);return remote;
+  if(state.applied===remote.signature)return remote;
+  showBadge(remote);
+  if(state.shown!==remote.signature)banner(remote.signature);
+  return remote;
  }catch{return null}finally{checking=false}
 }
-window.SanabilUpdater={check,inspect,newer,getState};
+window.SanabilUpdater={check,inspect,newer,getState,currentScriptPath,releaseKey};
+setInterval(()=>check().catch(()=>{}),2*60*1000);
 window.addEventListener('load',()=>setTimeout(()=>check({force:true}),2500),{once:true});
 window.addEventListener('focus',()=>check());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});

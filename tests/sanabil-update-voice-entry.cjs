@@ -4,7 +4,7 @@ const updater=fs.readFileSync('sanabil-updater.js','utf8');
 const voice=fs.readFileSync('sanabil-voice.js','utf8');
 const ui=fs.readFileSync('sanabil-live-v12.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
-assert(html.includes('/sanabil-updater.js?v=20261018-v1'),'Updater must be loaded');
+assert(html.includes('/sanabil-updater.js?v=20261023-revision1'),'Updater must be loaded');
 assert(!html.includes("if(window.__SanabilLiveBuild!==expected)showUpdate()"),'Old delayed-script banner must be removed');
 assert(/\/sanabil-voice\.js\?v=202610(?:18|19)-v\d+/.test(html),'Versioned voice module loaded');
 assert(ui.includes('window.SanabilVoice?.showLauncher?.()'),'Home screen must show launcher after authentication');
@@ -49,7 +49,7 @@ function environment({current='20261018-v13.8.13',published='20261018-v13.8.14',
  };
  const replaces=[],loc={origin:'https://snabilalwahy.com',replace:url=>replaces.push(url)};
  const window={__SanabilLiveBuild:current,addEventListener:(n,cb)=>{(listeners[n]??=[]).push(cb)}};
- const ctx={window,document:doc,sessionStorage,navigator:{serviceWorker:{}},location:loc,fetch:fetchMock,AbortController,Date,URL,Promise,setTimeout,clearTimeout,console,confirm:()=>true};
+ const ctx={window,document:doc,sessionStorage,navigator:{serviceWorker:{}},location:loc,fetch:fetchMock,AbortController,Date,URL,Promise,setTimeout,clearTimeout,setInterval:()=>0,console,confirm:()=>true};
  vm.runInNewContext(updater,ctx);
  return {doc,window,storage,fetchCalls,replaces,api:window.SanabilUpdater};
 }

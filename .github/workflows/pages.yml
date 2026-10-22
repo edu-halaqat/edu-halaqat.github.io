@@ -46,6 +46,8 @@ jobs:
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
           node tests/sanabil-install.cjs
+          node --check sanabil-updater.js
+          node tests/sanabil-updater-talaqqin.cjs
           node --check sanabil-performance-deep.js
           node tests/sanabil-performance-deep.cjs
           node --check sanabil-lazy.js

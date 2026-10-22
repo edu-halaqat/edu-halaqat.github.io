@@ -1,0 +1,25 @@
+name: Update badge and talaqqin extension regression
+on:
+  pull_request:
+    paths:
+      - 'sanabil-updater.js'
+      - 'sanabil-live-v12.js'
+      - 'index.html'
+      - 'sanabil-offline-sw.js'
+      - 'tests/sanabil-updater-talaqqin.cjs'
+      - '.github/workflows/sanabil-updater-talaqqin.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --check sanabil-updater.js
+          node --check sanabil-live-v12.js
+          node tests/sanabil-updater-talaqqin.cjs
+          node tests/sanabil-update-voice-entry.cjs
