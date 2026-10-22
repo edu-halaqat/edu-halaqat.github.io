@@ -123,11 +123,11 @@ const api=window.SanabilOffline;
   const second=await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'retry-second'}]},'second');
   const third=await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'retry-third'}]},'third');
   const singles=[];
-  let batches=0;
+  let batches=0,received=[];
   await api.flush(async(name,args)=>{
    if(name==='apply_offline_operations_batch'){
     batches++;
-    assert.deepEqual(args.p_operations.map(x=>x.id),[first.operationId,second.operationId,third.operationId]);
+    received=args.p_operations.map(x=>x.id);
     return {results:[
      {id:first.operationId,ok:true,result:{ok:true}},
      {id:second.operationId,ok:false,error:{code:'57014',message:'statement timeout'}}
@@ -138,6 +138,8 @@ const api=window.SanabilOffline;
    return {ok:true};
   },{batch:true,maxBatchSize:3});
   assert.equal(batches,1);
+  assert.deepEqual(received,[first.operationId,second.operationId,third.operationId],
+   'batch order differs: '+JSON.stringify(await api.status(true)));
   assert.deepEqual(singles,[second.operationId,third.operationId],
    'never replay a confirmed prefix item after a later timeout');
   assert.equal(await api.count(),0);
