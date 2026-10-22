@@ -1,0 +1,15 @@
+name: Teacher secondary circle authorization
+on:
+  pull_request:
+    paths:
+      - 'db/maintenance/fix_teacher_secondary_circle_access.sql'
+      - 'tests/sanabil-secondary-circle-access.cjs'
+      - '.github/workflows/teacher-secondary-circle-access.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node tests/sanabil-secondary-circle-access.cjs
