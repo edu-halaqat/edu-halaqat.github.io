@@ -6,7 +6,7 @@ const index=fs.readFileSync('index.html','utf8');
 const sql=fs.readFileSync('supabase/migrations/20261023223000_admin_activity_reports.sql','utf8');
 new vm.Script(monitor,{filename:'sanabil-activity-monitor.js'});
 new vm.Script(perf,{filename:'sanabil-performance.js'});
-assert(index.includes('/sanabil-activity-monitor.js?v=20261023-adminreport1'),'dashboard loads new central monitor');
+assert(index.includes('/sanabil-activity-monitor.js?v=20261023-arabic1'),'dashboard loads new central monitor');
 assert(index.includes('/sanabil-performance.js?v=20261023-adminreport1'),'true device timings published');
 for(const marker of [
  "get_platform_activity_report","p_period:period",
