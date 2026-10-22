@@ -35,6 +35,8 @@ const rpcOffline=async(name,args,label,{defer=false}={})=>{
  // IndexedDB assigns a transactional order; server acknowledgements remain the source of truth.
  if(await window.SanabilOffline?.count()){
   const queued=await queueOfflineRpc(name,args,label);
+  // An explicit save should accelerate the queued writes without holding the UI.
+  if(offlineFlushTimer!==null){clearTimeout(offlineFlushTimer);offlineFlushTimer=null}
   scheduleOfflineSync(1200);
   return queued;
  }
