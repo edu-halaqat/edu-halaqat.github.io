@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261023-v13.8.61';
+window.__SanabilLiveBuild='20261023-v13.8.62';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1835,6 +1835,7 @@ async function outcomesPage(root){
          '<label class="sl-note">ملاحظة الحضور<input data-tl-note="'+i+'" value="'+esc(states[i].note)+'" placeholder="ملاحظة اختيارية"></label>'+
          '<section class="sl-track"><div class="sl-track-head"><div><b>'+(saved?'الدرس الذي سُمِّع في هذا التاريخ':isCustom?'درس خاص':'الدرس الحالي')+'</b><span>'+esc(saved?savedTitle:(r.completed?'أتم المنهج':(!placed?'لم يحدد موضع البداية':(ll.title||'—'))))+'</span></div></div>'+
           (advanced?'<p class="sl-help"><b>الدرس التالي بعد الحصيلة:</b> '+esc(ll.title||('رقم '+r.currentLessonNo))+'</p>':'')+
+          (placed&&!isCustom&&r.lessonDailyHoldUntil?'<p class="sl-help" role="status"><b>تمديد الدرس بالأيام:</b> أُضيف '+esc(r.lessonDailyExtraDays||0)+' يومًا؛ تاريخ انتهاء التمديد '+esc(r.lessonDailyHoldUntil)+'. لا يُرحّل الطالب قبل نهاية المدة، ويمكن تكرار التمديد.</p>':'')+
          '<p class="sl-help">'+(placed?(esc(ll.unitName||'')+' · '+esc(pg)):'حدد موضع بداية الطالب من زر «تحديد موضع البداية» قبل التقييم.')+'</p>'+
          (blocked?'<p class="sl-absence-note">الطالب '+(states[i].status==='absent'?'غائب':'مستأذن')+'؛ لا يسجل له تقييم درس اليوم.</p>':'')+
          (mismatch?'<p class="sl-absence-note" role="alert">تنبيه: حصيلة اليوم محفوظة لدرس «'+esc(storedTitles.get(saved.lesson_no)||('رقم '+saved.lesson_no))+'»، بينما موضع الطالب الحالي «'+esc(ll.title||('رقم '+r.currentLessonNo))+'». يجب تصحيح ارتباط الحصيلة بالدرس قبل التقدير والمشاركة.</p>':'')+
@@ -1851,7 +1852,7 @@ async function outcomesPage(root){
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
            button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)
-           +(placed&&!r.completed&&!isCustom?button('تمديد الدرس الحالي','to-extend-'+i):'')
+           +(placed&&!r.completed&&!isCustom?button('تمديد الدرس بالأيام','to-extend-'+i):'')
            +button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+button('ترشيح للاختبار','tl-nominate-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
@@ -2005,7 +2006,7 @@ async function outcomesPage(root){
         if(md){md.dataset.tlHandled='1';md.onclick=e=>{e.preventDefault();e.stopPropagation();try{openTalaqqinPractice(r,i)}catch(err){alert(err?.message||'تعذر فتح التدريب التفاعلي.')}}}
         const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
          const extend=box.querySelector('[data-action="to-extend-'+i+'"]');
-         if(extend)action(box,extend,()=>extendTalaqqinLesson(root,r,renderTalaqqin));
+         if(extend)action(box,extend,()=>extendTalaqqinLessonDays(root,r,renderTalaqqin));
       });
       // احتياط للجوال إذا أعاد المتصفح بناء عقد الأزرار بعد الرسم.
       box._talaqqinVisibleRows=items;
@@ -2769,7 +2770,7 @@ async function talaqqinPlansPage(root,scope){
   const circleIds=new Set(circles.map(x=>x.id));
   const students=(all||[]).filter(x=>circleIds.has(x.circleId)).sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'ar'));
   root.innerHTML='<section class="sl-session-head"><div><span class="sl-kicker">خطط الطلاب</span><h2>خطط نور البيان · حلقات التلقين</h2>'
-    +'<p>إعداد خطة الطالب الشخصية وموضعه ودروسه الخاصة. التقييم اليومي والحفظ والمشاركة من صفحة «الحصيلة» فقط.</p></div>'
+    +'<p>يمكن تقصير مدة وحدات نور البيان أو زيادتها بالأسابيع حسب مستوى الطالب، ولو تجاوز مجموعها خمسين أسبوعًا. تمديد الدرس بالأيام من الحصيلة اليومية.</p></div>'
     +button('عرض منهج نور البيان','tl-reference')+'</section>'
     +(students.length?'<div class="sl-plan-grid">'+students.map((r,i)=>{
        const l=r.lesson||{},weeks=r.pacing?.totalWeeks||50;
@@ -2783,8 +2784,8 @@ async function talaqqinPlansPage(root,scope){
         +'<span><b>الدرس الخاص</b>'+esc(r.activeCustomLesson?'نشط':'لا يوجد')+'</span></div>'
         +'<div class="sl-card-actions">'
         +button(r.placementSet?'تعديل الموضع':'تحديد موضع البداية','tl-plan-place-'+i)
-        +button('إعداد الخطة الشخصية','tl-plan-pace-'+i)
-        +(r.placementSet&&!r.completed&&r.lessonSource!=='custom'?button('تمديد الدرس الحالي','tl-plan-extend-'+i):'')
+        +button('تعديل مدة الخطة بالأسابيع','tl-plan-pace-'+i)
+        +(r.placementSet&&!r.completed&&r.lessonSource!=='custom'?button('زيادة مدة الدرس بالأسابيع','tl-plan-extend-'+i):'')
         +(r.placementSet&&!r.completed&&!r.activeCustomLesson?button('إضافة درس خاص','tl-plan-custom-'+i):'')
         +(r.activeCustomLesson?button('إلغاء الدرس الخاص','tl-plan-cancel-'+i):'')
         +'</div></article>';
@@ -3955,7 +3956,7 @@ const placeTalaqqinStudent=async(root,row,refresh)=>{
 const paceTalaqqinStudent=async(root,row,refresh)=>{
  const pacing=row.pacing||{},units=Array.isArray(pacing.units)?pacing.units:[],b=modal('الخطة الشخصية · '+row.fullName);
  const body=units.map(u=>'<tr><td>'+esc(u.unitNo+'. '+u.unitName)+'</td><td>'+esc(u.baselineWeeks)+' أسابيع</td><td><input type="number" name="weeks_'+u.unitNo+'" min="1" max="52" value="'+esc(u.plannedWeeks)+'" required style="width:95px"></td><td><input name="note_'+u.unitNo+'" value="'+esc(u.note||'')+'" placeholder="مثلاً: يحتاج تكرارًا أكثر"></td></tr>').join('');
- b.innerHTML='<form><p>المدة المرجعية للمنهج 50 أسبوعًا. عدّل مدة كل وحدة لهذا الطالب وحده؛ ويمكن أن تصبح الخطة 60 أو 80 أو 90 أسبوعًا أو غير ذلك دون تغيير خطة بقية الطلاب.</p>'+
+ b.innerHTML='<form><p>المدة المرجعية للمنهج 50 أسبوعًا، وليست حدًا أدنى أو أقصى. يمكن تقصير أي وحدة من أسبوعين إلى أسبوع أو زيادتها إلى ثلاثة أسابيع أو أكثر حسب مستوى الطالب، وقد تتجاوز الخطة خمسين أسبوعًا. تمديد الدرس اليومي مستقل ويُضبط بالأيام من الحصيلة.</p>'+
    '<div class="table-wrap" role="region" aria-label="جدول بيانات قابل للتمرير أفقيًا" tabindex="0"><table><thead><tr><th>الوحدة</th><th>المرجعي</th><th>مدة الطالب</th><th>ملاحظة</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
    '<div class="stats-grid" style="margin-top:12px"><article class="stat-card"><span>إجمالي الخطة الشخصية</span><b class="tl-total">'+esc(pacing.totalWeeks||50)+'</b><small>أسبوعًا</small></article><article class="stat-card"><span>الخطة المرجعية</span><b>50</b><small>أسبوعًا</small></article><article class="stat-card"><span>تمديدات دروس بعينها</span><b>'+esc(pacing.extraLessonWeeks||0)+'</b><small>أسبوعًا</small></article></div>'+
    '<label>ملاحظة عامة على خطة الطالب<textarea name="plan_note" rows="3" style="width:100%">'+esc(row.planNote||'')+'</textarea></label>'+
@@ -3969,7 +3970,46 @@ const paceTalaqqinStudent=async(root,row,refresh)=>{
    if(refresh)await refresh();else await dashboard(root);
  });
 };
-const extendTalaqqinLesson=async(root,row,refresh)=>{
+const extendTalaqqinLessonDays=async(root,row,refresh)=>{
+ if(!row.placementSet||row.completed||row.lessonSource==='custom')
+   throw Error('يمكن تمديد الدرس الأصلي الحالي فقط بعد تحديد موضع الطالب.');
+ const l=row.lesson||{},previous=row.lessonDailyHoldUntil||null;
+ const b=modal('تمديد الدرس بالأيام · '+row.fullName);
+ b.innerHTML='<form><p><b>'+esc(l.title||'الدرس الحالي')+'</b></p>'+
+  '<p>يمكن إبقاء الطالب في الدرس نفسه يومًا إضافيًا أو حتى سبعة أيام، ثم تمديده مجددًا كلما احتاج إلى تدريب أكثر؛ مثل تعلم حرف واحد يوميًا من حروف الوحدة. لا يغيّر ذلك مدة الخطة الأسبوعية.</p>'+
+  (previous?'<p class="sl-help">المدة الإضافية المسجلة لهذا الدرس: '+esc(row.lessonDailyExtraDays||0)+' يومًا، ونهاية التمديد الحالية: '+esc(previous)+'. أي تمديد جديد يُضاف إلى نهاية المدة الحالية إذا لم تنتهِ.</p>':'')+
+  '<label>عدد الأيام الإضافية<select name="extra_days" required>'+
+  [1,2,3,4,5,6,7].map(n=>'<option value="'+n+'">'+n+' '+(n===1?'يوم':n===2?'يومان':'أيام')+'</option>').join('')+
+  '</select></label>'+
+  field('سبب التمديد / ملاحظة','note','text','','maxlength="500"')+
+  '<p class="sl-help">لن ينتقل الطالب للدرس التالي قبل انتهاء فترة التمديد، حتى لو حصل على تقدير الإتقان. وبعدها ينتقل عندما يُسجل تقدير الإتقان التالي. لا تتغير الحصائل السابقة.</p>'+
+  '<div class="sl-card-actions"><button type="submit" class="button button-primary">إضافة الأيام للدرس</button>'+
+  (previous?'<button type="button" class="button button-soft" data-cancel-day-extension>إلغاء تمديد الأيام</button>':'')+'</div></form>';
+ submit(b.querySelector('form'),async()=>{
+   const days=Number(val(b,'extra_days'));
+   if(!Number.isInteger(days)||days<1||days>7)throw Error('حدد من يوم واحد إلى سبعة أيام.');
+   const r=await rpc('extend_talaqqin_lesson_days',{
+     p_student_id:row.studentId,p_lesson_no:Number(row.currentLessonNo),
+     p_add_days:days,p_note:val(b,'note')||null
+   });
+   if(!r?.ok)throw Error('لم يؤكد الخادم حفظ التمديد.');
+   b.closest('dialog').close();
+   msg(root,'أُضيف '+days+' يوم/أيام لدرس '+row.fullName+'، وتاريخ نهاية التمديد '+r.holdUntil+'.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+ const cancel=b.querySelector('[data-cancel-day-extension]');
+ if(cancel)action(b,cancel,async()=>{
+   if(!confirm('هل تريد إلغاء تمديد الأيام لهذا الدرس؟ سيُسمح بالانتقال عند تحقق الإتقان.'))return;
+   const r=await rpc('extend_talaqqin_lesson_days',{
+     p_student_id:row.studentId,p_lesson_no:Number(row.currentLessonNo),
+     p_add_days:0,p_note:null
+   });
+   if(!r?.ok)throw Error('لم يؤكد الخادم إلغاء التمديد.');
+   b.closest('dialog').close();msg(root,'أُلغي تمديد الأيام للدرس الحالي.');
+   if(refresh)await refresh();else await dashboard(root);
+ });
+};
+ const extendTalaqqinLesson=async(root,row,refresh)=>{
  if(!row.placementSet)throw Error('حدد موضع الطالب أولًا.');
  if(row.lessonSource==='custom')throw Error('مدة الدرس الخاص تضبط من بيانات الدرس الخاص نفسه.');
  const l=row.lesson||{},b=modal('تمديد هذا الدرس · '+row.fullName);
