@@ -29,6 +29,10 @@ assert.ok(js.includes('const students=scopeStudentsToPlanCircle(allStudents,sele
   'plan creation student selector must be filtered to the chosen circle');
 assert.ok(js.includes('scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle)'),
   'archived plan list must also use the exact circle scope');
+// Both the independent-track and bundled-plan save routes reject stale IDs
+// whose student belongs to a different circle, even if the same teacher teaches both.
+assert.equal((js.match(/students\\.find\\(s=>s\\.id===val\\(form,'student'\\)&&s\\.circle_id===selectedPlanCircle\\)/g)||[]).length,2,
+  'both plan save routes must verify circle identity at submission');
 assert.ok(js.includes('const quranStudentIds=new Set(students.map(s=>s.id))'),
   'active plans must use the same selected-circle student IDs');
 assert.ok(js.includes("select('الحلقة الحالية','planCircle',planCircles,selectedPlanCircle)"),
@@ -46,6 +50,6 @@ assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body
 assert.match(css,/fieldset\.sl-review-builder/);
 assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body form select option/);
 assert.match(css,/\.sl-plan-circle-filter label/);
-assert.ok(html.includes('/sanabil-live-v12.js?v=20261022-plancircle1'));
+assert.ok(html.includes('/sanabil-live-v12.js?v=20261022-plancircle2'));
 assert.ok(html.includes('/sanabil-identity.css?v=34'));
 console.log('PASS: plan lists are circle-specific, teacher choices are assigned, archived plans stay scoped, and dark modal styles are versioned.');
