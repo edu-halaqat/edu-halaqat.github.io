@@ -48,12 +48,12 @@ const scheduleOfflineSync=(delay=45000)=>{
  if(offlineFlushTimer!==null||!navigator.onLine)return;
  offlineFlushTimer=setTimeout(()=>{offlineFlushTimer=null;flushOfflineQueue().catch(()=>{})},delay+1000+Math.floor(Math.random()*9001));
 };
-const flushOfflineQueue=async()=>{
+const flushOfflineQueue=async({retryAttention=false}={})=>{
  if(offlineFlushTimer!==null){clearTimeout(offlineFlushTimer);offlineFlushTimer=null}
  if(!window.SanabilOffline)return;
  if(offlineFlushPending)return offlineFlushPending;
  // Keep server-side user locking and idempotent acknowledgements, but apply only one heavy write per transaction to avoid 8s statement timeouts.
- const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:true,maxBatchSize:1});
+ const pending=window.SanabilOffline.flush((name,args)=>rpcDirect(name,args),{batch:true,maxBatchSize:1,retryAttention});
  offlineFlushPending=pending;
  try{await pending}finally{if(offlineFlushPending===pending)offlineFlushPending=null}
 };
@@ -67,7 +67,7 @@ window.addEventListener('sanabil-offline-queue',e=>{
 window.addEventListener('online',()=>scheduleOfflineSync());
 window.addEventListener('online',()=>{if(window.SanabilOffline)access().then(a=>{if(a?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh()}).catch(()=>{})});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine&&accessCached?.roles?.includes('teacher'))scheduleSanabilOfflineRefresh()});
-window.addEventListener('sanabil-offline-retry',()=>flushOfflineQueue().catch(()=>{}));
+window.addEventListener('sanabil-offline-retry',()=>flushOfflineQueue({retryAttention:true}).catch(()=>{}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)scheduleOfflineSync()});
 navigator.serviceWorker?.addEventListener?.('message',event=>{
  if(event.data?.type==='sanabil-offline-flush-request')flushOfflineQueue().catch(()=>{});
