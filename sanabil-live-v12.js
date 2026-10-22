@@ -2649,48 +2649,42 @@ async function outcomesPage(root){
       throw Error('الحفظ غير متاح حاليًا بحسب ضوابط الحلقة: '+(fresh?.reason||sessionInfo?.reason||'راجع مشرف المجمع')+'. لن تُفقد أي مسودة محفوظة على الجهاز.');
     }
     const realSaveStarted=performance.now();
-    validateAttendance();
-    const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
-      const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
-    });
+    const captured=students.map((s,i)=>({s,i,kind:activeKind(s.studentId)}))
+      .filter(item=>needsDayAttendance(item.kind));
     if(!captured.length){msg(box,'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');return}
     await ensureCircleSession(circle,date,true);
-    captured.forEach(({i})=>persistDraft(i));
-    const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
-    for(const {s,x} of captured.filter(v=>v.kind==='test')){
-      await saveTestReviewStudent(s,x);
-      await confirmSaved(s,x);
-    }
-    const normal=captured.filter(v=>v.kind==='study');
-    if(normal.length){
-      const payload=normal.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,
-        notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,
-        recitationMetrics:normalizedMetrics(x.metrics)}));
-      // Guard the deadline by splitting student writes into small confirmed groups.
-      let queuedRows=0;
-      for(let start=0;start<payload.length;start+=3){
-        const group=payload.slice(start,start+3);
-        const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:group},
-          'حصيلة الحلقة · دفعة '+(Math.floor(start/3)+1));
-        if(saved.queued)queuedRows+=group.length;
+    const failures=[],queued=[];
+    // Each student is saved and verified independently; one invalid record must
+    // never prevent other classmates from being confirmed and cleared locally.
+    for(const {s,i} of captured){
+      const status=box.querySelector('[data-save-status="'+i+'"]');
+      if(!drafts[s.studentId]&&status?.dataset.saved==='saved')continue;
+      try{
+        const row=rowData(s,i);
+        validateRow(s,row);
+        await saveOneStudent(i);
+        if(status?.dataset.saved==='queued')queued.push(s.fullName);
+      }catch(error){
+        const reason=String(error?.message||'تعذر الحفظ');
+        saveErrors.set(i,reason);
+        if(status){status.dataset.saved='draft';status.textContent=reason+' · المسودة محفوظة'}
+        failures.push(s.fullName+' — '+reason);
       }
-      if(queuedRows){
-        msg(box,'تم تثبيت '+queuedRows+' حصيلة محليًا بالترتيب لانتظار المزامنة. بقيت الجلسة مفتوحة والمسودات محفوظة حتى يؤكد الخادم جميع الدفعات.');
-        scheduleOfflineSync(1200);
-        return;
-      }
-      const confirmed=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
-      for(const {s,x} of normal)await confirmSaved(s,x,confirmed);
+      updateOutcomeIssues();
     }
-    let modified=0;
-    captured.forEach(({s,i},j)=>{
-      if(JSON.stringify(drafts[s.studentId]||null)===snapshots[j])clearDraft(i);
-      else modified++;
-    });
-    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');return}
+    const remaining=Object.keys(drafts).filter(id=>students.some(s=>s.studentId===id));
+    if(failures.length||queued.length||remaining.length){
+      updateOutcomeIssues();
+      issuePanel.open=true;
+      msg(box,'لم تُغلق الجلسة. تم حفظ ما أمكن والتحقق منه، وبقيت '+remaining.length+
+        ' مسودات على الجهاز، منها '+failures.length+' تحتاج معالجة و'+queued.length+
+        ' تنتظر المزامنة. راجع أسماء الطلاب وأسباب التعثر في «حصائل لم تُؤكَّد» ثم أعد المحاولة.',true);
+      scheduleOfflineSync(1200);
+      return;
+    }
     localStorage.removeItem(activeSessionKey);
     window.SanabilPerformance?.recordActual('save_all',performance.now()-realSaveStarted);
-    box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
+    box.innerHTML='<p class="sl-message" role="status">تم حفظ حصائل جميع الطلاب المطلوبين والتحقق من الخادم، وأُغلقت الجلسة دون مسودات معلقة.</p>';
   });
   window.SanabilPerformance?.record('session:render',performance.now()-renderStarted);
   // Optional navigation must never delay opening attendance or outcome controls.
