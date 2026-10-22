@@ -31,7 +31,7 @@ assert.ok(js.includes('scopeStudentsToPlanCircle(archiveStudents,selectedPlanCir
   'archived plan list must also use the exact circle scope');
 // Both the independent-track and bundled-plan save routes reject stale IDs
 // whose student belongs to a different circle, even if the same teacher teaches both.
-assert.equal((js.match(/students\\.find\\(s=>s\\.id===val\\(form,'student'\\)&&s\\.circle_id===selectedPlanCircle\\)/g)||[]).length,2,
+assert.equal(js.split("students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle)").length-1,2,
   'both plan save routes must verify circle identity at submission');
 assert.ok(js.includes('const quranStudentIds=new Set(students.map(s=>s.id))'),
   'active plans must use the same selected-circle student IDs');
