@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.57';
+window.__SanabilLiveBuild='20261022-v13.8.58-plan-circle-submit';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3064,7 +3064,7 @@ async function plansPage(root){
    form.querySelector('[name="amount"]').addEventListener('input',()=>{if(typeEl.value==='memorization')setTimeout(refreshForecast,120)});
    refresh();
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),excluded=excludedDays(),t=val(form,'type'),track={id:crypto.randomUUID(),type:t,unit:val(form,'unit'),dailyAmount:Number(val(form,'amount'))};
      if(t!=='recent_review'){track.direction=val(form,'direction');track.startSurah=Number(val(form,'surah'));track.startAyah=Number(val(form,'ayah'));if(t==='review')track.name=val(form,'planName').trim()}
      let r;
@@ -3253,7 +3253,7 @@ async function plansPage(root){
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
    await applyMethodology(true);setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
      if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
        const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
