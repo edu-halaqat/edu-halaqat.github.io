@@ -18,7 +18,8 @@ assert(live.includes('dist.buildBins(bank,syllabus,count,catalog,boundaries)'),'
 assert(live.includes('await window.SanabilExamEnhanceForm(form);'),'the actual nomination modal must render dynamic Quran fields');
 assert(live.includes("Math.min(15,Number(request?.question_count"),'15 questions must not be truncated to 10');
 assert(live.includes("rpc('get_student_daily_assignment_guarded',{p_student_id:s.studentId,p_date:date})"),'per-student saves must verify one student only');
-assert(live.includes("const confirmed=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date})"),'batch readback must remain available');
+assert(live.includes("await saveOneStudent(i);"),'all-student submission reuses per-student server readback for exact failures');
+assert(live.includes("await confirmSaved(s,x)"),'verified readback remains mandatory');
 assert(live.includes("if(!saved||saved.attendanceStatus!==x.att)"),'readback must reject mismatched attendance');
 assert(live.includes("if(!saved.outcomeSavedAt)"),'readback must require persisted outcome');
 const sql=read('supabase/migrations/20261019010000_avoid_unnecessary_carry_review_rebuild.sql');

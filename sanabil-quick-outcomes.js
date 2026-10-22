@@ -346,6 +346,15 @@
    }).catch(err=>{inform('تعذر تحميل لائحة المجمع؛ لن أغير التقديرات القائمة. '+(err?.message||''));});
   }
   const entry={refresh,refreshAll,seed:seedPresent,gradeFor,isProvisional:i=>provisional.has(i),
+   showDetailed:i=>{
+    switchView(false);
+    toggle.textContent='عرض الحصيلة السريعة';
+    toggle.setAttribute('aria-expanded','true');
+    toggle.setAttribute('aria-pressed','true');
+    const card=box.querySelector('[data-student-card="'+i+'"]');
+    if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.setAttribute('tabindex','-1');card.focus({preventScroll:true})}
+    return !!card;
+   },
    openBulkGrade,openBulkDay,openDetails,selectedIndices:targetIndices,
    studentNames:()=>students.map(item=>item.fullName)};
   box._sanabilQuick=entry;

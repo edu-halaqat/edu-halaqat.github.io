@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const js=fs.readFileSync('sanabil-quick-outcomes.js','utf8'),live=fs.readFileSync('sanabil-live-v12.js','utf8'),
 html=fs.readFileSync('index.html','utf8'),css=fs.readFileSync('sanabil-quick-outcomes.css','utf8');
 new vm.Script(js,{filename:'sanabil-quick-outcomes.js'});
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261022-savefix3'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261023-detail1'));
 assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v8'));
 assert(live.includes('window.SanabilQuickOutcomes?.mount?.({'),'live classroom loads optional quick editor');
 assert(live.includes('sl-savebar-feedback'),'failed outcome saves must show a visible footer-level error');
@@ -14,7 +14,9 @@ assert(!/name="(?:fromAyah|toAyah)"[^>]* required>/.test(live),
 assert(live.includes('const input=name=>Number(panel.querySelector'),
  'explicit Quran range editor retains its own input validation');
 assert(live.includes("rpcOffline('save_daily_outcomes_guarded'"),'existing server-guarded outcome pipeline preserved');
-assert(live.includes('for(const {s,x} of normal)await confirmSaved'),'server confirmation preserved');
+assert(live.includes('await saveOneStudent(i);'),'whole-circle confirmation follows independent student save');
+assert(live.includes('persistDraft(i,{schedule:false})'),'saving cannot schedule another automatic save');
+assert(live.includes('updateOutcomeIssues()'),'failed student identity remains visible');
 assert(css.includes('.sl-quick-sheet')&&css.includes('.sl-quick-mode'),'responsive views available');
 const win={};vm.runInNewContext(js,{window:win,document:{}});const grade=win.SanabilQuickOutcomes.gradeFor;
 for(const [key,e,d,want] of [
