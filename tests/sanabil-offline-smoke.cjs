@@ -26,7 +26,10 @@ const api=window.SanabilOffline;
  await api.flush(async()=>{throw Error('server-rejected')});
  assert.equal(await api.count(),1,'rejected write must remain on device');
  let transmitted=0;
- await api.flush(async(name,args)=>{transmitted++;assert.equal(name,'apply_offline_operation');assert.equal(args.p_operation_id,first.operationId);return {ok:true}});
+ // A denied operation is not automatically sent again until explicit retry.
+ await api.flush(async()=>{throw Error('automatic retry was not suppressed')});
+ assert.equal(await api.count(),1,'periodic flush must leave denied record untouched');
+ await api.flush(async(name,args)=>{transmitted++;assert.equal(name,'apply_offline_operation');assert.equal(args.p_operation_id,first.operationId);return {ok:true}},{retryAttention:true});
  assert.equal(await api.count(),0,'confirmed write must leave local queue');
  assert.equal(transmitted,1);
  const a=await api.readThrough('schedule',async()=>({day:'Thursday'}));
@@ -85,7 +88,7 @@ const api=window.SanabilOffline;
  await api.flush(async(name,args)=>{
   assert.equal(args.p_operations[0].id,queued[1].operationId,'retry keeps original operation identity');
   return acceptBatch(name,args);
- },{batch:true});
+ },{batch:true,retryAttention:true});
  assert.equal(await api.count(),0);
  // Simulate a lost HTTP response after the server applied the operation.
  const lost=await api.queue('save_daily_outcomes_guarded',{p_rows:[]},'lost-response');
@@ -98,7 +101,7 @@ const api=window.SanabilOffline;
  const invalid=await api.queue('save_daily_outcomes_guarded',{p_rows:[]},'invalid-ack');
  await api.flush(async()=>({results:[{id:'wrong-id',ok:true,result:{ok:true}}]}),{batch:true});
  assert.equal(await api.count(),1,'mismatched confirmation must not drop data');
- await api.flush(acceptBatch,{batch:true});
+ await api.flush(acceptBatch,{batch:true,retryAttention:true});
  await api.queue('save_daily_outcomes_guarded',{p_rows:[]},'before-fingerprint');
  await api.queue('submit_offline_attendance_claim',{p_circle_id:'c'},'fingerprint');
  await api.queue('save_daily_outcomes_guarded',{p_rows:[]},'after-fingerprint');
@@ -160,6 +163,9 @@ const api=window.SanabilOffline;
    },{batch:true,maxBatchSize:1});
    assert.deepEqual(called,[old.operationId,other.operationId],'unrelated student must sync after a policy denial');
    assert.equal(await api.count(),2,'denied and dependent edits stay intact');
+   let repeated=0;
+   await api.flush(async()=>{repeated++;return{ok:true}},{batch:true,maxBatchSize:1});
+   assert.equal(repeated,0,'no automatic replays of denied student or dependent version');
    await api.flush(async(name,args)=>({results:args.p_operations.map(x=>({id:x.id,ok:true,result:{ok:true}}))}),{batch:true,maxBatchSize:1,retryAttention:true});
    assert.equal(await api.count(),0,'supervisor approval allows ordered retry');
  }
