@@ -4168,7 +4168,8 @@ async function settingsPage(root){
   try{
    const l=await lookups();if(!b.isConnected)return;
    b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
-   const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
+   const ar=window.SanabilArabicUI;
+    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
    const uid=(await sb().auth.getSession()).data?.session?.user?.id;
    if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
    let controller,deepController,lastDeep=null;
@@ -4207,7 +4208,7 @@ async function settingsPage(root){
      table(['العملية','ناجحة','أخطاء','المتوسط (ث)','زمن ٩٥٪ من المحاولات (ث)','الأبطأ (ث)','أقل من ثانيتين'],rows.map(([name,m])=>[
       esc(name),m.count,m.errors,fmt(m.mean),fmt(m.p95),fmt(m.max),m.under2s===null?'—':m.under2s+'%'
      ]))+
-     (data.lastError?'<p role="alert">آخر خطأ: '+esc(data.lastError)+'</p>':'')+
+     (data.lastError?'<p role="alert">آخر خطأ: '+esc(ar?.error(data.lastError)||data.lastError)+'</p>':'')+
      (data.readOnly?'<p>تنبيه: جلسة الحلقة للقراءة فقط في التاريخ المختار؛ اختبار الكتابة التشخيصية لا يمثل صلاحية حفظ الحصيلة.</p>':'')+
      '<p>القياسات من المتصفح والجهاز الحالي فقط. لا يمكن تعميم نتيجتها على جميع الأجهزة أو الشبكات، ولا تشمل زمن الرسم الكامل للحصيلة.</p>';
    };
@@ -4243,16 +4244,30 @@ async function settingsPage(root){
     }catch(error){if(b.isConnected)b.querySelector('[data-deep-progress]').textContent='تعذر الاختبار الموسع: '+(error.message||error)}
     finally{deepController=null;if(b.isConnected)deepButton.disabled=rerun.disabled=select.disabled=dateInput.disabled=false}
    };
+   const metricForCopy=x=>({
+    'عدد القياسات الناجحة':x?.count||0,'عدد الأخطاء':x?.errors||0,
+    'المتوسط بالمللي ثانية':x?.mean??null,'زمن ٩٥٪ من المحاولات بالمللي ثانية':x?.p95??null,
+    'أطول مدة بالمللي ثانية':x?.max??null,'النسبة خلال ثانيتين':x?.under2s??null
+   });
    copyButton.onclick=async()=>{
     if(!lastDeep)return;
-    const compact={testedAt:lastDeep.endedAt,device:lastDeep.client,rounds:lastDeep.rounds,
-     target:'فتح بيانات الجلسة التشخيصية بحيث لا تتجاوز ٩٥٪ من المحاولات ثانيتين',
-     metrics:lastDeep.metrics,errors:lastDeep.lastError,notes:lastDeep.notes};
+    const compact={
+     'تاريخ الاختبار':new Date(lastDeep.endedAt).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}),
+     'نوع الجهاز':lastDeep.client?.platform||'غير محدد',
+     'شبكة الاتصال':ar?.network(lastDeep.client?.network)||'غير محددة',
+     'عدد جولات الاختبار':lastDeep.rounds,
+     'الهدف':'استجابة ٩٥٪ من محاولات تحميل بيانات الجلسة في أقل من ثانيتين',
+     'القياسات':{'فتح بيانات الجلسة':metricForCopy(lastDeep.metrics.open),
+      'التنقل التجريبي':metricForCopy(lastDeep.metrics.switch),
+      'الكتابة التشخيصية الملغاة':metricForCopy(lastDeep.metrics.write)},
+     'آخر خطأ':ar?.error(lastDeep.lastError)||lastDeep.lastError,
+     'ملاحظات':lastDeep.notes
+    };
     await navigator.clipboard.writeText(JSON.stringify(compact,null,2));
-    b.querySelector('[data-deep-progress]').textContent='نُسخت نتائج القياس دون أسماء الطلاب أو بياناتهم.';
+    b.querySelector('[data-deep-progress]').textContent='نُسخت نتائج القياس بالعربية دون بيانات الطلاب.';
    };
    const prior=window.SanabilPerformance.summary().filter(x=>['action:load','session:absences','session:permission','session:data','session:render','session:next-day'].includes(x.name));
-   b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن 95% (ث)'],prior.map(x=>[({'action:load':'فتح البيانات والعرض كاملًا','session:absences':'جلب أسباب الغياب','session:permission':'انتظار صلاحية الجلسة','session:data':'انتظار جميع بيانات الجلسة','session:render':'تجهيز بطاقات الطلاب','session:next-day':'البحث عن اليوم التالي (في الخلفية)'})[x.name],x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
+   b.querySelector('[data-session-times]').innerHTML='<h3>قياسات الفتح الفعلي السابقة في هذه الجلسة</h3>'+table(['العملية','محاولات ناجحة','زمن ٩٥٪ من المحاولات (ث)'],prior.map(x=>[({'action:load':'فتح البيانات والعرض كاملًا','session:absences':'جلب أسباب الغياب','session:permission':'انتظار صلاحية الجلسة','session:data':'انتظار جميع بيانات الجلسة','session:render':'تجهيز بطاقات الطلاب','session:next-day':'البحث عن اليوم التالي (في الخلفية)'})[x.name],x.count,x.p95===null?'—':(x.p95/1000).toFixed(2)]))+'<p>هذه قياسات الاستخدام السابق، منفصلة عن الاختبار المباشر أعلاه. لا يكفي عدد قليل من المحاولات للحكم على تحقيق هدف الثانيتين.</p>';
    const realNames={
     open:'فتح الجلسة حتى ظهور البطاقات على الشاشة',
     switch:'التنقل الفعلي إلى بطاقة الطالب',
@@ -4284,10 +4299,19 @@ async function settingsPage(root){
    };
    b.querySelector('[data-real-copy]').onclick=async()=>{
     const rows=window.SanabilPerformance?.actualSummary?.()||[];
-    const body={measuredAt:new Date().toISOString(),device:/Android|iPhone|iPad/i.test(navigator.userAgent)?'جوال أو تابلت':'كمبيوتر',
-     network:navigator.connection?.effectiveType||'غير متاح',
-     target:'عشرون إجراء فعليًا لكل نوع مع استجابة ٩٥٪ من المحاولات في أقل من ثانيتين',source:'قياسات استخدام المعلم الفعلية',
-     metrics:rows,notes:'الحفظ محسوب بعد التأكيد من الخادم. لا تُدرج أسماء الطلاب أو الدرجات.'};
+    const body={
+      'وقت القياس':new Date().toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}),
+      'نوع الجهاز':/Android|iPhone|iPad/i.test(navigator.userAgent)?'جوال أو تابلت':'كمبيوتر',
+      'نوع الشبكة':ar?.network(navigator.connection?.effectiveType)||'غير محدد',
+      'مصدر البيانات':'قياسات استخدام المعلم الفعلية',
+      'الهدف':'زمن استجابة ٩٥٪ من المحاولات أقل من ثانيتين',
+      'القياسات':rows.map(x=>({
+        'اسم العملية':realNames[x.kind]||'عملية أخرى','عدد المحاولات':x.count,
+        'المتوسط بالمللي ثانية':x.mean,'زمن ٩٥٪ من المحاولات بالمللي ثانية':x.p95,
+        'أطول زمن بالمللي ثانية':x.max,'نسبة المحاولات خلال ثانيتين':x.under2s
+      })),
+      'ملاحظات':'الحفظ محسوب بعد التأكيد من الخادم. لا تُدرج أسماء الطلاب أو التقديرات.'
+     };
     try{await navigator.clipboard.writeText(JSON.stringify(body,null,2));
      b.querySelector('[data-progress]').textContent='تم نسخ تقرير الاستخدام الفعلي دون بيانات الطلاب.'}
     catch{b.querySelector('[data-progress]').textContent='تعذر النسخ من المتصفح؛ استخدم لقطة شاشة للجدول.'}
