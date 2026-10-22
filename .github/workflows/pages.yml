@@ -53,6 +53,7 @@ jobs:
           node tests/sanabil-sw-versioned-cache.cjs
           node --check sanabil-performance.js
           node tests/sanabil-performance-real.cjs
+          node tests/sanabil-central-activity.cjs
           node tests/sanabil-student-float-nav.cjs
           node --check sanabil-voice.js
           node --check sanabil-voice-global.js
