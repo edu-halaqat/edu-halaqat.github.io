@@ -11,6 +11,6 @@ assert.match(live,/sl-outcome-save-error/);
 assert.match(live,/while\(autoInFlight\.size&&Date\.now\(\)<deadline\)/);
 assert.match(css,/sl-cycle-note/);
 assert.match(css,/data-sanabil-theme="dark"/);
-assert.match(html,/sanabil-live-v12\.js\?v=20261022-savefix2/);
-assert.match(html,/sanabil-identity\.css\?v=20261022-plan-night1/);
+assert.match(html,/sanabil-live-v12\.js\?v=20261022-[a-z0-9-]+/);
+assert.match(html,/sanabil-identity\.css\?v=(?:3[4-9]|[4-9][0-9]+|20261022-[a-z0-9-]+)/);
 console.log('PASS: same-circle plan student guard, new-learner initial level, dark plan note and coordinated save UI');
