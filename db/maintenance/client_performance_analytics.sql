@@ -54,7 +54,7 @@ BEGIN
   AND (e->>'area') ~ '^[A-Za-z0-9_-]{1,32}$'
   AND e->>'status' IN ('ok','error','queued')
   AND (e->>'ms') ~ '^[0-9]{1,6}$'
-  AND (CASE WHEN (e->>'ms') ~ '^[0-9]{1,6}
+  AND (CASE WHEN length(e->>'ms') BETWEEN 1 AND 6 AND translate(e->>'ms','0123456789','')='' THEN (e->>'ms')::integer ELSE -1 END) BETWEEN 0 AND 120000
   AND e->>'device' IN ('mobile','tablet','desktop')
  LIMIT LEAST(30,120-v_existing);
  GET DIAGNOSTICS v_count=ROW_COUNT;
