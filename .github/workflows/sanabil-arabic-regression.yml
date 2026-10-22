@@ -1,0 +1,36 @@
+name: Arabic UI and report localization
+on:
+  pull_request:
+    paths:
+      - 'sanabil-arabic-ui.js'
+      - 'sanabil-activity-monitor.js'
+      - 'sanabil-live-v12.js'
+      - 'index.html'
+      - 'tests/sanabil-arabic-ui.cjs'
+      - 'tests/sanabil-central-activity.cjs'
+      - '.github/workflows/sanabil-arabic-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sanabil-arabic-ui.js'
+      - 'sanabil-activity-monitor.js'
+      - 'sanabil-live-v12.js'
+      - 'index.html'
+      - 'tests/sanabil-arabic-ui.cjs'
+      - '.github/workflows/sanabil-arabic-regression.yml'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node --check sanabil-arabic-ui.js
+          node --check sanabil-activity-monitor.js
+          node --check sanabil-live-v12.js
+          node --check tests/sanabil-arabic-ui.cjs
+          node tests/sanabil-arabic-ui.cjs
+          node tests/sanabil-central-activity.cjs
