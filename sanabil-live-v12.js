@@ -2252,12 +2252,12 @@ async function outcomesPage(root){
     else if(s.outcomeSavedAt){status.textContent='حصيلة محفوظة ومؤكدة في قاعدة البيانات';status.dataset.saved='saved'}
   });
   const rowData=(s,i)=>{const st=states[i],reviews=(s.reviews||[]).map(a=>({planId:a.planId,name:a.planName||'المراجعة الكبرى',assignment:assignmentText(a),grade:st.reviewPlans[a.planId]||''}));return{att:st.attendance,absenceReason:st.attendance==='absent'?st.absenceReason||'':null,note:val(form,'note'+i),ratings:{memorization:st.ratings.memorization||'',recentReview:st.ratings.recentReview||'',reviewPlans:{...st.reviewPlans}},lesson:assignmentText(s.memorization),recent:assignmentText(s.recentReview),reviews,metrics:metrics.get(s.studentId)||metricBlank()}};
-  let scheduleOutcomeAutoSave=()=>{};
+  let scheduleOutcomeAutoSave=()=>{},manualApprovalActive=false;
   const persistDraft=i=>{const s=students[i],x=rowData(s,i);
     drafts[s.studentId]={attendance:x.att,absenceReason:x.absenceReason,note:x.note,ratings:x.ratings,reviewPlans:{...x.ratings.reviewPlans},metrics:normalizedMetrics(x.metrics),updatedAt:new Date().toISOString()};
     saveDrafts();
     const status=box.querySelector('[data-save-status="'+i+'"]');if(status){status.textContent='غير محفوظ — مسودة على الجهاز';status.dataset.saved='draft';delete status.dataset.operationId}
-    scheduleOutcomeAutoSave(i);
+    if(!manualApprovalActive)scheduleOutcomeAutoSave(i);
   };
   const clearDraft=i=>{delete drafts[students[i].studentId];saveDrafts()};
   // Exam reviews are saved outside ordinary plan progress.
@@ -2550,6 +2550,8 @@ async function outcomesPage(root){
     box.querySelectorAll('[data-quran-absence-reason],[data-att-student],[data-grade-student],[data-metric-step],[data-metric-count],button[type="submit"],[data-action="all-present"],[data-action="save-attendance"],[data-action^="save-student-"],[data-action="close-outcome-session"]').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true')});
   }
   submit(form,async()=>{
+    manualApprovalActive=true;
+    try{
     const realSaveStarted=performance.now();
     // Manual approval wins over pending autosave timers. Wait for an in-flight
     // older version to finish before sending the final circle snapshot.
@@ -2620,6 +2622,7 @@ async function outcomesPage(root){
     localStorage.removeItem(activeSessionKey);
     window.SanabilPerformance?.recordActual('save_all',performance.now()-realSaveStarted);
     box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
+    }finally{manualApprovalActive=false}
   });
   window.SanabilPerformance?.record('session:render',performance.now()-renderStarted);
   // Optional navigation must never delay opening attendance or outcome controls.
