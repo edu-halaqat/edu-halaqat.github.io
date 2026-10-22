@@ -2626,7 +2626,14 @@ async function outcomesPage(root){
       try{
         // لا تُرسل حصيلة غير مؤكدة؛ رسالة الغياب والاستئذان تعتمد على الحضور المحفوظ.
         try{await confirmSaved(s,x)}
-        catch(e){throw Error('احفظ حصيلة الطالب أولًا وتأكد من ظهور تأكيد الحفظ قبل إرسال واتساب. '+e.message)}
+        catch(e){
+          if(readOnly)throw Error('لا يمكن إرسال الحصيلة قبل اعتمادها: '+e.message);
+          // The teacher explicitly requested sharing: save the assessment
+          // first, then demand an authoritative readback before composing.
+          await saveOneStudent(i);
+          try{await confirmSaved(s,x)}
+          catch(err){throw Error('لم يؤكد الخادم هذه الحصيلة بعد؛ لن تُرسل نسخة غير معتمدة. '+err.message)}
+        }
         const portal=await optionalGuardianLink(s.studentId);
         const text=guardianWhatsappMessage({
           studentName:s.fullName,date,status:x.att,
@@ -3340,7 +3347,11 @@ async function plansPage(root){
    };
    await quranPair(form,'memSurah','memAyah');
    action(b,b.querySelector('[data-action="add-review"]'),()=>addReview({name:'مراجعة كبرى '+(container.children.length+1),unit:'hizb',amount:1,direction:'toward_nas',surah:1,ayah:1}));
-   let bundleForecastToken=0;
+   let bundleForecastToken=0,bundleForecastTimer=null;
+   const scheduleBundleForecast=()=>{
+     if(bundleForecastTimer)clearTimeout(bundleForecastTimer);
+     bundleForecastTimer=setTimeout(()=>{bundleForecastTimer=null;refreshBundleForecast()},450);
+   };
    const refreshBundleForecast=async()=>{
      const hasMem=form.querySelector('[name="usemem"]').checked,prelim=val(form,'methodology')==='aqom'&&val(form,'aqomPath')==='preliminary';
      bundleEndWrap.style.display=hasMem?'none':'';form.querySelector('[name="end"]').required=!hasMem;
@@ -3349,7 +3360,14 @@ async function plansPage(root){
      const token=++bundleForecastToken;
      try{
        bundleForecast.innerHTML='<b>جارٍ حساب موعد الختم المتوقع…</b>';
+       const surah=Number(val(form,'memSurah')),ayah=Number(val(form,'memAyah'));
+       if(!Number.isInteger(surah)||surah<1||surah>114||!Number.isInteger(ayah)||ayah<1){
+         bundleForecast.textContent='اختر سورة البداية ورقم الآية الصحيح أولًا.';
+         return;
+       }
        const startDate=await resolvePlanStart(form);
+       if(!startDate){bundleForecast.textContent='اختر تاريخ بدء الخطة أولًا.';return}
+       if(token!==bundleForecastToken)return;
        const methodCode=val(form,'methodology')||'bir_alwalidayn';
        const r=predefinedMethods.has(methodCode)
          ?await rpc('preview_methodology_memorization_plan',{p_start_surah:Number(val(form,'memSurah')),p_start_ayah:Number(val(form,'memAyah')),p_methodology_code:methodCode,p_path:methodCode==='aqom'?val(form,'aqomPath'):null,p_profile:methodCode==='aqom'?val(form,'aqomProfile'):null,p_start_date:startDate,p_excluded_weekdays:bundleExcluded()})
@@ -3364,10 +3382,10 @@ async function plansPage(root){
    form.elements.aqomPath.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
    form.elements.aqomProfile.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
    form.elements.remedialTarget.addEventListener('change',async()=>{await applyMethodology(false);await refreshBundleForecast()});
-   form.elements.memSurah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
-   form.elements.memAyah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);await refreshBundleForecast()},0));
+   form.elements.memSurah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);scheduleBundleForecast()},0));
+   form.elements.memAyah.addEventListener('change',()=>setTimeout(async()=>{await applyMethodology(false);scheduleBundleForecast()},0));
    form.querySelector('[name="usemem"]').addEventListener('change',refreshBundleForecast);
-   form.querySelector('[name="memAmount"]').addEventListener('input',()=>setTimeout(refreshBundleForecast,120));
+   form.querySelector('[name="memAmount"]').addEventListener('input',scheduleBundleForecast);
    form.elements.recentUnit.addEventListener('change',async()=>{if(predefinedMethods.has(val(form,'methodology'))){await applyMethodology(false)}});
    form.elements.recentAmount.addEventListener('input',()=>setTimeout(async()=>{if(predefinedMethods.has(val(form,'methodology'))){await applyMethodology(false)}},180));
    if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
