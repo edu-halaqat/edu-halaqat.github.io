@@ -1531,3 +1531,55 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
 .sl-v13-syllabus [data-exam-summary]{padding:10px 12px;margin:10px 0 0;border-inline-start:3px solid #00808a;line-height:1.85;background:rgba(0,128,138,.06);border-radius:8px;white-space:normal}
 :root[data-sanabil-theme="dark"] .sl-v13-syllabus [data-exam-summary]{background:rgba(0,128,138,.18);color:#e1f0ef}
 :root[data-sanabil-theme="dark"] .sl-v13-syllabus fieldset{border-color:#51605c;color:#e1f0ef}
+
+/* 2026-10-22: plan builder fieldsets are portaled to <body> in .sl-dialog.
+   Previous dark selectors covered .sl-live but missed these nested fields,
+   leaving white cards and unreadable pale text on Android. */
+@media screen {
+ html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form :is(
+   fieldset.sl-plan-builder,fieldset.sl-review-builder,fieldset:not(.sl-v13-syllabus fieldset),
+   [data-major-section],.sl-builder-head
+ ) {
+   background:#1c3831!important;
+   background-image:none!important;
+   border-color:#52796c!important;
+   color:#eaf7ef!important;
+   box-shadow:none!important;
+   color-scheme:dark;
+ }
+ html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form :is(
+   fieldset legend,fieldset legend label,fieldset > label,fieldset p,
+   fieldset .sl-help,fieldset b,fieldset h3,fieldset small,
+   [data-major-section] h3,[data-major-section] p,.sl-builder-head p
+ ) {
+   color:#e2f3e9!important;
+   opacity:1!important;
+   text-shadow:none!important;
+ }
+ html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form :is(
+   input:not([type="checkbox"]):not([type="radio"]),select,textarea
+ ) {
+   background:#24483c!important;
+   color:#f3fff8!important;
+   border-color:#638b79!important;
+   -webkit-text-fill-color:#f3fff8;
+   color-scheme:dark;
+ }
+ html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form select option {
+   background:#24483c;
+   color:#f3fff8;
+ }
+ html[data-sanabil-theme="dark"] body > .sl-dialog .sl-body form :is(
+   input[type="checkbox"],input[type="radio"]
+ ) {accent-color:#30c5b3; color-scheme:dark}
+ html[data-sanabil-theme="dark"] .sl-live .sl-plan-circle-filter {
+   background:#19372f!important;
+   border:1px solid #52796c!important;
+   color:#eaf7ef!important;
+   border-radius:14px;
+   padding:10px 14px;
+ }
+ html[data-sanabil-theme="dark"] .sl-live .sl-plan-circle-filter label {
+   color:#eaf7ef!important;
+ }
+}
