@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.59';
+window.__SanabilLiveBuild='20261022-v13.8.60';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2124,9 +2124,9 @@ async function outcomesPage(root){
     const editor='<div class="sl-inline-lesson-editor" data-range-editor="'+id+'" hidden>'+
       '<div class="sl-inline-range-grid">'+
       '<label>من سورة<select name="fromSurah" aria-label="سورة بداية '+esc(title)+'"></select></label>'+
-      '<label>الآية<input name="fromAyah" type="number" min="1" inputmode="numeric" aria-label="آية البداية" required></label>'+
+      '<label>الآية<input name="fromAyah" type="number" min="1" inputmode="numeric" aria-label="آية البداية"></label>'+
       '<label>إلى سورة<select name="toSurah" aria-label="سورة نهاية '+esc(title)+'"></select></label>'+
-      '<label>الآية<input name="toAyah" type="number" min="1" inputmode="numeric" aria-label="آية النهاية" required></label>'+
+      '<label>الآية<input name="toAyah" type="number" min="1" inputmode="numeric" aria-label="آية النهاية"></label>'+
       '</div><p class="sl-inline-range-message" data-range-feedback role="status" aria-live="polite"></p>'+
       '<div class="sl-inline-range-actions"><button type="button" class="button button-primary" data-action="range-save-'+id+'">حفظ المقرر</button>'+
       '<button type="button" class="button button-soft" data-action="range-cancel-'+id+'">إلغاء</button></div></div>';
@@ -2258,7 +2258,7 @@ async function outcomesPage(root){
     guardian:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'
   };
   const outcomeAction=(label,id,iconName,extraClass)=>`<button type="button" class="button sl-outcome-action ${extraClass}" data-action="${esc(id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${outcomeIconPaths[iconName]}</svg><span>${esc(label)}</span></button>`;
-  box.innerHTML=stateBanner+`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session"><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${attButtons(i,states[i].attendance)}</div>
+  box.innerHTML=stateBanner+`<div class="sl-bulkbar"><div><b>التحضير الجماعي</b><small>حدد الجميع حاضرين ثم عدّل حالات الاستثناء فقط.</small></div><div class="sl-bulk-actions">${button('الجميع حاضر','all-present')}${button('حفظ التحضير فقط','save-attendance')}</div></div><div class="sl-att-summary"></div><form class="sl-outcome-session" novalidate><div class="sl-student-grid">${students.length?students.map((s,i)=>`<article class="sl-student-card" data-student-card="${i}"><header><div class="sl-student-no">${i+1}</div><div><h3>${esc(s.fullName)}</h3><small>${(s.reviews||[]).length>1?'لديه '+s.reviews.length+' مراجعات كبرى اليوم':'التحضير والحصيلة'}</small></div></header><div class="sl-att-grid" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${attButtons(i,states[i].attendance)}</div>
 <label class="sl-absence-reason" ${states[i].attendance==='absent'&&needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>نوع الغياب
 <select data-quran-absence-reason="${i}" aria-label="نوع غياب ${esc(s.fullName)}">
 <option value="">اختر نوع الغياب</option>
