@@ -53,7 +53,9 @@ const pendingReads=new Map();
 async function count(){const uid=await userId().catch(()=>null);const data=await list(OPS).catch(()=>[]);return data.filter(x=>x.userId===uid).length}
 async function status(silent=false){
  const cnt=await count();let legacy=[];try{legacy=JSON.parse(localStorage.getItem(LEGACY)||'[]')}catch{}
- const detail={count:cnt,legacyCount:Array.isArray(legacy)?legacy.length:0,online:navigator.onLine,flushing:active,error:lastFlushError};
+ const uid=await userId().catch(()=>null);
+ const attention=(await list(OPS).catch(()=>[])).filter(x=>x.userId===uid&&x.status==='needs_attention').length;
+ const detail={count:cnt,attention,legacyCount:Array.isArray(legacy)?legacy.length:0,online:navigator.onLine,flushing:active,error:lastFlushError};
  if(!silent)window.dispatchEvent(new CustomEvent('sanabil-offline-queue',{detail}));return detail;
 }
 async function queue(name,args,label){
@@ -98,7 +100,7 @@ function scopeTokens(item){
  if(ids.length)return [...new Set(ids.map(id=>'student:'+date+':'+id))];
  return [item.name+':'+date+':'+String(args.p_circle_id||item.id)];
 }
-async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
+async function flush(callRpc,{batch=false,maxBatchSize=5,retryAttention=false}={}){
  if(active||!navigator.onLine||!callRpc)return;
  active=true;lastFlushError='';await status();
  try{
@@ -110,6 +112,11 @@ async function flush(callRpc,{batch=false,maxBatchSize=5}={}){
    const item=all[offset];
    if(await userId()!==uid)break;
     if(scopeTokens(item).some(scope=>blockedScopes.has(scope))){offset++;continue}
+    // Do not keep hammering the server with business-rule rejections.
+    if(item.status==='needs_attention'&&!retryAttention){
+      for(const token of scopeTokens(item))blockedScopes.add(token);
+      offset++;continue;
+    }
    try{
     if(batch&&!singleAfterTimeout&&item.name!=='submit_offline_attendance_claim'){
      const items=[];let size=0;
@@ -211,10 +218,13 @@ async function updateUi(){
   if(!confirm('توجد عمليات قديمة محفوظة على هذا الجهاز بلا تعريف مستخدم. هل تؤكد أنها تخص حسابك الحالي؟'))return;
   try{await importLegacy();updateUi()}catch(error){alert(error.message)}
  };root.append(btn)}
- if(s.error){
-  root.title='آخر خطأ في المزامنة: '+s.error;
+ if(s.error||s.count){
+  root.title=s.error?'آخر خطأ في المزامنة: '+s.error:'خيارات المزامنة المحلية';
   const retry=document.createElement('button');retry.textContent='إعادة المحاولة';
-  retry.onclick=()=>window.dispatchEvent(new Event('sanabil-offline-retry'));root.append(retry);
+  retry.onclick=()=>{
+    if(s.attention&&!confirm('توجد '+s.attention+' عملية سبق أن رفضها الخادم. هل تغيرت صلاحيات المشرف أو تم تصحيح بياناتها؟ لن تُحذف السجلات إذا تكرر الرفض.'))return;
+    window.dispatchEvent(new Event('sanabil-offline-retry'));
+  };root.append(retry);
   const diagnose=document.createElement('button');diagnose.textContent='تفاصيل السجلات المتعثرة';
   diagnose.onclick=async()=>{
     const uid=await userId().catch(()=>null);
