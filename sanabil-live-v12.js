@@ -4054,7 +4054,12 @@ async function settingsPage(root){
   b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
   try{
    const l=await lookups();if(!b.isConnected)return;
-   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
+   b.innerHTML='<p>طلبات جديدة إلى الخادم من جهازك دون النسخ المحلية. الاختبار السريع ثلاث محاولات لكل عملية، والموسع 20 محاولة للجلسة. لا تُغيَّر درجات أو حصائل أو حضور الطلاب.</p><label>الحلقة<select name="probeCircle">'+l.circles.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><label>التاريخ<input type="date" name="probeDate" value="'+esc(today())+'"></label><button type="button" class="button" data-retest>إعادة الاختبار السريع</button><button type="button" class="button button-primary" data-deep>بدء الاختبار الموسع (20 محاولة)</button><p data-progress role="status" aria-live="polite"></p><div data-results></div><section class="sl-performance-deep"><h3>الاختبار الموسع — 20 محاولة</h3><p>قياس مباشر من الجهاز الحالي: جلب بيانات الجلسة وتجهيز قائمة تشخيصية، ومحاكاة التنقل بين بطاقات الطلاب، وكتابة تجريبية تُلغى بالكامل. لا تختبر هذه الكتابة حفظ الحصيلة الفعلي أو ترحيل الخطط.</p><p data-deep-progress role="status" aria-live="polite">اضغط بدء الاختبار الموسع. لتقييم الجوال والكمبيوتر نفذ الاختبار من كل جهاز على حدة.</p><div data-deep-results></div><button type="button" class="button" data-deep-copy disabled>نسخ نتائج الاختبار الموسع</button></section><section class="sl-performance-central" data-central-section hidden>
+   <h3>قياسات أداء جميع أجهزة المستخدمين — مدير النظام</h3>
+   <p>تُجمع مدد العمليات المعتمدة والتفاعلات الأساسية من الحسابات المتصلة بعد تفعيل المراقبة، دون نصوص الحصائل أو بيانات الطلاب. تعرض الأخطاء وتحدد العمليات البطيئة بحسب اسم المستخدم.</p>
+   <div class="sl-toolbar"><label>الفترة<select data-central-hours><option value="1">الساعة الماضية</option><option value="24" selected>24 ساعة</option><option value="168">7 أيام</option></select></label><button type="button" class="button" data-central-refresh>تحديث قياسات جميع المستخدمين</button></div>
+   <div data-central-results role="status" aria-live="polite"></div>
+   </section><section class="sl-performance-real"><h3>قياسات الاستخدام الفعلي للمعلم (20 إجراء لكل عملية)</h3><p>هذه قياسات حقيقية عند فتح جلسة الحلقة وانتقال المعلم بين بطاقات الطلاب وعند حفظ حصيلة مؤكدة من الخادم. لا ينفذ الاختبار أي حفظ تلقائي، ولا يحتسب حفظًا ينتظر المزامنة أو تعذر تأكيده.</p><div data-real-results></div><div class="sl-toolbar"><button type="button" class="button" data-real-refresh>تحديث القياسات الفعلية</button><button type="button" class="button" data-real-copy>نسخ تقرير الاستخدام الفعلي</button><button type="button" class="button button-soft" data-real-reset>بدء قياس جديد (مسح القياسات فقط)</button></div><p class="sl-help">لجمع البيانات، افتح الجلسة من صفحة الحصيلة، واستخدم زري الطالب السابق/التالي، ثم احفظ الحصائل المعتادة فقط. 20 عملية حفظ حقيقية تحتاج العمل اليومي الفعلي ولا تُنشأ بيانات طلاب للتجربة.</p></section><div data-session-times></div>';
    const rerun=b.querySelector('[data-retest]'),select=b.querySelector('[name="probeCircle"]'),dateInput=b.querySelector('[name="probeDate"]');
    const uid=(await sb().auth.getSession()).data?.session?.user?.id;
    if(uid){const previous=localStorage.getItem('sanabil_outcome_selected_circle_v1:'+uid);if(l.circles.some(c=>c.id===previous))select.value=previous}
@@ -4150,6 +4155,36 @@ async function settingsPage(root){
     save_all:'حفظ حصيلة الحلقة كاملة وتأكيدها',
     save_talaqqin:'حفظ حصيلة التلقين وتأكيدها'
    };
+   const centralPanel=b.querySelector('[data-central-section]');
+   const centralResults=b.querySelector('[data-central-results]');
+   const renderCentral=async()=>{
+    if(!centralPanel||centralPanel.hidden)return;
+    centralResults.textContent='جارٍ استدعاء قياسات المستخدمين من الخادم…';
+    try{
+     const hours=Number(b.querySelector('[data-central-hours]').value)||24;
+     const data=await rpc('client_performance_admin',{p_hours:hours});
+     const actors=(data?.byActor||[]),grouped=(data?.byActorOperation||[]),failures=(data?.recentFailures||[]);
+     centralResults.innerHTML='<p><b>العمليات المسجلة:</b> '+esc(data?.events||0)+' · <b>المستخدمون:</b> '+esc(data?.actors||0)+' · <b>العمليات المتعثرة:</b> '+esc(data?.errors||0)+'</p>'
+       +(Number(data?.events||0)===0?'<p>لا توجد قياسات مركزية لهذه الفترة. يبدأ الجمع من الأجهزة بعد تحميل التحديث الجديد وتسجيل الدخول.</p>':'')
+       +'<h4>المستخدمون (معلمون وإداريون)</h4>'
+       +table(['اسم المستخدم','العمليات','الأخطاء','المتوسط (ث)','P95 (ث)'],actors.map(x=>[
+        esc(x.actor_name),x.events,x.errors,fmt(Number(x.mean_ms||0)),fmt(Number(x.p95_ms||0))]))
+       +'<h4>العمليات حسب المستخدم والنافذة</h4>'
+       +table(['المستخدم','النافذة','العملية','العدد','أخطاء','P95 (ث)'],grouped.map(x=>[
+        esc(x.actor_name),esc(x.area),esc(x.operation),x.events,x.errors,fmt(Number(x.p95_ms||0))]))
+       +'<h4>آخر العمليات المتعثرة</h4>'
+       +table(['الوقت','المستخدم','العملية','النافذة','المدة (ث)'],failures.map(x=>[
+        esc(dateText(x.created_at)),esc(x.actor_name),esc(x.operation),esc(x.area),fmt(Number(x.duration_ms||0))]))
+       +'<p class="sl-help">النقرات تعني تفاعلًا فقط؛ النجاح الحقيقي للحفظ يتطلب قياس RPC وتأكيد قاعدة البيانات. لا يشمل السجل تاريخًا يسبق تفعيل المراقبة.</p>';
+    }catch(error){centralResults.textContent='تعذر قراءة المراقبة المركزية: '+(error?.message||error)}
+   };
+   b.querySelector('[data-central-refresh]').onclick=renderCentral;
+   access().then(actor=>{
+    if(actor?.roles?.includes('admin')){
+     centralPanel.hidden=false;
+     renderCentral();
+    }
+   }).catch(()=>{});
    const actualNode=b.querySelector('[data-real-results]');
    const renderActual=()=>{
     if(!b.isConnected)return;
