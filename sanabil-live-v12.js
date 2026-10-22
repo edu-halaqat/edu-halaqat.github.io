@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.57';
+window.__SanabilLiveBuild='20261022-v13.8.58-circle-scoped-plans';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2714,11 +2714,24 @@ async function plansPage(root){
    return;
  }
  const talaqqinCircles=new Set(scope.circles.filter(c=>c.circle_type==='حلقات التلقين').map(c=>c.id));
+ const planCircles=scope.circles.filter(c=>!talaqqinCircles.has(c.id));
+ const session=(await sb().auth.getSession()).data?.session;
+ const planUserId=session?.user?.id||'anonymous';
+ const planCircleKey='sanabil_plans_selected_circle_v1:'+planUserId;
+ const outcomeCircleKey='sanabil_outcome_selected_circle_v1:'+planUserId;
  const [allStudents,methodologies]=await Promise.all([
    rows('students','id,full_name,teacher_id,circle_id,current_surah,current_ayah,memorization_level',{active:true}),
    rpc('list_plan_methodologies',{}).catch(()=>[])
  ]);
- const students=allStudents.filter(s=>!talaqqinCircles.has(s.circle_id)).map(s=>{
+ // A teacher can be assigned to more than one circle. A plan must never
+ // silently pick a student from another circle, even with shared teacher_id.
+ const scopePlanStudents=(list,circleId)=>list.filter(student=>student.circle_id===circleId);
+ const rememberedCircle=localStorage.getItem(outcomeCircleKey)||localStorage.getItem(planCircleKey);
+ const activePlanCircle=planCircles.find(c=>c.id===rememberedCircle)
+   ||planCircles.find(c=>allStudents.some(student=>student.circle_id===c.id))
+   ||planCircles[0];
+ if(!activePlanCircle){root.innerHTML='<p class="sl-empty">لا توجد حلقة قرآن نشطة متاحة لإعداد الخطط.</p>';return}
+ const students=scopePlanStudents(allStudents,activePlanCircle.id).map(s=>{
    const direct=(scope.circleTeachers||[]).filter(x=>x.circle_id===s.circle_id&&x.active!==false)
      .sort((x,y)=>Number(y.is_primary===true)-Number(x.is_primary===true));
    const official=direct.map(x=>scope.teachers.find(t=>t.id===x.teacher_id&&t.user_id))
@@ -2786,11 +2799,21 @@ async function plansPage(root){
  const targetMethodLabel=code=>code==='aqom'?'برنامج أقوم':'خطة حلقات بر الوالدين';
 
  root.innerHTML=`${staleAssignments?'<p role="alert" class="sl-rule-note">تنبيه: '+staleAssignments+' طالبًا لهم إسنادات معلمين قديمة. سيستخدم إنشاء الخطة المعلم الرسمي للحلقة، ولن تُعدّل السجلات التاريخية تلقائيًا.</p>':''}<section class="sl-session-head"><div><span class="sl-kicker">الخطة التعليمية</span><h2>بناء خطة الطالب</h2><p>الحفظ الجديد يحدد موضع تقدم الطالب، والمراجعة الصغرى تظل لصيقة بآخر موضع في الدرس، أما المراجعة الكبرى فتقبل السور والصفحات والآيات والأجزاء والأحزاب وأنصاف الأحزاب وأرباع الأحزاب.</p></div></section>
+ <div class="sl-toolbar sl-plan-circle-filter">${select('الحلقة المختارة لإعداد الخطط','planCircle',planCircles.map(c=>({id:c.id,name:c.name})),activePlanCircle.id)}
+  <p class="sl-help">تظهر هنا أسماء طلاب هذه الحلقة وخططهم فقط. يمكنك تغيير الحلقة من القائمة دون نقل أي طالب أو تعديل خطته.</p></div>
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
  <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div><section class="sl-plan-archives"></section>`;
 
+ const planCirclePicker=root.querySelector('[name="planCircle"]');
+ planCirclePicker?.addEventListener('change',()=>{
+   const next=planCirclePicker.value;
+   if(!planCircles.some(c=>c.id===next))return;
+   localStorage.setItem(planCircleKey,next);
+   localStorage.setItem(outcomeCircleKey,next);
+   plansPage(root).catch(error=>{root.innerHTML='<p class="sl-message" role="alert">تعذر تحديث حلقة الخطط: '+esc(error.message)+'</p>'});
+ });
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
    root.innerHTML='<nav class="sl-plan-type-tabs" aria-label="مسار خطط الطلاب">'
@@ -2830,8 +2853,8 @@ async function plansPage(root){
    const plans=(await rows('plans','*',{status:'active'})).filter(p=>quranStudentIds.has(p.student_id));plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
    root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
    // Archived plans remain discoverable; no data restoration or deletion is implicit.
-   const archiveStudents=await rows('students','id,full_name,circle_id');
-   const archivedIds=new Set(archiveStudents.filter(x=>(scope.circles||[]).some(c=>c.id===x.circle_id)).map(x=>x.id));
+   const archiveStudents=await rows('students','id,full_name,circle_id',{circle_id:activePlanCircle.id});
+   const archivedIds=new Set(archiveStudents.filter(x=>x.circle_id===activePlanCircle.id).map(x=>x.id));
    const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
      .filter(p=>archivedIds.has(p.student_id));
    const archives=root.querySelector('.sl-plan-archives');
@@ -3031,7 +3054,8 @@ async function plansPage(root){
    form.querySelector('[name="amount"]').addEventListener('input',()=>{if(typeEl.value==='memorization')setTimeout(refreshForecast,120)});
    refresh();
    submit(form,async()=>{
-     const student=students.find(s=>s.id===val(form,'student'));if(!student?.teacher_id)throw Error('اختر طالبًا مسندًا إلى معلم.');
+     const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===activePlanCircle.id);
+     if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),excluded=excludedDays(),t=val(form,'type'),track={id:crypto.randomUUID(),type:t,unit:val(form,'unit'),dailyAmount:Number(val(form,'amount'))};
      if(t!=='recent_review'){track.direction=val(form,'direction');track.startSurah=Number(val(form,'surah'));track.startAyah=Number(val(form,'ayah'));if(t==='review')track.name=val(form,'planName').trim()}
      let r;
