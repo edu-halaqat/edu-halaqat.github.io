@@ -55,7 +55,7 @@ function showBadge(remote){
  badge.setAttribute('aria-label','تحديث المنصة إلى الإصدار الجديد');
  badge.style.cssText='position:fixed;top:186px;left:12px;z-index:2147483001;padding:9px 13px;min-height:44px;border-radius:24px;border:2px solid #d8bd88;background:#00594c;color:#fff;box-shadow:0 6px 22px #0005;cursor:pointer;font:700 14px/1.5 Tahoma,system-ui,sans-serif';
  badge.onclick=()=>banner(lastRemote?.signature,{force:true});
- document.body.appendChild(badge);
+ document.body.append(badge);
 }
 function banner(target,{force=false}={}){
  if(!target||!document.body)return;
