@@ -28,7 +28,7 @@ assert(perf.includes("window.SanabilActivity?.record('operation','actual:'+kind,
 const begin=monitor.indexOf('const targetName=el=>'),end=monitor.indexOf("document.addEventListener('click'",begin);
 assert(begin>=0&&end>begin,'stable selector helper present');
 const helper=monitor.slice(begin,end);
-const safe=(value,max=100)=>String(value||'').replace(/[^a-zA-Z0-9_:#.\\-/]/g,'_').slice(0,max)||'unknown';
+const safe=(value,max=100)=>String(value||'').replace(/[^a-zA-Z0-9_:#./-]/g,'_').slice(0,max)||'unknown';
 const target=new Function('safe',helper+'return targetName;')(safe);
 const button=(data={},id='',classes=['sl-outcome-primary'])=>({
  dataset:data,id,classList:classes,tagName:'BUTTON',getAttribute:key=>key==='type'?'button':key==='aria-label'?'اسم شخص حساس':null
