@@ -31,9 +31,13 @@ const queueOfflineRpc=async(name,args,label)=>{
 const rpcOffline=async(name,args,label,{defer=false}={})=>{
  if(defer){const queued=await queueOfflineRpc(name,args,label);scheduleOfflineSync();return queued}
  if(!navigator.onLine)return queueOfflineRpc(name,args,label);
- // Older queued versions must reach the server before a newer explicit save.
- await flushOfflineQueue();
- if(await window.SanabilOffline?.count())throw Error('توجد عمليات سابقة لم تتم مزامنتها؛ راجع حالة المزامنة قبل اعتماد نسخة أحدث.');
+ // Queue behind earlier unconfirmed operations rather than freezing the teacher's save button.
+ // IndexedDB assigns a transactional order; server acknowledgements remain the source of truth.
+ if(await window.SanabilOffline?.count()){
+  const queued=await queueOfflineRpc(name,args,label);
+  scheduleOfflineSync(1200);
+  return queued;
+ }
  try{return await rpcDirect(name,args)}
  catch(e){if(networkFailure(e))return queueOfflineRpc(name,args,label);throw e}
 };
@@ -2564,14 +2568,17 @@ async function outcomesPage(root){
         notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,
         recitationMetrics:normalizedMetrics(x.metrics)}));
       // Guard the deadline by splitting student writes into small confirmed groups.
+      let queuedRows=0;
       for(let start=0;start<payload.length;start+=3){
         const group=payload.slice(start,start+3);
         const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:group},
           'حصيلة الحلقة · دفعة '+(Math.floor(start/3)+1));
-        if(saved.queued){
-          msg(box,'حُفظت دفعات سابقة، وتنتظر '+group.length+' حصائل أو أكثر المزامنة. بقيت الجلسة مفتوحة وجميع المسودات محفوظة.');
-          return;
-        }
+        if(saved.queued)queuedRows+=group.length;
+      }
+      if(queuedRows){
+        msg(box,'تم تثبيت '+queuedRows+' حصيلة محليًا بالترتيب لانتظار المزامنة. بقيت الجلسة مفتوحة والمسودات محفوظة حتى يؤكد الخادم جميع الدفعات.');
+        scheduleOfflineSync(1200);
+        return;
       }
       const confirmed=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
       for(const {s,x} of normal)await confirmSaved(s,x,confirmed);
