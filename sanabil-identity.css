@@ -1613,3 +1613,52 @@ html[data-sanabil-theme="dark"] .sl-dialog :is(.sl-cycle-note,.sl-rule-note) :is
  border-radius:12px;max-width:100%;overflow-wrap:anywhere;
  line-height:1.7;margin-top:10px;
 }
+
+
+/* v13.8.60: plan wizard dark-mode controls: avoid white oval review notes. */
+html[data-sanabil-theme="dark"] .sl-dialog .sl-plan-builder,
+html[data-sanabil-theme="dark"] .sl-dialog .sl-review-builder,
+html[data-sanabil-theme="dark"] .sl-dialog .sl-plan-builder :is(.sl-cycle-note,.sl-help,.sl-rule-note),
+html[data-sanabil-theme="dark"] .sl-dialog :is(.sl-plan-builders,.sl-review-builders) {
+ background:#1e3b33!important;
+ background-image:none!important;
+ border-color:#507466!important;
+ color:#eaf6ef!important;
+ -webkit-text-fill-color:currentColor;
+ box-shadow:none!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog .sl-review-builder .sl-cycle-note {
+ display:block!important;
+ height:auto!important;
+ min-height:0!important;
+ border-radius:12px!important;
+ padding:10px 12px!important;
+ white-space:normal!important;
+ line-height:1.75!important;
+ overflow-wrap:anywhere!important;
+ background:#29493e!important;
+ color:#edf9f1!important;
+ -webkit-text-fill-color:#edf9f1!important;
+}
+html[data-sanabil-theme="dark"] .sl-dialog .sl-review-builder :is(legend,label,small,p,b,span) {
+ color:#edf9f1!important;
+ -webkit-text-fill-color:#edf9f1!important;
+ opacity:1!important;
+}
+.sl-outcome-save-error {
+ display:block;
+ width:100%;
+ padding:10px 14px;
+ margin:8px 0 0;
+ border-radius:12px;
+ background:#fce9e6;
+ color:#912432;
+ font-weight:600;
+ line-height:1.7;
+}
+html[data-sanabil-theme="dark"] .sl-outcome-save-error {
+ background:#50332f!important;
+ border:1px solid #a66b5b!important;
+ color:#ffe2dc!important;
+ -webkit-text-fill-color:#ffe2dc!important;
+}
