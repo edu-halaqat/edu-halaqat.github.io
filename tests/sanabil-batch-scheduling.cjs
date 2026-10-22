@@ -31,17 +31,26 @@ vm.runInContext(prefix+'\nglobalThis.testApi={rpcOffline,flushOfflineQueue};})()
  assert.equal(await offline.count(),2);
  assert.equal(timers.size,1,'edits share one timer, no timer reset starvation');
  const scheduled=[...timers.values()][0];assert(scheduled.delay>=46000&&scheduled.delay<=55000);
- await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'final'}]},'manual');
- assert.deepEqual(requests.map(x=>x.name),['apply_offline_operations_batch','apply_offline_operations_batch','save_daily_outcomes_guarded'],'manual save flushes older versions one-by-one before the newer explicit save');
- assert.equal(requests[0].args.p_operations.length,1);
- assert.equal(requests[1].args.p_operations.length,1);
+ const explicit=await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'final'}]},'manual');
+ assert.equal(explicit.queued,true,'manual save must become a durable queued write when older edits exist');
+ assert.equal(requests.length,0,'manual save must not wait for slow older writes');
+ assert.equal(await offline.count(),3,'older edits and new explicit save all remain queued in order');
+ assert.equal(timers.size,1,'manual save should accelerate, rather than duplicate, the sync timer');
+ assert([...timers.values()].every(x=>x.delay>=2200&&x.delay<=11201),'manual save uses short jitter');
+ await api.flushOfflineQueue();
+ assert.deepEqual(requests.map(x=>x.name),Array(3).fill('apply_offline_operations_batch'),
+   'queued operations must upload in original order without overtaking the older draft');
+ assert.deepEqual(requests.map(x=>x.args.p_operations[0].payload.p_rows[0].studentId),['one','two','final']);
  assert.equal(await offline.count(),0);
- assert.equal(timers.size,0,'explicit save cancels delayed send');
+ assert.equal(timers.size,0,'completed sync cancels the pending timer');
  await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'network'}]},'network',{defer:true});
  fail=true;
- await assert.rejects(()=>api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'newer'}]},'newer'),/عمليات سابقة/);
- assert.equal(await offline.count(),1,'failed upload remains durable');
- assert.equal(requests.at(-1).name,'apply_offline_operations_batch','newer explicit save cannot overtake a rejected older version');
+ const newer=await api.rpcOffline('save_daily_outcomes_guarded',{p_rows:[{studentId:'newer'}]},'newer');
+ assert.equal(newer.queued,true,'a failed earlier request must not freeze newer manual saves');
+ assert.equal(await offline.count(),2,'both versions remain durable');
+ await api.flushOfflineQueue();
+ assert.equal(await offline.count(),2,'failed upload must never erase either queued write');
+ assert.equal(requests.at(-1).name,'apply_offline_operations_batch','newer edit never bypasses a rejected older version');
  assert([...timers.values()].some(x=>x.delay>=91000),'network retries use backoff');
  fail=false;await api.flushOfflineQueue();assert.equal(await offline.count(),0);
  // An acknowledgement/readback for an older edit cannot clear or relabel a newer draft.
@@ -64,5 +73,5 @@ vm.runInContext(prefix+'\nglobalThis.testApi={rpcOffline,flushOfflineQueue};})()
  const confirming=handler({detail:{id:'old'}});
  await new Promise(resolve=>setImmediate(resolve));finishRead();await confirming;
  assert.equal(cleared,1);assert.equal(status.dataset.saved,'saved');
- console.log('PASS: durable staged autosave, jitter, shared timer, explicit flush ordering, backoff and failed-save retention');
+ console.log('PASS: durable staged autosave, nonblocking manual queue, strict operation ordering, jitter, backoff and failed-save retention');
 })().catch(e=>{console.error(e);process.exitCode=1});
