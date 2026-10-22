@@ -160,7 +160,7 @@ const api=window.SanabilOffline;
    },{batch:true,maxBatchSize:1});
    assert.deepEqual(called,[old.operationId,other.operationId],'unrelated student must sync after a policy denial');
    assert.equal(await api.count(),2,'denied and dependent edits stay intact');
-   await api.flush(async(name,args)=>({results:args.p_operations.map(x=>({id:x.id,ok:true,result:{ok:true}}))}),{batch:true,maxBatchSize:1});
+   await api.flush(async(name,args)=>({results:args.p_operations.map(x=>({id:x.id,ok:true,result:{ok:true}}))}),{batch:true,maxBatchSize:1,retryAttention:true});
    assert.equal(await api.count(),0,'supervisor approval allows ordered retry');
  }
  console.log('PASS: concurrent fresh reads, user isolation, bounded batches, partial failures, lost responses, acknowledgement validation, ordered fingerprint boundary');
