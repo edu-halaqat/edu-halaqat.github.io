@@ -227,6 +227,7 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
  select?.addEventListener('change',update);
  const sessionContent=root.querySelector('.sl-data');
  let loading=false;
+ let quickInitializedFor=null;
  const sessionReady=()=>!!sessionContent?.querySelector('.sl-student-grid,.sl-quick-outcomes');
  const refreshSessionView=()=>{
   const ready=sessionReady();
@@ -234,9 +235,14 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
   if(ready){
    progress.textContent='قائمة الطلاب جاهزة؛ سجّل التحضير والحصيلة واحفظها بالطريقة المعتادة.';
    openOutcomes.textContent='تحديث حصيلة الحلقة';
-   if(root.classList.contains('sl-fast-session')){
+   // Initialize quick mode just once for a newly rendered list. A user
+   // switching to detailed mode must never be forced back by DOM mutations.
+   const quickList=sessionContent?.querySelector('.sl-quick-outcomes');
+   if(quickList&&quickList!==quickInitializedFor){
+    quickInitializedFor=quickList;
     const toggle=sessionContent?.querySelector('.sl-quick-mode-toggle');
-    if(toggle&&!sessionContent.classList.contains('sl-quick-mode'))toggle.click();
+    if(root.classList.contains('sl-fast-session')&&toggle
+       &&!sessionContent.classList.contains('sl-quick-mode'))toggle.click();
    }
   }else{
    openOutcomes.textContent='فتح حصيلة الحلقة';
