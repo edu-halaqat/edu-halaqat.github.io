@@ -7,13 +7,13 @@ const sw=fs.readFileSync('sanabil-offline-sw.js','utf8');
 const benchmark=fs.readFileSync('tests/sanabil-peak100-readonly.cjs','utf8');
 new vm.Script(updater);new vm.Script(live);new vm.Script(benchmark);
 assert(html.includes('sanabil-updater.js?v=20261023-revision1'),'new updater is versioned');
-assert(html.includes('sanabil-live-v12.js?v=20261023-talaqqin1'),'fresh app asset is versioned');
-assert(html.includes('sanabil-build" content="20261023-v13.8.61"'),'HTML build version updated');
-assert(live.includes("window.__SanabilLiveBuild='20261023-v13.8.61'"),'JS build version matches HTML');
-assert(sw.includes('sanabil-shell-20261023-v41-talaqqin-updater'),'offline shell revision updated');
-assert(live.includes("button('تمديد الدرس الحالي','to-extend-'+i)"),'daily talaqqin card offers current lesson extension');
-assert(live.includes("action(box,extend,()=>extendTalaqqinLesson(root,r,renderTalaqqin))"),'daily lesson extension button is wired');
-assert(live.includes("rpc('set_talaqqin_lesson_extension'"),'extension persists using existing permission-aware server RPC');
+assert(html.includes('sanabil-live-v12.js?v=20261023-talaqqin-days1'),'fresh app asset is versioned');
+assert(html.includes('sanabil-build" content="20261023-v13.8.62"'),'HTML build version updated');
+assert(live.includes("window.__SanabilLiveBuild='20261023-v13.8.62'"),'JS build version matches HTML');
+assert(sw.includes('sanabil-shell-20261023-v42-talaqqin-days'),'offline shell revision updated');
+assert(live.includes("button('تمديد الدرس بالأيام','to-extend-'+i)"),'daily talaqqin card offers current lesson extension');
+assert(live.includes("action(box,extend,()=>extendTalaqqinLessonDays(root,r,renderTalaqqin))"),'daily lesson extension button is wired');
+assert(live.includes("rpc('extend_talaqqin_lesson_days'"),'daily extension persists independently through its protected server RPC');
 assert(benchmark.includes('USERS=100')&&benchmark.includes("testType:'public-read-only'"),'benchmark is strictly read only');
 assert(!benchmark.includes("method:'POST'")&&!benchmark.includes("auth.signIn"),'benchmark cannot sign in or modify production');
 (async()=>{
@@ -27,7 +27,7 @@ assert(!benchmark.includes("method:'POST'")&&!benchmark.includes("auth.signIn"),
  };
  const body={append(el){nodes.set(el.id,el);el.isConnected=true}};
  const doc={body,visibilityState:'visible',
-  querySelector(q){if(q==='meta[name="sanabil-build"]')return{content:'20261023-v13.8.61'};
+  querySelector(q){if(q==='meta[name="sanabil-build"]')return{content:'20261023-v13.8.62'};
    if(q.includes('script[src*='))return{getAttribute:()=>'/sanabil-live-v12.js?v=20261023-original'};return null},
   getElementById:id=>nodes.get(id)||null,createElement:makeEl,
   addEventListener:(k,fn)=>{events[k]=fn}};
@@ -36,11 +36,11 @@ assert(!benchmark.includes("method:'POST'")&&!benchmark.includes("auth.signIn"),
  const fakeFetch=async url=>{
   getCount++;
   const body=url.startsWith('/index.html')?
-   '<html><head><meta name="sanabil-build" content="20261023-v13.8.61"></head><body><script src="'+remote+'"></script></body></html>':
-   "window.__SanabilLiveBuild='20261023-v13.8.61';";
+   '<html><head><meta name="sanabil-build" content="20261023-v13.8.62"></head><body><script src="'+remote+'"></script></body></html>':
+   "window.__SanabilLiveBuild='20261023-v13.8.62';";
   return {ok:true,text:async()=>body};
  };
- const win={__SanabilLiveBuild:'20261023-v13.8.61',addEventListener:(k,fn)=>events[k]=fn};
+ const win={__SanabilLiveBuild:'20261023-v13.8.62',addEventListener:(k,fn)=>events[k]=fn};
  const context={window:win,document:doc,navigator:{onLine:true},fetch:fakeFetch,location:{origin:'https://snabilalwahy.com'},
   sessionStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},
   setTimeout,clearTimeout,setInterval:()=>0,Date,AbortController,URL,Promise,console};
