@@ -117,6 +117,31 @@ const api=window.SanabilOffline;
  },{batch:true,maxBatchSize:1});
  assert.deepEqual(seq,one.map(o=>o.operationId),'single-operation batches must preserve edit order');
  assert.equal(await api.count(),0);
+ // If a later item fails after the first is confirmed, retry by the later ID.
+ {
+  const first=await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'retry-first'}]},'first');
+  const second=await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'retry-second'}]},'second');
+  const third=await api.queue('save_daily_outcomes_guarded',{p_rows:[{studentId:'retry-third'}]},'third');
+  const singles=[];
+  let batches=0;
+  await api.flush(async(name,args)=>{
+   if(name==='apply_offline_operations_batch'){
+    batches++;
+    assert.deepEqual(args.p_operations.map(x=>x.id),[first.operationId,second.operationId,third.operationId]);
+    return {results:[
+     {id:first.operationId,ok:true,result:{ok:true}},
+     {id:second.operationId,ok:false,error:{code:'57014',message:'statement timeout'}}
+    ]};
+   }
+   assert.equal(name,'apply_offline_operation');
+   singles.push(args.p_operation_id);
+   return {ok:true};
+  },{batch:true,maxBatchSize:3});
+  assert.equal(batches,1);
+  assert.deepEqual(singles,[second.operationId,third.operationId],
+   'never replay a confirmed prefix item after a later timeout');
+  assert.equal(await api.count(),0);
+ }
  console.log('PASS: concurrent fresh reads, user isolation, bounded batches, partial failures, lost responses, acknowledgement validation, ordered fingerprint boundary');
  console.log('PASS: durable queue, retries, user isolation, snapshot, whitelisting, attendance pending-review');
 })().catch(e=>{console.error(e);process.exitCode=1});
