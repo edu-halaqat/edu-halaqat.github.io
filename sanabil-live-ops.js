@@ -68,7 +68,7 @@
     const top=document.createElement('section');top.className='sl-liveops-summary';
     for(const [key,value] of [
      ['الحصائل المحفوظة اليوم',savedIds.size],['التحضير المحفوظ اليوم',attendedIds.size],
-     ['عينات سرعة الحفظ في الساعة الماضية',allTimings.length],['زمن حفظ P95',statusValue(p95)],
+     ['عينات سرعة الحفظ في الساعة الماضية',allTimings.length],['زمن الحفظ الذي لا تتجاوزه ٩٥٪ من المحاولات',statusValue(p95)],
      ['النقرات المقاسة اليوم',measuredClicks],['نقرة لكل حصيلة مؤكدة',clicksPerOutcome===null?'—':clicksPerOutcome],
      ['وقت التفاعل المقاس',Math.round(measuredSeconds/60)+' دقيقة']
     ]){
@@ -87,7 +87,7 @@
      row.append(textNode('strong',c.name),textNode('span','حصائل '+done+'/'+studentTotal),
        textNode('span','تحضير '+attendanceDone+'/'+studentTotal),
        textNode('span','نقرات '+clickCount),textNode('span','نقرة/حصيلة '+avg),
-       textNode('span','P95 '+statusValue(percentile(m.map(v=>v.duration_ms),.95))));
+       textNode('span','زمن ٩٥٪ من عمليات الحفظ '+statusValue(percentile(m.map(v=>v.duration_ms),.95))));
      table.append(row);
     }
     result.append(table);

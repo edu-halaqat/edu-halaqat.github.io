@@ -21,14 +21,14 @@ table{border-collapse:collapse;width:100%;font-size:.86rem}td,th{padding:8px 6px
 a{color:#085b9d}code{direction:ltr;unicode-bidi:isolate}footer{font-size:.78rem;color:#66746b;margin:20px 0}
 @media(min-width:650px){.metrics{grid-template-columns:repeat(4,1fr)}}@media(max-width:450px){body{padding:10px}.pane{padding:14px}.actions button{flex:1}}
 </style>
-</head>
+<script src="/sanabil-arabic-ui.js?v=20261023-arabic1" defer></script></head>
 <body>
 <main>
 <section class="pane">
 <h1>قياس سنابل الوحي من اتصالك الفعلي</h1>
-<p>هذه الصفحة تجري <strong>600 تجربة شبكة</strong> من هاتفك أو جهازك الذي فتحتها منه، وليس من خوادم GitHub Actions. وتشمل 12 موردًا فعليًا من الموقع، مع ملفات صغيرة وكبيرة وطلبات عادية وجديدة وإعادة تحقق.</p>
-<div class="note">يقيس هذا الاختبار أداء <strong>Cloudflare من شبكتك</strong>، ولا يقارن مباشرةً مع GitHub Pages الأصلي؛ فلا يستطيع المتصفح تغيير Host وSNI مثل curl. ولن نعلن تحسنًا سببيًا قبل قياس مسار GitHub مباشرة من الشبكة نفسها.</div>
-<p class="small">لا يحتاج إلى تسجيل دخول، ولا يستخدم حسابك أو ملفات الطلاب أو Supabase. جميع الطلبات قراءة GET عامة. لا يرسل نتائجك إلى خادم؛ يمكنك نسخها وإرسالها هنا. قد يستهلك عشرات الميغابايت بحسب حجم الاستجابات. أبقِ الصفحة في المقدمة أثناء الاختبار للحصول على نتائج أدق.</p>
+<p>هذه الصفحة تجري <strong>600 تجربة شبكة</strong> من هاتفك أو جهازك الذي فتحتها منه، وليس من خوادم التشغيل الآلي. وتشمل 12 موردًا فعليًا من الموقع، مع ملفات صغيرة وكبيرة وطلبات عادية وجديدة وإعادة تحقق.</p>
+<div class="note">يقيس هذا الاختبار أداء <strong>شبكة توزيع المحتوى من اتصالك</strong>، ولا يقارن مباشرةً مع الاستضافة الأصلية؛ فلا يستطيع المتصفح تغيير اسم الخادم أو بيانات تعريف الاتصال كما تفعل أدوات اختبار الشبكات. ولن نعلن تحسنًا سببيًا قبل قياس مسار GitHub مباشرة من الشبكة نفسها.</div>
+<p class="small">لا يحتاج إلى تسجيل دخول، ولا يستخدم حسابك أو ملفات الطلاب أو قاعدة بيانات المنصة. جميع الطلبات جلب عامة للقراءة فقط. لا يرسل نتائجك إلى خادم؛ يمكنك نسخها وإرسالها هنا. قد يستهلك عشرات الميغابايت بحسب حجم الاستجابات. أبقِ الصفحة في المقدمة أثناء الاختبار للحصول على نتائج أدق.</p>
 <div class="actions"><button id="start">ابدأ 600 تجربة من هذا الجهاز</button><button id="stop" class="secondary" disabled>إيقاف التجربة</button></div>
 <p id="status" role="status" aria-live="polite">لم يبدأ الاختبار بعد.</p>
 <progress id="progress" max="600" value="0"></progress>
@@ -41,17 +41,17 @@ a{color:#085b9d}code{direction:ltr;unicode-bidi:isolate}footer{font-size:.78rem;
 <div class="metric"><span>التجارب المنفّذة</span><span class="num" id="count">0</span></div>
 <div class="metric"><span>الطلبات الناجحة</span><span class="num" id="ok">0</span></div>
 <div class="metric"><span>وسيط التحميل</span><span class="num" id="median">—</span></div>
-<div class="metric"><span>P95 للتحميل</span><span class="num" id="p95">—</span></div>
+<div class="metric"><span>زمن الاستجابة لـ٩٥٪ من المحاولات للتحميل</span><span class="num" id="p95">—</span></div>
 </div>
 <h2 style="margin-top:20px">التفصيل بحسب نوع الطلب</h2>
-<div style="overflow-x:auto"><table><thead><tr><th>النوع</th><th>عدد</th><th>نجاح</th><th>الوسيط</th><th>P95</th></tr></thead><tbody id="byMode"></tbody></table></div>
-<h2 style="margin-top:18px">حالات التخزين المؤقت لدى Cloudflare</h2>
+<div style="overflow-x:auto"><table><thead><tr><th>النوع</th><th>عدد</th><th>نجاح</th><th>الوسيط</th><th>زمن الاستجابة لـ٩٥٪ من المحاولات</th></tr></thead><tbody id="byMode"></tbody></table></div>
+<h2 style="margin-top:18px">حالات التخزين المؤقت لدى شبكة التوزيع</h2>
 <p id="cache"></p>
 <p class="small" id="accuracy"></p>
-<div class="actions"><button id="copy">نسخ التقرير للمحادثة</button><button id="download" class="secondary">تنزيل النتائج الكاملة JSON</button></div>
+<div class="actions"><button id="copy">نسخ التقرير للمحادثة</button><button id="download" class="secondary">تنزيل النتائج الكاملة بصيغة بيانات منظّمة</button></div>
 <p class="small" id="copied" role="status"></p>
 </section>
-<footer>سنابل الوحي – أداة قياس مستقلة عن التطبيق. لا تُجرى تغييرات DNS أو حفظ بيانات عبر هذه الصفحة.</footer>
+<footer>سنابل الوحي – أداة قياس مستقلة عن التطبيق. لا تُجرى تغييرات نظام أسماء النطاقات أو حفظ بيانات عبر هذه الصفحة.</footer>
 </main>
 <script>
 (function(){
@@ -112,7 +112,7 @@ return '<tr><td>'+labelMode[m]+'</td><td>'+v.attempts+'</td><td>'+v.ok+'</td><td
 var values={};
 runs.forEach(function(r){var k=r.cfCache||'غير ظاهر';values[k]=(values[k]||0)+1});
 byId('cache').textContent=Object.keys(values).map(function(k){return k+': '+values[k]}).join('، ')||'لم تُجمع بيانات بعد';
-byId('accuracy').textContent=(s.attempts===600&&s.errors===0?'جميع طلبات القياس الـ600 اكتملت بنجاح. ':'النتائج غير مكتملة أو تحتوي إخفاقات؛ لا تستخدمها للحكم النهائي. ')+'هذه أزمنة شبكة من جهاز واحد، وليست قياسًا لفتح جلسة المعلم أو لاختبار ضغط Supabase.';
+byId('accuracy').textContent=(s.attempts===600&&s.errors===0?'جميع طلبات القياس الـ600 اكتملت بنجاح. ':'النتائج غير مكتملة أو تحتوي إخفاقات؛ لا تستخدمها للحكم النهائي. ')+'هذه أزمنة شبكة من جهاز واحد، وليست قياسًا لفتح جلسة المعلم أو لاختبار ضغط قاعدة بيانات المنصة.';
 }
 async function test(job,index){
 var url=job.path;
@@ -129,7 +129,7 @@ var reader=response.body&&response.body.getReader?response.body.getReader():null
 if(reader){while(true){var b=await reader.read();if(b.done)break;bytes+=b.value.byteLength}}
 else bytes=(await response.arrayBuffer()).byteLength;
 total=performance.now()-start;
-if(!(status>=200&&status<300))error='HTTP '+status;
+if(!(status>=200&&status<300))error='خطأ اتصال، رمز الاستجابة '+status;
 }catch(e){total=performance.now()-start;error=e&&e.name==='AbortError'?'timeout':String(e&&e.message||e).slice(0,130)}
 finally{clearTimeout(timer)}
 return {id:index+1,name:job.name,path:job.path,category:job.category,mode:job.mode,
@@ -171,7 +171,7 @@ paths.forEach(function(p){categories[p[0]]=summarize(runs.filter(function(x){ret
 var modes={};Object.keys(labelMode).forEach(function(m){modes[m]=summarize(runs.filter(function(x){return x.mode===m}))});
 var statuses={};runs.forEach(function(r){var c=r.cfCache||'غير ظاهر';statuses[c]=(statuses[c]||0)+1});
 return {method:'Sanabil browser network benchmark v1: 600 GET requests across 12 same-origin resources (30 warm,15 cold unique query,5 revalidate per resource); max concurrency 2; no browser HTTP cache; no credentials',website:location.origin,startedUtc:started,finishedUtc:finished,connection:connectionSummary(),
-browser:navigator.userAgent,overall:summarize(runs),byMode:modes,byResource:categories,cfCacheStatus:statuses,limitations:['No paired direct GitHub Pages origin measurement from browser.','Not a before/after baseline, authenticated app loading benchmark, or Supabase capacity test.','Benchmark header bypasses version 36+ service worker; older worker versions may still intercept network requests.']};
+browser:navigator.userAgent,overall:summarize(runs),byMode:modes,byResource:categories,cfCacheStatus:statuses,limitations:['No paired direct GitHub Pages origin measurement from browser.','Not a before/after baseline, authenticated app loading benchmark, or قاعدة بيانات المنصة capacity test.','Benchmark header bypasses version 36+ service worker; older worker versions may still intercept network requests.']};
 }
 byId('start').addEventListener('click',function(){startTests().catch(function(e){running=false;setStatus('تعذّر إكمال القياس: '+String(e));byId('start').disabled=false})});
 byId('stop').addEventListener('click',function(){stopped=true;setStatus('إيقاف بعد انتهاء الطلبات الجارية...')});
