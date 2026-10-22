@@ -144,6 +144,25 @@ const api=window.SanabilOffline;
    'never replay a confirmed prefix item after a later timeout');
   assert.equal(await api.count(),0);
  }
+ // A supervisor-denied older result must not indefinitely freeze the queue.
+ // Preserve same-student edits in sequence while allowing another student through.
+ {
+   const old=await api.queue('save_daily_outcomes_guarded',{p_date:'2026-10-20',p_rows:[{studentId:'blocked-A'}]},'denied first');
+   const later=await api.queue('save_daily_outcomes_guarded',{p_date:'2026-10-20',p_rows:[{studentId:'blocked-A'}]},'later same student');
+   const other=await api.queue('save_daily_outcomes_guarded',{p_date:'2026-10-22',p_rows:[{studentId:'unrelated-B'}]},'other');
+   const called=[];
+   await api.flush(async(name,args)=>{
+     assert.equal(name,'apply_offline_operations_batch');
+     const id=args.p_operations[0].id;called.push(id);
+     return {results:[id===old.operationId
+       ? {id,ok:false,error:{code:'42501',message:'المشرف لم يُتح تعديل حصيلة يوم سابق.'}}
+       : {id,ok:true,result:{ok:true}}]};
+   },{batch:true,maxBatchSize:1});
+   assert.deepEqual(called,[old.operationId,other.operationId],'unrelated student must sync after a policy denial');
+   assert.equal(await api.count(),2,'denied and dependent edits stay intact');
+   await api.flush(async(name,args)=>({results:args.p_operations.map(x=>({id:x.id,ok:true,result:{ok:true}}))}),{batch:true,maxBatchSize:1});
+   assert.equal(await api.count(),0,'supervisor approval allows ordered retry');
+ }
  console.log('PASS: concurrent fresh reads, user isolation, bounded batches, partial failures, lost responses, acknowledgement validation, ordered fingerprint boundary');
  console.log('PASS: durable queue, retries, user isolation, snapshot, whitelisting, attendance pending-review');
 })().catch(e=>{console.error(e);process.exitCode=1});
