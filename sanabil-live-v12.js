@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261022-v13.8.60';
+window.__SanabilLiveBuild='20261023-v13.8.61';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1850,7 +1850,9 @@ async function outcomesPage(root){
          '</section>'+
          '<div class="sl-card-actions sl-tl-tools">'+
            (placed&&!r.completed&&ll.pageFrom?button('معاينة الدرس','to-open-'+i):'')+
-           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)+button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+button('ترشيح للاختبار','tl-nominate-'+i)+
+           button(placed?'تعديل الموضع':'تحديد موضع البداية','to-place-'+i)
+           +(placed&&!r.completed&&!isCustom?button('تمديد الدرس الحالي','to-extend-'+i):'')
+           +button('سجل الحصائل السابقة','tl-history-'+i)+button('ملخص الأسبوع','tl-weekly-'+i)+button('ترشيح للاختبار','tl-nominate-'+i)+
          '</div>'+
          (placed&&!r.completed?'<details class="sl-tl-more"><summary>تدريب تفاعلي</summary><div class="sl-card-actions">'+button('فتح التدريب','to-media-'+i)+'</div></details>':'')+
          '</section></article>'
@@ -2002,6 +2004,8 @@ async function outcomesPage(root){
         const md=box.querySelector('[data-action="to-media-'+i+'"]');
         if(md){md.dataset.tlHandled='1';md.onclick=e=>{e.preventDefault();e.stopPropagation();try{openTalaqqinPractice(r,i)}catch(err){alert(err?.message||'تعذر فتح التدريب التفاعلي.')}}}
         const pl=box.querySelector('[data-action="to-place-'+i+'"]');if(pl)action(box,pl,()=>placeTalaqqinStudent(root,r,renderTalaqqin));
+         const extend=box.querySelector('[data-action="to-extend-'+i+'"]');
+         if(extend)action(box,extend,()=>extendTalaqqinLesson(root,r,renderTalaqqin));
       });
       // احتياط للجوال إذا أعاد المتصفح بناء عقد الأزرار بعد الرسم.
       box._talaqqinVisibleRows=items;
