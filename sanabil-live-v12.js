@@ -2558,11 +2558,22 @@ async function outcomesPage(root){
     const deadline=Date.now()+15000;
     while(autoInFlight.size&&Date.now()<deadline)await new Promise(done=>setTimeout(done,150));
     if(autoInFlight.size)throw Error('توجد حصيلة قيد الحفظ التلقائي؛ أعد اعتماد الحلقة بعد اكتمالها.');
-    validateAttendance();
-    const captured=students.filter(s=>needsDayAttendance(activeKind(s.studentId))).map(s=>{
-      const i=students.indexOf(s),x=rowData(s,i);validateRow(s,x);return{s,i,x,kind:activeKind(s.studentId)};
-    });
-    if(!captured.length){msg(box,'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');return}
+    const captured=[],incomplete=[];
+    for(const s of students.filter(item=>needsDayAttendance(activeKind(item.studentId)))){
+      const i=students.indexOf(s),x=rowData(s,i);
+      try{
+        validateRow(s,x);
+        if(box._sanabilQuick?.isProvisional?.(i))throw Error('التقدير الافتراضي يحتاج اعتماد المعلم');
+        captured.push({s,i,x,kind:activeKind(s.studentId)});
+      }catch(error){
+        incomplete.push({s,i,reason:error?.message||'التقديرات غير مكتملة'});
+      }
+    }
+    if(!captured.length){
+      throw Error(incomplete.length
+        ?'لا توجد حصيلة مكتملة للاعتماد. أكمل تقييم '+incomplete[0].s.fullName+' أولًا.'
+        :'جميع الطلاب في إجازة أو يوم غير محتسب؛ لا تسجل حصيلة اليوم.');
+    }
     await ensureCircleSession(circle,date,true);
     captured.forEach(({i})=>persistDraft(i));
     const snapshots=captured.map(({s})=>JSON.stringify(drafts[s.studentId]||null));
@@ -2593,7 +2604,19 @@ async function outcomesPage(root){
       if(JSON.stringify(drafts[s.studentId]||null)===snapshots[j])clearDraft(i);
       else modified++;
     });
-    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');return}
+    if(modified){msg(box,'توجد '+modified+' مسودات أحدث غير محفوظة، والجلسة مفتوحة.');autoBadge.textContent='توجد تعديلات أحدث غير معتمدة';return}
+    if(incomplete.length){
+      const detail=incomplete.slice(0,3).map(v=>v.s.fullName).join('، ');
+      const info='حُفظت وتأكدت '+captured.length+' حصائل. بقيت '+incomplete.length
+        +' حصائل ناقصة دون حفظ؛ الجلسة لا تزال مفتوحة. أكمل: '+detail;
+      msg(box,info,true);
+      autoBadge.textContent=incomplete.length+' حصائل ناقصة تحتاج إكمال التقديرات';
+      let notice=form.querySelector('[data-save-submit-error]');
+      if(!notice){notice=document.createElement('p');notice.className='sl-outcome-save-error';notice.dataset.saveSubmitError='1';notice.setAttribute('role','alert');form.querySelector('.sl-savebar-actions')?.append(notice)}
+      if(notice){notice.textContent=info;notice.scrollIntoView({block:'nearest'})}
+      window.SanabilTelemetry?.record('save','circle_partial',performance.now()-realSaveStarted,'queued');
+      return;
+    }
     localStorage.removeItem(activeSessionKey);
     window.SanabilPerformance?.recordActual('save_all',performance.now()-realSaveStarted);
     box.innerHTML='<p class="sl-message" role="status">تم حفظ الحصائل الدراسية ومراجعات الاختبار دون احتساب أيام الإجازة وغير المحتسبة.</p>';
