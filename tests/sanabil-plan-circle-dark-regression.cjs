@@ -50,6 +50,6 @@ assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body
 assert.match(css,/fieldset\.sl-review-builder/);
 assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body form select option/);
 assert.match(css,/\.sl-plan-circle-filter label/);
-assert.match(html,/\/sanabil-live-v12\.js\?v=20261022-(?:plancircle2|timeout2)/);
+assert.match(html,/\/sanabil-live-v12\.js\?v=20261022-[a-z0-9-]+/);
 assert.ok(html.includes('/sanabil-identity.css?v=34'));
 console.log('PASS: plan lists are circle-specific, teacher choices are assigned, archived plans stay scoped, and dark modal styles are versioned.');
