@@ -2563,8 +2563,16 @@ async function outcomesPage(root){
       const payload=normal.map(({s,x})=>({studentId:s.studentId,ratings:x.ratings,
         notes:x.note,attendanceStatus:x.att,attendanceNote:x.note,absenceReason:x.absenceReason,
         recitationMetrics:normalizedMetrics(x.metrics)}));
-      const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:payload},'الحصيلة اليومية');
-      if(saved.queued){msg(box,'مراجعات الاختبار محفوظة، والحصائل الدراسية تنتظر المزامنة. بقيت الجلسة مفتوحة.');return}
+      // Guard the deadline by splitting student writes into small confirmed groups.
+      for(let start=0;start<payload.length;start+=3){
+        const group=payload.slice(start,start+3);
+        const saved=await rpcOffline('save_daily_outcomes_guarded',{p_date:date,p_rows:group},
+          'حصيلة الحلقة · دفعة '+(Math.floor(start/3)+1));
+        if(saved.queued){
+          msg(box,'حُفظت دفعات سابقة، وتنتظر '+group.length+' حصائل أو أكثر المزامنة. بقيت الجلسة مفتوحة وجميع المسودات محفوظة.');
+          return;
+        }
+      }
       const confirmed=await rpc('get_daily_assignments',{p_circle_id:circle,p_date:date});
       for(const {s,x} of normal)await confirmSaved(s,x,confirmed);
     }
@@ -3074,7 +3082,9 @@ async function plansPage(root){
        if(!val(form,'end')||val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
      }
-     await rpc('sync_student_review_plans',{p_student_id:student.id});b.closest('dialog').close();await load();
+     // The whole-ayah bundle already runs dependent-review synchronization.
+     if(!hasMem||predefinedMethods.has(code))await rpc('sync_student_review_plans',{p_student_id:student.id});
+     b.closest('dialog').close();await load();
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
    });
  };
