@@ -77,7 +77,7 @@ function mountAdminPanel(){
  const parent=document.querySelector('.sl-performance-real:not([data-central-mounted])');
  if(!parent)return;
  parent.dataset.centralMounted='1';
- const box=document.createElement('section');box.className='sl-performance-real sl-central-report';box.dir='rtl';
+ const box=document.createElement('section');box.className='sl-performance-real sl-central-report';box.dataset.centralMounted='1';box.dir='rtl';
  box.innerHTML='<h3>مركز تشخيص أداء المنصة — جميع الأجهزة</h3>'+
   '<p>قراءات الخادم للحسابات النشطة التي وصلت أحداثها إلى قاعدة البيانات، وليست آخر 150 حركة فقط. لا يجمع التقرير إجابات الطلاب ولا ما يكتب في الحقول. الأجهزة غير المتصلة لا تظهر حركاتها حتى تتم مزامنتها.</p>'+
   '<div class="sl-central-tools" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">'+
