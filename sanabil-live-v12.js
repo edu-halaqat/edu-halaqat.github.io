@@ -3027,11 +3027,11 @@ async function plansPage(root){
    container.innerHTML=activePlans.length?
      '<div class="sl-plan-group-controls"><label>عرض خطط طالب محدد <select data-plan-student-filter><option value="">جميع الطلاب</option>'+choices+'</select></label>'+
      '<span>الطلاب أصحاب الخطط: '+ordered.length+' · المسارات النشطة: '+activePlans.length+'</span></div>'+
-     ordered.filter(([id])=>!focusStudent||id===focusStudent).map(([id,items])=>{
+     ordered.map(([id,items])=>{
        items.sort((a,b)=>(groupOrder[a.plan.type]??9)-(groupOrder[b.plan.type]??9)||
          String(a.plan.name||'').localeCompare(String(b.plan.name||''),'ar'));
        const hasType=new Set(items.map(x=>x.plan.type));
-       return '<section class="sl-student-plan-group" data-plan-student="'+esc(id)+'">'+
+       return '<section class="sl-student-plan-group" data-plan-student="'+esc(id)+'"'+(focusStudent&&focusStudent!==id?' hidden':'')+'>'
          '<header class="sl-student-plan-heading"><h3>'+esc(studentById.get(id)?.full_name||'طالب مسجل')+
          '</h3><span>'+items.length+' مسارات</span></header>'+
          '<div class="sl-plan-grid">'+items.map(({plan,index})=>planCard(plan,index)).join('')+'</div>'+
