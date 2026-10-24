@@ -27,8 +27,10 @@ assert.equal(students.length,4,'original data stays untouched');
 
 assert.ok(js.includes('const students=scopeStudentsToPlanCircle(allStudents,selectedPlanCircle)'),
   'plan creation student selector must be filtered to the chosen circle');
-assert.ok(js.includes('scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle)'),
-  'archived plan list must also use the exact circle scope');
+assert.ok(js.includes(".eq('status','cancelled').eq('circle_id',selectedPlanCircle)"),
+  'archived plan query must be restricted to the exact circle');
+assert.ok(js.includes('const archivedIds=new Set(archiveStudents.map(x=>x.id))'),
+  'archived students must remain in the same authorized circle');
 // Both the independent-track and bundled-plan save routes reject stale IDs
 // whose student belongs to a different circle, even if the same teacher teaches both.
 assert.equal(js.split("students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle)").length-1,2,
