@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261024-v13.8.67';
+window.__SanabilLiveBuild='20261025-v13.8.68';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3693,10 +3693,7 @@ async function plansPage(root){
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
  action(root,root.querySelector('[data-action="calendar-days"]'),async()=>{
    if(!window.SanabilPlanCalendar)throw Error('تعذر تحميل تقويم الإجازات. حدّث الصفحة ثم أعد المحاولة.');
-   await window.SanabilPlanCalendar.open({
-     circles:planCircles.map(x=>({id:x.id,name:x.name})),
-     selectedCircle:selectedPlanCircle
-   });
+   await window.SanabilPlanCalendar.open({selectedCircle:selectedPlanCircle});
  });
  await load();await showExamAlerts()
 }
