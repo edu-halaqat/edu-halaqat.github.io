@@ -16,12 +16,12 @@ assert(ui.includes("const ids=complex.circles.map(c=>c.id)"),'complex-level sele
 assert(ui.includes("master.indeterminate="),'partial selections are represented');
 assert(ui.includes("checkbox.onchange="),'individual rings can be toggled independently');
 assert(ui.includes('selectedCircle&&circles.some'),'only real authorized selected circles default on');
-assert(ui.includes("client.rpc('apply_calendar_day_step_guarded'"),'bounded batch RPC is used');
-assert(ui.includes('p_batch_size:1'),'one-student-per-transaction avoids the original circle timeout');
-assert(ui.includes('lastBreakdown=lines.join'),'error details survive refreshing the calendar');
-assert(ui.includes("console.warn('calendar day step',error)"),'retain technical server error in logs');
+assert(ui.includes("client.rpc('approve_calendar_day_fast_guarded'"),'one-request immediate approval is used');
+assert(!ui.includes('p_batch_size:1'),'browser never waits on serial student transactions');
+assert(ui.includes('lastBreakdown=list.join'),'progress details survive calendar refreshing');
+assert(ui.includes("console.warn('Fast calendar approval',e)"),'retain technical server error in logs');
 assert(ui.includes("explainError(error)"),'provide translated error reason to user');
-assert(ui.includes('if(cancelled)break'),'batch processing is cancellable between transactions');
+assert(ui.includes('get_calendar_reflow_status_guarded'),'progress is independently queryable and job is persistent');
 assert(!ui.includes("client.rpc('set_day_type_guarded'"),'old all-at-once circle operation removed');
 assert(!ui.includes('نجح تحديث '+""+'0 حلقة.'),'no misleading partial status');
 assert(migration.includes('private.can_access(c.org_id,c.complex_id,c.id'),'scope filters unauthorized manager circles');
