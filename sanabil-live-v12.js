@@ -3034,7 +3034,7 @@ async function plansPage(root){
    // Archived plans remain discoverable; no data restoration or deletion is implicit.
    const archiveStudents=await rows('students','id,full_name,circle_id');
    const archivedIds=new Set(scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle).map(x=>x.id));
-   const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
+   const archived=(await result(sb().from('plans').select('id,name,type,status,student_id,start_date,updated_at').eq('status','cancelled').eq('circle_id',selectedPlanCircle).limit(650)))
      .filter(p=>archivedIds.has(p.student_id));
    const archives=root.querySelector('.sl-plan-archives');
    if(archives){
@@ -3442,7 +3442,22 @@ async function plansPage(root){
    if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
    if(initial.methodology&&methodItems.some(x=>x.id===initial.methodology))form.elements.methodology.value=initial.methodology;
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
-   await applyMethodology(true);setTimeout(refreshBundleForecast,0);
+   const adjustSelectedStudent=()=>{
+     if(initial.transitionFromPlanId)return;
+     const id=val(form,'student'),mem=activePlans.find(p=>p.student_id===id&&p.type==='memorization');
+     const recent=activePlans.find(p=>p.student_id===id&&p.type==='recent_review');
+     if(mem){
+       form.elements.usemem.checked=false;
+       if(form.elements.end)form.elements.end.value=mem.end_date||today();
+     }
+     if(recent)form.elements.userecent.checked=false;
+     if(mem||recent){
+       methodSummary.insertAdjacentHTML('beforeend','<p><b>للطلاب ذوي الخطط النشطة:</b> ألغى النظام اختيار المسارات الموجودة حتى لا تنشئ نسخًا متعارضة. أضف المراجعات الكبرى اللازمة أو عدّل المسار القائم من بطاقته.</p>');
+     }
+     scheduleBundleForecast();
+   };
+   form.elements.student.addEventListener('change',()=>setTimeout(adjustSelectedStudent,0));
+   await applyMethodology(true);adjustSelectedStudent();setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
      const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
@@ -3582,6 +3597,13 @@ async function plansPage(root){
  });
  action(root,root.querySelector('[data-action="new"]'),createSingle);
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
+ action(root,root.querySelector('[data-action="calendar-days"]'),async()=>{
+   if(!window.SanabilPlanCalendar)throw Error('تعذر تحميل تقويم الإجازات. حدّث الصفحة ثم أعد المحاولة.');
+   await window.SanabilPlanCalendar.open({
+     circles:planCircles.map(x=>({id:x.id,name:x.name})),
+     selectedCircle:selectedPlanCircle
+   });
+ });
  await load();await showExamAlerts()
 }
 
