@@ -43,6 +43,8 @@ jobs:
           node --check sanabil-excel-v11.js
           node --check sanabil-offline-app.js
           node tests/sanabil-performance.cjs
+          node --check sanabil-performance-center.js
+          node tests/sanabil-performance-center.cjs
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
           node tests/sanabil-install.cjs
