@@ -86,11 +86,10 @@ async function open({circles,selectedCircle}={}){
   const first=iso(year,month,1),last=iso(year,month,new Date(Date.UTC(year,month,0)).getUTCDate());
   // Single indexable range query for all selected circles, not one RPC per day.
   const ids=circles.map(c=>c.id);
-  const {data,error}=await client.from('circle_day_types')
-   .select('circle_id,date_key,day_type').in('circle_id',ids)
-   .gte('date_key',first).lte('date_key',last).limit(1400);
+  const {data,error}=await client.rpc('get_circle_day_types_range_guarded',
+    {p_circle_ids:ids,p_from:first,p_to:last});
   if(error){status('تعذر قراءة الاستثناءات المحفوظة؛ يمكن إعادة المحاولة.');return}
-  for(const row of data||[])overrides.set(row.circle_id+'|'+row.date_key,row.day_type);
+  for(const row of data||[])overrides.set(row.circleId+'|'+row.date,row.type);
  }
  function chosenValue(date){
   const vals=[...checked].map(id=>overrides.get(id+'|'+date)).filter(Boolean);
