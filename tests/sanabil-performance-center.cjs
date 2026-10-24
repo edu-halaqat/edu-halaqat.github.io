@@ -27,6 +27,10 @@ assert(!/\.from\(['"](?:outcomes|student_attendance|plan_days|plans)['"]\)\s*\.(
  'no mutation of student academic records');
 assert(!/\.rpc\(['"](?:save_daily_outcomes_guarded|save_plan_with_days)['"]/.test(source),
  'no live outcome or plan writes');
+assert(source.includes('spc-mobile-cards')&&source.includes('spc-mobile-pair'), 'all diagnostic report columns visible as mobile cards');
+assert(source.includes("window.SanabilArabicUI?.view(x.view_key)")&&source.includes("window.SanabilArabicUI?.action(x.action_key)"), 'server identifiers are localized');
+assert(!source.includes("'P50','P95'")&&!source.includes('>تصدير تقرير JSON<'), 'no Latin shortcuts in visible headings');
+assert(source.includes("const arabic=value=>window.SanabilArabicUI?.performanceText?.(value)"), 'generated report values are sanitized');
 const context={window:{},document:{},console};vm.runInNewContext(source,context,{timeout:2000});
 const perf=context.window.SanabilPerformanceCenter;
 assert(perf?.open&&perf?.stats&&perf?.percentile,'module exports');
