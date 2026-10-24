@@ -19,7 +19,8 @@ assert(ui.includes('selectedCircle&&circles.some'),'only real authorized selecte
 assert(ui.includes("client.rpc('apply_calendar_day_step_guarded'"),'bounded batch RPC is used');
 assert(ui.includes('p_batch_size:1'),'one-student-per-transaction avoids the original circle timeout');
 assert(ui.includes('lastBreakdown=lines.join'),'error details survive refreshing the calendar');
-assert(ui.includes('if(error)throw Error(error.message'),'server errors are surfaced');
+assert(ui.includes("console.warn('calendar day step',error)"),'retain technical server error in logs');
+assert(ui.includes("explainError(error)"),'provide translated error reason to user');
 assert(ui.includes('if(cancelled)break'),'batch processing is cancellable between transactions');
 assert(!ui.includes("client.rpc('set_day_type_guarded'"),'old all-at-once circle operation removed');
 assert(!ui.includes('نجح تحديث '+""+'0 حلقة.'),'no misleading partial status');
