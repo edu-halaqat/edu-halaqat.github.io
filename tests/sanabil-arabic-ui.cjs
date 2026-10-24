@@ -31,6 +31,23 @@ const cases=[
  ['rpc','طلب من الخادم',ar.kind]
 ];
 for(const [input,expected,fn] of cases)assert.equal(fn(input),expected,'Arabic view/action translation: '+input);
+const screenshotExamples=[
+ ['outcomes','الحصيلة اليومية'],
+ ['plans','الخطط والمقررات'],
+ ['rpc:save_test_day_reviews_guarded','حفظ مراجعات يوم الاختبار'],
+ ['rpc:preview_methodology_memorization_plan','حساب مدة خطة الحفظ وفق المنهج'],
+ ['action:wa-#','مشاركة حصيلة الطالب عبر واتساب'],
+ ['save:form','اعتماد بيانات النموذج'],
+ ['rpc:circle_session_access','التحقق من صلاحيات جلسة الحلقة']
+];
+for(const [raw,arabic] of screenshotExamples)
+ assert.equal(ar.performanceText(raw),arabic,'visible report must translate '+raw);
+for(const value of ['rpc:unknown_internal_test','P50 / P95 (ms)','UnknownError on user request','tester@example.com'])
+ assert(!/[A-Za-z]/.test(ar.performanceText(value)),'no Latin letters in visible report: '+value);
+assert(monitor.includes('sl-report-cards')&&monitor.includes('sl-report-card'), 'real report must show complete vertical mobile cards');
+assert(monitor.includes('const content=readable(value(row))'),'report must sanitize actual cell values');
+assert(index.includes('sanabil-arabic-ui.js?v=20261024-arabic2'), 'force fresh translator');
+assert(index.includes('sanabil-activity-monitor.js?v=20261024-arabic2'), 'force fresh activity monitor');
 assert(!/[A-Za-z]/.test(ar.action('rpc:totally_new_internal_rpc')),'new RPCs must have Arabic fallback');
 assert(!/[A-Za-z]/.test(ar.note('rpc:save_test_day_reviews_guarded')),'error explanation is Arabic');
 assert(!/[A-Za-z]/.test(ar.error('statement timeout')),'raw network failures must be categorized in Arabic');
