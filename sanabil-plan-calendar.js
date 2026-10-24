@@ -184,82 +184,78 @@ async function open({selectedCircle}={}){
   type.value=classify(selectedDay);selectLabel.append(type);detail.append(selectLabel);
   const choices=make('div');drawChoices(choices);
   detail.append(make('p','اختر المجمعات، ثم حدد جميع الحلقات أو بعضها:'),choices);
-  const progress=make('progress',undefined,'sl-academic-progress');
-  progress.max=1;progress.value=0;progress.hidden=true;
-  const save=make('button','اعتماد التصنيف للحلقات المحددة');
-  const stop=make('button','إيقاف بعد الطلب الجاري');stop.type='button';stop.hidden=true;
-  save.type='button';
-  stop.onclick=()=>{cancelled=true;message('سيُوقف التنفيذ بعد الدفعة الحالية. يمكن استئناف ما لم يكتمل لاحقًا.')};
+  const save=make('button','اعتماد التصنيف فورًا');save.type='button';
+  const refresh=make('button','تحديث حالة ترحيل المقررات');refresh.type='button';
   const report=make('div',lastBreakdown, 'sl-calendar-breakdown');
   report.hidden=!lastBreakdown;
-  detail.append(save,stop,progress,state,report);
+  detail.append(save,refresh,state,report);
   if(lastReport)state.textContent=lastReport;
+  const readProgress=async(ids,day)=>{
+    const {data,error}=await client.rpc('get_calendar_reflow_status_guarded',
+      {p_circle_ids:ids,p_date:day});
+    if(error)throw Error(error.message||'تعذر قراءة حالة التسوية.');
+    const records=Array.isArray(data)?data:[];
+    const list=records.map(row=>{
+      const circle=findCircle(row.circleId);
+      const base=(circle?.complexName||'المجمع')+' — '+(circle?.name||'الحلقة');
+      const pending=Number(row.pending||0),done=Number(row.done||0),failed=Number(row.failed||0);
+      return base+'\n'+
+        (row.approved?'التصنيف معتمد. ':'التصنيف لم يُعتمد. ')+
+        'تم ترحيل '+done+' طالبًا، المتبقي '+pending+
+        (failed?'، يحتاج مراجعة '+failed+'.':'')+
+        (row.lastError?'\nسبب التعثر: '+explainError(row.lastError):'');
+    });
+    lastBreakdown=list.join('\n\n');
+    report.textContent=lastBreakdown;report.hidden=false;
+    return records;
+  };
+  refresh.onclick=async()=>{
+    if(running)return;
+    const ids=[...checked];
+    if(!ids.length){message('اختر مجمعًا أو حلقة لمتابعة ترحيل المقررات.');return}
+    refresh.disabled=true;
+    try{
+      const records=await readProgress(ids,selectedDay);
+      const pending=records.reduce((n,r)=>n+Number(r.pending||0),0);
+      const failed=records.reduce((n,r)=>n+Number(r.failed||0),0);
+      message('حالة التسوية: '+pending+' طالبًا قيد الترحيل، '+failed+
+        ' بحاجة إلى مراجعة.'+(pending?' تُستكمل الأعمال تلقائيًا على الخادم.':''));
+    }catch(e){message('تعذر عرض حالة الترحيل: '+explainError(e))}
+    finally{refresh.disabled=false}
+  };
   save.onclick=async()=>{
    if(running)return;
-   const ids=[...checked],newType=type.value,day=selectedDay;
+   const ids=[...checked],day=selectedDay,newType=type.value;
    if(!ids.length){message('اختر مجمعًا أو حلقة واحدة على الأقل.');return}
-   if(!window.confirm('اعتماد «'+kinds[newType]+'» يوم '+day+' على '+ids.length+
-     ' حلقة؟ ستنتقل المقررات غير المنجزة إلى أيام دراسية لاحقة.'))return;
-   running=true;cancelled=false;lastBreakdown='';report.textContent='';save.disabled=true;close.disabled=true;
-   type.disabled=true;previous.disabled=true;next.disabled=true;
-   progress.hidden=false;stop.hidden=false;report.hidden=false;
-   let done=0,partial=0,failed=0,processed=0,remaining=ids.length;
-   const lines=[];
+   if(!window.confirm('اعتماد «'+kinds[newType]+'» ليوم '+day+' في '+ids.length+
+     ' حلقة الآن؟ سيُحفظ القرار فورًا وتُرحّل المقررات المتبقية من الخادم دون انتظارك.'))return;
+   running=true;save.disabled=true;refresh.disabled=true;type.disabled=true;
+   previous.disabled=true;next.disabled=true;
+   message('جارٍ حفظ التصنيف للحلقات المحددة...');
    try{
-    for(const id of ids){
-     if(cancelled)break;
-     const circle=findCircle(id);
-     let finished=false,errorText='',iterations=0,lastRemaining=Infinity;
-     do{
-      if(cancelled)break;
-      iterations++;
-      if(iterations>1000){errorText='أُوقف حفاظًا على الاستقرار بسبب كثرة المحاولات.';break}
-      try{
-       // Small server transactions avoid the single long-running timeout
-       // which previously rolled back the entire circle.
-       const {data,error}=await client.rpc('apply_calendar_day_step_guarded',
-         {p_circle_id:id,p_date:day,p_day_type:newType,p_batch_size:1});
-       if(error){console.warn('calendar day step',error);throw Error(explainError(error))}
-       if(!data||data.ok!==true)throw Error('لم يؤكد الخادم الحفظ.');
-       processed+=Number(data.processed||0);
-       finished=data.completed===true;
-       if(!finished && Number(data.remaining)>=lastRemaining)
-        throw Error('لم تتقدم عملية الترحيل؛ أوقفنا المحاولة لتجنب الاستهلاك.');
-       lastRemaining=Number(data.remaining);
-       const fraction=Number(data.total)>0?
-         Math.max(0,Math.min(1,(Number(data.total)-Number(data.remaining))/Number(data.total))):0;
-       progress.max=ids.length;
-       progress.value=done+partial+fraction;
-       message('جارٍ اعتماد '+circle.name+' — مجمع '+circle.complexName+
-         '\nاكتمل '+done+' من '+ids.length+' حلقات، وجرت معالجة '+processed+' طالبًا.');
-      }catch(e){errorText=explainError(e);break}
-     }while(!finished&&!cancelled);
-     if(finished){
-       done++;overrides.set(id+'|'+day,newType);
-       lines.push('تم: '+circle.complexName+' — '+circle.name);
-     }else if(errorText){
-       failed++;lines.push('تعذر: '+circle.complexName+' — '+circle.name+'\nالسبب: '+errorText);
-     }else{
-       partial++;lines.push('غير مكتمل: '+circle.complexName+' — '+circle.name+' (يمكن استئنافه).');
-     }
-     remaining--;
-     progress.value=done+partial+failed;
-     report.textContent=lines.join('\n\n');
-    }
+    const {data,error}=await client.rpc('approve_calendar_day_fast_guarded',
+      {p_circle_ids:ids,p_date:day,p_day_type:newType});
+    if(error)throw Error(error.message||'تعذر اعتماد التصنيف.');
+    if(!data||data.ok!==true||Number(data.approvedCircles)!==ids.length)
+      throw Error('لم يؤكد الخادم اعتماد جميع الحلقات المختارة.');
+    for(const id of ids)overrides.set(id+'|'+day,newType);
+    const queued=Number(data.queuedStudents||0);
+    lastBreakdown='';
+    message('تم اعتماد «'+kinds[newType]+'» في '+ids.length+' حلقة. '+
+      (queued?'وُضعت مقررات '+queued+' طالبًا في طابور الترحيل الآمن. لا يلزم إبقاء الصفحة مفتوحة.':
+      'لا توجد مقررات متبقية تحتاج إلى ترحيل.'));
+    // The decision is final once the server confirms it; detailed shifting is
+    // an independently durable job and its status can be inspected on demand.
+    await fetchOverrides();
+    await renderCalendar(false);
+   }catch(e){
+    console.warn('Fast calendar approval',e);
+    message('لم يُعتمد التصنيف: '+explainError(e)+
+      '\nلا تعرض الصفحة نجاحًا قبل تأكيد الحفظ. يمكنك إعادة المحاولة.');
    }finally{
-    running=false;save.disabled=false;close.disabled=false;
+    running=false;save.disabled=false;refresh.disabled=false;
     type.disabled=false;previous.disabled=false;next.disabled=false;
-    stop.hidden=true;
    }
-   // Keep the actual per-circle error visible: never replace it by a generic
-   // "updated 0 circles" message as the old UI did.
-   message('النتيجة: نجح '+done+'، تعذر '+failed+'، غير مكتمل '+partial+
-     ' من '+ids.length+' حلقات.'+(failed?'\nراجع سبب فشل كل حلقة أدناه.':'')+
-     (cancelled?'\nأُوقف التنفيذ بناءً على طلبك؛ يمكنك استئناف الحلقات غير المكتملة.':''));
-   lastBreakdown=lines.join('\n\n');
-   report.textContent=lastBreakdown;
-   await fetchOverrides();
-   await renderCalendar(false);
   };
  }
  async function renderCalendar(load=true){

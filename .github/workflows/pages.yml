@@ -48,6 +48,7 @@ jobs:
           node --check sanabil-plan-calendar.js
           node tests/sanabil-plan-workflows-20261024.cjs
           node tests/sanabil-calendar-complex-batch-20261025.cjs
+          node tests/sanabil-calendar-instant-20261025.cjs
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
           node tests/sanabil-install.cjs
@@ -171,7 +172,8 @@ jobs:
                   assert cal_asset, 'Published calendar script missing from live page'
                   cal_script=read(cal_asset.group(1)).decode()
                   assert 'get_calendar_management_scope_guarded' in cal_script
-                  assert 'apply_calendar_day_step_guarded' in cal_script
+                  assert 'approve_calendar_day_fast_guarded' in cal_script
+                  assert 'get_calendar_reflow_status_guarded' in cal_script
                   assert 'sl-complex-group' in cal_script
                   assert 'get_circle_day_types_range_guarded' in cal_script
 
