@@ -45,6 +45,8 @@ jobs:
           node tests/sanabil-performance.cjs
           node --check sanabil-performance-center.js
           node tests/sanabil-performance-center.cjs
+          node --check sanabil-plan-calendar.js
+          node tests/sanabil-plan-workflows-20261024.cjs
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
           node tests/sanabil-install.cjs

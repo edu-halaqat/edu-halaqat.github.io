@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261024-v13.8.64';
+window.__SanabilLiveBuild='20261024-v13.8.65';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1636,6 +1636,25 @@ function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,h
     wrap.innerHTML='<label>تصنيف اليوم<select data-day-student="'+i+'" aria-label="تصنيف يوم '+esc(student.fullName)+'">'+
       dayKindOptions(custom||'inherit',true,dayData?.defaultType||'study')+'</select></label>';
     header.insertAdjacentElement('afterend',wrap);
+    // Short daily memorization-only opt-out; unlike "غير محتسب", major reviews
+    // remain due. One guarded transaction shifts the memorization schedule.
+    const memPlan=student.memorization?.planId;
+    if(memPlan&&kind==='study'&&date>=today()){
+      const skip=document.createElement('button');
+      skip.type='button';skip.className='button button-soft';
+      skip.textContent='لا حفظ جديد اليوم · رحّل مقرر الحفظ فقط';
+      wrap.append(skip);
+      skip.addEventListener('click',async()=>{
+        if(hasDrafts()&&!confirm('توجد حصيلة غير محفوظة؛ احفظها قبل استثناء الحفظ. هل تريد الاستمرار؟'))return;
+        if(!confirm('استثناء مقرر الحفظ الجديد لهذا الطالب اليوم وترحيله إلى اليوم الدراسي التالي؟ تبقى المراجعات مطلوبة.'))return;
+        skip.disabled=true;
+        try{
+          await rpc('skip_memorization_today_guarded',{p_plan_id:memPlan,p_date:date});
+          reload();
+        }catch(e){msg(box,'تعذر استثناء الحفظ: '+(e.message||'خطأ غير معروف'),true)}
+        finally{skip.disabled=false}
+      });
+    }
     const select=wrap.querySelector('select');
     select.addEventListener('change',async()=>{
       const next=select.value;
@@ -2954,7 +2973,7 @@ async function plansPage(root){
  <div class="sl-rule-note"><b>المراجعة الصغرى:</b> لا تختار لها سورة بداية ولا اتجاهًا؛ تبدأ من موضع نهاية درس اليوم وتتجه دائمًا نحو الناس بالمقدار المحدد، وتتحرك مع الدرس يومًا بيوم.</div>
  <div class="sl-rule-note"><b>المراجعة الكبرى:</b> يمكن ضبطها بالجزء أو الحزب أو نصف الحزب أو ربع الحزب، كما يمكن ضبطها بالسور أو الصفحات أو الآيات. وإذا انتهت المراجعة الصغرى داخل حزب أو بين حدَّين تحزيبيين، يضيف النظام المقدار الواقع بينها وبين أقرب تقسيم تلقائيًا؛ فلا يبقى محفوظ بلا مراجعة ولا يتكرر المقرر.</div>
  <div class="sl-rule-note"><b>أنواع الخطط:</b> اختر «خطة حلقات بر الوالدين» أو «برنامج أقوم» ليبني النظام الخطة وفق المنهج المعتمد حتى الختم، أو «خطة خاصة» لبناء خطة فردية بحسب مستوى الطالب وقدراته، أو «خطة علاجية» كخطة مؤقتة تهيئ الطالب للانتقال إلى أحد البرنامجين المعتمدين.</div>
- <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div><section class="sl-plan-archives"></section>`;
+ <div class="sl-toolbar">${button('إعداد خطة الطالب','bundle')}${button('إضافة مسار منفرد','new')}${actorRoles.has('admin')||actorRoles.has('manager')||actorRoles.has('supervisor')?button('أيام الإجازة والتقويم','calendar-days'):''}</div>${sanabilPlanCatalogHtml(methodologies)}<section class="sl-juz-exam-alerts" aria-live="polite"></section><div class="sl-data"></div><section class="sl-plan-archives"></section>`;
 
  if(talaqqinCircles.size){
    const quranMarkup=root.innerHTML;
@@ -2991,13 +3010,60 @@ async function plansPage(root){
    return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('أرشفة الخطة','remove-'+i)}</div></article>`;
  };
 
+ let activePlans=[],focusStudent='';
+ const studentById=new Map(students.map(s=>[s.id,s]));
+ const groupOrder={memorization:0,recent_review:1,review:2};
+ const renderGroupedPlans=()=>{
+   const container=root.querySelector('.sl-data');if(!container)return;
+   const groups=new Map();
+   activePlans.forEach((plan,i)=>{
+     const list=groups.get(plan.student_id)||[];
+     list.push({plan,index:i});groups.set(plan.student_id,list);
+   });
+   const ordered=[...groups].sort(([a],[b])=>
+     (studentById.get(a)?.full_name||a).localeCompare(studentById.get(b)?.full_name||b,'ar'));
+   const choices=ordered.map(([id])=>'<option value="'+esc(id)+'" '+(focusStudent===id?'selected':'')+'>'+
+     esc(studentById.get(id)?.full_name||'طالب مسجل')+'</option>').join('');
+   container.innerHTML=activePlans.length?
+     '<div class="sl-plan-group-controls"><label>عرض خطط طالب محدد <select data-plan-student-filter><option value="">جميع الطلاب</option>'+choices+'</select></label>'+
+     '<span>الطلاب أصحاب الخطط: '+ordered.length+' · المسارات النشطة: '+activePlans.length+'</span></div>'+
+     ordered.map(([id,items])=>{
+       items.sort((a,b)=>(groupOrder[a.plan.type]??9)-(groupOrder[b.plan.type]??9)||
+         String(a.plan.name||'').localeCompare(String(b.plan.name||''),'ar'));
+       const hasType=new Set(items.map(x=>x.plan.type));
+       return '<section class="sl-student-plan-group" data-plan-student="'+esc(id)+'"'+(focusStudent&&focusStudent!==id?' hidden':'')+'>'
+         '<header class="sl-student-plan-heading"><h3>'+esc(studentById.get(id)?.full_name||'طالب مسجل')+
+         '</h3><span>'+items.length+' مسارات</span></header>'+
+         '<div class="sl-plan-grid">'+items.map(({plan,index})=>planCard(plan,index)).join('')+'</div>'+
+         '<p class="sl-plan-missing">'+
+         (!hasType.has('memorization')?'لم تُنشأ خطة الحفظ · ':'')+
+         (!hasType.has('recent_review')?'لا توجد مراجعة صغرى · ':'')+
+         (!hasType.has('review')?'لا توجد مراجعة كبرى':'')+
+         '</p></section>';
+     }).join(''):'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
+   container.querySelector('[data-plan-student-filter]')?.addEventListener('change',e=>{
+     focusStudent=e.target.value;
+     // Hide groups without removing them: registered edit/view/save listeners
+     // must remain alive when teachers switch from one student to another.
+     container.querySelectorAll('.sl-student-plan-group').forEach(group=>{
+       group.hidden=!!focusStudent&&group.dataset.planStudent!==focusStudent;
+     });
+   });
+ };
+ const focusPlanStudent=id=>{
+   const filter=root.querySelector('[data-plan-student-filter]');
+   if(!filter)return;
+   filter.value=id;filter.dispatchEvent(new Event('change'));
+ };
  const load=async()=>{
-   const plans=(await rows('plans','*',{status:'active'})).filter(p=>quranStudentIds.has(p.student_id));plans.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
-   root.querySelector('.sl-data').innerHTML=plans.length?`<div class="sl-plan-grid">${plans.map(planCard).join('')}</div>`:'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
+   const plans=await result(sb().from('plans').select('*').eq('status','active')
+     .eq('circle_id',selectedPlanCircle).order('student_id',{ascending:true}).limit(850));
+   activePlans=plans.filter(p=>quranStudentIds.has(p.student_id));
+   renderGroupedPlans();
    // Archived plans remain discoverable; no data restoration or deletion is implicit.
    const archiveStudents=await rows('students','id,full_name,circle_id');
    const archivedIds=new Set(scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle).map(x=>x.id));
-   const archived=(await rows('plans','id,name,type,status,student_id,start_date,updated_at',{status:'cancelled'}))
+   const archived=(await result(sb().from('plans').select('id,name,type,status,student_id,start_date,updated_at').eq('status','cancelled').eq('circle_id',selectedPlanCircle).limit(650)))
      .filter(p=>archivedIds.has(p.student_id));
    const archives=root.querySelector('.sl-plan-archives');
    if(archives){
@@ -3026,7 +3092,7 @@ async function plansPage(root){
        };
      });
    }
-   plans.forEach((p,i)=>{
+   activePlans.forEach((p,i)=>{
      action(root,root.querySelector(`[data-action="remove-${i}"]`),async()=>{
        const label=p.name||typeName[p.type]||'الخطة';
        if(!confirm('أرشفة «'+label+'» وإخفاؤها من الخطط النشطة؟ ستُحفظ جميع أيامها وحصائلها دون حذف.'))return;
@@ -3162,18 +3228,36 @@ async function plansPage(root){
        }
 
        const units=p.type==='review'?majorUnits:memUnits,mem=p.type==='memorization';
-       b.innerHTML=`<form>${p.type==='review'?field('اسم المراجعة','planName','text',p.name||''):''}<div class="form-grid two">${select('الوحدة','unit',units,p.unit)}${field('المقدار اليومي','amount','number',p.daily_amount,'min="1" max="45" required')}${select('الاتجاه','direction',dirs,p.direction)}${select('سورة البداية','surah',[])}${select('آية البداية','ayah',[])}${field('بداية الخطة','start','date',p.start_date,'required')}${mem?'':field('نهاية الخطة','end','date',p.end_date,'required')}</div>${commonDays(excluded.map(String))}${mem?`<p class="sl-rule-note"><b>الختم المتوقع الحالي:</b> ${esc(p.projected_completion_date||p.end_date||'—')} · ${esc(p.projected_teaching_days??'—')} يومًا تعليميًا. سيعاد حسابه تلقائيًا بعد الحفظ.</p>`:''}<p class="sl-help">إذا سبق تنفيذ الخطة فلن يسمح النظام بإعادة توليد تاريخها؛ أنهِها وأنشئ خطة جديدة عند الحاجة إلى تغيير جوهري.</p><button type="submit" class="button button-primary">حفظ وإعادة التوزيع</button></form>`;
+       b.innerHTML=`<form>${p.type==='review'?field('اسم المراجعة','planName','text',p.name||''):''}<div class="form-grid two">${select('الوحدة','unit',units,p.unit)}${field('المقدار اليومي','amount','number',p.daily_amount,'min="1" max="45" required')}${select('الاتجاه','direction',dirs,p.direction)}${select('سورة البداية','surah',[])}${select('آية البداية','ayah',[])}${field('بداية الخطة','start','date',p.start_date,'required')}${mem?'':field('نهاية الخطة','end','date',p.end_date,'required')}</div>${commonDays(excluded.map(String))}${mem?`<p class="sl-rule-note"><b>الختم المتوقع الحالي:</b> ${esc(p.projected_completion_date||p.end_date||'—')} · ${esc(p.projected_teaching_days??'—')} يومًا تعليميًا. سيعاد حسابه تلقائيًا بعد الحفظ.</p>`:''}<p class="sl-help">إذا سبق تنفيذ الخطة فلن يسمح النظام بإعادة توليد تاريخها؛ أنهِها وأنشئ خطة جديدة عند الحاجة إلى تغيير جوهري.</p><label class="sl-plan-version-choice"><input type="checkbox" name="newVersion"> اعتماد مسار متابعة جديد من تاريخ البدء المختار، مع أرشفة الخطة السابقة وحفظ جميع إنجازاتها</label><p class="sl-help" data-plan-version-info>إذا بدأت الخطة فعليًا فلا تُستبدل أيامها القديمة؛ اختر مسار متابعة جديدًا بتاريخ اليوم أو بعده.</p><button type="submit" class="button button-primary">حفظ وإعادة التوزيع</button></form>`;
        const form=b.querySelector('form');await quranPair(form,'surah','ayah',{surah:sr.surahNo||sr.surah_no,ayah:sr.ayahNo||sr.ayah});
-       submit(form,async()=>{if(!mem&&val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');const ex=week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));const r=mem
+       const versionBox=form.elements.newVersion,versionInfo=form.querySelector('[data-plan-version-info]');
+       const pendingProbe=await sb().from('plan_days').select('date_key,target_from')
+         .eq('plan_id',p.id).gte('date_key',today()).eq('status','planned')
+         .order('date_key',{ascending:true}).limit(1);
+       // Read a single marker, never download the student's historical plan days.
+       const historyProbe=await sb().from('plan_days').select('id').eq('plan_id',p.id)
+         .or('rating.not.is.null,completed_amount.gt.0,carry_in.gt.0,carry_out.gt.0,status.neq.planned').limit(1);
+       if(historyProbe.error)throw Error(historyProbe.error.message);
+       const alreadyUsed=(historyProbe.data||[]).length>0;
+       if(alreadyUsed){
+         versionBox.checked=true;versionBox.disabled=true;
+         form.elements.start.value=today();
+         const next=pendingProbe.data?.[0]?.target_from;
+         if(next?.surahNo&&next?.ayahNo){
+           await quranPair(form,'surah','ayah',{surah:next.surahNo,ayah:next.ayahNo});
+         }
+         versionInfo.textContent='هذه خطة سبق تنفيذ بعض أيامها؛ سيُنشأ مسار متابعة جديد ابتداء من اليوم أو تاريخ قادم. تأكد من بداية المقرر واتجاهه قبل الاعتماد. يُحفظ السجل القديم كما هو.';
+       }
+       submit(form,async()=>{if(!mem&&val(form,'end')<val(form,'start'))throw Error('تحقق من تاريخ البداية والنهاية.');const ex=week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));const isVersion=versionBox.checked;if(isVersion&&!confirm('سيُحفظ سجل الخطة القديمة وتُؤرشف، ويبدأ المسار الجديد من '+val(form,'start')+'. هل اعتمدت موضع المقرر الجديد؟'))return;const r=isVersion?await rpc('revise_active_plan_guarded',{p_plan_id:p.id,p_start_date:val(form,'start'),p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_end_date:mem?null:val(form,'end'),p_excluded_weekdays:ex,p_new_name:p.type==='review'?val(form,'planName').trim():null}):mem
          ?await rpc('save_memorization_plan_whole_ayah',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true,p_methodology_code:p.methodology_code||null,p_methodology_level:p.methodology_level||null,p_methodology_profile:p.methodology_profile||null,p_methodology_meta:p.methodology_meta||{}})
-         :await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(p.type==='review'&&val(form,'planName').trim())await rpc('update_plan_details_guarded',{p_plan_id:p.id,p_name:val(form,'planName').trim()});b.closest('dialog').close();await load();msg(root,mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
+         :await rpc('save_plan_with_days',{p_plan_id:p.id,p_student_id:p.student_id,p_teacher_id:p.teacher_id,p_program_id:p.program_id||null,p_type:p.type,p_unit:val(form,'unit'),p_daily_amount:Number(val(form,'amount')),p_direction:val(form,'direction'),p_start_surah:Number(val(form,'surah')),p_start_ayah:Number(val(form,'ayah')),p_start_date:val(form,'start'),p_end_date:val(form,'end'),p_excluded_weekdays:ex,p_status:'active',p_replace_existing:true});if(!isVersion)await rpc('sync_student_review_plans',{p_student_id:p.student_id});if(!isVersion&&p.type==='review'&&val(form,'planName').trim())await rpc('update_plan_details_guarded',{p_plan_id:p.id,p_name:val(form,'planName').trim()});b.closest('dialog').close();await load();msg(root,isVersion?'اعتمد مسار المتابعة الجديد مع حفظ سجل الخطة السابقة.':mem?`تم تحديث خطة الحفظ. الختم المتوقع ${r.projectedCompletionDate||'—'} بعد ${r.projectedTeachingDays||0} يومًا تعليميًا.`:`تم تحديث الخطة وتوليد ${r.generatedDays} يومًا.`)});
      });
    });
  };
 
  const createSingle=async()=>{
    const b=modal('إضافة مسار تعليمي');
-   b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المسار','type',[{id:'memorization',name:'الحفظ الجديد'},{id:'recent_review',name:'المراجعة الصغرى'},{id:'review',name:'المراجعة الكبرى'}],'memorization')}${field('اسم الخطة (للمراجعة الكبرى)','planName','text','')}${select('المقدار بوحدة','unit',memUnits,'lines')}${field('المقدار اليومي','amount','number','5','min="1" max="45" required')}<div data-independent>${select('الاتجاه','direction',dirs,'toward_nas')}</div><div data-independent>${select('سورة البداية','surah',[])}</div><div data-independent>${select('آية البداية','ayah',[])}</div>${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<div data-end-wrap>${field('نهاية الخطة','end','date','','required')}</div></div>${commonDays(['5','6'])}<p class="sl-help" data-track-help></p><p class="sl-rule-note" data-forecast style="display:none"></p><button type="submit" class="button button-primary">إنشاء المسار</button></form>`;
+   b.innerHTML=`<form><p class="sl-rule-note">إذا وجد مسار حفظ أو مراجعة صغرى نشط سنفتح تعديله بدل إنشاء نسخة متعارضة. يمكنك إضافة مراجعة كبرى جديدة مستقلة.</p><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('المسار','type',[{id:'memorization',name:'الحفظ الجديد'},{id:'recent_review',name:'المراجعة الصغرى'},{id:'review',name:'المراجعة الكبرى'}],'memorization')}${field('اسم الخطة (للمراجعة الكبرى)','planName','text','')}${select('المقدار بوحدة','unit',memUnits,'lines')}${field('المقدار اليومي','amount','number','5','min="1" max="45" required')}<div data-independent>${select('الاتجاه','direction',dirs,'toward_nas')}</div><div data-independent>${select('سورة البداية','surah',[])}</div><div data-independent>${select('آية البداية','ayah',[])}</div>${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<div data-end-wrap>${field('نهاية الخطة','end','date','','required')}</div></div>${commonDays(['5','6'])}<p class="sl-help" data-track-help></p><p class="sl-rule-note" data-forecast style="display:none"></p><button type="submit" class="button button-primary">إنشاء المسار</button></form>`;
    const form=b.querySelector('form'),typeEl=form.querySelector('[name="type"]'),unitEl=form.querySelector('[name="unit"]'),nameEl=form.querySelector('[name="planName"]'),help=form.querySelector('[data-track-help]'),forecast=form.querySelector('[data-forecast]'),endWrap=form.querySelector('[data-end-wrap]');
    await quranFields(form);
    const excludedDays=()=>week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
@@ -3198,6 +3282,15 @@ async function plansPage(root){
    submit(form,async()=>{
      const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),excluded=excludedDays(),t=val(form,'type'),track={id:crypto.randomUUID(),type:t,unit:val(form,'unit'),dailyAmount:Number(val(form,'amount'))};
+     const same=activePlans.find(x=>x.student_id===student.id&&x.type===t);
+     if(same&&t!=='review'){
+       const pos=activePlans.indexOf(same);
+       b.closest('dialog').close();
+       focusPlanStudent(student.id);
+       msg(root,'للطالب مسار نشط من هذا النوع؛ انتقلنا إلى تعديل الخطة بدل إنشاء نسخة متعارضة.');
+       root.querySelector('[data-action="edit-'+pos+'"]')?.click();
+       return;
+     }
      if(t!=='recent_review'){track.direction=val(form,'direction');track.startSurah=Number(val(form,'surah'));track.startAyah=Number(val(form,'ayah'));if(t==='review')track.name=val(form,'planName').trim()}
      let r;
      if(t==='memorization'){
@@ -3207,7 +3300,7 @@ async function plansPage(root){
        r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:val(form,'end'),p_excluded_weekdays:excluded,p_tracks:[track]});
      }
      // The whole-ayah bundle already runs dependent-review synchronization.
-     if(!hasMem||predefinedMethods.has(code))await rpc('sync_student_review_plans',{p_student_id:student.id});
+     if(t==='review')await rpc('sync_student_review_plans',{p_student_id:student.id});
      b.closest('dialog').close();await load();
      msg(root,t==='memorization'?'تم إنشاء خطة الحفظ. الختم المتوقع '+(r.projectedEndDate||'—')+' بعد '+(r.teachingDays||0)+' يومًا تعليميًا.':t==='recent_review'?'تم إنشاء المراجعة الصغرى كنافذة متحركة ملاصقة للدرس.':'تم إنشاء المسار وتوزيعه.');
    });
@@ -3396,10 +3489,40 @@ async function plansPage(root){
    if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
    if(initial.methodology&&methodItems.some(x=>x.id===initial.methodology))form.elements.methodology.value=initial.methodology;
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
-   await applyMethodology(true);setTimeout(refreshBundleForecast,0);
+   const adjustSelectedStudent=()=>{
+     if(initial.transitionFromPlanId)return;
+     const id=val(form,'student'),mem=activePlans.find(p=>p.student_id===id&&p.type==='memorization');
+     const recent=activePlans.find(p=>p.student_id===id&&p.type==='recent_review');
+     if(mem){
+       form.elements.usemem.checked=false;
+       if(form.elements.end)form.elements.end.value=mem.end_date||today();
+     }
+     if(recent)form.elements.userecent.checked=false;
+     if(mem||recent){
+       methodSummary.insertAdjacentHTML('beforeend','<p><b>للطلاب ذوي الخطط النشطة:</b> ألغى النظام اختيار المسارات الموجودة حتى لا تنشئ نسخًا متعارضة. أضف المراجعات الكبرى اللازمة أو عدّل المسار القائم من بطاقته.</p>');
+     }
+     scheduleBundleForecast();
+   };
+   form.elements.student.addEventListener('change',()=>setTimeout(adjustSelectedStudent,0));
+   await applyMethodology(true);adjustSelectedStudent();setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
      const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
+     const currentMem=activePlans.find(p=>p.student_id===student.id&&p.type==='memorization');
+     const currentRecent=activePlans.find(p=>p.student_id===student.id&&p.type==='recent_review');
+     if(hasMem&&currentMem&&!initial.transitionFromPlanId){
+       b.closest('dialog').close();focusPlanStudent(student.id);
+       msg(root,'للطالب خطة حفظ نشطة؛ افتحنا تعديلها بدل إنشاء خطة حفظ متداخلة.');
+       root.querySelector('[data-action="edit-'+activePlans.indexOf(currentMem)+'"]')?.click();
+       return;
+     }
+     if(form.elements.userecent.checked&&currentRecent&&!initial.transitionFromPlanId){
+       form.elements.userecent.checked=false;
+       msg(b,'للطالب مراجعة صغرى نشطة، لن ننشئ نسخة متداخلة. يمكن تعديلها من بطاقتها.');
+     }
+     if(!hasMem&&currentMem&&(!val(form,'end')||val(form,'end')<startDate)){
+       form.elements.end.value=currentMem.end_date||startDate;
+     }
      if(code==='aqom'&&val(form,'aqomPath')==='preliminary'){
        const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
        b.closest('dialog').close();await load();msg(root,'تم إنشاء برنامج أقوم · المرحلة التمهيدية. تاريخ الانتهاء المتوقع: '+(r.projectedEndDate||'—')+'.');return;
@@ -3521,6 +3644,13 @@ async function plansPage(root){
  });
  action(root,root.querySelector('[data-action="new"]'),createSingle);
  action(root,root.querySelector('[data-action="bundle"]'),createBundle);
+ action(root,root.querySelector('[data-action="calendar-days"]'),async()=>{
+   if(!window.SanabilPlanCalendar)throw Error('تعذر تحميل تقويم الإجازات. حدّث الصفحة ثم أعد المحاولة.');
+   await window.SanabilPlanCalendar.open({
+     circles:planCircles.map(x=>({id:x.id,name:x.name})),
+     selectedCircle:selectedPlanCircle
+   });
+ });
  await load();await showExamAlerts()
 }
 
