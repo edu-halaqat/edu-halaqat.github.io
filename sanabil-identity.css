@@ -1583,3 +1583,20 @@ html[data-sanabil-theme="dark"] .sl-voice-panel,html[data-sanabil-theme="dark"] 
    color:#eaf7ef!important;
  }
 }
+
+/* Plans: one stable student block for memorization and both reviews */
+.sl-plan-group-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;justify-content:space-between;padding:12px;margin:12px 0;border:1px solid #9db9ae;border-radius:13px;direction:rtl}
+.sl-plan-group-controls label{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.sl-plan-group-controls select{max-width:100%;padding:9px 13px;border-radius:9px;border:1px solid #aac7bc;background:var(--surface,#fff);color:inherit}
+.sl-student-plan-group{border:1px solid #9fbfb0;border-radius:16px;padding:15px;margin:18px 0;background:rgba(127,169,146,.055);min-width:0;max-width:100%}
+.sl-student-plan-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px;border-bottom:1px solid #c8dcd1;padding-bottom:12px;margin-bottom:12px}
+.sl-student-plan-heading h3{margin:0;font-size:1.3rem}
+.sl-student-plan-heading span{border-radius:99px;padding:4px 12px;background:#dfefe5;color:#155e46;font-size:.87rem}
+.sl-student-plan-group>.sl-plan-grid{grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:13px;align-items:stretch}
+.sl-student-plan-group .sl-plan-card{margin:0;min-width:0;overflow-wrap:anywhere}
+.sl-plan-missing{font-size:.85rem;opacity:.75;margin:10px 0 0}
+.sl-plan-version-choice{border:1px solid #bba46f;border-radius:10px;display:flex!important;flex-direction:row!important;align-items:flex-start;gap:8px;padding:12px;margin:12px 0}
+.sl-plan-version-choice input{width:18px;height:18px;flex:none}
+html[data-sanabil-theme="dark"] .sl-student-plan-group{border-color:#5e8572;background:#1b342b}
+html[data-sanabil-theme="dark"] .sl-student-plan-heading span{background:#20523e;color:#ecfff2}
+@media(max-width:600px){.sl-student-plan-group{padding:11px;margin:12px 0}.sl-student-plan-group>.sl-plan-grid{grid-template-columns:1fr}.sl-plan-group-controls{align-items:stretch;flex-direction:column}.sl-plan-group-controls select{width:100%}}
