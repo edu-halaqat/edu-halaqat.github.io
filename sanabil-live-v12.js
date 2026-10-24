@@ -3010,7 +3010,7 @@ async function plansPage(root){
    return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('أرشفة الخطة','remove-'+i)}</div></article>`;
  };
 
- let activePlans=[],focusStudent='';
+ let activePlans=[],focusStudent='',studentChoiceRows=[...students],updateArchives=()=>{};
  const studentById=new Map(students.map(s=>[s.id,s]));
  const groupOrder={memorization:0,recent_review:1,review:2};
  const renderGroupedPlans=()=>{
@@ -3022,32 +3022,56 @@ async function plansPage(root){
    });
    const ordered=[...groups].sort(([a],[b])=>
      (studentById.get(a)?.full_name||a).localeCompare(studentById.get(b)?.full_name||b,'ar'));
-   const choices=ordered.map(([id])=>'<option value="'+esc(id)+'" '+(focusStudent===id?'selected':'')+'>'+
-     esc(studentById.get(id)?.full_name||'طالب مسجل')+'</option>').join('');
-   container.innerHTML=activePlans.length?
-     '<div class="sl-plan-group-controls"><label>عرض خطط طالب محدد <select data-plan-student-filter><option value="">جميع الطلاب</option>'+choices+'</select></label>'+
-     '<span>الطلاب أصحاب الخطط: '+ordered.length+' · المسارات النشطة: '+activePlans.length+'</span></div>'+
-     ordered.map(([id,items])=>{
-       items.sort((a,b)=>(groupOrder[a.plan.type]??9)-(groupOrder[b.plan.type]??9)||
-         String(a.plan.name||'').localeCompare(String(b.plan.name||''),'ar'));
-       const hasType=new Set(items.map(x=>x.plan.type));
-       return '<section class="sl-student-plan-group" data-plan-student="'+esc(id)+'"'+(focusStudent&&focusStudent!==id?' hidden':'')+'>'
-         '<header class="sl-student-plan-heading"><h3>'+esc(studentById.get(id)?.full_name||'طالب مسجل')+
-         '</h3><span>'+items.length+' مسارات</span></header>'+
-         '<div class="sl-plan-grid">'+items.map(({plan,index})=>planCard(plan,index)).join('')+'</div>'+
-         '<p class="sl-plan-missing">'+
-         (!hasType.has('memorization')?'لم تُنشأ خطة الحفظ · ':'')+
-         (!hasType.has('recent_review')?'لا توجد مراجعة صغرى · ':'')+
-         (!hasType.has('review')?'لا توجد مراجعة كبرى':'')+
-         '</p></section>';
-     }).join(''):'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
+   // Choose from the whole authorized circle, including students with only archived
+   // plans. An active-plan list is NOT a valid student picker.
+   const choices=studentChoiceRows.map(person=>
+     '<option value="'+esc(person.id)+'"'+(focusStudent===person.id?' selected':'')+'>'+
+     esc(person.full_name||'طالب مسجل')+'</option>').join('');
+   const activeShown=focusStudent?(groups.get(focusStudent)||[]).length:activePlans.length;
+   const countLabel=focusStudent?'المسارات النشطة للطالب: '+activeShown:
+     'الطلاب أصحاب الخطط: '+ordered.length+' · المسارات النشطة: '+activePlans.length;
+   const firstId=ordered[0]?.[0];
+   const cards=ordered.map(([id,items])=>{
+     items.sort((a,b)=>(groupOrder[a.plan.type]??9)-(groupOrder[b.plan.type]??9)||
+       String(a.plan.name||'').localeCompare(String(b.plan.name||''),'ar'));
+     const kinds=new Set(items.map(x=>x.plan.type));
+     return '<section class="sl-student-plan-group" data-plan-student="'+esc(id)+'"'+
+       (focusStudent&&focusStudent!==id?' hidden':'')+'>'+
+       '<details class="sl-student-plan-details"'+(focusStudent===id||!focusStudent&&id===firstId?' open':'')+'>'+
+       '<summary class="sl-student-plan-heading"><strong>'+esc(studentById.get(id)?.full_name||'طالب مسجل')+
+       '</strong><span>'+items.length+' مسارات — عرض التفاصيل</span></summary>'+
+       '<div class="sl-plan-grid">'+items.map(({plan,index})=>planCard(plan,index)).join('')+'</div>'+
+       '<p class="sl-plan-missing">'+
+       (!kinds.has('memorization')?'لا توجد خطة حفظ نشطة · ':'')+
+       (!kinds.has('recent_review')?'لا توجد مراجعة صغرى نشطة · ':'')+
+       (!kinds.has('review')?'لا توجد مراجعة كبرى نشطة':'')+
+       '</p></details></section>';
+   }).join('');
+   container.innerHTML='<div class="sl-plan-group-controls">'+
+     '<label>خطط الطالب<select data-plan-student-filter><option value="">جميع الطلاب</option>'+choices+'</select></label>'+
+     '<span data-plan-active-count>'+countLabel+'</span></div>'+
+     '<div class="sl-plan-list" data-plan-visible-list>'+cards+'</div>'+
+     '<p class="sl-empty" data-plan-no-active'+(activeShown?' hidden':'')+'>'+
+     (focusStudent?'لا توجد خطط نشطة لهذا الطالب؛ افتح «الخطط السابقة والمؤرشفة» أدناه لمراجعة خططه.':
+       'لا توجد خطط نشطة بعد. ابدأ بإعداد خطة لأحد الطلاب.')+'</p>';
    container.querySelector('[data-plan-student-filter]')?.addEventListener('change',e=>{
      focusStudent=e.target.value;
-     // Hide groups without removing them: registered edit/view/save listeners
-     // must remain alive when teachers switch from one student to another.
-     container.querySelectorAll('.sl-student-plan-group').forEach(group=>{
+     const matching=groups.get(focusStudent)||[];
+     container.querySelectorAll('[data-plan-student]').forEach(group=>{
        group.hidden=!!focusStudent&&group.dataset.planStudent!==focusStudent;
+       if(focusStudent&&group.dataset.planStudent===focusStudent){
+         const details=group.querySelector('details');if(details)details.open=true;
+       }
      });
+     const count=container.querySelector('[data-plan-active-count]');
+     if(count)count.textContent=focusStudent?'المسارات النشطة للطالب: '+matching.length:
+       'الطلاب أصحاب الخطط: '+ordered.length+' · المسارات النشطة: '+activePlans.length;
+     const empty=container.querySelector('[data-plan-no-active]');
+     if(empty){
+       empty.hidden=!!(focusStudent?matching.length:activePlans.length);
+       empty.textContent=focusStudent?'لا توجد خطط نشطة لهذا الطالب؛ راجع الأرشيف بالأسفل.':'لا توجد خطط نشطة.';
+     }
+     updateArchives();
    });
  };
  const focusPlanStudent=id=>{
@@ -3056,42 +3080,65 @@ async function plansPage(root){
    filter.value=id;filter.dispatchEvent(new Event('change'));
  };
  const load=async()=>{
-   const plans=await result(sb().from('plans').select('*').eq('status','active')
-     .eq('circle_id',selectedPlanCircle).order('student_id',{ascending:true}).limit(850));
+   // Limit every read to the selected circle. Do not load all of the complex's
+   // plans, and do not reread per student when changing the filter.
+   const [plans,archiveStudents,archivedRows]=await Promise.all([
+     result(sb().from('plans').select('*').eq('status','active')
+       .eq('circle_id',selectedPlanCircle).order('student_id',{ascending:true}).limit(850)),
+     result(sb().from('students').select('id,full_name,circle_id')
+       .eq('circle_id',selectedPlanCircle).limit(800)),
+     result(sb().from('plans').select('id,name,type,status,student_id,start_date,updated_at')
+       .eq('status','cancelled').eq('circle_id',selectedPlanCircle)
+       .order('updated_at',{ascending:false}).limit(850))
+   ]);
    activePlans=plans.filter(p=>quranStudentIds.has(p.student_id));
-   renderGroupedPlans();
-   // Archived plans remain discoverable; no data restoration or deletion is implicit.
-   const archiveStudents=await rows('students','id,full_name,circle_id');
-   const archivedIds=new Set(scopeStudentsToPlanCircle(archiveStudents,selectedPlanCircle).map(x=>x.id));
-   const archived=(await result(sb().from('plans').select('id,name,type,status,student_id,start_date,updated_at').eq('status','cancelled').eq('circle_id',selectedPlanCircle).limit(650)))
-     .filter(p=>archivedIds.has(p.student_id));
+   const archiveNames=new Map(archiveStudents.map(s=>[s.id,s.full_name]));
+   for(const student of students)archiveNames.set(student.id,student.full_name);
+   const archivedIds=new Set(archiveStudents.map(x=>x.id));
+   const archived=archivedRows.filter(p=>archivedIds.has(p.student_id));
+   const ids=new Set([...students.map(x=>x.id),...archived.map(x=>x.student_id)]);
+   studentChoiceRows=[...ids].map(id=>({id,full_name:archiveNames.get(id)||'طالب مسجل'}))
+     .sort((a,b)=>a.full_name.localeCompare(b.full_name,'ar'));
+   if(focusStudent&&!ids.has(focusStudent))focusStudent='';
    const archives=root.querySelector('.sl-plan-archives');
-   if(archives){
-     archives.innerHTML='<details><summary>الخطط السابقة والمؤرشفة ('+archived.length+')</summary>'+
-       '<p class="sl-help">هذه الخطط لم تعد نشطة؛ لا تُحذف سجلاتها ولا يُعاد تنفيذها. اختر خطة لاستعراض أيامها السابقة.</p>'+
-       archived.map((p,j)=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0">'+
-        '<b>'+esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)+'</b>'+
-        '<span>'+esc(typeName[p.type]||p.type)+'</span>'+
-        '<span>بدأت '+esc(p.start_date||'—')+'</span>'+
-        '<button type="button" class="button button-soft" data-archived-plan="'+j+'">عرض السجل</button></div>').join('')+
+   updateArchives=()=>{
+     if(!archives)return;
+     const visible=focusStudent?archived.filter(p=>p.student_id===focusStudent):archived;
+     const selectedName=focusStudent?(archiveNames.get(focusStudent)||'الطالب'):'طلاب الحلقة';
+     archives.innerHTML='<details class="sl-plan-archives-details">'+
+       '<summary>الخطط السابقة والمؤرشفة — '+esc(selectedName)+' ('+visible.length+')</summary>'+
+       '<p class="sl-help">'+(focusStudent?'خطط هذا الطالب السابقة فقط. ':'خطط طلاب الحلقة السابقة. ')+
+       'الأرشيف للقراءة دون تغيير الإنجازات.</p>'+
+       (visible.length?visible.map((p,j)=>
+         '<div class="sl-archive-plan-line"><b>'+esc(archiveNames.get(p.student_id)||'طالب مسجل')+'</b>'+
+         '<span>'+esc(typeName[p.type]||'خطة تعليمية')+'</span>'+
+         '<span>بدأت '+esc(p.start_date||'—')+'</span>'+
+         '<button type="button" class="button button-soft" data-archived-plan="'+j+'">عرض السجل</button></div>').join(''):
+         '<p class="sl-empty">لا توجد خطط مؤرشفة '+(focusStudent?'لهذا الطالب.':'في الحلقة.')+'</p>')+
        '</details>';
      archives.querySelectorAll('[data-archived-plan]').forEach(btn=>{
        btn.onclick=async()=>{
-         const plan=archived[Number(btn.dataset.archivedPlan)],d=modal('سجل الخطة السابقة');
-         d.innerHTML='<p class="sl-help">جارٍ تحميل أيام الخطة القديمة دون تغيير السجلات...</p>';
+         const plan=visible[Number(btn.dataset.archivedPlan)];
+         if(!plan||focusStudent&&plan.student_id!==focusStudent)return;
+         const d=modal('سجل الخطة السابقة');
+         d.innerHTML='<p class="sl-help">جارٍ تحميل الأيام السابقة دون تعديلها...</p>';
          try{
-           const list=await result(sb().from('plan_days').select('date_key,display_label,status,rating,target_from,target_to').eq('plan_id',plan.id)
-             .order('date_key',{ascending:true}).limit(80));
+           const list=await result(sb().from('plan_days')
+             .select('date_key,display_label,status,rating,target_from,target_to')
+             .eq('plan_id',plan.id).order('date_key',{ascending:true}).limit(80));
            const statusAr={completed:'منجز',carried:'مُرحّل',planned:'مخطط',not_done:'لم يُنجز'};
-           d.innerHTML='<p>الطالب: '+esc(students.find(s=>s.id===plan.student_id)?.full_name||plan.student_id)+
-             ' · تاريخ البدء: '+esc(plan.start_date)+'</p>'+
-             '<p class="sl-help">عرض أول '+list.length+' يومًا محفوظًا من سجل الخطة. لا يمكن تعديل الخطة المؤرشفة من هذه النافذة.</p>'+
+           d.innerHTML='<p>الطالب: '+esc(archiveNames.get(plan.student_id)||'طالب مسجل')+
+             ' · تاريخ البدء: '+esc(plan.start_date||'—')+'</p>'+
+             '<p class="sl-help">عرض أول '+list.length+' يومًا محفوظًا دون تغيير سجله.</p>'+
              table(['التاريخ','المقرر','الحالة'],list.map(x=>[esc(x.date_key),
-              esc(x.display_label||qref(x.target_from)+' ← '+qref(x.target_to)),esc(statusAr[x.status]||x.status)]));
+               esc(x.display_label||qref(x.target_from)+' ← '+qref(x.target_to)),
+               esc(statusAr[x.status]||x.status)]));
          }catch(err){d.textContent='تعذر قراءة الأرشيف: '+err.message}
        };
      });
-   }
+   };
+   renderGroupedPlans();
+   updateArchives();
    activePlans.forEach((p,i)=>{
      action(root,root.querySelector(`[data-action="remove-${i}"]`),async()=>{
        const label=p.name||typeName[p.type]||'الخطة';
