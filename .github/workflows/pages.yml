@@ -165,6 +165,16 @@ jobs:
                   js=read(script).decode()
                   assert 'userWhatsAppDialog' in js and expected in js
                   assert 'loadCircleSessionData' in js
+                  # Check the actual HTTPS deployment, not the GitHub source,
+                  # for the newly released complex/circle holiday calendar.
+                  cal_asset=re.search(r'src="(/sanabil-plan-calendar\.js\?v=[^"]+)"',html)
+                  assert cal_asset, 'Published calendar script missing from live page'
+                  cal_script=read(cal_asset.group(1)).decode()
+                  assert 'get_calendar_management_scope_guarded' in cal_script
+                  assert 'apply_calendar_day_step_guarded' in cal_script
+                  assert 'sl-complex-group' in cal_script
+                  assert 'get_circle_day_types_range_guarded' in cal_script
+
                   assert 'التسميع المرئي' in js
                   # Confirm the actual published release includes the permanent
                   # installation action and that it is not initially hidden.
