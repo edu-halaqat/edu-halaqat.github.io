@@ -73,7 +73,7 @@ assert(!allMarkup.includes("'><header"),'avoid the previous missing plus which y
 const selectedMarkup=renderCards('student-A');
 assert(selectedMarkup.includes('أحمد')&&selectedMarkup.includes('hidden')&&selectedMarkup.includes('بدر'),'all cards survive filtering');
 assert(sheet.includes('.sl-student-plan-group[hidden]{display:none!important}'),'hidden groups truly hidden');
-const archiveStart=live.indexOf('updateArchives=()=>{');
+const archiveStart=live.indexOf('   updateArchives=()=>{',live.indexOf("const archives=root.querySelector('.sl-plan-archives')"));
 const archiveEnd=live.indexOf('   renderGroupedPlans();',archiveStart);
 assert(archiveStart>=0&&archiveEnd>archiveStart,'archive render extractable');
 const archiveRun=selected=>{
