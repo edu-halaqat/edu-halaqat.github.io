@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261023-v13.8.62';
+window.__SanabilLiveBuild='20261024-v13.8.63';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -4204,9 +4204,10 @@ async function dashboardDetails(root,a){
 }
 async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
- root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس سرعة الاستجابة','performance')}${button('استيراد وتصدير ملفات الجداول','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
+ root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس مؤشرات الأداء','performance')}${button('استيراد وتصدير ملفات الجداول','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
  window.SanabilComplexStaff?.decorateSettings?.(root);
  action(root,root.querySelector('[data-action="performance"]'),async()=>{
+  if(window.SanabilPerformanceCenter?.open)return window.SanabilPerformanceCenter.open();
   const b=modal('اختبار سرعة الاستجابة المباشر');
   b.innerHTML='<p role="status">جارٍ تجهيز الاختبار…</p>';
   try{
