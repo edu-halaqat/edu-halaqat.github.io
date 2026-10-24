@@ -1,0 +1,37 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('sanabil-performance-center.js','utf8');
+const index=fs.readFileSync('index.html','utf8');
+const live=fs.readFileSync('sanabil-live-v12.js','utf8');
+const flow=fs.readFileSync('.github/workflows/pages.yml','utf8');
+assert(index.includes('/sanabil-performance-center.js?v=20261024-performance-center1'),'entry must be versioned');
+assert(index.includes('20261024-v13.8.63'),'release stamp included');
+assert(live.includes("button('قياس مؤشرات الأداء','performance')"),'admin toolbar now uses unified label');
+assert(live.includes('window.SanabilPerformanceCenter?.open'),'legacy tool must delegate to unified center');
+assert(flow.includes('node tests/sanabil-performance-center.cjs'),'deployment must verify center');
+assert(source.includes("rpc('get_platform_activity_report'"),'server-side admin authorization must be used');
+assert(source.includes("selectedScope='today'"),'actual telemetry defaults to today');
+assert(source.includes('get_daily_assignments'),'read probe');
+assert(source.includes('circle_session_access'),'access probe');
+assert(source.includes('sanabil_performance_save_dryrun'),'rollback diagnostic probe');
+assert(source.includes("data?.rolledBack===true"),'write probe must require server rollback confirmation');
+assert(source.includes('controller?.abort()'),'user must be able to abort');
+assert(source.includes('metric.errorRate>5||metric.p95>5000'),'high-error/high-latency automatic stop');
+assert(source.includes('data-spc-json')&&source.includes('data-spc-csv')&&source.includes('data-spc-print'),'report exports');
+assert(source.includes('data-spc-refresh data-spc-start'),'refresh button and baseline container must be separate');
+assert(!source.includes("dialog.querySelector('[data-spc-baseline]').onclick"),'baseline container must not double as button');
+assert(!/\.from\(['"](?:outcomes|student_attendance|plan_days|plans)['"]\)\s*\.(?:insert|update|upsert|delete)/.test(source),
+ 'no mutation of student academic records');
+assert(!/\.rpc\(['"](?:save_daily_outcomes_guarded|save_plan_with_days)['"]/.test(source),
+ 'no live outcome or plan writes');
+const context={window:{},document:{},console};vm.runInNewContext(source,context,{timeout:2000});
+const perf=context.window.SanabilPerformanceCenter;
+assert(perf?.open&&perf?.stats&&perf?.percentile,'module exports');
+assert.deepEqual(Array.from(perf.stages),[1,5,10,25,50,100],'ramp stages capped to 100');
+const s=perf.stats([{ok:true,ms:100},{ok:true,ms:500},{ok:false,ms:25,error:'failed'},{ok:true,ms:900}]);
+assert.equal(s.attempts,4);assert.equal(s.successes,3);assert.equal(s.failures,1);
+assert.equal(s.p50,500);assert.equal(s.p95,900);assert.equal(s.errorRate,25);
+assert.equal(perf.percentile([11,5,12,9],.95),12);
+console.log('PASS: unified performance center version, safety, admin gate, concurrent-ramp, metrics, exports and integration');
