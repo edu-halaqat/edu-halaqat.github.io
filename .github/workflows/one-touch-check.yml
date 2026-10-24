@@ -22,3 +22,5 @@ jobs:
           node tests/sanabil-exam-nominations.cjs
           node tests/sanabil-natural-commands.cjs
           node tests/sanabil-performance.cjs
+          node --check sanabil-performance-center.js
+          node tests/sanabil-performance-center.cjs
