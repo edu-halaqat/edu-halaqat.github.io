@@ -4,6 +4,7 @@
    Explicit approval uses existing audited set_day_type_guarded transaction. */
 (()=>{'use strict';if(window.SanabilPlanCalendar)return;
 const source='https://www.moe.gov.sa/ar/education/generaleducation/Pages/academicCalendar.aspx';
+const regionReference='https://saudicalendars.com/academic-calendar/';
 const verified=[
  ['2026-09-23','2026-09-26','إجازة اليوم الوطني'],
  ['2026-10-25','2026-10-25','إجازة إضافية للمدينة المنورة'],
@@ -11,7 +12,20 @@ const verified=[
  ['2027-01-08','2027-01-16','إجازة منتصف العام'],
  ['2027-02-19','2027-02-22','إجازة يوم التأسيس'],
  ['2027-02-26','2027-03-13','إجازة عيد الفطر'],
- ['2027-04-30','2027-05-22','إجازة عيد الأضحى للمدينة المنورة']
+ ['2027-04-30','2027-05-22','إجازة عيد الأضحى للمدينة المنورة'],
+ // 1449–1450 / 2027–2028: published western-region calendar references.
+ ['2027-09-23','2027-09-23','إجازة اليوم الوطني'],
+ ['2027-11-19','2027-11-27','إجازة الخريف'],
+ ['2028-01-07','2028-01-15','إجازة منتصف العام'],
+ ['2028-02-18','2028-03-04','إجازة عيد الفطر'],
+ ['2028-04-21','2028-05-13','إجازة عيد الأضحى للمدينة المنورة'],
+ // 1450–1451 / 2028–2029: region-specific autumn, spring and Eid dates.
+ ['2028-09-24','2028-09-24','إجازة اليوم الوطني'],
+ ['2028-11-24','2028-12-02','إجازة الخريف للمدينة المنورة'],
+ ['2029-01-05','2029-01-13','إجازة منتصف العام'],
+ ['2029-02-02','2029-02-24','إجازة عيد الفطر'],
+ ['2029-03-23','2029-03-31','إجازة الربيع للمدينة المنورة'],
+ ['2029-04-13','2029-04-29','إجازة عيد الأضحى للمدينة المنورة']
 ];
 const kinds={study:'يوم دراسي',test:'يوم اختبار',holiday:'إجازة',unaccounted:'غير محتسب'};
 const pad=x=>String(x).padStart(2,'0');
@@ -66,9 +80,10 @@ async function open({circles,selectedCircle}={}){
   make('p','التقويم المرجعي للمدينة المنورة؛ صيف الحلقات أيام تعليم مستمرة، ولا تُستبعد إجازة المدارس الصيفية.','sl-academic-muted'));
  const close=make('button','إغلاق');close.type='button';close.onclick=()=>dialog.close();
  header.append(introduction,close);dialog.append(header);
- const note=make('p','الإجازات الرسمية المثبتة للعام ١٤٤٨–١٤٤٩ تظهر باللون الأخضر، ولا تُنفّذ على خطط الطلاب حتى يعتمدها المشرف. الأعوام ١٤٤٩–١٤٥١ بحاجة إلى توثيق تواريخها الخاصة بالمدينة؛ لن نفترضها تلقائيًا.','sl-academic-muted');
+ const note=make('p','تُعرض إجازات الأعوام الدراسية ١٤٤٨ إلى ١٤٥١ من التقويم المرجعي المنشور لمنطقة المدينة المنورة باللون الأخضر. بعض مواعيد الأعوام اللاحقة مستمدة من تقويم منشور ثانوي وتحتاج مراجعة آخر إعلان للوزارة قبل الاعتماد. لا يرحّل النظام أي خطة اعتمادًا على المرجع وحده؛ اختَر التاريخ وأقرّه على حلقاتك. ولا تدخل الإجازة الصيفية ضمن أيام التعطيل.','sl-academic-muted');
  dialog.append(note);
  const src=make('a','مصدر التقويم الدراسي لوزارة التعليم');src.href=source;src.target='_blank';src.rel='noopener';dialog.append(src);
+ const secondary=make('a','جدول المنطقة للأعوام ١٤٤٨–١٤٥١');secondary.href=regionReference;secondary.target='_blank';secondary.rel='noopener';secondary.style.marginInlineStart='15px';dialog.append(secondary);
  const toolbar=make('div',undefined,'sl-academic-toolbar');
  const previous=make('button','الشهر السابق'),next=make('button','الشهر التالي'),monthLabel=make('strong');
  toolbar.append(previous,monthLabel,next);
