@@ -3,7 +3,7 @@
    No real student attendance, grades, plans or user accounts are modified. */
 (()=>{'use strict';
 if(window.SanabilPerformanceCenter)return;
-const VERSION='20261024-performance-center1';
+const VERSION='20261024-performance-center2';
 const STAGES=[1,5,10,25,50,100];
 const OPERATIONS=[
  {id:'read',title:'قراءة مقررات الحلقة',rpc:'get_daily_assignments',params:(circle,date)=>({p_circle_id:circle,p_date:date})},
@@ -174,6 +174,7 @@ async function runSpecific(id){
  const chosen=OPERATIONS.find(x=>x.id===id);
  setBusy(true);
  try{
+  await authorize();
   if(!chosen){await refreshBaseline();status('تم تحديث المؤشرات الفعلية لجميع الأجهزة.');return}
   const {circle,date}=scope();
   const signal=(controller=new AbortController()).signal;
@@ -191,6 +192,7 @@ async function runOverall(){
  if(running)return;setBusy(true);
  const records=[];
  try{
+  await authorize();
   const {circle,date}=scope(),signal=(controller=new AbortController()).signal;
   status('1/4: قراءة مؤشرات الاستخدام الفعلي...');
   await refreshBaseline('today');
@@ -216,6 +218,7 @@ async function runLoad(){
  const records=[];
  setBusy(true);controller=new AbortController();
  try{
+  await authorize();
   const {circle,date}=scope(),signal=controller.signal;
   const stages=STAGES.filter(n=>n<=target);
   const progress=dialog.querySelector('[data-spc-progress]');
@@ -308,10 +311,12 @@ async function open(){
  dialog.querySelector('[data-spc-csv]').onclick=()=>exportFile('csv');
  dialog.querySelector('[data-spc-print]').onclick=()=>window.print();
  dialog.showModal();
+ dialog.querySelectorAll('[data-spc-start]').forEach(el=>el.disabled=true);
  result=null;baseline=null;renderReport();status('جارٍ التحقق من صلاحية مدير النظام وجلب البيانات.');
  try{
   await authorize();
   await Promise.all([fillCircles(),refreshBaseline('today')]);
+  dialog.querySelectorAll('[data-spc-start]').forEach(el=>el.disabled=false);
   status('جاهز. اختر الفحص المطلوب. يجب إجراء اختبارات الحمل المرتفع خارج وقت عمل الحلقات.');
  }catch(e){
   status('تعذر فتح مختبر الأداء: '+e.message,true);
