@@ -150,7 +150,7 @@ function suggest(records,actual){
  if(actual?.summary?.p95Ms>2000)notes.push('P95 في الاستخدام الحقيقي تجاوز ثانيتين: افحص الاستعلامات الأعلى كلفة والفهارس والتخزين المؤقت.');
  if(records.some(x=>x.stats.failures))notes.push('ظهرت أخطاء عند التزامن؛ قارن نوع الخطأ بصلاحيات RLS وسجلات API والحدود والتوقيت.');
  if(records.some(x=>x.stats.p95>2000))notes.push('ارتفع زمن الاستجابة تحت الحمل: اعمل على تقليل استعلامات القراءة والتكرار واختبر فهارس plan_days والحصيلة.');
- if(records.some(x=>x.stats.p95>5000))notes.push('تجاوز P95 خمس ثوانٍ: أوقف الزيادة وراجع الاتصالات المتزامنة وCPU وذاكرة Postgres.');
+ if(records.some(x=>x.stats.p95>5000))notes.push('تجاوز زمن ٩٥٪ من المحاولات خمس ثوانٍ: أوقف الزيادة وراجع الاتصالات المتزامنة وCPU وذاكرة Postgres.');
  if(!notes.length)notes.push('لم تظهر مشكلات في العينة التشخيصية؛ لا تعتمد إطلاق 100 حساب دون اختبار أدوار وحفظ ومزامنة مستقل.');
  notes.push('اختبر في بيئة معزولة حسابات فعلية لكل دور وحفظ حصيلة تجريبية مع التحقق من القراءة اللاحقة والتزامن وعدم فقد البيانات.');
  notes.push('راقب Supabase في وقت الاختبار: المعالج، الاتصالات، الاستعلامات البطيئة، أخطاء طلبات الشبكة، والحصص المستهلكة.');
@@ -278,7 +278,7 @@ function exportFile(format){
   'نوع التقرير':result.mode==='load'?'اختبار الحمل':'فحص المؤشرات',
   'تاريخ التقرير':result.createdAt,
   'التوضيح':result.limits,
-  'ملخص الاستخدام':result.baselineSummary,
+  'ملخص الاستخدام':result.baselineSummary?{'الحركات':result.baselineSummary.events,'المستخدمون':result.baselineSummary.users,'الجلسات':result.baselineSummary.sessions,'الإخفاقات':result.baselineSummary.failures,'نسبة الإخفاقات':result.baselineSummary.failureRate,'زمن ٩٥٪':result.baselineSummary.p95Ms}:null,
   'الاختبارات':result.records.map(r=>({
     'المؤشر':r.name,'المسارات المتزامنة':r.users,
     'المحاولات':r.stats.attempts,'النجاح':r.stats.successes,'الإخفاقات':r.stats.failures,
