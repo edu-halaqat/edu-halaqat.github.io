@@ -18,9 +18,9 @@ assert(source.includes("rpc('save_talaqqin_pacing'"),'existing week pace update 
 assert(!source.includes("if(extend)action(box,extend,()=>extendTalaqqinLesson(root,r,renderTalaqqin))"),
  'daily extension cannot invoke week RPC');
 assert(html.includes('sanabil-live-v12.js?v=20261024-student-plans1'),'new scripts bust cache');
-assert(html.includes('sanabil-build" content="20261024-v13.8.65"'),'html and js build reflect a new deployment');
-assert(source.includes("window.__SanabilLiveBuild='20261024-v13.8.65'"));
-assert(sw.includes('sanabil-shell-20261024-v44-student-plans'),'offline script version refreshed');
+assert(html.includes('sanabil-build" content="20261024-v13.8.66"'),'html and js build reflect a new deployment');
+assert(source.includes("window.__SanabilLiveBuild='20261024-v13.8.66'"));
+assert(sw.includes('sanabil-shell-20261024-v45-west-calendar'),'offline script version refreshed');
 for(const marker of [
  'create table if not exists public.talaqqin_lesson_day_extensions',
  'revoke all on public.talaqqin_lesson_day_extensions from public,anon,authenticated',
