@@ -111,6 +111,16 @@ async function open({selectedCircle}={}){
  let overrides=new Map(),running=false,cancelled=false,lastReport='',lastBreakdown='';
  const checked=new Set(selectedCircle&&circles.some(c=>c.id===selectedCircle)?[selectedCircle]:[]);
  const findCircle=id=>circles.find(c=>c.id===id);
+ const explainError=e=>{
+  const raw=String(e?.message||e||'تعذر تنفيذ الطلب.');
+  if(/57014|statement.timeout|canceling.statement/i.test(raw))
+   return 'استغرق ترحيل مقررات الطالب أكثر من المهلة المسموحة. بقيت الحلقة غير مكتملة ويمكن استئنافها بعد معالجة بطء الخطط.';
+  if(/42501|permission.denied|unauthorized|forbidden/i.test(raw))
+   return 'رفض الخادم العملية لعدم كفاية صلاحيات هذا الحساب على الحلقة.';
+  if(/network|failed.to.fetch|connection|gateway.timeout/i.test(raw))
+   return 'تعذر الاتصال بالخادم أثناء الحفظ. تحقق من الاتصال ثم أعد تشغيل اعتماد الحلقة لاستئناف ما لم يكتمل.';
+  return /[A-Za-z]/.test(raw)?'رفض الخادم تنفيذ هذا الجزء من العمل. راجع سجل الأخطاء التقني لمعرفة السبب التفصيلي.':raw;
+ };
  const message=s=>{lastReport=String(s);state.textContent=lastReport};
  close.onclick=()=>{if(running){cancelled=true;message('طلب إيقاف التنفيذ. سيكتمل الطلب الجاري ثم يمكنك إغلاق التقويم.');return}dialog.close()};
  async function fetchOverrides(){
@@ -209,7 +219,7 @@ async function open({selectedCircle}={}){
        // which previously rolled back the entire circle.
        const {data,error}=await client.rpc('apply_calendar_day_step_guarded',
          {p_circle_id:id,p_date:day,p_day_type:newType,p_batch_size:1});
-       if(error)throw Error(error.message||'تعذر حفظ التصنيف.');
+       if(error){console.warn('calendar day step',error);throw Error(explainError(error))}
        if(!data||data.ok!==true)throw Error('لم يؤكد الخادم الحفظ.');
        processed+=Number(data.processed||0);
        finished=data.completed===true;
@@ -222,7 +232,7 @@ async function open({selectedCircle}={}){
        progress.value=done+partial+fraction;
        message('جارٍ اعتماد '+circle.name+' — مجمع '+circle.complexName+
          '\nاكتمل '+done+' من '+ids.length+' حلقات، وجرت معالجة '+processed+' طالبًا.');
-      }catch(e){errorText=String(e.message||e);break}
+      }catch(e){errorText=explainError(e);break}
      }while(!finished&&!cancelled);
      if(finished){
        done++;overrides.set(id+'|'+day,newType);
