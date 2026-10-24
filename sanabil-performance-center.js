@@ -278,7 +278,7 @@ async function open(){
  dialog=document.createElement('dialog');dialog.className='spc-root';dialog.setAttribute('aria-label','قياس مؤشرات الأداء');
  dialog.innerHTML='<div class="spc-shell">'+
  '<header class="spc-top"><div><h2>قياس مؤشرات الأداء</h2><p>لوحة موحدة لمدير النظام: قياس شامل، فحوص متخصصة، وحمل تشخيصي متدرج</p></div><button class="spc-btn spc-no-print" type="button" data-spc-close>إغلاق</button></header>'+
- '<section class="spc-section"><h3>المؤشرات الفعلية لجميع الأجهزة</h3><div class="spc-settings spc-no-print"><label>فترة القياس<select data-spc-period><option value="live">آخر 15 دقيقة</option><option value="today" selected>اليوم</option><option value="week">آخر 7 أيام</option></select></label><button class="spc-btn" data-spc-baseline data-spc-start type="button">تحديث المؤشرات الحقيقية</button></div><div data-spc-baseline>جارٍ تحميل مؤشرات المنصة...</div></section>'+
+ '<section class="spc-section"><h3>المؤشرات الفعلية لجميع الأجهزة</h3><div class="spc-settings spc-no-print"><label>فترة القياس<select data-spc-period><option value="live">آخر 15 دقيقة</option><option value="today" selected>اليوم</option><option value="week">آخر 7 أيام</option></select></label><button class="spc-btn" data-spc-refresh data-spc-start type="button">تحديث المؤشرات الحقيقية</button></div><div data-spc-baseline>جارٍ تحميل مؤشرات المنصة...</div></section>'+
  '<section class="spc-section"><h3>أيقونات الفحص المحدد أو الشامل</h3><div class="spc-settings spc-no-print"><label>الحلقة<select data-spc-circle></select></label><label>تاريخ الفحص<input data-spc-day type="date"></label></div>'+
  '<div class="spc-grid spc-no-print">'+
  '<div class="spc-card"><h3>الفحص الشامل</h3><p>سجلات الاستخدام + صلاحية الجلسة + قراءة المقررات + كتابة اختبارية متراجَع عنها.</p><button data-spc-start data-spc-overall class="spc-btn primary">قياس جميع المؤشرات المتاحة</button></div>'+
@@ -299,7 +299,7 @@ async function open(){
  dialog.querySelector('[data-spc-close]').onclick=()=>{if(running){status('أوقف الاختبار أولًا قبل إغلاق الصفحة.',true);return}dialog.close()};
  dialog.addEventListener('close',()=>{if(controller)controller.abort();controller=null;running=false;dialog.remove();dialog=null},{once:true});
  dialog.querySelector('[data-spc-period]').onchange=e=>{selectedScope=e.target.value;refreshBaseline(selectedScope).catch(error=>status(error.message,true))};
- dialog.querySelector('[data-spc-baseline]').onclick=()=>refreshBaseline(selectedScope).then(()=>status('تم تحديث مؤشرات جميع الأجهزة.')).catch(e=>status(e.message,true));
+ dialog.querySelector('[data-spc-refresh]').onclick=()=>refreshBaseline(selectedScope).then(()=>status('تم تحديث مؤشرات جميع الأجهزة.')).catch(e=>status(e.message,true));
  dialog.querySelector('[data-spc-overall]').onclick=runOverall;
  dialog.querySelectorAll('[data-spc-specific]').forEach(b=>b.onclick=()=>runSpecific(b.dataset.spcSpecific));
  dialog.querySelector('[data-spc-load]').onclick=runLoad;
