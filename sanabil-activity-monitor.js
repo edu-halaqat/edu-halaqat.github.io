@@ -97,7 +97,21 @@ function mountAdminPanel(){
   '<div data-activity-trend></div><div data-activity-errors></div>';
  parent.after(box);
  const style=document.createElement('style');
- style.textContent='@media(max-width:640px){.sl-central-report table{min-width:0!important;display:block!important;width:100%!important;white-space:normal!important}.sl-central-report thead{display:none!important}.sl-central-report tbody,.sl-central-report tr{display:block!important}.sl-central-report tbody tr{border:1px solid #87a89b;border-radius:10px;margin:9px 0;padding:8px}.sl-central-report td{display:flex!important;justify-content:space-between;gap:10px;border:0!important;padding:6px!important;white-space:normal!important;overflow-wrap:anywhere}.sl-central-report td:before{content:attr(data-label);font-weight:700;flex:0 0 45%}.sl-central-report [data-activity-actions] td,.sl-central-report [data-activity-errors] td{font-size:13px}}';
+ style.textContent=[
+  '.sl-central-report{max-width:100%;min-width:0;box-sizing:border-box;overflow-x:hidden;direction:rtl}',
+  '.sl-central-report *{box-sizing:border-box;min-width:0}',
+  '.sl-central-report [data-activity-summary],.sl-central-report [data-activity-insights],.sl-central-report [data-activity-views],.sl-central-report [data-activity-actions],.sl-central-report [data-activity-actors],.sl-central-report [data-activity-devices],.sl-central-report [data-activity-trend],.sl-central-report [data-activity-errors]{max-width:100%;min-width:0;overflow-wrap:anywhere}',
+  '.sl-central-report .sl-report-table-wrap{max-width:100%;width:100%;max-height:460px;overflow:auto}',
+  '.sl-central-report .sl-report-table{min-width:680px;border-collapse:collapse;width:100%;direction:rtl;table-layout:auto}',
+  '.sl-central-report .sl-report-table th,.sl-central-report .sl-report-table td{overflow-wrap:anywhere;word-break:normal;white-space:normal;padding:9px;vertical-align:top}',
+  '.sl-central-report .sl-report-cards{display:none}',
+  '.sl-central-report .sl-report-card{background:transparent;border:1px solid #8caf9e;border-radius:12px;padding:12px;margin-bottom:11px;min-width:0}',
+  '.sl-central-report .sl-report-pair{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr);gap:10px;align-items:start;padding:7px 0;border-bottom:1px solid #b8cbc2;font-size:14px}',
+  '.sl-central-report .sl-report-pair:last-child{border-bottom:0}',
+  '.sl-central-report .sl-report-key{font-weight:700}',
+  '.sl-central-report .sl-report-value{overflow-wrap:anywhere;white-space:normal;unicode-bidi:plaintext}',
+  '@media(max-width:850px){.sl-central-report .sl-report-table-wrap{display:none}.sl-central-report .sl-report-cards{display:block;width:100%;max-width:100%}.sl-central-report{padding-inline:10px!important}.sl-central-report .sl-central-tools>*{max-width:100%}}'
+ ].join('\n');
  box.append(style);
  const status=box.querySelector('[data-activity-status]');
  const slots={
@@ -120,22 +134,33 @@ function mountAdminPanel(){
   button.setAttribute('aria-pressed',String(chosen));
   button.style.outline=chosen?'2px solid #078b80':'';
  });
+ // Keep original diagnostic identifiers only in storage. Never expose them in
+ // visual reports, including when a stale server version returns raw keys.
+ const readable=(value)=>ar.performanceText(value);
  const table=(slot,title,columns,rows)=>{
   slot.replaceChildren();
-  const heading=el('h4',title);heading.style.margin='18px 0 8px';slot.append(heading);
+  slot.append(el('h4',title));
   if(!rows?.length){slot.append(el('p','لا توجد بيانات في هذه الفترة.'));return}
-  const overflow=document.createElement('div');overflow.style.cssText='max-width:100%;max-height:400px;overflow:auto';
-  const tab=document.createElement('table');tab.style.cssText='width:100%;direction:rtl';
+  const overflow=document.createElement('div');overflow.className='sl-report-table-wrap';
+  const tab=document.createElement('table');tab.className='sl-report-table';tab.dir='rtl';
   const tr=document.createElement('tr');
   for(const column of columns)tr.append(el('th',column[0]));
   const thead=document.createElement('thead');thead.append(tr);tab.append(thead);
   const tbody=document.createElement('tbody');
+  const cards=document.createElement('div');cards.className='sl-report-cards';
   for(const row of rows){
-   const tr=document.createElement('tr');
-   for(const column of columns){const cell=el('td',column[1](row));cell.dataset.label=column[0];tr.append(cell)}
-   tbody.append(tr);
+   const tr=document.createElement('tr'),card=document.createElement('article');
+   card.className='sl-report-card';
+   for(const [name,value] of columns){
+    const content=readable(value(row));
+    const cell=el('td',content);cell.dataset.label=name;tr.append(cell);
+    const pair=document.createElement('div');pair.className='sl-report-pair';
+    pair.append(el('span',name,'sl-report-key'),el('span',content,'sl-report-value'));
+    card.append(pair);
+   }
+   tbody.append(tr);cards.append(card);
   }
-  tab.append(tbody);overflow.append(tab);slot.append(overflow);
+  tab.append(tbody);overflow.append(tab);slot.append(overflow,cards);
  };
  const textLine=(parent,text)=>{
   const p=el('p',text);p.style.cssText='margin:6px 0;line-height:1.8';parent.append(p);

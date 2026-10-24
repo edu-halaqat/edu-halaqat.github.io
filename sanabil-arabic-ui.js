@@ -173,6 +173,7 @@ const error=value=>{
 // Apply only to fixed interface terminology. Never translate user-entered
 // values, phone numbers, e-mail addresses, links, source code, or attributes.
 const fixedTerms=[
+ [/P50/g,'زمن استجابة ٥٠٪ من المحاولات'],
  [/P95/g,'زمن استجابة ٩٥٪ من المحاولات'],
  [/\bExcel\b/gi,'إكسل'],[/\bCSV\b/g,'ملف جدول بيانات'],
  [/\bJSON\b/g,'بيانات مفصّلة'],[/\bPDF\b/g,'ملف جاهز للطباعة'],
@@ -191,6 +192,23 @@ const normalizeFixedText=value=>{
  let output=String(value??'');
  for(const [pattern,replacement] of fixedTerms)output=output.replace(pattern,replacement);
  return output;
+};
+// Defense in depth for diagnostic reports: server keys and technical phrases are
+// deliberately never displayed as raw identifiers. Database values remain unchanged.
+const performanceText=value=>{
+ const raw=strip(value);
+ if(!/[A-Za-z]/.test(raw))return raw;
+ if(views[raw])return views[raw];
+ if(actions[raw]||actions[normalize(raw)]||/^(?:rpc:|action:|operation:|click:|actual:|page:|button:|id:|class:)/i.test(raw))
+  return action(raw);
+ if(kinds[raw])return kinds[raw];
+ if(devices[raw])return devices[raw];
+ const fixed=normalizeFixedText(raw);
+ if(!/[A-Za-z]/.test(fixed))return fixed;
+ if(/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(raw))return 'حساب مستخدم';
+ if(/^https?:\/\//i.test(raw))return 'رابط تقني';
+ if(/(?:error|timeout|fetch|permission|forbidden|denied|not found|exception)/i.test(raw))return error(raw);
+ return 'وصف تقني غير معرّب';
 };
 const excluded=node=>{
  const parent=node?.parentElement;
@@ -234,5 +252,5 @@ const percentile='زمن الاستجابة الذي لا تتجاوزه ٩٥٪ 
 const duration=n=>n===null||n===undefined||!Number.isFinite(Number(n))?'—':Number(n).toLocaleString('ar-SA')+' مللي ثانية';
 const state=value=>({success:'ناجح',error:'فشل',failed:'فشل',pending:'بانتظار الإرسال',
  timeout:'انتهاء مهلة الطلب',unknown:'غير محدد'})[strip(value)]||'غير محدد';
-window.SanabilArabicUI=Object.freeze({view,action,kind,device,network,metric,note,error,state,duration,percentile,normalizeFixedText,translateSubtree});
+window.SanabilArabicUI=Object.freeze({view,action,kind,device,network,metric,note,error,state,duration,percentile,normalizeFixedText,performanceText,translateSubtree});
 })();
