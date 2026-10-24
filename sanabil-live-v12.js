@@ -3042,8 +3042,18 @@ async function plansPage(root){
          '</p></section>';
      }).join(''):'<div class="sl-empty">لا توجد خطط بعد. ابدأ بخطة طالب متكاملة.</div>';
    container.querySelector('[data-plan-student-filter]')?.addEventListener('change',e=>{
-     focusStudent=e.target.value;renderGroupedPlans();
+     focusStudent=e.target.value;
+     // Hide groups without removing them: registered edit/view/save listeners
+     // must remain alive when teachers switch from one student to another.
+     container.querySelectorAll('.sl-student-plan-group').forEach(group=>{
+       group.hidden=!!focusStudent&&group.dataset.planStudent!==focusStudent;
+     });
    });
+ };
+ const focusPlanStudent=id=>{
+   const filter=root.querySelector('[data-plan-student-filter]');
+   if(!filter)return;
+   filter.value=id;filter.dispatchEvent(new Event('change'));
  };
  const load=async()=>{
    const plans=await result(sb().from('plans').select('*').eq('status','active')
@@ -3276,7 +3286,7 @@ async function plansPage(root){
      if(same&&t!=='review'){
        const pos=activePlans.indexOf(same);
        b.closest('dialog').close();
-       focusStudent=student.id;renderGroupedPlans();
+       focusPlanStudent(student.id);
        msg(root,'للطالب مسار نشط من هذا النوع؛ انتقلنا إلى تعديل الخطة بدل إنشاء نسخة متعارضة.');
        root.querySelector('[data-action="edit-'+pos+'"]')?.click();
        return;
@@ -3501,7 +3511,7 @@ async function plansPage(root){
      const currentMem=activePlans.find(p=>p.student_id===student.id&&p.type==='memorization');
      const currentRecent=activePlans.find(p=>p.student_id===student.id&&p.type==='recent_review');
      if(hasMem&&currentMem&&!initial.transitionFromPlanId){
-       b.closest('dialog').close();focusStudent=student.id;renderGroupedPlans();
+       b.closest('dialog').close();focusPlanStudent(student.id);
        msg(root,'للطالب خطة حفظ نشطة؛ افتحنا تعديلها بدل إنشاء خطة حفظ متداخلة.');
        root.querySelector('[data-action="edit-'+activePlans.indexOf(currentMem)+'"]')?.click();
        return;
