@@ -1,7 +1,6 @@
-/* Sanabil manager-only academic day calendar. Official regional windows 1448-1449
-   sourced from the Ministry's general education calendar as displayed by RCJY,
-   checked 2026-10-24. Later years remain "not yet verified" rather than invented.
-   Explicit approval uses existing audited set_day_type_guarded transaction. */
+/* Sanabil academic calendar, Madinah: approved school year 1448-1449 only.
+   Later reference windows require independent approval and are not defaults.
+   Explicit changes use audited, scoped RPCs; no silent rewriting of plans. */
 (()=>{'use strict';if(window.SanabilPlanCalendar)return;
 const source='https://www.moe.gov.sa/ar/education/generaleducation/Pages/academicCalendar.aspx';
 const regionReference='https://saudicalendars.com/academic-calendar/';
@@ -12,8 +11,10 @@ const verified=[
  ['2027-01-08','2027-01-16','إجازة منتصف العام'],
  ['2027-02-19','2027-02-22','إجازة يوم التأسيس'],
  ['2027-02-26','2027-03-13','إجازة عيد الفطر'],
- ['2027-04-30','2027-05-22','إجازة عيد الأضحى للمدينة المنورة'],
- // 1449–1450 / 2027–2028: published western-region calendar references.
+ ['2027-04-30','2027-05-22','إجازة عيد الأضحى للمدينة المنورة']
+];
+const laterReferences=[
+ // 1449–1450 / 2027–2028: reference, pending official confirmation.
  ['2027-09-23','2027-09-23','إجازة اليوم الوطني'],
  ['2027-11-19','2027-11-27','إجازة الخريف'],
  ['2028-01-07','2028-01-15','إجازة منتصف العام'],
@@ -32,6 +33,7 @@ const pad=x=>String(x).padStart(2,'0');
 const iso=(y,m,d)=>y+'-'+pad(m)+'-'+pad(d);
 const weekdayNames=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const calcOfficial=d=>verified.find(([start,end])=>d>=start&&d<=end)?.[2]||'';
+const calcReference=d=>laterReferences.find(([start,end])=>d>=start&&d<=end)?.[2]||'';
 const dayTypeFrom=event=>event?'holiday':'study';
 function make(tag,label,cl){
  const node=document.createElement(tag);
@@ -53,7 +55,7 @@ const style=()=>{if(document.getElementById('sl-calendar-style'))return;
  '.sl-academic-week>div{text-align:center;font-weight:700;font-size:.78rem;padding:7px 0}',
  '.sl-academic-day{border:1px solid #99b6a6;border-radius:9px;min-height:66px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:4px;color:inherit;background:transparent;font:inherit;cursor:pointer}',
  '.sl-academic-day strong{font-size:1rem}.sl-academic-day small{font-size:.67rem;text-align:center;overflow-wrap:anywhere;line-height:1.2}',
- '.sl-academic-day.is-official{background:#d2eddd;color:#14573c}.sl-academic-day.is-changed{outline:2px solid #238c78}',
+ '.sl-academic-day.is-official{background:#d2eddd;color:#14573c}.sl-academic-day.is-pending{background:#f7ead1;color:#705112}.sl-academic-day.is-changed{outline:2px solid #238c78}',
  '.sl-academic-day[aria-pressed=true]{outline:3px solid #a57b2e}',
  '.sl-academic-day:disabled{opacity:.25;cursor:auto}.sl-academic-detail{margin-top:14px;border:1px solid #93b4a5;border-radius:12px;padding:14px}',
  '.sl-academic-circles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin:12px 0}',
@@ -80,7 +82,7 @@ async function open({circles,selectedCircle}={}){
   make('p','التقويم المرجعي للمدينة المنورة؛ صيف الحلقات أيام تعليم مستمرة، ولا تُستبعد إجازة المدارس الصيفية.','sl-academic-muted'));
  const close=make('button','إغلاق');close.type='button';close.onclick=()=>dialog.close();
  header.append(introduction,close);dialog.append(header);
- const note=make('p','تُعرض إجازات الأعوام الدراسية ١٤٤٨ إلى ١٤٥١ من التقويم المرجعي المنشور لمنطقة المدينة المنورة باللون الأخضر. بعض مواعيد الأعوام اللاحقة مستمدة من تقويم منشور ثانوي وتحتاج مراجعة آخر إعلان للوزارة قبل الاعتماد. لا يرحّل النظام أي خطة اعتمادًا على المرجع وحده؛ اختَر التاريخ وأقرّه على حلقاتك. ولا تدخل الإجازة الصيفية ضمن أيام التعطيل.','sl-academic-muted');
+ const note=make('p','التقويم الدراسي ١٤٤٨–١٤٤٩ للمدينة المنورة معتمد مرجعيًا باللون الأخضر وفق المواعيد المنشورة. إجازات ١٤٤٩–١٤٥٠ و١٤٥٠–١٤٥١ تظهر بلون مختلف بوصفها مواعيد تنتظر الاعتماد ولا تصبح إجازات تلقائيًا. لتطبيق أي تاريخ على مقررات الحلقة اختره واعتمده؛ تُحفظ الأعمال السابقة ولا تُستبعد الإجازة الصيفية.','sl-academic-muted');
  dialog.append(note);
  const src=make('a','مصدر التقويم الدراسي لوزارة التعليم');src.href=source;src.target='_blank';src.rel='noopener';dialog.append(src);
  const secondary=make('a','جدول المنطقة للأعوام ١٤٤٨–١٤٥١');secondary.href=regionReference;secondary.target='_blank';secondary.rel='noopener';secondary.style.marginInlineStart='15px';dialog.append(secondary);
@@ -114,8 +116,8 @@ async function open({circles,selectedCircle}={}){
   detail.replaceChildren();
   const title=make('h3',selectedDay?'تصنيف '+selectedDay:'اضغط يومًا من التقويم');detail.append(title);
   if(!selectedDay)return;
-  const official=calcOfficial(selectedDay);
-  detail.append(make('p',official?'الإجازة المرجعية: '+official:'لا توجد إجازة مرجعية مثبتة لهذا التاريخ.','sl-academic-muted'));
+  const official=calcOfficial(selectedDay),pending=calcReference(selectedDay);
+  detail.append(make('p',official?'إجازة معتمدة في تقويم ١٤٤٨–١٤٤٩: '+official:pending?'موعد مرجعي ينتظر الاعتماد: '+pending:'لا توجد إجازة مرجعية مثبتة لهذا التاريخ.','sl-academic-muted'));
   const selectLabel=make('label','تصنيف اليوم');const type=make('select');
   Object.entries(kinds).forEach(([id,label])=>{const op=make('option',label);op.value=id;type.append(op)});
   type.value=chosenValue(selectedDay);selectLabel.append(type);detail.append(selectLabel);
@@ -157,11 +159,11 @@ async function open({circles,selectedCircle}={}){
   const firstWeekday=new Date(Date.UTC(year,month-1,1)).getUTCDay(),last=new Date(Date.UTC(year,month,0)).getUTCDate();
   for(let i=0;i<firstWeekday;i++){const empty=make('div');grid.append(empty)}
   for(let day=1;day<=last;day++){
-   const dt=iso(year,month,day),official=calcOfficial(dt),button=make('button');
-   button.type='button';button.className='sl-academic-day'+(official?' is-official':'')+
+   const dt=iso(year,month,day),official=calcOfficial(dt),pending=calcReference(dt),button=make('button');
+   button.type='button';button.className='sl-academic-day'+(official?' is-official':pending?' is-pending':'')+
      ([...checked].some(id=>overrides.has(id+'|'+dt))?' is-changed':'');
    button.setAttribute('aria-pressed',String(dt===selectedDay));
-   button.append(make('strong',day),make('small',official?official:
+   button.append(make('strong',day),make('small',official?official:pending?'بانتظار الاعتماد · '+pending:
      [...checked].some(id=>overrides.has(id+'|'+dt))?kinds[chosenValue(dt)]:'' ));
    button.onclick=()=>{selectedDay=dt;renderCalendar(false);renderDetail()};
    grid.append(button);
@@ -173,5 +175,5 @@ async function open({circles,selectedCircle}={}){
  document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});
  dialog.showModal();await renderCalendar();
 }
-window.SanabilPlanCalendar={open,officialEvents:verified,officialFor:calcOfficial};
+window.SanabilPlanCalendar={open,officialEvents:verified,referenceEvents:laterReferences,officialFor:calcOfficial,referenceFor:calcReference};
 })();
