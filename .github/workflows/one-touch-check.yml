@@ -27,3 +27,4 @@ jobs:
           node --check sanabil-plan-calendar.js
           node tests/sanabil-plan-workflows-20261024.cjs
           node tests/sanabil-calendar-complex-batch-20261025.cjs
+          node tests/sanabil-calendar-instant-20261025.cjs
