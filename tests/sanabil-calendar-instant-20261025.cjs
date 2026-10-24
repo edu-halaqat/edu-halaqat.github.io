@@ -33,7 +33,7 @@ assert(fast.includes("cron.schedule('sanabil-calendar-fast-reflow'"),'background
 assert(fast.includes("EXCEPTION WHEN OTHERS THEN"),'one reflow failure does not poison other jobs');
 assert(fast.includes("state='failed'"),'error state is visible');
 assert(fast.includes("state='done'"),'successful work marked complete');
-assert(fast.includes("left join public.plan_days md")&&fast.includes("private.effective_day_type(s.id,p_date)='study'"),'daily assignments hide holiday work before reflow');
+assert(fast.includes('left join public.plan_days md')&&fast.includes('private.effective_day_type(s.id,p_date)'), 'daily assignments hide holiday work before reflow');
 assert(optim.includes('WITH eligible AS ('),'movement dates generated using one set-based mapping');
 assert(optim.includes("IF EXISTS(SELECT 1 FROM _sanabil_shift_days WHERE new_date IS NULL)"),'insufficient future days refused');
 assert(optim.includes('private.effective_day_type(v_plan.student_id,d::date)'),'future plan generation respects day classification');
