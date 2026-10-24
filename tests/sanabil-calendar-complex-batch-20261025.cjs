@@ -20,7 +20,7 @@ assert(ui.includes("client.rpc('approve_calendar_day_fast_guarded'"),'one-reques
 assert(!ui.includes('p_batch_size:1'),'browser never waits on serial student transactions');
 assert(ui.includes('lastBreakdown=list.join'),'progress details survive calendar refreshing');
 assert(ui.includes("console.warn('Fast calendar approval',e)"),'retain technical server error in logs');
-assert(ui.includes("explainError(error)"),'provide translated error reason to user');
+assert(ui.includes("explainError(e)"),'provide translated error reason to user');
 assert(ui.includes('get_calendar_reflow_status_guarded'),'progress is independently queryable and job is persistent');
 assert(!ui.includes("client.rpc('set_day_type_guarded'"),'old all-at-once circle operation removed');
 assert(!ui.includes('نجح تحديث '+""+'0 حلقة.'),'no misleading partial status');
