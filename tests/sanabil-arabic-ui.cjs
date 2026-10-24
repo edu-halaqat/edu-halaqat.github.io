@@ -58,7 +58,7 @@ assert(!monitor.includes('x=>x.view_key')&&!monitor.includes('x=>x.action_key'),
 for(const marker of [
  'ar.view(item.view_key)','ar.action(item.action_key)','ar.note(item.action_key)',
  'ar.device(x.device_kind)','ar.kind(x.kind)','ar.view(x.view_key)',
- 'arabicJSON(report)','ar.percentile','data-label'
+ 'arabicJSON(report)','ar.percentile','sl-report-card'
 ])assert(monitor.includes(marker),'missing localization of report item '+marker);
 assert(index.indexOf('sanabil-arabic-ui.js')<index.indexOf('sanabil-activity-monitor.js'),
  'translator script must execute before activity monitor');
