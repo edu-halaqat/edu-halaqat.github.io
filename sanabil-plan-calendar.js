@@ -108,7 +108,7 @@ async function open({selectedCircle}={}){
  state.setAttribute('aria-live','polite');
  const now=new Date();
  let year=now.getFullYear(),month=now.getMonth()+1,selectedDay='';
- let overrides=new Map(),running=false,cancelled=false,lastReport='';
+ let overrides=new Map(),running=false,cancelled=false,lastReport='',lastBreakdown='';
  const checked=new Set(selectedCircle&&circles.some(c=>c.id===selectedCircle)?[selectedCircle]:[]);
  const findCircle=id=>circles.find(c=>c.id===id);
  const message=s=>{lastReport=String(s);state.textContent=lastReport};
@@ -180,8 +180,8 @@ async function open({selectedCircle}={}){
   const stop=make('button','إيقاف بعد الطلب الجاري');stop.type='button';stop.hidden=true;
   save.type='button';
   stop.onclick=()=>{cancelled=true;message('سيُوقف التنفيذ بعد الدفعة الحالية. يمكن استئناف ما لم يكتمل لاحقًا.')};
-  const report=make('div','', 'sl-calendar-breakdown');
-  report.hidden=true;
+  const report=make('div',lastBreakdown, 'sl-calendar-breakdown');
+  report.hidden=!lastBreakdown;
   detail.append(save,stop,progress,state,report);
   if(lastReport)state.textContent=lastReport;
   save.onclick=async()=>{
@@ -190,7 +190,7 @@ async function open({selectedCircle}={}){
    if(!ids.length){message('اختر مجمعًا أو حلقة واحدة على الأقل.');return}
    if(!window.confirm('اعتماد «'+kinds[newType]+'» يوم '+day+' على '+ids.length+
      ' حلقة؟ ستنتقل المقررات غير المنجزة إلى أيام دراسية لاحقة.'))return;
-   running=true;cancelled=false;save.disabled=true;close.disabled=true;
+   running=true;cancelled=false;lastBreakdown='';report.textContent='';save.disabled=true;close.disabled=true;
    type.disabled=true;previous.disabled=true;next.disabled=true;
    progress.hidden=false;stop.hidden=false;report.hidden=false;
    let done=0,partial=0,failed=0,processed=0,remaining=ids.length;
@@ -246,7 +246,8 @@ async function open({selectedCircle}={}){
    message('النتيجة: نجح '+done+'، تعذر '+failed+'، غير مكتمل '+partial+
      ' من '+ids.length+' حلقات.'+(failed?'\nراجع سبب فشل كل حلقة أدناه.':'')+
      (cancelled?'\nأُوقف التنفيذ بناءً على طلبك؛ يمكنك استئناف الحلقات غير المكتملة.':''));
-   report.textContent=lines.join('\n\n');
+   lastBreakdown=lines.join('\n\n');
+   report.textContent=lastBreakdown;
    await fetchOverrides();
    await renderCalendar(false);
   };
