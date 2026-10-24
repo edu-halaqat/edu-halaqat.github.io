@@ -1636,6 +1636,25 @@ function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,h
     wrap.innerHTML='<label>تصنيف اليوم<select data-day-student="'+i+'" aria-label="تصنيف يوم '+esc(student.fullName)+'">'+
       dayKindOptions(custom||'inherit',true,dayData?.defaultType||'study')+'</select></label>';
     header.insertAdjacentElement('afterend',wrap);
+    // Short daily memorization-only opt-out; unlike "غير محتسب", major reviews
+    // remain due. One guarded transaction shifts the memorization schedule.
+    const memPlan=student.memorization?.planId;
+    if(memPlan&&kind==='study'&&date>=today()){
+      const skip=document.createElement('button');
+      skip.type='button';skip.className='button button-soft';
+      skip.textContent='لا حفظ جديد اليوم · رحّل مقرر الحفظ فقط';
+      wrap.append(skip);
+      skip.addEventListener('click',async()=>{
+        if(hasDrafts()&&!confirm('توجد حصيلة غير محفوظة؛ احفظها قبل استثناء الحفظ. هل تريد الاستمرار؟'))return;
+        if(!confirm('استثناء مقرر الحفظ الجديد لهذا الطالب اليوم وترحيله إلى اليوم الدراسي التالي؟ تبقى المراجعات مطلوبة.'))return;
+        skip.disabled=true;
+        try{
+          await rpc('skip_memorization_today_guarded',{p_plan_id:memPlan,p_date:date});
+          reload();
+        }catch(e){msg(box,'تعذر استثناء الحفظ: '+(e.message||'خطأ غير معروف'),true)}
+        finally{skip.disabled=false}
+      });
+    }
     const select=wrap.querySelector('select');
     select.addEventListener('change',async()=>{
       const next=select.value;
