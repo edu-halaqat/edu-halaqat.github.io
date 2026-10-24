@@ -31,7 +31,8 @@ assert(calendar.includes("const ids=complex.circles.map(c=>c.id)"),'whole-comple
 assert(calendar.includes("lastBreakdown=lines.join"),'per-circle results survive a calendar repaint');
 assert(calendar.includes("get_circle_day_types_range_guarded"),'scoped monthly RLS read remains enforced');
 assert(calendar.includes("p_batch_size:1"),'one student moved per bounded request');
-assert(calendar.includes("if(error)throw Error(error.message"),'preserve actual failure cause');
+assert(calendar.includes("console.warn('calendar day step',error)"),'technical reason retained in developer logs');
+assert(calendar.includes("explainError(error)"),'display Arabic failure description');
 assert(!calendar.includes('circles:planCircles.map'), 'scope must not rely on planning tab');
 assert(calendar.includes("سنابل")===false||true);
 const ctx={window:{},document:{},console};
