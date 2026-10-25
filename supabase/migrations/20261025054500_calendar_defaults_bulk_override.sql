@@ -180,14 +180,25 @@ INSERT INTO private.calendar_day_reflow_queue(
  circle_id,date_key,student_id,day_type,approved_by,state)
 SELECT DISTINCT p.circle_id,d.date_key,p.student_id,
  private.effective_day_type(p.student_id,d.date_key),
- (SELECT id FROM auth.users WHERE id IS NOT NULL ORDER BY created_at LIMIT 1),
- 'pending'
+ supervisor.user_id,'pending'
 FROM public.plan_days d
 JOIN public.plans p ON p.id=d.plan_id AND p.status='active'
 JOIN public.students s ON s.id=p.student_id AND s.active
 JOIN private.academic_calendar_default_days h ON h.date_key=d.date_key
+-- Only assign an authorized, currently active manager for that circle.
+-- Never impersonate an arbitrary user.
+JOIN LATERAL(
+ SELECT m.user_id
+ FROM public.memberships m JOIN public.profiles prof ON prof.id=m.user_id AND prof.active
+ WHERE m.active AND m.role IN ('admin','manager','supervisor')
+ AND (m.role='admin' OR (
+   m.org_id=p.org_id
+   AND (m.complex_id IS NULL OR m.complex_id=p.complex_id)
+   AND (m.circle_id IS NULL OR m.circle_id=p.circle_id)))
+ ORDER BY CASE WHEN m.role='supervisor' THEN 0 WHEN m.role='manager' THEN 1 ELSE 2 END,m.created_at
+ LIMIT 1
+) supervisor ON true
 WHERE d.date_key >= (now() at time zone 'Asia/Riyadh')::date
   AND d.rating IS NULL AND coalesce(d.completed_amount,0)=0
   AND private.effective_day_type(p.student_id,d.date_key)<>'study'
-  AND EXISTS(SELECT 1 FROM auth.users)
 ON CONFLICT(circle_id,date_key,student_id) DO NOTHING;
