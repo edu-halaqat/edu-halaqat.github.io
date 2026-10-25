@@ -98,7 +98,7 @@ const findSelect=value=>flatten(body).find(x=>x.tagName==='select'&&x.children.s
  mode=findSelect('multiple');mode.value='multiple';mode.onchange();
  assert(findButton('تحديد الشهر'),'calendar month can be chosen with one tap');
  findButton('تحديد الشهر').onclick();
- assert(flatten(body).some(x=>x.textContent?.includes('الأيام المختارة: ٣١')||x.textContent?.includes('الأيام المختارة: 31')),
+ assert(flatten(body).some(x=>String(x.textContent).includes('الأيام المختارة: ٣١')||String(x.textContent).includes('الأيام المختارة: 31')),
   'entire current month selected');
  console.log('PASS: verified official defaults, bulk weeks, two bounded transactions, override reset, month selection, rights and safe queue');
 })().catch(e=>{console.error(e);process.exitCode=1});
