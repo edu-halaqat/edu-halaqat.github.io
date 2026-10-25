@@ -8,10 +8,10 @@ const fast=fs.readFileSync('supabase/migrations/20261025040000_calendar_fast_app
 const optim=fs.readFileSync('supabase/migrations/20261025041000_calendar_reflow_set_based_and_horizon.sql','utf8');
 const archive=fs.readFileSync('supabase/migrations/20261025042000_calendar_archived_plan_guard.sql','utf8');
 new vm.Script(calendar);new vm.Script(host);
-assert(html.includes('sanabil-build" content="20261025-v13.8.69"'));
-assert(html.includes('/sanabil-plan-calendar.js?v=20261025-instant-holiday1'));
-assert(host.includes("window.__SanabilLiveBuild='20261025-v13.8.69'"));
-assert(sw.includes('sanabil-shell-20261025-v48-instant-holiday'));
+assert(html.includes('sanabil-build" content="20261025-v13.8.70"'));
+assert(html.includes('/sanabil-plan-calendar.js?v=20261025-month-nav2'));
+assert(host.includes("window.__SanabilLiveBuild='20261025-v13.8.70'"));
+assert(sw.includes('sanabil-shell-20261025-v49-month-nav'));
 assert(calendar.includes("client.rpc('approve_calendar_day_fast_guarded'"),'single fast approval RPC');
 assert(calendar.includes('p_circle_ids:ids'),'one bounded batch for all chosen circles');
 assert(!calendar.includes("client.rpc('apply_calendar_day_step_guarded'"),'old serial request loop removed');
