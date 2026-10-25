@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const migration=fs.readFileSync('supabase/migrations/20261025063000_default_calendar_status_precedence.sql','utf8');
+assert(migration.includes("private.academic_calendar_default_days h"),'status must recognize verified official default holidays');
+assert(migration.includes('public.circle_day_types t'),'supervisor-specific circle override must precede default');
+assert(migration.indexOf('public.circle_day_types t')<migration.indexOf('private.academic_calendar_default_days h'),'explicit circle classification must win');
+assert(migration.includes("''study'')<>''study''"),'study override cancels holiday status');
+assert(migration.includes('RAISE EXCEPTION'),'unexpected function body fails safely');
+console.log('PASS: official holiday visible in status; circle study override takes precedence');
