@@ -57,7 +57,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  const next=byText('الشهر التالي'),previous=byText('الشهر السابق');
  assert(next&&previous);
  assert.equal(next.type,'button');
- const monthLabel=next.parentLabelUnused||flatten(dialog).find(n=>n.tagName==='strong'&&/\d/.test(n.textContent));
+ const monthLabel=flatten(dialog).find(n=>n.tagName==='strong');
  assert(monthLabel,'month heading exists');
  const original=monthLabel.textContent;let prevented=0,stopped=0;
  const event={preventDefault(){prevented++},stopPropagation(){stopped++}};
