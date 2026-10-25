@@ -276,7 +276,7 @@ async function open({selectedCircle}={}){
  async function renderCalendar(load=true){
   // Draw the requested month immediately. Network response only repaints the
   // decorations of that same month and cannot jump backwards after rapid taps.
-  const serial=++renderSequence,y=year,m=month,key=iso(y,m,1);
+  const serial=load?++renderSequence:renderSequence,y=year,m=month,key=iso(y,m,1);
   if(load)overrides=monthlyCache.get(key)||new Map();
   monthLabel.textContent=new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{
    month:'long',year:'numeric',timeZone:'UTC'
