@@ -99,7 +99,7 @@ async function open({selectedCircle}={}){
   make('p','التصنيف حسب المجمع ثم حلقاته، مع استثناء الإجازة الصيفية من تعطيل الحلقات.','sl-academic-muted'));
  const close=make('button','إغلاق');close.type='button';
  header.append(introduction,close);dialog.append(header);
- const note=make('p','التقويم الدراسي ١٤٤٨–١٤٤٩ للمدينة المنورة هو المرجع المعتمد. تظهر تواريخ الأعوام اللاحقة بصفة مرجعية حتى تُعتمد. اختيار موعد مرجعي لا يُغير الخطط دون إجراء الحفظ.','sl-academic-muted');
+ const note=make('p','إجازات المدينة المنورة للعام الدراسي ١٤٤٨–١٤٤٩ معتمدة تلقائيًا لجميع الحلقات، ما عدا الإجازة الصيفية. يمكن للمشرف تغيير تصنيف أي يوم لحلقة أو مجمع كامل، أو إلغاء التعديل للعودة إلى التقويم الافتراضي. تواريخ الأعوام اللاحقة مراجع غير مفعّلة.','sl-academic-muted');
  dialog.append(note);
  // Source names are context, not touch targets. External anchors above the
  // month arrows caused unintended mobile navigation to the reference website.
@@ -125,6 +125,7 @@ async function open({selectedCircle}={}){
  let year=now.getFullYear(),month=now.getMonth()+1,selectedDay='';
  let overrides=new Map(),running=false,cancelled=false,lastReport='',lastBreakdown='';
  let selectionMode='single',selectionDates=new Set(),rangeStart='',rangeEnd='',weekStart='',weekCount=1;
+ let selectedType='holiday',selectedTypeTouched=false;
  const monthlyCache=new Map();let renderSequence=0;
  const checked=new Set(selectedCircle&&circles.some(c=>c.id===selectedCircle)?[selectedCircle]:[]);
  const findCircle=id=>circles.find(c=>c.id===id);
@@ -226,6 +227,7 @@ async function open({selectedCircle}={}){
   mode.value=selectionMode;
   mode.onchange=()=>{
    selectionMode=mode.value;
+   if(selectionMode==='single')selectedTypeTouched=false;
    if(selectionMode==='multiple'&&selectedDay&&!selectionDates.size)selectionDates.add(selectedDay);
    if(!rangeStart)rangeStart=selectedDay;
    if(!rangeEnd)rangeEnd=selectedDay;
@@ -238,18 +240,18 @@ async function open({selectedCircle}={}){
    for(const [key,label] of [['start','من تاريخ'],['end','إلى تاريخ']]){
     const field=make('label',label),input=make('input');input.type='date';
     input.value=key==='start'?rangeStart:rangeEnd;
-    input.onchange=()=>{if(key==='start')rangeStart=input.value;else rangeEnd=input.value};
+    input.onchange=()=>{if(key==='start')rangeStart=input.value;else rangeEnd=input.value;renderCalendar(false)};
     field.append(input);picking.append(field);
    }
   }
   if(selectionMode==='weeks'){
    const from=make('label','بداية الأسابيع'),dateInput=make('input');
    dateInput.type='date';dateInput.value=weekStart;
-   dateInput.onchange=()=>{weekStart=dateInput.value};
+   dateInput.onchange=()=>{weekStart=dateInput.value;renderCalendar(false)};
    from.append(dateInput);picking.append(from);
    const count=make('label','عدد الأسابيع'),numberInput=make('input');
    numberInput.type='number';numberInput.min='1';numberInput.max='16';numberInput.value=weekCount;
-   numberInput.onchange=()=>{weekCount=Math.min(16,Math.max(1,Number(numberInput.value)||1));};
+   numberInput.onchange=()=>{weekCount=Math.min(16,Math.max(1,Number(numberInput.value)||1));renderCalendar(false)};
    count.append(numberInput);picking.append(count);
   }
   if(selectionMode==='multiple'){
@@ -282,7 +284,8 @@ async function open({selectedCircle}={}){
   }
   // Explicit saved override wins over the official default. "default"
   // removes that override, restoring the official or ordinary school day.
-  type.value=selectedDay?classify(selectedDay):'holiday';
+  type.value=selectionMode==='single'&&!selectedTypeTouched&&selectedDay?classify(selectedDay):selectedType;
+  type.onchange=()=>{selectedType=type.value;selectedTypeTouched=true};
   selectLabel.append(type);detail.append(selectLabel);
   detail.append(make('p','الترتيب: تصنيف الطالب الخاص، ثم تعديل الحلقة، ثم تقويم المدينة المنورة المعتمد، ثم يوم دراسي. الإجازة الصيفية غير مستثناة.','sl-academic-muted'));
   const choices=make('div');drawChoices(choices);
@@ -383,12 +386,16 @@ async function open({selectedCircle}={}){
      ([...checked].some(id=>overrides.has(id+'|'+date))?' is-changed':''));
    button.type='button';button.setAttribute('aria-pressed',String(selectionMode==='multiple'?selectionDates.has(date):date===selectedDay));
    if(selectionMode==='multiple'&&selectionDates.has(date))button.classList.add('is-selected');
-   button.append(make('strong',day),make('small',official?official:
-     pending?'بانتظار الاعتماد · '+pending:
-     [...checked].some(id=>overrides.has(id+'|'+date))?kinds[classify(date)]:'' ));
+   const explicit=[...checked].map(id=>overrides.get(id+'|'+date)).filter(Boolean);
+   const dateText=explicit.length?
+     'تعديل المشرف: '+(new Set(explicit).size===1?(kinds[explicit[0]]||'مختلف'):'تصنيفات متعددة'):
+     official?'إجازة تلقائية · '+official:
+     pending?'بانتظار الاعتماد · '+pending:'';
+   button.append(make('strong',day),make('small',dateText));
    button.onclick=()=>{
      if(running)return;
      selectedDay=date;
+     if(selectionMode==='single'&&!selectedTypeTouched)selectedType=classify(date);
      if(selectionMode==='multiple'){
        if(selectionDates.has(date))selectionDates.delete(date);else selectionDates.add(date);
      }else if(selectionMode==='range'){
