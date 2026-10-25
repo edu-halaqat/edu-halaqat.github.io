@@ -51,6 +51,9 @@ const style=()=>{if(document.getElementById('sl-calendar-style'))return;
  '.sl-academic-toolbar label,.sl-academic-detail label{display:flex;flex-direction:column;gap:5px}',
  '.sl-academic-toolbar select,.sl-academic-detail select{padding:9px;max-width:100%;border-radius:9px;border:1px solid #92ad9f;color:inherit;background:transparent;font:inherit}',
  '.sl-academic-toolbar button,.sl-academic-detail button,.sl-academic-head button{border:1px solid #7f9d92;padding:10px;border-radius:9px;background:transparent;color:inherit;font:inherit;cursor:pointer}',
+ '.sl-academic-toolbar{isolation:isolate;position:relative;z-index:1}',
+ '.sl-calendar-month-button{touch-action:manipulation;position:relative;z-index:2;min-height:44px;min-width:105px}',
+ '.sl-calendar-source-note{pointer-events:none;user-select:text;position:relative;z-index:0}',
  '.sl-academic-week,.sl-academic-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}',
  '.sl-academic-week>div{text-align:center;font-weight:700;font-size:.78rem;padding:7px 0}',
  '.sl-academic-day{border:1px solid #99b6a6;border-radius:9px;min-height:66px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:4px;color:inherit;background:transparent;font:inherit;cursor:pointer}',
@@ -93,12 +96,19 @@ async function open({selectedCircle}={}){
  header.append(introduction,close);dialog.append(header);
  const note=make('p','التقويم الدراسي ١٤٤٨–١٤٤٩ للمدينة المنورة هو المرجع المعتمد. تظهر تواريخ الأعوام اللاحقة بصفة مرجعية حتى تُعتمد. اختيار موعد مرجعي لا يُغير الخطط دون إجراء الحفظ.','sl-academic-muted');
  dialog.append(note);
- const sources=make('div',undefined,'sl-academic-bulkbar');
- const src=make('a','تقويم وزارة التعليم');src.href=source;src.target='_blank';src.rel='noopener';sources.append(src);
- const secondary=make('a','التقويم المرجعي للأعوام اللاحقة');secondary.href=regionReference;secondary.target='_blank';secondary.rel='noopener';sources.append(secondary);
+ // Source names are context, not touch targets. External anchors above the
+ // month arrows caused unintended mobile navigation to the reference website.
+ // Keep this dialog completely self-contained (and free of external links).
+ const sources=make('p','مصادر التواريخ: تقويم وزارة التعليم، وتقويم السعودية مرجعًا للأعوام اللاحقة.','sl-academic-muted');
+ sources.classList.add('sl-calendar-source-note');
  dialog.append(sources);
  const toolbar=make('div',undefined,'sl-academic-toolbar');
  const previous=make('button','الشهر السابق'),next=make('button','الشهر التالي'),monthLabel=make('strong');
+ previous.type='button';next.type='button';
+ previous.setAttribute('aria-label','الانتقال إلى الشهر السابق');
+ next.setAttribute('aria-label','الانتقال إلى الشهر التالي');
+ previous.classList.add('sl-calendar-month-button');
+ next.classList.add('sl-calendar-month-button');
  toolbar.append(previous,monthLabel,next);dialog.append(toolbar);
  const week=make('div',undefined,'sl-academic-week');
  weekdayNames.forEach(x=>week.append(make('div',x)));dialog.append(week);
@@ -109,6 +119,7 @@ async function open({selectedCircle}={}){
  const now=new Date();
  let year=now.getFullYear(),month=now.getMonth()+1,selectedDay='';
  let overrides=new Map(),running=false,cancelled=false,lastReport='',lastBreakdown='';
+ const monthlyCache=new Map();let renderSequence=0;
  const checked=new Set(selectedCircle&&circles.some(c=>c.id===selectedCircle)?[selectedCircle]:[]);
  const findCircle=id=>circles.find(c=>c.id===id);
  const explainError=e=>{
@@ -123,16 +134,18 @@ async function open({selectedCircle}={}){
  };
  const message=s=>{lastReport=String(s);state.textContent=lastReport};
  close.onclick=()=>{if(running){cancelled=true;message('طلب إيقاف التنفيذ. سيكتمل الطلب الجاري ثم يمكنك إغلاق التقويم.');return}dialog.close()};
- async function fetchOverrides(){
-  const first=iso(year,month,1),last=iso(year,month,new Date(Date.UTC(year,month,0)).getUTCDate());
-  const latest=new Map();
-  // Back-end checks that every requested circle belongs to an authorized
-  // complex. Do not ask for per-student details on calendar opening.
+ async function fetchOverrides(y=year,m=month){
+  const key=iso(y,m,1);
+  if(monthlyCache.has(key))return monthlyCache.get(key);
+  const first=key,last=iso(y,m,new Date(Date.UTC(y,m,0)).getUTCDate());
+  // One scoped query per unvisited month. Cached navigation is immediate.
   const {data,error}=await client.rpc('get_circle_day_types_range_guarded',
    {p_circle_ids:circles.map(c=>c.id),p_from:first,p_to:last});
-  if(error){message('تعذرت قراءة التصنيفات المحفوظة: '+error.message);return}
+  if(error)throw Error(error.message||'تعذر قراءة التصنيفات المحفوظة.');
+  const latest=new Map();
   for(const item of data||[])latest.set(item.circleId+'|'+item.date,item.type);
-  overrides=latest;
+  monthlyCache.set(key,latest);
+  return latest;
  }
  const classify=date=>{
   const values=[...checked].map(id=>overrides.get(id+'|'+date)).filter(Boolean);
@@ -246,8 +259,10 @@ async function open({selectedCircle}={}){
       'لا توجد مقررات متبقية تحتاج إلى ترحيل.'));
     // The decision is final once the server confirms it; detailed shifting is
     // an independently durable job and its status can be inspected on demand.
-    await fetchOverrides();
-    await renderCalendar(false);
+    // Invalidate this month only after the server confirms saving.
+    // Do not revive a stale cached classification on the next visit.
+    monthlyCache.delete(iso(year,month,1));
+    await renderCalendar(true);
    }catch(e){
     console.warn('Fast calendar approval',e);
     message('لم يُعتمد التصنيف: '+explainError(e)+
@@ -259,7 +274,10 @@ async function open({selectedCircle}={}){
   };
  }
  async function renderCalendar(load=true){
-  if(load)await fetchOverrides();
+  // Draw the requested month immediately. Network response only repaints the
+  // decorations of that same month and cannot jump backwards after rapid taps.
+  const serial=load?++renderSequence:renderSequence,y=year,m=month,key=iso(y,m,1);
+  if(load)overrides=monthlyCache.get(key)||new Map();
   monthLabel.textContent=new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{
    month:'long',year:'numeric',timeZone:'UTC'
   }).format(new Date(Date.UTC(year,month-1,1)));
@@ -280,9 +298,29 @@ async function open({selectedCircle}={}){
    grid.append(button);
   }
   renderDetail();
+  if(load&&!monthlyCache.has(key)){
+   try{
+    const monthOverrides=await fetchOverrides(y,m);
+    if(serial===renderSequence&&year===y&&month===m){
+     overrides=monthOverrides;
+     await renderCalendar(false);
+    }
+   }catch(err){
+    if(serial===renderSequence)message('تعذر جلب تصنيفات الشهر: '+explainError(err));
+   }
+  }
  }
- previous.onclick=async()=>{if(running)return;if(--month===0){month=12;year--}selectedDay='';await renderCalendar()};
- next.onclick=async()=>{if(running)return;if(++month===13){month=1;year++}selectedDay='';await renderCalendar()};
+ const moveMonth=(step,event)=>{
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  if(running)return;
+  const date=new Date(Date.UTC(year,month-1+step,1));
+  year=date.getUTCFullYear();month=date.getUTCMonth()+1;selectedDay='';
+  // Deliberately do not await the API: the month buttons stay responsive.
+  void renderCalendar(true);
+ };
+ previous.onclick=event=>moveMonth(-1,event);
+ next.onclick=event=>moveMonth(1,event);
  document.body.append(dialog);
  dialog.addEventListener('close',()=>{cancelled=true;dialog.remove()},{once:true});
  dialog.showModal();await renderCalendar();

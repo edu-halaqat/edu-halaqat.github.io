@@ -49,6 +49,7 @@ jobs:
           node tests/sanabil-plan-workflows-20261024.cjs
           node tests/sanabil-calendar-complex-batch-20261025.cjs
           node tests/sanabil-calendar-instant-20261025.cjs
+          node tests/sanabil-calendar-mobile-navigation-20261025.cjs
           node tests/sanabil-video-invitations.cjs
           node tests/sanabil-video-return.cjs
           node tests/sanabil-install.cjs
@@ -176,6 +177,9 @@ jobs:
                   assert 'get_calendar_reflow_status_guarded' in cal_script
                   assert 'sl-complex-group' in cal_script
                   assert 'get_circle_day_types_range_guarded' in cal_script
+                  assert "make('a'" not in cal_script, 'External calendar links still clickable'
+                  assert "event?.preventDefault?.()" in cal_script, 'Month navigation must block ghost taps'
+                  assert 'monthlyCache' in cal_script
 
                   assert 'التسميع المرئي' in js
                   # Confirm the actual published release includes the permanent

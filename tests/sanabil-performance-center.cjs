@@ -7,7 +7,7 @@ const index=fs.readFileSync('index.html','utf8');
 const live=fs.readFileSync('sanabil-live-v12.js','utf8');
 const flow=fs.readFileSync('.github/workflows/pages.yml','utf8');
 assert(index.includes('/sanabil-performance-center.js?v=20261024-performance-center3'),'entry must be versioned');
-assert(index.includes('20261025-v13.8.69'),'release stamp included');
+assert(index.includes('20261025-v13.8.70'),'release stamp included');
 assert(live.includes("button('قياس مؤشرات الأداء','performance')"),'admin toolbar now uses unified label');
 assert(live.includes('window.SanabilPerformanceCenter?.open'),'legacy tool must delegate to unified center');
 assert(flow.includes('node tests/sanabil-performance-center.cjs'),'deployment must verify center');
