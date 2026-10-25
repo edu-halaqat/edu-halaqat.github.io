@@ -10,7 +10,7 @@ assert(source.includes("previous.type='button';next.type='button'"),'navigation 
 assert(source.includes("touch-action:manipulation"),'avoid double-tap delay or ghost taps');
 assert(source.includes('renderSequence'),'discard late response from a previous month');
 assert(source.includes('monthlyCache'),'revisiting month should avoid repeated database reads');
-assert(html.includes('/sanabil-plan-calendar.js?v=20261025-month-nav2'),'new calendar asset cache-busted');
+assert(html.includes('/sanabil-plan-calendar.js?v=20261025-bulk-default1'),'new calendar asset cache-busted');
 class FakeNode {
  constructor(tag){
   this.tagName=String(tag).toLowerCase();this.children=[];this.style={};
