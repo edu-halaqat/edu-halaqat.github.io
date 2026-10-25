@@ -33,7 +33,7 @@ assert(migrations.includes("DELETE FROM public.circle_day_types"),'reset physica
 assert(migrations.includes("REVOKE ALL ON FUNCTION public.apply_calendar_days_bulk_guarded"),'anonymous callers excluded');
 assert(migrations.includes("private.can_access(v_circle.org_id,v_circle.complex_id"),'authorize each circle');
 assert(migrations.includes("p_dates date[]"),'batch date input typed');
-assert(migrations.includes("WHERE private.calendar_day_reflow_queue.state"),'queue only on applicable date');
+assert(migrations.includes("private.effective_day_type(s.id,d.date_key)<>'study'"),'queue only for currently excluded days');
 assert(migrations.includes("IF private.effective_day_type(task.student_id,task.date_key)=''study''"),'old pending jobs must not shift newly restored school days');
 assert(migrations.includes("JOIN public.memberships m")===false,'avoid any user-selection shortcut in queue');
 assert(migrations.includes("FROM public.memberships m JOIN public.profiles prof"),'automatic queue uses scoped active manager, never an arbitrary user');
