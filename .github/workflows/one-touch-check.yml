@@ -30,3 +30,4 @@ jobs:
           node tests/sanabil-calendar-instant-20261025.cjs
           node tests/sanabil-calendar-mobile-navigation-20261025.cjs
           node tests/sanabil-calendar-bulk-default-20261025.cjs
+          node tests/sanabil-calendar-default-status-20261025.cjs
