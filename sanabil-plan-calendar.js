@@ -28,7 +28,7 @@ const laterReferences=[
  ['2029-03-23','2029-03-31','إجازة الربيع للمدينة المنورة'],
  ['2029-04-13','2029-04-29','إجازة عيد الأضحى للمدينة المنورة']
 ];
-const kinds={study:'يوم دراسي',test:'يوم اختبار',holiday:'إجازة',unaccounted:'غير محتسب'};
+const kinds={holiday:'إجازة',study:'يوم دراسي',test:'يوم اختبار',unaccounted:'غير محتسب',default:'العودة للتقويم الافتراضي'};
 const pad=x=>String(x).padStart(2,'0');
 const iso=(y,m,d)=>y+'-'+pad(m)+'-'+pad(d);
 const weekdayNames=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
@@ -60,6 +60,11 @@ const style=()=>{if(document.getElementById('sl-calendar-style'))return;
  '.sl-academic-day strong{font-size:1rem}.sl-academic-day small{font-size:.67rem;text-align:center;overflow-wrap:anywhere;line-height:1.2}',
  '.sl-academic-day.is-official{background:#d2eddd;color:#14573c}.sl-academic-day.is-pending{background:#f7ead1;color:#705112}.sl-academic-day.is-changed{outline:2px solid #238c78}',
  '.sl-academic-day[aria-pressed=true]{outline:3px solid #a57b2e}',
+ '.sl-academic-day.is-selected{box-shadow:inset 0 0 0 3px #23866e;background:#d7ede1;color:#134c37}',
+ '.sl-cal-select{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:end}',
+ '.sl-cal-select label{flex:1;min-width:min(170px,100%)}',
+ '.sl-cal-select input{padding:9px;border:1px solid #92ad9f;border-radius:9px;font:inherit;background:transparent;color:inherit;max-width:100%;width:100%}',
+ '.sl-cal-selection-count{font-weight:700;margin:10px 0}',
  '.sl-academic-day:disabled{opacity:.25;cursor:auto}.sl-academic-detail{margin-top:14px;border:1px solid #93b4a5;border-radius:12px;padding:14px}',
  '.sl-academic-circles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin:12px 0}',
  '.sl-academic-circles label{display:flex;gap:6px;align-items:center;font-size:.85rem}',
@@ -119,6 +124,7 @@ async function open({selectedCircle}={}){
  const now=new Date();
  let year=now.getFullYear(),month=now.getMonth()+1,selectedDay='';
  let overrides=new Map(),running=false,cancelled=false,lastReport='',lastBreakdown='';
+ let selectionMode='single',selectionDates=new Set(),rangeStart='',rangeEnd='',weekStart='',weekCount=1;
  const monthlyCache=new Map();let renderSequence=0;
  const checked=new Set(selectedCircle&&circles.some(c=>c.id===selectedCircle)?[selectedCircle]:[]);
  const findCircle=id=>circles.find(c=>c.id===id);
@@ -183,93 +189,178 @@ async function open({selectedCircle}={}){
   }
   container.append(make('p','الحلقات المحددة: '+checked.size+' من '+circles.length,'sl-academic-muted'));
  }
+ const addDays=(first,count)=>{
+  if(!first||!Number.isInteger(count)||count<1||count>120)throw Error('حدّد تاريخًا وعددًا من الأيام لا يتجاوز ١٢٠ يومًا.');
+  const base=new Date(first+'T12:00:00Z');
+  if(Number.isNaN(base.getTime()))throw Error('تاريخ البداية غير صحيح.');
+  return Array.from({length:count},(_,i)=>{
+   const d=new Date(base.getTime()+i*86400000);
+   return iso(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate());
+  });
+ };
+ const selectedDatesForAction=()=>{
+  if(selectionMode==='single')return selectedDay?[selectedDay]:[];
+  if(selectionMode==='multiple')return [...selectionDates].sort();
+  if(selectionMode==='range'){
+   if(!rangeStart||!rangeEnd||rangeStart>rangeEnd)throw Error('حدد تاريخ البداية والنهاية بترتيب صحيح.');
+   const length=Math.round((Date.parse(rangeEnd+'T12:00:00Z')-Date.parse(rangeStart+'T12:00:00Z'))/86400000)+1;
+   return addDays(rangeStart,length);
+  }
+  if(selectionMode==='weeks')return addDays(weekStart,weekCount*7);
+  return [];
+ };
  function renderDetail(){
   detail.replaceChildren();
-  detail.append(make('h3',selectedDay?'تصنيف '+selectedDay:'اختر يومًا من التقويم'));
-  if(!selectedDay)return;
+  detail.append(make('h3',selectedDay?'تحديد الأيام ابتداء من '+selectedDay:'حدد الأيام من التقويم'));
   const official=calcOfficial(selectedDay),pending=calcReference(selectedDay);
-  detail.append(make('p',official?'إجازة ١٤٤٨–١٤٤٩: '+official:
-    pending?'موعد غير معتمد حتى الآن: '+pending:'اليوم غير محدد إجازة رسمية في المرجع.','sl-academic-muted'));
-  const selectLabel=make('label','تصنيف اليوم'),type=make('select');
-  for(const [key,label] of Object.entries(kinds)){
-   const item=make('option',label);item.value=key;type.append(item);
+  detail.append(make('p',official?'إجازة رسمية افتراضية: '+official:
+    pending?'موعد مرجعي للأعوام غير المعتمدة: '+pending:
+    'الإجازات الدراسية المعتمدة مطبقة افتراضيًا؛ تعديل المشرف يتقدم عليها.','sl-academic-muted'));
+  const modeLabel=make('label','طريقة تحديد الأيام'),mode=make('select');
+  for(const [key,label] of Object.entries({
+   single:'يوم واحد',multiple:'أيام متفرقة بالضغط على التقويم',
+   range:'فترة بين تاريخين',weeks:'أسابيع متتالية'
+  })){
+   const opt=make('option',label);opt.value=key;mode.append(opt);
   }
-  type.value=classify(selectedDay);selectLabel.append(type);detail.append(selectLabel);
+  mode.value=selectionMode;
+  mode.onchange=()=>{
+   selectionMode=mode.value;
+   if(selectionMode==='multiple'&&selectedDay&&!selectionDates.size)selectionDates.add(selectedDay);
+   if(!rangeStart)rangeStart=selectedDay;
+   if(!rangeEnd)rangeEnd=selectedDay;
+   if(!weekStart)weekStart=selectedDay;
+   renderCalendar(false);
+  };
+  modeLabel.append(mode);
+  const picking=make('div',undefined,'sl-cal-select');picking.append(modeLabel);
+  if(selectionMode==='range'){
+   for(const [key,label] of [['start','من تاريخ'],['end','إلى تاريخ']]){
+    const field=make('label',label),input=make('input');input.type='date';
+    input.value=key==='start'?rangeStart:rangeEnd;
+    input.onchange=()=>{if(key==='start')rangeStart=input.value;else rangeEnd=input.value};
+    field.append(input);picking.append(field);
+   }
+  }
+  if(selectionMode==='weeks'){
+   const from=make('label','بداية الأسابيع'),dateInput=make('input');
+   dateInput.type='date';dateInput.value=weekStart;
+   dateInput.onchange=()=>{weekStart=dateInput.value};
+   from.append(dateInput);picking.append(from);
+   const count=make('label','عدد الأسابيع'),numberInput=make('input');
+   numberInput.type='number';numberInput.min='1';numberInput.max='16';numberInput.value=weekCount;
+   numberInput.onchange=()=>{weekCount=Math.min(16,Math.max(1,Number(numberInput.value)||1));};
+   count.append(numberInput);picking.append(count);
+  }
+  if(selectionMode==='multiple'){
+   const weekButton=make('button','تحديد الأسبوع'),monthButton=make('button','تحديد الشهر');
+   const clearButton=make('button','إلغاء تحديد الأيام');
+   for(const button of [weekButton,monthButton,clearButton])button.type='button';
+   weekButton.onclick=()=>{
+    const stamp=new Date(selectedDay+'T12:00:00Z');
+    stamp.setUTCDate(stamp.getUTCDate()-stamp.getUTCDay());
+    for(const day of addDays(iso(stamp.getUTCFullYear(),stamp.getUTCMonth()+1,stamp.getUTCDate()),7))
+     selectionDates.add(day);
+    renderCalendar(false);
+   };
+   monthButton.onclick=()=>{
+    for(const day of addDays(iso(year,month,1),new Date(Date.UTC(year,month,0)).getUTCDate()))
+     selectionDates.add(day);
+    renderCalendar(false);
+   };
+   clearButton.onclick=()=>{selectionDates.clear();renderCalendar(false)};
+   picking.append(weekButton,monthButton,clearButton);
+  }
+  detail.append(picking);
+  let days=[];
+  try{days=selectedDatesForAction()}catch(e){/* validated again at save */}
+  detail.append(make('p','الأيام المختارة: '+days.length+
+   (days.length?' · من '+days[0]+' إلى '+days.at(-1):' · اختر أيامًا من التقويم'),'sl-cal-selection-count'));
+  const selectLabel=make('label','التصنيف المطلوب'),type=make('select');
+  for(const [key,label] of Object.entries(kinds)){
+   const option=make('option',label);option.value=key;type.append(option);
+  }
+  // Explicit saved override wins over the official default. "default"
+  // removes that override, restoring the official or ordinary school day.
+  type.value=selectedDay?classify(selectedDay):'holiday';
+  selectLabel.append(type);detail.append(selectLabel);
+  detail.append(make('p','الترتيب: تصنيف الطالب الخاص، ثم تعديل الحلقة، ثم تقويم المدينة المنورة المعتمد، ثم يوم دراسي. الإجازة الصيفية غير مستثناة.','sl-academic-muted'));
   const choices=make('div');drawChoices(choices);
-  detail.append(make('p','اختر المجمعات، ثم حدد جميع الحلقات أو بعضها:'),choices);
-  const save=make('button','اعتماد التصنيف فورًا');save.type='button';
-  const refresh=make('button','تحديث حالة ترحيل المقررات');refresh.type='button';
-  const report=make('div',lastBreakdown, 'sl-calendar-breakdown');
-  report.hidden=!lastBreakdown;
+  detail.append(make('p','اختر المجمع أو الحلقات التي سيطبق عليها التعديل:'),choices);
+  const save=make('button','اعتماد الأيام المحددة'),refresh=make('button','متابعة تسوية المقررات');
+  save.type=refresh.type='button';
+  const report=make('div',lastBreakdown,'sl-calendar-breakdown');report.hidden=!lastBreakdown;
   detail.append(save,refresh,state,report);
   if(lastReport)state.textContent=lastReport;
-  const readProgress=async(ids,day)=>{
-    const {data,error}=await client.rpc('get_calendar_reflow_status_guarded',
-      {p_circle_ids:ids,p_date:day});
-    if(error)throw Error(error.message||'تعذر قراءة حالة التسوية.');
-    const records=Array.isArray(data)?data:[];
-    const list=records.map(row=>{
-      const circle=findCircle(row.circleId);
-      const base=(circle?.complexName||'المجمع')+' — '+(circle?.name||'الحلقة');
-      const pending=Number(row.pending||0),done=Number(row.done||0),failed=Number(row.failed||0);
-      return base+'\n'+
-        (row.approved?'التصنيف معتمد. ':'التصنيف لم يُعتمد. ')+
-        'تم ترحيل '+done+' طالبًا، المتبقي '+pending+
-        (failed?'، يحتاج مراجعة '+failed+'.':'')+
-        (row.lastError?'\nسبب التعثر: '+explainError(row.lastError):'');
-    });
-    lastBreakdown=list.join('\n\n');
-    report.textContent=lastBreakdown;report.hidden=false;
-    return records;
-  };
   refresh.onclick=async()=>{
-    if(running)return;
-    const ids=[...checked];
-    if(!ids.length){message('اختر مجمعًا أو حلقة لمتابعة ترحيل المقررات.');return}
-    refresh.disabled=true;
-    try{
-      const records=await readProgress(ids,selectedDay);
-      const pending=records.reduce((n,r)=>n+Number(r.pending||0),0);
-      const failed=records.reduce((n,r)=>n+Number(r.failed||0),0);
-      message('حالة التسوية: '+pending+' طالبًا قيد الترحيل، '+failed+
-        ' بحاجة إلى مراجعة.'+(pending?' تُستكمل الأعمال تلقائيًا على الخادم.':''));
-    }catch(e){message('تعذر عرض حالة الترحيل: '+explainError(e))}
-    finally{refresh.disabled=false}
+   if(running)return;
+   const ids=[...checked];if(!ids.length){message('حدد حلقة واحدة على الأقل.');return}
+   let dates;
+   try{dates=selectedDatesForAction();if(!dates.length)throw Error('اختر يومًا أولًا.')}
+   catch(e){message(e.message);return}
+   refresh.disabled=true;
+   try{
+    // One report per selected date, using the same scoped administrative RPC.
+    const all=[];
+    for(const day of dates.slice(0,14)){
+     const {data,error}=await client.rpc('get_calendar_reflow_status_guarded',
+       {p_circle_ids:ids,p_date:day});
+     if(error)throw Error(error.message);
+     all.push(...(data||[]).map(row=>({date:day,...row})));
+    }
+    const pending=all.reduce((n,r)=>n+Number(r.pending||0),0),
+      failed=all.reduce((n,r)=>n+Number(r.failed||0),0);
+    message('حالة أول '+Math.min(14,dates.length)+' يومًا: '+pending+' طالبًا قيد المعالجة و'+failed+' يحتاجون مراجعة.');
+    lastBreakdown=all.filter(r=>r.pending||r.failed).map(r=>{
+      const c=findCircle(r.circleId);
+      return r.date+' — '+(c?.name||'حلقة')+': المتبقي '+r.pending+'، المتعثر '+r.failed;
+    }).join('\n')||'لا توجد تسويات متعثرة ضمن الأيام المفحوصة.';
+    report.textContent=lastBreakdown;report.hidden=false;
+   }catch(e){message('تعذر قراءة حالة التسوية: '+explainError(e))}
+   finally{refresh.disabled=false}
   };
   save.onclick=async()=>{
    if(running)return;
-   const ids=[...checked],day=selectedDay,newType=type.value;
-   if(!ids.length){message('اختر مجمعًا أو حلقة واحدة على الأقل.');return}
-   if(!window.confirm('اعتماد «'+kinds[newType]+'» ليوم '+day+' في '+ids.length+
-     ' حلقة الآن؟ سيُحفظ القرار فورًا وتُرحّل المقررات المتبقية من الخادم دون انتظارك.'))return;
-   running=true;save.disabled=true;refresh.disabled=true;type.disabled=true;
-   previous.disabled=true;next.disabled=true;
-   message('جارٍ حفظ التصنيف للحلقات المحددة...');
+   const ids=[...checked],newType=type.value;let dates;
    try{
-    const {data,error}=await client.rpc('approve_calendar_day_fast_guarded',
-      {p_circle_ids:ids,p_date:day,p_day_type:newType});
-    if(error)throw Error(error.message||'تعذر اعتماد التصنيف.');
-    if(!data||data.ok!==true||Number(data.approvedCircles)!==ids.length)
-      throw Error('لم يؤكد الخادم اعتماد جميع الحلقات المختارة.');
-    for(const id of ids)overrides.set(id+'|'+day,newType);
-    const queued=Number(data.queuedStudents||0);
-    lastBreakdown='';
-    message('تم اعتماد «'+kinds[newType]+'» في '+ids.length+' حلقة. '+
-      (queued?'وُضعت مقررات '+queued+' طالبًا في طابور الترحيل الآمن. لا يلزم إبقاء الصفحة مفتوحة.':
-      'لا توجد مقررات متبقية تحتاج إلى ترحيل.'));
-    // The decision is final once the server confirms it; detailed shifting is
-    // an independently durable job and its status can be inspected on demand.
-    // Invalidate this month only after the server confirms saving.
-    // Do not revive a stale cached classification on the next visit.
-    monthlyCache.delete(iso(year,month,1));
+    dates=selectedDatesForAction();
+    if(!ids.length)throw Error('اختر مجمعًا أو حلقة على الأقل.');
+    if(!dates.length)throw Error('اختر يومًا أو فترة أولًا.');
+    if(dates.length>120)throw Error('الفترة طويلة جدًا؛ اختر ١٢٠ يومًا أو أقل.');
+   }catch(e){message(e.message);return}
+   if(!window.confirm('اعتماد «'+kinds[newType]+'» لعدد '+dates.length+
+     ' يومًا على '+ids.length+' حلقة؟ تحافظ المنصة على الأعمال المسجلة، وتستكمل ترحيل المقررات غير المنجزة لاحقًا.'))return;
+   running=true;save.disabled=true;refresh.disabled=true;previous.disabled=true;next.disabled=true;
+   let ok=0,queued=0;
+   try{
+    // 7 days x 10 circles => at most 70 circle-days per server transaction.
+    // The user confirms once, while the UI reports partially completed chunks.
+    for(let d=0;d<dates.length;d+=7){
+     const group=dates.slice(d,d+7);
+     for(let c=0;c<ids.length;c+=10){
+      const circlesBatch=ids.slice(c,c+10);
+      const {data,error}=await client.rpc('apply_calendar_days_bulk_guarded',
+       {p_circle_ids:circlesBatch,p_dates:group,p_day_type:newType});
+      if(error)throw Error(error.message||'تعذر حفظ الدفعة.');
+      if(data?.ok!==true||Number(data.days)!==group.length||
+        Number(data.circles)!==circlesBatch.length)
+       throw Error('لم يؤكد الخادم اعتماد الدفعة كاملة.');
+      ok+=group.length*circlesBatch.length;
+      queued+=Number(data.queuedStudents||0);
+      message('اكتمل تصنيف '+ok+' من '+dates.length*ids.length+' يوم-حلقة.');
+     }
+    }
+    monthlyCache.clear();
+    lastBreakdown='تم اعتماد '+dates.length+' يومًا على '+ids.length+
+      ' حلقة. وُضعت '+queued+' مهمة تسوية للمقررات غير المنجزة.';
+    message(lastBreakdown+' لا يلزم إبقاء الصفحة مفتوحة.');
     await renderCalendar(true);
    }catch(e){
-    console.warn('Fast calendar approval',e);
-    message('لم يُعتمد التصنيف: '+explainError(e)+
-      '\nلا تعرض الصفحة نجاحًا قبل تأكيد الحفظ. يمكنك إعادة المحاولة.');
+    console.warn('Calendar bulk classification',e);
+    message('اكتمل '+ok+' يوم-حلقة، وتوقفت بقية العملية: '+explainError(e)+
+      ' أعد المحاولة؛ الدفعات المكتملة محفوظة دون تكرار ترحيل إنجازاتها.');
    }finally{
-    running=false;save.disabled=false;refresh.disabled=false;
-    type.disabled=false;previous.disabled=false;next.disabled=false;
+    running=false;save.disabled=false;refresh.disabled=false;previous.disabled=false;next.disabled=false;
    }
   };
  }
@@ -290,11 +381,22 @@ async function open({selectedCircle}={}){
    const button=make('button',undefined,'sl-academic-day'+
      (official?' is-official':pending?' is-pending':'')+
      ([...checked].some(id=>overrides.has(id+'|'+date))?' is-changed':''));
-   button.type='button';button.setAttribute('aria-pressed',String(date===selectedDay));
+   button.type='button';button.setAttribute('aria-pressed',String(selectionMode==='multiple'?selectionDates.has(date):date===selectedDay));
+   if(selectionMode==='multiple'&&selectionDates.has(date))button.classList.add('is-selected');
    button.append(make('strong',day),make('small',official?official:
      pending?'بانتظار الاعتماد · '+pending:
      [...checked].some(id=>overrides.has(id+'|'+date))?kinds[classify(date)]:'' ));
-   button.onclick=()=>{if(running)return;selectedDay=date;renderCalendar(false)};
+   button.onclick=()=>{
+     if(running)return;
+     selectedDay=date;
+     if(selectionMode==='multiple'){
+       if(selectionDates.has(date))selectionDates.delete(date);else selectionDates.add(date);
+     }else if(selectionMode==='range'){
+       if(!rangeStart||rangeStart&&rangeEnd){rangeStart=date;rangeEnd='';}
+       else{rangeEnd=date;if(rangeEnd<rangeStart){const swap=rangeStart;rangeStart=rangeEnd;rangeEnd=swap}}
+     }else if(selectionMode==='weeks'){weekStart=date;}
+     renderCalendar(false);
+   };
    grid.append(button);
   }
   renderDetail();
