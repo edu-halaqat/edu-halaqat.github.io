@@ -239,8 +239,29 @@ Deno.serve(async(req:Request)=>{
     const patch:any={updated_at:new Date().toISOString()};
     if(action==="checkIn"){patch.late_minutes=late;patch.early_arrival_minutes=earlyArrival;}
     if(action==="checkOut"){patch.early_leave_minutes=earlyLeave;}
-    if(!data?.duplicate)await admin.from("attendance").update(patch).eq("user_id",user.id).eq("circle_id",circle.id).eq("date_key",data?.dateKey||prayer.dateKey);
-    return reply({...data,window:info,lateMinutes:late,earlyArrivalMinutes:earlyArrival,earlyLeaveMinutes:earlyLeave});
+    if(!data?.duplicate){
+      const {error:patchError}=await admin.from("attendance").update(patch)
+        .eq("user_id",user.id).eq("circle_id",circle.id).eq("date_key",data?.dateKey||prayer.dateKey);
+      if(patchError)throw patchError;
+    }
+    // A later duplicate request must report the ORIGINAL accepted check-in.
+    let confirmedLate=late,confirmedEarlyArrival=earlyArrival,confirmedCheckInAt:string|null=null;
+    if(action==="checkIn"){
+      let attendanceLookup=admin.from("attendance")
+        .select("check_in_at,late_minutes,early_arrival_minutes")
+        .eq("user_id",user.id).eq("date_key",data?.dateKey||prayer.dateKey);
+      if(data?.attendanceId)attendanceLookup=attendanceLookup.eq("id",data.attendanceId);
+      else attendanceLookup=attendanceLookup.eq("circle_id",circle.id);
+      const {data:record,error:lookupError}=await attendanceLookup.maybeSingle();
+      if(lookupError)throw lookupError;
+      if(!record?.check_in_at)throw Error("تعذر التحقق من وقت البصمة المعتمدة؛ أعد تحديث حالة الحضور.");
+      confirmedLate=Number(record.late_minutes??0);
+      confirmedEarlyArrival=Number(record.early_arrival_minutes??0);
+      confirmedCheckInAt=record.check_in_at;
+    }
+    return reply({...data,window:info,lateMinutes:confirmedLate,
+      earlyArrivalMinutes:confirmedEarlyArrival,earlyLeaveMinutes:earlyLeave,
+      ...(confirmedCheckInAt?{confirmedCheckInAt}:{})});
   }catch(e){
     // PostgREST failures are plain objects, not necessarily instanceof Error.
     // Previously their useful Arabic error was replaced by a generic message,

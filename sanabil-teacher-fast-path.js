@@ -1,7 +1,7 @@
 /* Sanabil teacher quick path: one authenticated account, two reversible working layouts.
    It never forges attendance and never changes the existing guarded outcome saves. */
 (()=>{'use strict';if(window.SanabilTeacherFastPath)return;
-const L='sanabil_teacher_mode_v1:', S='sanabil_fast_launch_v1:', STATUS='sanabil_fast_fingerprint_v1:';
+const L='sanabil_teacher_mode_v1:', S='sanabil_fast_launch_v1:', STATUS='sanabil_fast_fingerprint_v2:';
 const node=(tag,cls,label)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(label!==undefined)e.textContent=label;return e};
 const button=(label,fn,cls='')=>{const b=node('button','button '+cls,label);b.type='button';b.addEventListener('click',fn);return b};
 const store=(key,value,area=localStorage)=>{try{area.setItem(key,JSON.stringify(value))}catch{}};
@@ -26,7 +26,13 @@ const pending=new Map();
 const emit=(key,value)=>{store(key,value,sessionStorage);window.dispatchEvent(new CustomEvent('sanabil-fast-fingerprint',{detail:{key,value}}))};
 const describe=val=>{
  switch(val?.state){
- case 'confirmed':return'تم تسجيل حضور المعلم لدى الخادم'+(val.lateMinutes>0?' · تأخر '+val.lateMinutes+' دقيقة':'')+'.';
+ case 'confirmed':{
+   let registered='';
+   if(val?.confirmedCheckInAt){
+     try{registered=' الساعة '+new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit'}).format(new Date(val.confirmedCheckInAt))}catch{}
+   }
+   return 'تم تسجيل حضور المعلم لدى الخادم'+registered+(val.lateMinutes>0?' · تأخر '+val.lateMinutes+' دقيقة':' · دون تأخر')+'.';
+ }
  case 'pending':return'أُرسل طلب البصمة للمراجعة بعد انقطاع الاتصال؛ لم يُعتمد الحضور بعد.';
  case 'running':return'جارٍ التحقق من البصمة دون تعطيل بدء الحلقة…';
  case 'failed':return'تعذرت البصمة: '+(val.message||'غير معروف')+' · يمكنك متابعة التسميع وإعادة المحاولة.';
@@ -86,7 +92,7 @@ async function fingerprint({user,circle,date,server,force=false}){
     }
     return update('failed',data?.error||(error?await fingerprintError(error):'رفض خادم البصمة الطلب'));
    }
-   return update('confirmed','سجل حضور مؤكد', {lateMinutes:Number(data?.lateMinutes||0),duplicate:!!data?.duplicate});
+   return update('confirmed','سجل حضور مؤكد', {lateMinutes:Number(data?.lateMinutes||0),duplicate:!!data?.duplicate,confirmedCheckInAt:data?.confirmedCheckInAt||null});
   }catch(error){return update('failed',error?.message||'تعذر التواصل مع خدمة البصمة')}
  })().finally(()=>pending.delete(key));
  pending.set(key,task);return task;
