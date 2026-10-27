@@ -62,7 +62,7 @@ for(const marker of [
 ])assert(monitor.includes(marker),'missing localization of report item '+marker);
 assert(index.indexOf('sanabil-arabic-ui.js')<index.indexOf('sanabil-activity-monitor.js'),
  'translator script must execute before activity monitor');
-assert(index.includes('sanabil-live-v12.js?v=20261025-bulk-default1'),'bust session cache for new Arabic status');
+assert(index.includes('sanabil-live-v12.js?v=20261027-saved-carry1'),'bust session cache for new Arabic status');
 assert(!live.includes('P95 (ث)'),'measurement table headings cannot contain English shorthand');
 assert(live.includes('زمن ٩٥٪ من المحاولات'),'measurement percentile must be clear Arabic');
 console.log('PASS: all specified diagnostic identifiers map to intelligible Arabic; no raw unknown RPC or telemetry field leaks into report, responsive view and exports are localized');
