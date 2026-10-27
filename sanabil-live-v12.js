@@ -2229,7 +2229,7 @@ async function outcomesPage(root){
       const values=[input('fromSurah'),input('fromAyah'),input('toSurah'),input('toAyah')];
       if(values.some(x=>!Number.isInteger(x)||x<1)){inform('حدد السورة والآية الصحيحتين لبداية المقرر ونهايته.',true);return}
       busy=true;save.disabled=true;cancel.disabled=true;edit.disabled=true;
-      inform('جارٍ حفظ المقرر وإعادة جدولة الأيام اللاحقة…');
+      inform('جارٍ التحقق من المقرر وحماية الحصائل المعتمدة وإعادة حساب الترحيل…');
       try{
         saveDrafts();
         const changed=await rpc('update_quran_daily_range_guarded',{
@@ -2246,7 +2246,7 @@ async function outcomesPage(root){
           inform('المقرر مطابق لما هو محفوظ مسبقًا؛ لم تكن هناك حاجة إلى إعادة جدولة.');
           toggle(false);
         }else{
-          inform('حُفظ المقرر الجديد وأُعيدت جدولة الأيام غير المنجزة.');
+          inform(changed.assessmentRestored?'تم تصحيح المقرر مع المحافظة على تقديرات الحصيلة والحضور، وأُعيد احتساب الترحيل بأمان.':'حُفظ المقرر الجديد وأُعيدت جدولة الأيام غير المنجزة.');
           // Refresh linked review assignments after a real change only.
           root.querySelector('[data-action="load"]')?.click();
         }
