@@ -1642,7 +1642,9 @@ function attachStudentDayKindControls(box,students,dayData,{circle,date,reload,h
     if(memPlan&&kind==='study'&&date>=today()){
       const skip=document.createElement('button');
       skip.type='button';skip.className='button button-soft';
-      skip.textContent='لا حفظ جديد اليوم · رحّل مقرر الحفظ فقط';
+      skip.textContent='تأجيل حفظ اليوم (إجراء اختياري)';
+      skip.title='مقرر الحفظ موجود في بطاقة الطالب. استخدم هذا الزر فقط إذا أردت ترحيله إلى اليوم الدراسي التالي مع بقاء المراجعات.';
+      skip.setAttribute('aria-label','تأجيل مقرر الحفظ لهذا الطالب إلى اليوم الدراسي التالي');
       wrap.append(skip);
       skip.addEventListener('click',async()=>{
         if(hasDrafts()&&!confirm('توجد حصيلة غير محفوظة؛ احفظها قبل استثناء الحفظ. هل تريد الاستمرار؟'))return;
