@@ -24,6 +24,24 @@ function localParts(timeZone:string){
 const toMin=(t:string)=>{const [h,m]=String(t||"00:00").split(":").map(Number);return h*60+m};
 const fmt=(n:number)=>{n=((n%1440)+1440)%1440;return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`};
 
+// Reuse only this mosque's validated, same-day source timings. Never borrow
+// yesterday's times or interpret a fixed session duration as a prayer time.
+function cachedTimings(mosque:any,cfg:any,dateKey:string){
+  const times:Record<string,string>={};
+  const valid=(v:unknown)=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  const rows=Array.isArray(mosque.attendance_windows)?mosque.attendance_windows:[];
+  for(const w of rows){
+    if(!w||w.kind!=='runtime'||w.dateKey!==dateKey||w.source!=='aladhan-umm-al-qura')continue;
+    if(w.latitude!=null&&Number(w.latitude)!==Number(mosque.latitude))continue;
+    if(w.longitude!=null&&Number(w.longitude)!==Number(mosque.longitude))continue;
+    if(w.timezone!=null&&w.timezone!==(mosque.timezone||'Asia/Riyadh'))continue;
+    if(PRAYERS.includes(w.startPrayer)&&valid(w.prayerStart))times[w.startPrayer]=w.prayerStart;
+    if(Number(w.durationMinutes)===0&&PRAYERS.includes(w.endPrayer)&&valid(w.prayerEnd))times[w.endPrayer]=w.prayerEnd;
+  }
+  if(!times[cfg.startPrayer]||(cfg.durationMinutes===0&&!times[cfg.endPrayer]))return null;
+  return {dateKey,source:'aladhan-umm-al-qura',times};
+}
+
 async function timings(lat:number,lng:number,timeZone:string){
   if(!Number.isFinite(lat)||!Number.isFinite(lng))throw Error("موقع المسجد غير مضبوط؛ حدده من إعدادات البصمة.");
   const {apiDate,dateKey}=localParts(timeZone);
@@ -146,7 +164,8 @@ Deno.serve(async(req:Request)=>{
 
     const timeZone=String(mosque.timezone||"Asia/Riyadh");
     const cfg=cfgFrom(mosque,circle);
-    const prayer=await timings(Number(mosque.latitude),Number(mosque.longitude),timeZone);
+    const prayer=cachedTimings(mosque,cfg,localParts(timeZone).dateKey)
+      || await timings(Number(mosque.latitude),Number(mosque.longitude),timeZone);
     let start=toMin(prayer.times[cfg.startPrayer]);
     let end=cfg.durationMinutes>0?start+cfg.durationMinutes:toMin(prayer.times[cfg.endPrayer]);
     if(end<=start)end+=1440;
@@ -169,7 +188,8 @@ Deno.serve(async(req:Request)=>{
       if(x.kind==="config"||!x.dateKey)return true;
       return !(String(x.period||"")===cfg.period && String(x.dateKey||"")===prayer.dateKey);
     });
-    const merged=[...kept,...windows].slice(-80);
+    const stampedWindows=windows.map(w=>({...w,latitude:Number(mosque.latitude),longitude:Number(mosque.longitude),timezone:timeZone}));
+    const merged=[...kept,...stampedWindows].slice(-80);
     const {error:uwe}=await admin.from("mosques").update({attendance_windows:merged,updated_at:new Date().toISOString()}).eq("id",mosque.id);
     if(uwe)throw uwe;
 
