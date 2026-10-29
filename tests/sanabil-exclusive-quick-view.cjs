@@ -51,6 +51,6 @@ assert.equal(grid.style.getPropertyValue('display'),'none','subsequent quick tog
 assert(quick.includes('showDetailed:i=>'),'pending rows can navigate to an actual detailed student');
 assert(live.includes('<form class="sl-outcome-session" novalidate><div class="sl-student-grid">'),
  'detailed form remains intact and still uses the original save pipeline');
-assert(html.includes('/sanabil-quick-outcomes.js?v=20261023-detail1'));
+assert(html.includes('/sanabil-quick-outcomes.js?v=20261029-review2'));
 assert(html.includes('/sanabil-quick-outcomes.css?v=20261019-v8'));
 console.log('PASS: one active outcome view, no duplicate search/navigation, and lossless two-way switching.');

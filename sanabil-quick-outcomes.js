@@ -23,7 +23,7 @@
  const button=(label,fn,klass='')=>{const n=el('button','sl-quick-btn '+klass,label);n.type='button';n.addEventListener('click',fn);return n};
  const trackList=(student)=>[
   ...(student.memorization?[{key:'memorization',name:'الحفظ الجديد'}]:[]),
-  ...(student.recentReview?[{key:'recentReview',name:'جنب الدرس'}]:[]),
+  ...(student.recentReview?[{key:'recentReview',name:'المراجعة الصغرى'}]:[]),
   ...(student.reviews||[]).map((r,i)=>({key:'review:'+r.planId,name:r.planName||'المراجعة الكبرى '+(i+1)}))
  ];
  function mount(ctx){
@@ -213,7 +213,7 @@
    const chips=[];
    for(const t of entries){
     const m=metricFor(i,t.key),rating=gradeValue(st,t.key);
-    const abbreviated=t.key==='memorization'?'الحفظ':t.key==='recentReview'?'جنب الدرس':t.name;
+    const abbreviated=t.key==='memorization'?'الحفظ':t.key==='recentReview'?'المراجعة الصغرى':t.name;
     chips.push(abbreviated+': '+(rating||'لم يقيّم')+(provisional.has(i)?' (مبدئي)':'')+((m.errors||m.doubts)?' · '+m.errors+'خ '+m.doubts+'ش':''));
    }
    view.tags.replaceChildren(...chips.map(c=>el('span','sl-quick-chip',c)));
