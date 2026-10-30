@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261029-v13.8.74';
+window.__SanabilLiveBuild='20261030-v13.8.75';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -1002,7 +1002,7 @@ const userWhatsAppButton=i=>'<button type="button" class="button button-soft" da
 
 async function studentsPage(root){
  const [l,a]=await Promise.all([lookups(),access()]);let page=0,term='',current=[],circleFilter='',teacherFilter='';const selected=new Set(),canMove=a.roles.some(r=>['admin','manager','supervisor'].includes(r)),canImport=a.roles.includes('admin'),supervisorOperations=a.roles.some(r=>['admin','manager','supervisor'].includes(r));
- const rosterAccess=await rpc('list_teacher_student_roster_access',{}).catch(()=>[]);
+ const rosterAccess=await rpcDirect('list_teacher_student_roster_access',{});
  const canRoster=supervisorOperations||rosterAccess.some(x=>x.enabled&&!x.mayManage);
  root.innerHTML=
   '<section class="sl-students-workspace">'+
@@ -1011,9 +1011,9 @@ async function studentsPage(root){
   '</div><div class="sl-toolbar">'+
   `${canRoster?button('إضافة طالب','add'):''}${canRoster?button('استيراد وتصدير ملفات الجداول','roster-excel'):''}${button('تصدير البيانات المعروضة','export')}`+
   '</div>'+
-  '<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">إدارة المعلمين والحلقات والمجمع</summary><div class="sl-toolbar">'+
+  (supervisorOperations?'<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">إدارة المعلمين والحلقات والمجمع</summary><div class="sl-toolbar">'+
   `${supervisorOperations?button('إدارة المستخدمين','manage-users')+button('إنشاء حلقة','add-circle')+button('إضافة مسجد','add-mosque')+button('تفويض إدارة الطلاب','delegate-roster'):''}${button('المعلمون','teachers')}${button('الحلقات والإسناد','circles')}${canMove?button('إسناد حلقات للمعلم','teacher-assign'):''}${canImport?button('استيراد قاعدة الجهة','import-entity-db'):''}`+
-  '</div></details>'+
+  '</div></details>':'')+
   `${canMove?'<details style="margin:12px 0"><summary style="cursor:pointer;padding:10px;font-weight:700">تحديد الطلاب والنقل الجماعي</summary><div class="sl-toolbar">'+button('تحديد المعروض','select-page')+button('إلغاء التحديد','clear-selection')+button('نقل المحددين','bulk-move')+button('نقل حلقة كاملة','move-circle')+'</div></details>':''}`+
   '<div class="sl-import-warning" hidden></div><p class="sl-help sl-selection-status"></p><div class="sl-data" style="max-width:100%;overflow-x:auto"></div>'+
   '<div class="sl-toolbar">'+`${button('السابق','prev')}`+'<span class="sl-page"></span>'+`${button('التالي','next')}`+'</div></section>';
@@ -1724,6 +1724,40 @@ async function loadCircleSessionData(circle,date,talaqqin){
  ]);
  return {dayData,familyRequests,assignments,absences};
 }
+async function mountTeacherTools(root,a){
+ if(!a.roles.includes('teacher')||a.roles.some(r=>['admin','manager','supervisor'].includes(r)))return;
+ const tools=document.createElement('details');tools.className='sl-teacher-tools';
+ tools.innerHTML='<summary>أدوات الحلقة والطالب · اضغط لعرض التفاصيل</summary><div class="sl-toolbar">'+
+ button('✎ الخطط','workspace-plans')+button('▣ الاختبارات','workspace-tests')+
+ button('◉ الزيارات الإشرافية','workspace-supervision')+button('♙ إدارة الطلاب','workspace-students')+
+ '</div><div class="sl-workspace-panel" hidden></div>';
+ root.append(tools);
+ const panel=tools.querySelector('.sl-workspace-panel');let generation=0;
+ const open=async(key,studentId)=>{
+  tools.open=true;panel.hidden=false;const ticket=++generation;
+  panel.innerHTML=button('إخفاء التفاصيل والعودة للحصيلة','workspace-close')+'<div data-workspace-content>جارٍ التحميل…</div>';
+  panel.querySelector('button').onclick=()=>{tools.open=false;root.querySelector('.sl-session-filter')?.scrollIntoView({block:'start'})};
+  const body=panel.querySelector('[data-workspace-content]');body.dataset.focusStudent=studentId||'';
+  try{
+   if(key==='students'){
+    const permissions=await rpcDirect('list_teacher_student_roster_access',{});
+    if(!permissions.some(x=>x.enabled&&!x.mayManage))throw Error('لم يُفعّل تفويض إدارة الطلاب لحلقاتك. اطلب من مشرف المجمع تفعيله.');
+   }
+   if(ticket!==generation)return;
+   const render={plans:plansPage,tests:testsPage,students:studentsPage,supervision:window.SanabilSupervision?.page}[key];
+   if(!render)throw Error('تعذر تحميل الأداة. حدّث الصفحة وأعد المحاولة.');
+   await render(body);
+   if(studentId&&key==='plans'){
+    const filter=body.querySelector('[data-plan-student-filter]');
+    if(filter){filter.value=studentId;filter.dispatchEvent(new Event('change'))}
+   }
+  }catch(e){if(ticket===generation)body.textContent=e.message}
+  if(ticket===generation)tools.scrollIntoView({block:'start',behavior:'smooth'});
+ };
+ for(const key of ['plans','tests','students','supervision'])action(tools,tools.querySelector('[data-action="workspace-'+key+'"]'),()=>open(key));
+ root._openTeacherTool=open;
+}
+async function teacherViewModes(){return rows('complex_teacher_views','complex_id,mode')}
 async function outcomesPage(root){
  const liveSessionOpenedAt=performance.now();
  const [l,a]=await Promise.all([lookups(),access()]);
@@ -2290,7 +2324,7 @@ async function outcomesPage(root){
 <option value="">اختر نوع الغياب</option>
 <option value="excused" ${states[i].absenceReason==='excused'?'selected':''}>غياب بعذر</option>
 <option value="unexcused" ${states[i].absenceReason==='unexcused'?'selected':''}>غياب بدون عذر</option>
-</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}${outcomeAction('ترشيح للاختبار','nominate-'+i,'guardian','sl-outcome-secondary')}</div></div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
+</select></label><p class="sl-absence-note"></p><div class="sl-tracks">${studentTracks(s,i)}</div><label class="sl-note" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>ملاحظة<input name="note${i}" value="${esc(states[i].note)}" placeholder="ملاحظة اختيارية"></label><div class="sl-card-actions sl-outcome-actions" ${needsDayAttendance(activeKind(s.studentId))?'':'hidden'}>${outcomeAction('حفظ الحصيلة','save-student-'+i,'save','sl-outcome-primary')}<small class="sl-student-save-status" data-save-status="${i}" role="status" aria-live="polite"></small><details class="sl-student-tools"><summary>أدوات الطالب</summary>${button('✎ إنشاء أو تعديل الخطة','student-plan-'+i)}<div class="sl-outcome-secondary-row">${outcomeAction('واتساب','wa-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بطاقة الحصيلة','img-'+i,'card','sl-outcome-secondary')}${outcomeAction('ملخص الأسبوع','weekly-'+i,'whatsapp','sl-outcome-secondary')}${outcomeAction('بوابة ولي الأمر','portal-'+i,'guardian','sl-outcome-guardian')}${outcomeAction('ترشيح للاختبار','nominate-'+i,'guardian','sl-outcome-secondary')}</div></details></div></article>`).join(''):'<div class="sl-empty">لا يوجد طلاب نشطون في الحلقة.</div>'}</div><section class="sl-savebar sl-outcome-savebar" aria-label="حفظ الحصيلة الجماعية وإغلاق الجلسة"><div class="sl-savebar-copy"><b>حصيلة الحلقة كاملة</b><small>كل مراجعة كبرى تُحفظ وتُرحّل بصورة مستقلة. تأكد من حفظ بيانات الطلاب قبل إغلاق الجلسة.</small></div><div class="sl-savebar-actions"><button class="button button-primary sl-savebar-submit" type="submit" ${students.length?'':'disabled'}><span class="sl-savebar-icon" aria-hidden="true">▣</span><span>حفظ حصيلة الحلقة وإنهاء الجلسة</span></button>${button('إغلاق الجلسة','close-outcome-session')}</div></section></form>`;
   showFamilyExcuses(box,familyRequests);
   addDayToolbar(box);
   attachStudentDayKindControls(box,students,dayData,{circle,date,reload:reloadDay,
@@ -2304,6 +2338,7 @@ async function outcomesPage(root){
   pendingAttendanceNotice.textContent='جميع الطلاب حاضرون افتراضيًا في الواجهة؛ لا يُثبت حضورهم في الخادم إلا عند حفظ التحضير أو حصيلة الطالب. غيّر حالات الاستثناء قبل الاعتماد.';
   box.querySelector('.sl-bulkbar')?.append(pendingAttendanceNotice);
   students.forEach((s,i)=>{
+    action(box,box.querySelector('[data-action="student-plan-'+i+'"]'),()=>root._openTeacherTool?root._openTeacherTool('plans',s.studentId):navigateView('plans'));
     const nomination=box.querySelector('[data-action="nominate-'+i+'"]');
     if(nomination)action(box,nomination,async()=>{const panel=modal('ترشيح الطالب '+s.fullName+' للاختبار');await requestPanel(panel,{studentId:s.studentId,onCreated:()=>msg(box,'تم تسجيل ترشيح '+s.fullName+' للاختبار وسيصل لمشرف المجمع في سنابل الوحي.')})});
     const status=box.querySelector('[data-save-status="'+i+'"]');if(!status)return;
@@ -2760,10 +2795,13 @@ async function outcomesPage(root){
  };
  root.querySelector('[name="circle"]').addEventListener('change',()=>{localStorage.setItem(selectedCircleKey,val(root,'circle'));refreshSelection()});
  root.querySelector('[name="date"]').addEventListener('change',refreshSelection);
+ await mountTeacherTools(root,a);
+ const viewModes=a.roles.includes('teacher')?await teacherViewModes():[];
+ const modeFor=c=>viewModes.find(x=>x.complex_id===c?.complex_id)?.mode||'both';
  const fastPath=window.SanabilTeacherFastPath;
  const launch=fastPath?.consumeLaunch?.(activeUserId,l.circles);
  const fastSession=fastPath?.mountOutcomes?.({root,access:a,user:activeUserId,circles:l.circles,
-  navigate:navigateView,server:sb()});
+  navigate:navigateView,server:sb(),modeFor});
  if(launch){
   root.querySelector('[name="circle"]').value=launch.circle;
   root.querySelector('[name="date"]').value=launch.date;
@@ -3012,7 +3050,7 @@ async function plansPage(root){
    return `<article class="sl-plan-card"><header><div><span class="sl-plan-type">${esc(typeName[p.type]||p.type)}</span><h3>${esc(p.name||typeName[p.type]||p.type)}</h3><small>${esc(students.find(s=>s.id===p.student_id)?.full_name||p.student_id)}</small></div><span class="sl-plan-status">نشطة</span></header><div class="sl-plan-facts">${facts}</div><div class="sl-card-actions">${button('الأيام والمقررات','days-'+i)}${mem?button('تسميع السور','surahs-'+i):''}${button('تعديل الخطة','edit-'+i)}${remedial?button('الانتقال للخطة المستهدفة','transition-'+i):''}${button('أرشفة الخطة','remove-'+i)}</div></article>`;
  };
 
- let activePlans=[],focusStudent='',studentChoiceRows=[...students],updateArchives=()=>{};
+ let activePlans=[],focusStudent=root.dataset.focusStudent||'',studentChoiceRows=[...students],updateArchives=()=>{};
  const studentById=new Map(students.map(s=>[s.id,s]));
  const groupOrder={memorization:0,recent_review:1,review:2};
  const renderGroupedPlans=()=>{
@@ -3366,6 +3404,7 @@ async function plansPage(root){
    const recentBuilder=`<fieldset class="sl-plan-builder" data-recent-box><legend><label><input type="checkbox" name="userecent" checked> المراجعة الصغرى</label></legend><div class="form-grid two">${select('المقدار بوحدة','recentUnit',recentUnits,'pages')}${field('المقدار','recentAmount','number',2,'min="1" max="45" required')}</div><p class="sl-help"><b>نافذة مرتبطة بالدرس:</b> تتحرك تلقائيًا مع موضع الحفظ الجديد نحو المحفوظ السابق.</p></fieldset>`;
    b.innerHTML=`<form><div class="form-grid two">${select('الطالب','student',students.map(s=>({id:s.id,name:s.full_name})))}${select('نوع الخطة','methodology',methodItems,'bir_alwalidayn')}${select('بداية التنفيذ','startBasis',startBasisItems,'plan')}${field('تاريخ بدء الخطة','start','date',today(),'required')}<label data-aqom-path style="display:none">مسار برنامج أقوم<select name="aqomPath"><option value="preliminary">المرحلة التمهيدية</option><option value="path1">المسار الأول · 10 مستويات</option><option value="path2">المسار الثاني · 20 مستوى</option></select></label><label data-aqom-profile style="display:none">مستوى الطالب<select name="aqomProfile"><option value="excellent">ممتاز</option><option value="average">متوسط</option><option value="weak">ضعيف</option></select></label><label data-remedial-target style="display:none">الخطة المستهدفة بعد العلاج<select name="remedialTarget"><option value="bir_alwalidayn">خطة حلقات بر الوالدين</option><option value="aqom">برنامج أقوم</option></select></label><div data-bundle-end-wrap style="display:none">${field('نهاية المسارات (عند عدم اختيار الحفظ)','end','date','')}</div></div><p class="sl-rule-note" data-method-summary><b>خطة حلقات بر الوالدين:</b> سيحدد النظام المستوى تلقائيًا من موضع الطالب ويبني الخطة وفق المنهج المعتمد.</p><p class="sl-rule-note" data-bundle-forecast><b>جارٍ حساب موعد الختم المتوقع…</b></p>${commonDays(['5','6'])}<div class="sl-plan-builders">${memBuilder}${recentBuilder}<section data-major-section><div class="sl-builder-head"><div><h3>المراجعات الكبرى</h3><p>في الخطة الخاصة والعلاجية يمكن للمعلم ضبط المراجعات بحسب حاجة الطالب. وفي خطة بر الوالدين تظهر تعليمات المراجعة المعتمدة بحسب المستوى.</p></div>${button('إضافة مراجعة كبرى','add-review')}</div><div class="sl-review-builders"></div></section></div><button type="submit" class="button button-primary button-wide">إنشاء خطة الطالب</button></form>`;
    const form=b.querySelector('form'),container=form.querySelector('.sl-review-builders'),bundleForecast=form.querySelector('[data-bundle-forecast]'),bundleEndWrap=form.querySelector('[data-bundle-end-wrap]'),methodSummary=form.querySelector('[data-method-summary]'),methodGuide=form.querySelector('[data-method-guide]'),recentBox=form.querySelector('[data-recent-box]'),majorSection=form.querySelector('[data-major-section]');let reviewIndex=0,currentMethod={code:'bir_alwalidayn',level:null,profile:null,path:null,meta:{}};
+   if(focusStudent&&students.some(s=>s.id===focusStudent))form.elements.student.value=focusStudent;
    const bundleExcluded=()=>week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
    const setStart=(s,a)=>{const se=form.elements.memSurah,ae=form.elements.memAyah;if(!se||!ae)return;se.value=String(s);se.dispatchEvent(new Event('change'));ae.value=String(a||1)};
    const methodPosition=()=>({surah:Number(val(form,'memSurah')),ayah:Number(val(form,'memAyah'))||1});
@@ -3703,7 +3742,8 @@ async function plansPage(root){
    if(!window.SanabilPlanCalendar)throw Error('تعذر تحميل تقويم الإجازات. حدّث الصفحة ثم أعد المحاولة.');
    await window.SanabilPlanCalendar.open({selectedCircle:selectedPlanCircle});
  });
- await load();await showExamAlerts()
+ await load();await showExamAlerts();
+ if(root.dataset.focusStudent&&focusStudent&&!activePlans.some(p=>p.student_id===focusStudent))await createBundle();
 }
 
 // Preserve a teacher's chosen circle/date between the attendance and outcomes tabs.
@@ -4306,7 +4346,8 @@ async function dashboard(root){
  if(a.roles?.includes('teacher')){
   const user=(await sb().auth.getSession()).data?.session?.user?.id;
   if(user)await window.SanabilTeacherFastPath?.mountDashboard?.({
-   root,access:a,user,loadCircles:()=>lookups(),navigate:navigateView,server:sb()
+   root,access:a,user,loadCircles:()=>lookups(),navigate:navigateView,server:sb(),
+   loadModes:teacherViewModes,renderGeneral:outcomesPage
   });
  }
  window.SanabilHonor?.mountDashboard?.(root);
@@ -4388,6 +4429,13 @@ async function settingsPage(root){
  const a=await access();if(!a.roles.includes('admin'))throw Error('هذه الصفحة لمدير النظام');
  root.innerHTML=`<div class="sl-toolbar">${button('إدارة المستخدمين','users')}${button('قياس مؤشرات الأداء','performance')}${button('استيراد وتصدير ملفات الجداول','bulk-excel')}${button('إضافة مجمع','add-complex')}${button('إضافة مسجد وموقع بصمة','add-mosque')}${button('إضافة حلقة','add-circle')}</div><div class="sl-settings"></div><div class="sl-structure"></div>`;
  window.SanabilComplexStaff?.decorateSettings?.(root);
+ root.addEventListener('change',async e=>{
+  const input=e.target.closest('[data-teacher-view]');if(!input)return;
+  input.disabled=true;
+  try{await result(sb().from('complex_teacher_views').upsert({complex_id:input.dataset.teacherView,mode:input.value}).select('complex_id').single());msg(root,'تم حفظ طريقة العرض للمجمع. تطبق عند فتح جلسة المعلم.');}
+  catch(error){msg(root,error.message,true);await load()}
+  finally{input.disabled=false}
+ });
  action(root,root.querySelector('[data-action="performance"]'),async()=>{
   if(window.SanabilPerformanceCenter?.open)return window.SanabilPerformanceCenter.open();
   const b=modal('اختبار سرعة الاستجابة المباشر');
@@ -4568,8 +4616,9 @@ async function settingsPage(root){
   const s=items.find(x=>x.id===a.org_id+'_settings'),v=s?.values||{},box=root.querySelector('.sl-settings');
   box.innerHTML=`<h2>إعدادات عامة</h2><form><div class="form-grid two">${field('اسم المنصة','platformName','text',v.platformName||'سنابل الوحي')}${field('أيام السماح بتعديل الحصيلة','outcomesEditDays','number',v.outcomesEditDays??7,'min="0" max="365" required')}</div><button type="submit" class="button button-primary">حفظ الإعدادات العامة</button></form>`;
   submit(box.querySelector('form'),async()=>{const values={...v,platformName:val(box,'platformName'),outcomesEditDays:Number(val(box,'outcomesEditDays')),timezone:'Asia/Riyadh'};await result(sb().from('settings').upsert({id:s?.id||a.org_id+'_settings',org_id:a.org_id,values}).select('id').single());msg(box,'تم حفظ الإعدادات العامة.')});
+  const modes=await teacherViewModes();
   const area=root.querySelector('.sl-structure');
-  area.innerHTML=`<h2>المجمعات</h2>${table(['المجمع','الحالة'],complexes.map(x=>[esc(x.name),esc(x.active?'نشط':'موقف')]))}<h2>المساجد ومواقع البصمة</h2>${table(['المسجد','المجمع','الإحداثيات','النطاق','إعدادات الحضور','إجراء'],mosques.map((m,i)=>{const cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{};return[esc(m.name),esc(complexes.find(x=>x.id===m.complex_id)?.name||m.complex_id),esc(m.latitude+', '+m.longitude),esc(m.radius_meters+'م'),esc((cfg.startPrayer||'Asr')+' → '+(cfg.endPrayer||'Maghrib')+' · تأخير '+(cfg.lateAllowMinutes??15)+'د'),button('تعديل','mosque-'+i)]}))}
+  area.innerHTML=`<h2>المجمعات</h2>${table(['المجمع','الحالة','عرض المعلم'],complexes.map(x=>[esc(x.name),esc(x.active?'نشط':'موقف'),'<select data-teacher-view="'+esc(x.id)+'" aria-label="طريقة عرض المعلم">'+[['both','المساران معًا'],['general','المسار العام فقط'],['fast','المسار السريع فقط']].map(([id,label])=>'<option value="'+id+'" '+((modes.find(m=>m.complex_id===x.id)?.mode||'both')===id?'selected':'')+'>'+label+'</option>').join('')+'</select>']))}<h2>المساجد ومواقع البصمة</h2>${table(['المسجد','المجمع','الإحداثيات','النطاق','إعدادات الحضور','إجراء'],mosques.map((m,i)=>{const cfg=Array.isArray(m.attendance_windows)?m.attendance_windows[0]||{}:{};return[esc(m.name),esc(complexes.find(x=>x.id===m.complex_id)?.name||m.complex_id),esc(m.latitude+', '+m.longitude),esc(m.radius_meters+'م'),esc((cfg.startPrayer||'Asr')+' → '+(cfg.endPrayer||'Maghrib')+' · تأخير '+(cfg.lateAllowMinutes??15)+'د'),button('تعديل','mosque-'+i)]}))}
    <h2>الحلقات</h2><label style="display:block;margin:12px 0">المجمع المعروض
    <select data-settings-circle-complex style="display:block;width:100%;padding:10px" aria-label="تصفية الحلقات حسب المجمع"></select></label>
    <p class="sl-help">تعرض المنصة حلقات مجمع واحد أولًا لمنع الالتباس؛ اختر «كل المجمعات» للعرض الشامل المرتب حسب المجمع.</p>

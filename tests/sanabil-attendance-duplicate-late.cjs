@@ -10,7 +10,7 @@ assert(edge.includes('if(!data?.duplicate)'),'duplicate never overwrites origina
 assert(edge.includes('confirmedCheckInAt=record.check_in_at'),'original check-in timestamp included');
 assert(fast.includes("STATUS='sanabil_fast_fingerprint_v2:'"),'bad previous-day browser cache is not restored');
 assert(fast.includes('confirmedCheckInAt:data?.confirmedCheckInAt||null'),'client displays original confirmed check-in');
-assert(html.includes('sanabil-teacher-fast-path.js?v=20261027-original-checkin1'),'new client is cache-busted');
+assert(html.includes('sanabil-teacher-fast-path.js?v=20261030-workspace'),'new client is cache-busted');
 const start=edge.indexOf('    const patch:any={updated_at:new Date().toISOString()};');
 const end=edge.indexOf('\n  }catch(e){',start);
 assert(start>=0&&end>start,'live response logic extractable');

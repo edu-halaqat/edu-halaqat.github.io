@@ -97,7 +97,7 @@ async function fingerprint({user,circle,date,server,force=false}){
  })().finally(()=>pending.delete(key));
  pending.set(key,task);return task;
 }
-async function mountDashboard({root,access,user,loadCircles,navigate,server}){
+async function mountDashboard({root,access,user,loadCircles,navigate,server,loadModes,renderGeneral}){
  if(!root||!user||!access?.roles?.includes('teacher')||access.roles.some(r=>['admin','manager','supervisor'].includes(r))||root._sanabilFastDashboard)return;
  root._sanabilFastDashboard=true;
  const general=node('div','sl-fast-general'),quick=node('section','sl-fast-entry');
@@ -126,7 +126,8 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
  top.append(label,start,status);
  quick.append(heading,desc,top);
  root.append(modeBar,quick,general);
- let circles=[];
+ let circles=[],modes=[];let generalLoaded=false,generalLoading=false;
+ const policy=()=>modes.find(x=>x.complex_id===circles.find(c=>c.id===select.value)?.complex_id)?.mode||'both';
  const renderCircleOptions=()=>{
   const defaultId=favorite(user,circles),selectedId=select.value;
   const current=circles.find(c=>c.id===selectedId);
@@ -140,7 +141,7 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
     if(!setFavorite(user,circle.id,circles))return;
     select.value=circle.id;
     status.textContent='تم تعيين «'+(circle.name||'الحلقة')+'» حلقة افتراضية. ستظهر تلقائيًا عند العودة للمسار السريع.';
-    renderCircleOptions();
+    renderCircleOptions();setMode(preferred(user)||'fast');
    },'sl-fast-circle-star'+(active?' is-favorite':''));
    star.setAttribute('aria-pressed',String(active));
    star.setAttribute('aria-label',active?'الحلقة الافتراضية: '+(circle.name||'حلقة'):
@@ -150,7 +151,7 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
     select.value=circle.id;
     picker.open=false;
     status.textContent='اخترت «'+(circle.name||'الحلقة')+'» لهذه الجلسة فقط. النجمة الافتراضية لم تتغير.';
-    renderCircleOptions();
+    renderCircleOptions();setMode(preferred(user)||'fast');
    },'sl-fast-circle-option'+(selected?' is-selected':''));
    chooseCircle.setAttribute('aria-current',String(selected));
    row.append(star,chooseCircle);
@@ -158,13 +159,19 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
   }));
  };
  const setMode=mode=>{
+  const forced=policy();if(forced!=='both')mode=forced;
+  fastBtn.hidden=forced==='general';generalBtn.hidden=forced==='fast';
+  if(mode==='general'&&renderGeneral&&!generalLoaded&&!generalLoading){
+   generalLoading=true;general.replaceChildren(node('p','','جارٍ تحميل مساحة المعلم…'));
+   renderGeneral(general).then(()=>{generalLoaded=true}).catch(e=>{general.textContent=e.message}).finally(()=>{generalLoading=false});
+  }
   choose(user,mode);quick.hidden=mode!=='fast';general.hidden=mode!=='general';
   fastBtn.setAttribute('aria-pressed',String(mode==='fast'));
   generalBtn.setAttribute('aria-pressed',String(mode==='general'));
  };
- setMode(preferred(user)==='general'?'general':'fast');
+ quick.hidden=true;general.hidden=true;
  try{
-  const data=await loadCircles();
+  const [data,policies]=await Promise.all([loadCircles(),loadModes?loadModes():Promise.resolve([])]);modes=policies;
   if(!root.isConnected)return;
   circles=(data?.circles||[]).filter(c=>c.active!==false);
   select.replaceChildren(...circles.map(c=>{const o=node('option','',c.name||'حلقة');o.value=c.id;return o}));
@@ -174,9 +181,10 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server}){
   const initial=defaultId||(circles.some(c=>c.id===saved)?saved:circles[0]?.id);
   if(initial)select.value=initial;
   renderCircleOptions();
+  setMode(preferred(user)==='general'?'general':'fast');
   start.disabled=!circles.length;
   if(!circles.length)status.textContent='لا توجد حلقة نشطة مسندة إلى حسابك. انتقل للمسار العام أو تواصل مع مشرف المجمع.';
- }catch(error){status.textContent='تعذر تحميل الحلقات: '+error.message}
+ }catch(error){quick.hidden=false;modeBar.hidden=true;status.textContent='تعذر تحميل إعدادات العرض والحلقات: '+error.message}
  function startCircle(){
   const c=circles.find(c=>c.id===select.value);
   if(!c){status.textContent='اختر حلقة مسندة إلى حسابك.';return}
@@ -195,7 +203,7 @@ function consumeLaunch(user,allowed){
  if(!launch||Date.now()-Number(launch.at||0)>120000||launch.date!==sessionToday())return null;
  return allowed?.find(c=>c.id===launch.circle)?launch:null;
 }
-function mountOutcomes({root,access,user,circles,navigate,server}){
+function mountOutcomes({root,access,user,circles,navigate,server,modeFor=()=> 'both'}){
  if(!root||!user||!access?.roles?.includes('teacher')||access.roles.some(r=>['admin','manager','supervisor'].includes(r)))return null;
  if(root._sanabilFastOutcomes)return root._sanabilFastOutcomes;
  const bar=node('section','sl-fast-session-bar');
@@ -230,7 +238,7 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
  };
  const notify=event=>{const c=current();if(c&&event.detail?.key===fingerKey(user,c.id,sessionToday()))update()};
  window.addEventListener('sanabil-fast-fingerprint',notify);
- select?.addEventListener('change',update);
+ select?.addEventListener('change',()=>{setMode(preferred(user)||'general');update()});
  const sessionContent=root.querySelector('.sl-data');
  let loading=false;
  let quickInitializedFor=null;
@@ -276,15 +284,17 @@ function mountOutcomes({root,access,user,circles,navigate,server}){
   watcher.observe(loadButton,{attributes:true,attributeFilter:['aria-busy']});
  }
  const setMode=mode=>{
+  const forced=modeFor(current());if(forced!=='both')mode=forced;
+  root.dataset.teacherView=forced;root.dataset.teacherLayout=mode;switcher.hidden=forced!=='both';
   choose(user,mode);
   const fast=mode==='fast';
   root.classList.toggle('sl-fast-session',fast);
   switcher.textContent=fast?'☷ الانتقال للمسار العام':'⚡ العودة للمسار السريع';
   switcher.setAttribute('aria-pressed',String(!fast));
-  if(fast){
+  {
    const quick=root.querySelector('.sl-data .sl-quick-outcomes');
    const box=root.querySelector('.sl-data');
-   if(box&&quick&&!box.classList.contains('sl-quick-mode'))quick.querySelector('.sl-quick-mode-toggle')?.click();
+   if(box&&quick&&box.classList.contains('sl-quick-mode')!==fast)quick.querySelector('.sl-quick-mode-toggle')?.click();
   }
   update();
  };

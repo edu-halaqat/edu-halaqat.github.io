@@ -35,7 +35,10 @@
   // handlers, unsaved drafts, and verified save/restore pipeline remain active.
   const old=box.querySelector('.sl-quick-outcomes');if(old)old.remove();
   box.querySelector('.sl-quick-mode-toggle')?.remove();
+  const forcedView=box.closest?.('[data-teacher-view]')?.dataset.teacherView||'both';
   const switchView=(quick)=>{
+   const policy=box.closest?.('[data-teacher-view]')?.dataset.teacherView||'both';
+   if(policy==='general')quick=false;else if(policy==='fast')quick=true;
    box.classList.toggle('sl-quick-mode',quick);
    // Identity CSS sets display:grid!important on detailed student grids.
    // Setting display via inline important reliably wins over that declaration.
@@ -61,6 +64,7 @@
    toggle.setAttribute('aria-expanded',String(!isQuick));
    toggle.setAttribute('aria-pressed',String(!isQuick));
   },'sl-quick-mode-toggle');
+  toggle.hidden=forcedView!=='both';
   toggle.setAttribute('aria-expanded','false');
   toggle.setAttribute('aria-pressed','false');
   toggle.setAttribute('aria-controls','sl-outcome-student-grid');
@@ -90,7 +94,7 @@
   if(bulkNominate)toolbar.append(defaults,bulk,multiGrade,multiDay,nominations);
   else toolbar.append(defaults,bulk,multiGrade,multiDay);
   wrap.append(heading,toolbar,info,notice,list);form.parentNode.insertBefore(toggle,form);form.parentNode.insertBefore(wrap,form);
-  switchView(true);
+  switchView(box.closest?.('[data-teacher-layout]')?.dataset.teacherLayout!=='general');
   const allowAtt=st=>['present','late'].includes(st.attendance);
   const canEdit=i=>!readOnly&&needsDayAttendance(activeKind(students[i].studentId))&&eligible(students[i],activeKind(students[i].studentId))&&allowAtt(states[i]);
   const hasPrior=(i)=>!!box.querySelector('[data-save-status="'+i+'"]')?.dataset.saved?.match(/saved/);

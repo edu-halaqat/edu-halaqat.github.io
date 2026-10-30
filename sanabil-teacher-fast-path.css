@@ -79,3 +79,10 @@ html[data-sanabil-theme="dark"] .sl-fast-circle-option.is-selected{background:#3
 html[data-sanabil-theme="dark"] .sl-fast-circle-star{background:#2c5547;color:#c1d0c6;border-color:#69877b}
 html[data-sanabil-theme="dark"] .sl-fast-circle-star.is-favorite{
  background:#584820;color:#ffe28a;border-color:#b49542}
+
+/* Collapsed tools share the current session; their forms are sibling panels. */
+.sl-teacher-tools{margin:16px 0;padding:14px;border:1px solid var(--border,#cdded5);border-radius:16px}
+.sl-teacher-tools>summary,.sl-student-tools>summary{cursor:pointer;font-weight:700;padding:8px;list-style-position:inside}
+.sl-workspace-panel{margin-top:12px;min-width:0;max-width:100%;overflow-x:auto}
+.sl-student-tools{width:100%}
+.sl-fast-session .sl-teacher-tools{display:none}

@@ -8,8 +8,8 @@ const revSql=fs.readFileSync('supabase/migrations/20261024174500_plan_revision_a
 const calendarSql=fs.readFileSync('supabase/migrations/20261024183000_authorized_day_calendar_and_shift_guard.sql','utf8');
 for(const text of [live,calendar])new vm.Script(text);
 assert(html.includes('sanabil-plan-calendar.js?v=20261025-bulk-default1'),'calendar asset registered');
-assert(html.includes('sanabil-live-v12.js?v=20261029-v13.8.74'),'new JS version');
-assert(html.includes('sanabil-build" content="20261029-v13.8.74"'),'release revision updated');
+assert(html.includes('sanabil-live-v12.js?v=20261030-v13.8.75'),'new JS version');
+assert(html.includes('sanabil-build" content="20261030-v13.8.75"'),'release revision updated');
 assert(live.includes('const groupOrder={memorization:0,recent_review:1,review:2}'),'plans displayed as contiguous student tracks');
 assert(live.includes('studentById')&&live.includes('localeCompare(studentById.get(b)?.full_name'),'groups sorted by student Arabic name');
 assert(live.includes("filter.dispatchEvent(new Event('change'))"),'existing buttons keep event listeners during filtering');

@@ -95,7 +95,8 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/sanabil-offline-tests/node_modules
         run: |
-          npm install --prefix "$RUNNER_TEMP/sanabil-offline-tests" --no-save --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5
+          npm install --prefix "$RUNNER_TEMP/sanabil-offline-tests" --no-save --ignore-scripts --no-audit --no-fund fake-indexeddb@6.2.5 jsdom@26.1.0
+          node tests/sanabil-teacher-workspace.cjs
           node tests/sanabil-offline-smoke.cjs
           node tests/sanabil-batch-scheduling.cjs
 
