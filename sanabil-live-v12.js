@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261030-v13.8.75';
+window.__SanabilLiveBuild='20261030-v13.8.76';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -113,7 +113,7 @@ const ensureCircleSession=async(circle,date,refresh=false)=>{
 };
 const rows=async(table,select='*',filters={})=>{
  const load=async()=>{let all=[];for(let offset=0;;offset+=500){
-  let q=sb().from(table).select(select).order('id').range(offset,offset+499);
+  let q=sb().from(table).select(select).order(table==='complex_teacher_views'?'complex_id':'id').range(offset,offset+499);
   for(const [k,v] of Object.entries(filters))q=q.eq(k,v);
   const data=await result(q);all.push(...data);if(data.length<500)return all;
  }};

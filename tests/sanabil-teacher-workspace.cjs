@@ -1,6 +1,21 @@
 const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/strict');
 const source=fs.readFileSync('sanabil-teacher-fast-path.js','utf8');
 (async()=>{
+ // Exercise the real shared loader, including its implicit pagination order.
+ const liveSource=fs.readFileSync('sanabil-live-v12.js','utf8');
+ const rowsSource=liveSource.slice(liveSource.indexOf('const rows=async('),liveSource.indexOf('let accessCached='));
+ const modeSource=liveSource.match(/async function teacherViewModes\(\)\{[^\n]+/)[0];
+ const records=Array.from({length:501},(_,i)=>({complex_id:'complex-'+i,mode:'general'}));
+ const orders=[],ranges=[];
+ const sdk={from(table){assert.equal(table,'complex_teacher_views');return{
+  select(fields){assert.equal(fields,'complex_id,mode');return this},
+  order(key){orders.push(key);if(key!=='complex_id')throw Error('column complex_teacher_views.'+key+' does not exist');return this},
+  range(from,to){ranges.push([from,to]);return Promise.resolve({data:records.slice(from,to+1),error:null})}
+ }}};
+ const loadModes=new Function('sb','result','window',rowsSource+modeSource+';return teacherViewModes;')(()=>sdk,async q=>(await q).data,{});
+ assert.equal((await loadModes()).length,501);
+ assert.deepEqual(orders,['complex_id','complex_id']);assert.deepEqual(ranges,[[0,499],[500,999]]);
+
  for(const mode of ['general','fast','both']){
   const dom=new JSDOM('<main id="root"><p>old home</p></main>',{url:'https://example.test',runScripts:'outside-only'}),w=dom.window;
   w.eval(source);let renders=0;

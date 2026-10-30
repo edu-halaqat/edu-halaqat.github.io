@@ -6,7 +6,7 @@ const fixes=fs.readFileSync('supabase/migrations/20261025055500_reflow_derived_r
 const page=fs.readFileSync('index.html','utf8');
 new vm.Script(calendar);
 assert(page.includes('sanabil-plan-calendar.js?v=20261025-bulk-default1'));
-assert(page.includes('sanabil-build" content="20261030-v13.8.75"'));
+assert(page.includes('sanabil-build" content="20261030-v13.8.76"'));
 assert(calendar.includes("multiple:'أيام متفرقة بالضغط على التقويم'"));
 assert(calendar.includes("range:'فترة بين تاريخين'"));
 assert(calendar.includes("weeks:'أسابيع متتالية'"));
