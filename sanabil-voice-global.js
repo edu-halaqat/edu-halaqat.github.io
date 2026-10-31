@@ -129,7 +129,9 @@
   const stopAll=()=>{listening=false;stopping=true;timerClear();const old=rec;rec=null;
    if(old){old.onresult=old.onend=old.onerror=null;try{old.abort()}catch{}}
    record.textContent='🎙 بدء التسجيل';record.setAttribute('aria-pressed','false')};
-  const dismiss=()=>{closed=true;stopAll();panel.remove();if(current?.panel===panel)current=null;
+  const logoutObserver=new MutationObserver(()=>{if(document.querySelector('.login-shell')||!document.querySelector('.app-content,.mobile-nav,.sl-live'))dismiss()});
+  logoutObserver.observe(document.body,{childList:true,subtree:true});
+  const dismiss=()=>{if(closed)return;closed=true;logoutObserver.disconnect();stopAll();panel.remove();if(current?.panel===panel)current=null;
    const entry=document.getElementById('sanabil-voice-entry');if(entry)entry.hidden=false};
   close.onclick=dismiss;
   const reply=message=>{if(!closed)status.textContent=message};
