@@ -106,8 +106,8 @@ async function mountDashboard({root,access,user,loadCircles,navigate,server,load
  const desc=node('p','sl-fast-help','بدء حلقة اليوم والتسميع والتحضير والترشيحات دون شاشات إدارية.');
  const top=node('div','sl-fast-start-actions');
  const modeBar=node('div','sl-fast-switcher');
- const fastBtn=button('⚡ المسار السريع',()=>setMode('fast'),'button-primary');
- const generalBtn=button('☷ المسار العام',()=>setMode('general'),'button-soft');
+ const fastBtn=button('المسار السريع',()=>setMode('fast'),'button-primary');
+ const generalBtn=button('المسار العام',()=>setMode('general'),'button-soft');
  modeBar.append(fastBtn,generalBtn);
  const label=node('div','sl-fast-label');
  const labelText=node('span','','حلقة اليوم');
