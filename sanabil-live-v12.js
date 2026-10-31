@@ -3631,7 +3631,38 @@ async function plansPage(root){
      scheduleBundleForecast();
    };
    form.elements.student.addEventListener('change',()=>setTimeout(adjustSelectedStudent,0));
-   await applyMethodology(true);adjustSelectedStudent();setTimeout(refreshBundleForecast,0);
+   await applyMethodology(true);
+   if(initial.replaceFromPlanId){
+     const previous=activePlans.find(p=>p.id===initial.replaceFromPlanId);
+     const oldTracks=activePlans.filter(p=>p.student_id===previous?.student_id);
+     const previousRecent=oldTracks.find(p=>p.type==='recent_review');
+     if(previousRecent){
+       form.elements.userecent.checked=true;
+       form.elements.recentUnit.value=previousRecent.unit;
+       form.elements.recentAmount.value=String(previousRecent.daily_amount||2);
+     }
+     const previousMajors=oldTracks.filter(p=>p.type==='review');
+     if(previousMajors.length){
+       clearReviews();
+       for(const review of previousMajors){
+         const meta=review.methodology_meta||{};
+         await addReview({
+           name:review.name||'المراجعة الكبرى',
+           unit:review.unit,
+           amount:Number(review.daily_amount)||1,
+           direction:review.direction||'toward_nas',
+           startMode:'lesson',
+           rangeMode:meta.reviewRangeMode==='juz'?'juz':'all',
+           fromJuz:Number(meta.rangeFromJuz)||21,
+           toJuz:Number(meta.rangeToJuz)||25,
+           auto:meta.autoMajor===true,
+           surah:Number(review.start_ref?.surahNo)||114,
+           ayah:Number(review.start_ref?.ayahNo)||1
+         });
+       }
+     }
+   }
+   adjustSelectedStudent();setTimeout(refreshBundleForecast,0);
    submit(form,async()=>{
      const student=students.find(s=>s.id===val(form,'student')&&s.circle_id===selectedPlanCircle);if(!student?.teacher_id)throw Error('اختر طالبًا من الحلقة المختارة ومسندًا إلى معلم.');
      const startDate=await resolvePlanStart(form),hasMem=form.querySelector('[name="usemem"]').checked,excluded=bundleExcluded(),code=val(form,'methodology')||'bir_alwalidayn';
