@@ -383,13 +383,14 @@ function promoteToTopLayer(node){
  }
 }
 function showLauncher(){
+ if(document.querySelector('.login-shell')){document.getElementById('sanabil-voice-entry')?.remove();return null;}
  if(!document.body||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return null;
  let entry=document.getElementById('sanabil-voice-entry');
  if(!entry){
   entry=document.createElement('aside');entry.id='sanabil-voice-entry';
   entry.dir='rtl';entry.className='sl-voice-entry';
   const trigger=document.createElement('button');trigger.type='button';
-  trigger.className='button button-soft';trigger.textContent='🎙 الموجه الصوتي';
+  trigger.className='button button-soft';trigger.textContent='الموجّه الصوتي';
   trigger.setAttribute('aria-label','فتح الموجه الصوتي');
   const guidance=document.createElement('section');guidance.className='sl-voice-entry-help';guidance.hidden=true;
   guidance.setAttribute('role','region');guidance.setAttribute('aria-label','الموجه الصوتي');
@@ -425,7 +426,7 @@ function showLauncher(){
     if(!current)return;
     // React replaces the .sl-live view while loading and switching tabs.
     // Only remove the launcher after the authenticated app shell itself exits.
-    if(!document.querySelector('.app-content,.mobile-nav,.sl-live')){
+    if(document.querySelector('.login-shell')||!document.querySelector('.app-content,.mobile-nav,.sl-live')){
      current.remove();entryObserver.disconnect();entryObserver=null;return;
     }
     current.hidden=!!document.querySelector('[data-sanabil-voice]');
@@ -445,7 +446,7 @@ function mount(box,{cards,names,ids=[]}={}){
  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  const panel=document.createElement('section');panel.className='sl-voice-panel';panel.dataset.sanabilVoice='true';
  const launcher=document.createElement('button');launcher.type='button';launcher.className='button button-soft';
- launcher.textContent='🎙 الموجه الصوتي';launcher.setAttribute('aria-label','تشغيل الموجه الصوتي');
+ launcher.textContent='الموجّه الصوتي';launcher.setAttribute('aria-label','تشغيل الموجه الصوتي');
  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
  status.textContent=Recognition?'أملِ اسم الطالب ثم عدة أوامر؛ سأمنحك وقتًا لإكمال الإملاء قبل التنفيذ.':'اكتب عدة أوامر مفصولة بفاصلة أو ثم.';
  const detail=document.createElement('div');detail.className='sl-voice-command';
