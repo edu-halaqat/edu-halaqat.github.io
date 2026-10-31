@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261030-v13.8.76';
+window.__SanabilLiveBuild='20261031-plan-switch1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3041,7 +3041,7 @@ async function plansPage(root){
  const planCard=(p,i)=>{
    const recent=p.type==='recent_review',qpc=p.type==='review'&&qpcUnits.has(p.unit),mem=p.type==='memorization',preliminary=mem&&p.methodology_code==='aqom'&&p.methodology_level==='preliminary';
    const timeFacts=mem
-     ?`<span><b>بدء الخطة</b>${esc(p.start_date)}</span><span><b>${preliminary?'نهاية المرحلة التمهيدية المتوقعة':'ختم الحفظ المتوقع (قبل أيام التسميع)'}</b>${esc(p.projected_completion_date||p.end_date||'—')}</span><span><b>أيام التعليم المتوقعة</b>${esc(p.projected_teaching_days??'—')}</span><span><b>المنهج</b>${esc(methodLabel(p))}${p.methodology_level?(preliminary?' · المرحلة التمهيدية':' · المستوى '+esc(p.methodology_level)):''}${p.methodology_profile?' · '+esc(profileName[p.methodology_profile]||p.methodology_profile):''}</span>`
+     ?`<span><b>بدء الخطة</b>${esc(p.start_date)}</span><span><b>${preliminary?'نهاية المرحلة التمهيدية المتوقعة':p.methodology_code==='remedial'?'تقدير انتهاء المقرر النظري (الخطة العلاجية مؤقتة)':'ختم الحفظ المتوقع (قبل أيام التسميع)'}</b>${esc(p.projected_completion_date||p.end_date||'—')}</span><span><b>أيام التعليم المتوقعة</b>${esc(p.projected_teaching_days??'—')}</span><span><b>المنهج</b>${esc(methodLabel(p))}${p.methodology_level?(preliminary?' · المرحلة التمهيدية':' · المستوى '+esc(p.methodology_level)):''}${p.methodology_profile?' · '+esc(profileName[p.methodology_profile]||p.methodology_profile):''}</span>`
      :`<span><b>المدة</b>${esc(p.start_date+' — '+p.end_date)}</span>`;
    const remedial=p.type==='memorization'&&p.methodology_code==='remedial',remedialTarget=p.methodology_meta?.targetMethodology||'bir_alwalidayn';
    const facts=recent
