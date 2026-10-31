@@ -3316,13 +3316,13 @@ async function plansPage(root){
      }));
      action(root,root.querySelector(`[data-action="edit-${i}"]`),async()=>{
        const b=modal('تعديل '+(p.name||typeName[p.type]||p.type)),excluded=(p.excluded_weekdays||[]).map(Number),sr=p.start_ref||{};
-       if(p.type==='memorization'&&p.methodology_code==='aqom'&&p.methodology_level==='preliminary'){
-         b.innerHTML='<p class="sl-rule-note"><b>برنامج أقوم · المرحلة التمهيدية:</b> يمتد البرنامج على 48 درسًا موزعة على ثلاث مراحل، وليس ختمًا للقرآن. يحدد البرنامج ترتيب السور والآيات؛ لا يصح تحويل مقرراته إلى تسلسل حفظ عام بمجرد تعديل المقدار أو سورة البداية.</p>'+
+       if(p.type==='memorization'&&(p.methodology_code==='aqom'||p.methodology_code==='bir_alwalidayn')){
+         b.innerHTML='<p class="sl-rule-note"><b>'+esc(p.methodology_code==='aqom'?'برنامج أقوم':'خطة حلقات بر الوالدين')+':</b> تغيير مقدار الحفظ في البرنامج المعتمد يجب أن يراجع توزيع منهجه ومستوياته كاملةً، بدلًا من تحويله إلى خطة يدوية قد تفقد ترتيب المقررات. '+(p.methodology_level==='preliminary'?'التاريخ الحالي هو نهاية المرحلة التمهيدية، وليس ختم القرآن.':'')+'</p>'+
            '<p>لتغيير البرنامج أو تعديل أركان الحفظ والمراجعتين، افتح محرر البرنامج الكامل. ستُحفظ نتائج البرنامج السابق عند اعتماد البديل بنجاح.</p>'+
            '<button type="button" class="button button-primary" data-open-program-switch>تغيير البرنامج والأركان الثلاثة</button>';
          action(b,b.querySelector('[data-open-program-switch]'),()=>{
            b.closest('dialog').close();
-           createBundle({studentId:p.student_id,methodology:'aqom',aqomPath:'preliminary',replaceFromPlanId:p.id});
+           createBundle({studentId:p.student_id,methodology:p.methodology_code,aqomPath:p.methodology_meta?.path||(p.methodology_level==='preliminary'?'preliminary':null),aqomProfile:p.methodology_profile||null,replaceFromPlanId:p.id});
          });
          return;
        }
@@ -3538,8 +3538,8 @@ async function plansPage(root){
        const path=val(form,'aqomPath')||'preliminary';
        if(path==='preliminary'){
          currentMethod={code,level:'preliminary',profile:null,path,meta:{source:'برنامج أقوم',fixedSequence:true}};
-         recentBox.style.display='none';majorSection.style.display='none';form.elements.userecent.checked=false;clearReviews();
-         methodSummary.innerHTML='<b>برنامج أقوم · المرحلة التمهيدية:</b> 48 يومًا تأسيسيًا في ثلاث مراحل من سورة الناس حتى سورة الشمس وفق الجدول المعتمد.';
+         recentBox.style.display=initial.replaceFromPlanId?'':'none';majorSection.style.display=initial.replaceFromPlanId?'':'none';form.elements.userecent.checked=false;clearReviews();
+         methodSummary.innerHTML='<b>برنامج أقوم · المرحلة التمهيدية:</b> 48 درسًا تأسيسيًا موزعة على ثلاث مراحل وفق تسلسل أقوم المعتمد. <b>هذا ليس ختم القرآن.</b> '+(initial.replaceFromPlanId?'يمكنك تفعيل المراجعة الصغرى وإنشاء المراجعات الكبرى أو إبقاء كل ركن غير مفعل وفق حاجة الطالب.':'');
          bundleForecast.innerHTML='<b>المرحلة التمهيدية:</b> يحدد النظام تاريخ انتهائها تلقائيًا بحسب أيام الدوام.';
          return;
        }
@@ -3566,7 +3566,7 @@ async function plansPage(root){
      const hasMem=form.querySelector('[name="usemem"]').checked,prelim=val(form,'methodology')==='aqom'&&val(form,'aqomPath')==='preliminary';
      bundleEndWrap.style.display='none';form.querySelector('[name="end"]').required=false;
      if(!hasMem){bundleForecast.innerHTML='تتبع المراجعات خطة الحفظ النشطة، ويتجدد جدولها تلقائيًا دون تاريخ نهاية إلزامي.';return}
-     if(prelim){bundleForecast.innerHTML='<b>برنامج أقوم · المرحلة التمهيدية:</b> 48 يومًا تعليميًا موزعة على ثلاث مراحل.';return}
+     if(prelim){bundleForecast.innerHTML='<b>موعد إتمام المرحلة التمهيدية:</b> 48 يومًا تعليميًا موزعة على ثلاث مراحل؛ لا يُحسب هذا التاريخ ختمًا للقرآن.';return}
      const token=++bundleForecastToken;
      try{
        bundleForecast.innerHTML='<b>جارٍ حساب موعد الختم المتوقع…</b>';
@@ -3601,6 +3601,19 @@ async function plansPage(root){
    if(initial.studentId&&students.some(s=>s.id===initial.studentId))form.elements.student.value=initial.studentId;
    if(initial.methodology&&methodItems.some(x=>x.id===initial.methodology))form.elements.methodology.value=initial.methodology;
    if(initial.remedialTarget)form.elements.remedialTarget.value=initial.remedialTarget;
+   if(initial.replaceFromPlanId){
+     const existing=activePlans.find(p=>p.id===initial.replaceFromPlanId);
+     if(existing){
+       form.elements.start.value=today();
+       form.elements.usemem.checked=true;
+       const live=activePlans.filter(p=>p.student_id===existing.student_id);
+       const recent=live.find(p=>p.type==='recent_review');
+       if(recent){form.elements.userecent.checked=true;form.elements.recentUnit.value=recent.unit;form.elements.recentAmount.value=String(recent.daily_amount||2)}
+     }
+     const submitButton=form.querySelector('button[type="submit"]');
+     if(submitButton)submitButton.textContent='اعتماد البرنامج البديل وأركانه مع حفظ السجل السابق';
+     form.insertAdjacentHTML('afterbegin','<p class="sl-rule-note"><b>تعديل البرنامج بالكامل:</b> اختر المنهج الجديد والأركان الثلاثة أو أحدها. تتم أرشفة الخطط السابقة دون محو حصائلها فقط بعد إنشاء البديل بنجاح.</p>');
+   }
    if(initial.aqomPath&&['preliminary','path1','path2'].includes(initial.aqomPath))form.elements.aqomPath.value=initial.aqomPath;
    if(initial.aqomProfile&&['excellent','average','weak'].includes(initial.aqomProfile))form.elements.aqomProfile.value=initial.aqomProfile;
    const adjustSelectedStudent=()=>{
