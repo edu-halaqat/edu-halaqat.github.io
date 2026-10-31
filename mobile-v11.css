@@ -173,3 +173,35 @@ button{touch-action:manipulation}
 .sl-student-card-preview img{width:min(440px,100%);border-radius:14px;box-shadow:0 10px 30px #183c3320}
 [data-action^="remove-"]{color:#a54545!important;border-color:#e6c2c2!important;background:#fff8f7!important}
 @media(max-width:760px){.sl-window-grid{grid-template-columns:1fr}.sl-window-grid article{padding:11px 12px}}
+
+/* 2026-10-31: fluid Arabic plan forms and stable mobile action grid. */
+.sl-plan-card,
+.sl-plan-card>header,
+.sl-plan-facts,
+.sl-plan-facts span,
+.sl-plan-builders,
+.sl-plan-builder,
+.sl-plan-builder .form-grid,
+.sl-card-actions{min-width:0;max-width:100%}
+.sl-plan-card{overflow-wrap:anywhere}
+.sl-plan-card .sl-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sl-plan-card .sl-card-actions .button{
+  min-width:0;width:100%;white-space:normal;overflow-wrap:anywhere;
+  line-height:1.55;height:auto;min-height:44px;text-align:center
+}
+.sl-plan-builder .form-grid>*,
+.sl-plan-builder input,
+.sl-plan-builder select{min-width:0;max-width:100%}
+.sl-plan-builder select,.sl-plan-builder input{box-sizing:border-box}
+.sl-outcome-float-nav[hidden],body:has(.login-shell) .sl-outcome-float-nav,
+body:has(.login-shell) #sanabil-voice-entry{
+  display:none!important
+}
+@media(max-width:520px){
+  .sl-plan-card{padding:12px}
+  .sl-plan-facts{grid-template-columns:1fr}
+  .sl-plan-card .sl-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sl-plan-card>header{flex-wrap:wrap}
+  .sl-plan-builder .form-grid.two{grid-template-columns:minmax(0,1fr)}
+  .sl-plan-builder legend{max-width:100%;white-space:normal}
+}
