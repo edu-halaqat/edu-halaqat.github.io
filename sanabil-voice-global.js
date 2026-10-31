@@ -105,7 +105,7 @@
  };
  let current=null;
  function open(){
-  if(!document.body||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return;
+  if(!document.body||document.querySelector('.login-shell')||!document.querySelector('.app-content,.mobile-nav,.sl-live'))return;
   if(document.querySelector('[data-sanabil-voice="true"]'))return;
   if(current?.panel?.isConnected){current.start(true);return}
   const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
