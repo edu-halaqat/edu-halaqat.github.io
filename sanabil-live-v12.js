@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261031-plan-switch1';
+window.__SanabilLiveBuild='20261102-review-integrity1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -3426,7 +3426,8 @@ async function plansPage(root){
    const bundleExcluded=()=>week.filter(([id])=>form.querySelector(`[name="wd${id}"]`).checked).map(([id])=>Number(id));
    const setStart=(s,a)=>{const se=form.elements.memSurah,ae=form.elements.memAyah;if(!se||!ae)return;se.value=String(s);se.dispatchEvent(new Event('change'));ae.value=String(a||1)};
    const methodPosition=()=>({surah:Number(val(form,'memSurah')),ayah:Number(val(form,'memAyah'))||1});
-   const clearReviews=()=>{container.innerHTML='';reviewIndex=0};
+   let autoMajorEpoch=0;
+   const clearReviews=()=>{autoMajorEpoch++;container.innerHTML='';reviewIndex=0};
    const addReview=async(defaults={})=>{
      if(container.children.length>=8)throw Error('الحد الأعلى ثماني مراجعات كبرى متزامنة.');
      const i=reviewIndex++,box=document.createElement('fieldset');
@@ -3465,6 +3466,7 @@ async function plansPage(root){
    };
    const autoMajorCycleDays=(code,level)=>code==='bir_alwalidayn'?(Number(level)<=2?4:Number(level)<=5?5:10):5;
    const addAutoMajor=async(code,level)=>{
+     const epoch=++autoMajorEpoch;
      const cycleDays=autoMajorCycleDays(code,level),pos=methodPosition();
      const recentUnit=val(form,'recentUnit')||'pages',recentAmount=Number(val(form,'recentAmount'))||1;
      let preview={dailyAmount:1};
@@ -3474,6 +3476,9 @@ async function plansPage(root){
          p_recent_unit:recentUnit,p_recent_amount:recentAmount,p_cycle_days:cycleDays
        });
      }catch{}
+     if(epoch!==autoMajorEpoch||!form.isConnected)return;
+     // A delayed preview must not append a second automatic major review.
+     container.querySelectorAll('.sl-review-builder[data-auto-major="1"]').forEach(x=>x.remove());
      const quarters=Math.max(1,Number(preview?.dailyAmount)||1);
     const recommended=Number(level)>=7&&quarters>=8?{unit:'juz',amount:Math.ceil(quarters/8)}:
       Number(level)>=6&&quarters>=4?{unit:'hizb',amount:Math.ceil(quarters/4)}:
@@ -3641,7 +3646,18 @@ async function plansPage(root){
        form.elements.recentUnit.value=previousRecent.unit;
        form.elements.recentAmount.value=String(previousRecent.daily_amount||2);
      }
-     const previousMajors=oldTracks.filter(p=>p.type==='review');
+     // Historical duplicate automatic tracks are not silently recreated on program changes.
+     // Keep the most recently configured automatic path per direction/range.
+     const autoSeen=new Set();
+     const previousMajors=oldTracks.filter(p=>p.type==='review')
+       .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))
+       .filter(p=>{
+         if(p.name!=='المراجعة الكبرى التلقائية')return true;
+         const m=p.methodology_meta||{};
+         const key=[p.direction||'toward_nas',m.reviewRangeMode||'all',m.rangeFromJuz||'',m.rangeToJuz||''].join('|');
+         if(autoSeen.has(key))return false;
+         autoSeen.add(key);return true;
+       });
      if(previousMajors.length){
        clearReviews();
        for(const review of previousMajors){
@@ -3681,10 +3697,12 @@ async function plansPage(root){
      if(!hasMem&&currentMem&&(!val(form,'end')||val(form,'end')<startDate)){
        form.elements.end.value=currentMem.end_date||startDate;
      }
-     if(code==='aqom'&&val(form,'aqomPath')==='preliminary'&&!initial.replaceFromPlanId){
-       const r=await rpc('save_aqom_preliminary_plan',{p_plan_id:crypto.randomUUID(),p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_replace_existing:false});
-       b.closest('dialog').close();await load();msg(root,'تم إنشاء برنامج أقوم · المرحلة التمهيدية. تاريخ الانتهاء المتوقع: '+(r.projectedEndDate||'—')+'.');return;
+     const isPrelim=code==='aqom'&&val(form,'aqomPath')==='preliminary';
+     if(hasMem&&!isPrelim&&predefinedMethods.has(code)&&(!currentRecent||initial.replaceFromPlanId)
+       &&recentBox.style.display!=='none'&&!form.elements.userecent.checked){
+       throw Error('المراجعة الصغرى ركن أساسي في هذا البرنامج. فعّل المراجعة الصغرى قبل اعتماد الخطة.');
      }
+     // Initial creation is committed atomically with its reviews below.
 
      if(predefinedMethods.has(code)&&!currentMethod.level)throw Error('تعذر تحديد مستوى المنهج من موضع بداية الطالب؛ راجع السورة والآية.');
      const tracks=[];
@@ -3714,6 +3732,17 @@ async function plansPage(root){
        });
      }
      if(!tracks.length)throw Error('اختر مسارًا واحدًا على الأقل.');
+     // Never allow duplicate ranges into a single atomic save.
+     const reviewSignatures=new Set();
+     for(const review of tracks.filter(t=>t.type==='review')){
+       const m=review.methodologyMeta||{};
+       const signature=[review.unit,review.dailyAmount,review.direction,m.reviewRangeMode||'all',
+         m.rangeFromJuz||'',m.rangeToJuz||'',m.reviewStartMode||'lesson',
+         m.selectedStartSurah||''].join('|');
+       if(reviewSignatures.has(signature))
+         throw Error('توجد مراجعتان كبريان متطابقتان في المقدار والاتجاه والنطاق. احذف إحداهما أو غيّر نطاقها.');
+       reviewSignatures.add(signature);
+     }
      if(initial.replaceFromPlanId){
        if(!hasMem)throw Error('تغيير البرنامج بالكامل يحتاج إلى تحديد ركن الحفظ الجديد.');
        if(!confirm('سيُنشأ البرنامج البديل بأركانه المختارة وتُؤرشف خطط الطالب الحالية مع المحافظة على جميع أيامها وحصائلها السابقة. لن يُعتمد أي تغيير إذا فشل إنشاء البرنامج الجديد. هل تريد المتابعة؟'))return;
@@ -3739,40 +3768,27 @@ async function plansPage(root){
        await rpc('remove_plan',{p_plan_id:initial.transitionFromPlanId});
      }
      let r;
-     if(hasMem&&predefinedMethods.has(code)){
-       const memTrack=tracks.find(x=>x.type==='memorization');
-       const memResult=await rpc('save_methodology_memorization_plan',{
-         p_plan_id:memTrack.id,p_student_id:student.id,p_teacher_id:student.teacher_id,
-         p_start_surah:memTrack.startSurah,p_start_ayah:memTrack.startAyah,p_start_date:startDate,
-         p_excluded_weekdays:excluded,p_methodology_code:code,
-         p_path:code==='aqom'?currentMethod.path:null,p_profile:code==='aqom'?currentMethod.profile:null,
-         p_status:'active',p_replace_existing:false
+     if(hasMem){
+       r=await rpc('save_student_program_bundle_atomic',{
+         p_student_id:student.id,p_teacher_id:student.teacher_id,
+         p_start_date:startDate,p_excluded_weekdays:excluded,
+         p_methodology_code:code,
+         p_path:code==='aqom'?val(form,'aqomPath'):null,
+         p_profile:code==='aqom'&&val(form,'aqomPath')!=='preliminary'?val(form,'aqomProfile'):null,
+         p_tracks:tracks
        });
-       const otherTracks=tracks.filter(x=>x.type!=='memorization');
-       let reviewBundle=null;
-       if(otherTracks.length){
-         reviewBundle=await rpc('save_plan_bundle',{
-           p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,
-           p_end_date:memResult.projectedCompletionDate,p_excluded_weekdays:excluded,p_tracks:otherTracks
-         });
-       }
-       r={...memResult,reviewBundle};
-     }else if(hasMem){
-       r=await rpc('save_plan_bundle_whole_ayah',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_excluded_weekdays:excluded,p_tracks:tracks});
-       const memTrack=tracks.find(x=>x.type==='memorization');
-       if(memTrack&&['custom','remedial'].includes(code)){
-         const planName=code==='remedial'?'خطة علاجية':'خطة خاصة';
-         await rpc('update_plan_details_guarded',{p_plan_id:memTrack.id,p_name:planName,p_methodology_code:code,p_methodology_meta:currentMethod.meta||{}});
-       }
      }else{
-       r=await rpc('save_plan_bundle',{p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,p_end_date:null,p_excluded_weekdays:excluded,p_tracks:tracks});
+       r=await rpc('save_plan_bundle',{
+         p_student_id:student.id,p_teacher_id:student.teacher_id,p_start_date:startDate,
+         p_end_date:null,p_excluded_weekdays:excluded,p_tracks:tracks
+       });
      }
      // تُحفظ إعدادات المراجعات الكبرى ضمن save_plan_bundle بمعاملة واحدة
      // ولا تتطلب تصريح UPDATE مباشر على جدول الخطط.
      // save_plan_bundle_whole_ayah performs this sync inside its transaction; never run it twice.
-     if(!(hasMem&&code!=='aqom'))await rpc('sync_student_review_plans',{p_student_id:student.id});
+     if(!hasMem)await rpc('sync_student_review_plans',{p_student_id:student.id});
      b.closest('dialog').close();await load();
-     const finish=r.projectedCompletionDate||r.bundleEndDate||r.projectedEndDate;
+     const finish=r.projectedEndDate||r.projectedCompletionDate||r.bundleEndDate;
      const createdName=code==='bir_alwalidayn'?'خطة حلقات بر الوالدين':code==='aqom'?'برنامج أقوم':code==='remedial'?'الخطة العلاجية':'الخطة الخاصة';
      msg(root,'تم إنشاء '+createdName+(code==='remedial'?' كخطة مؤقتة حتى جاهزية الطالب للانتقال إلى '+targetMethodLabel(val(form,'remedialTarget'))+'.':(finish?' · الختم المتوقع: '+finish+'.':'')));
    });
