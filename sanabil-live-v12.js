@@ -1,6 +1,6 @@
 /* Sanabil live modules. All reads and writes use the signed-in SDK and database RLS. */
 (()=>{'use strict';
-window.__SanabilLiveBuild='20261102-review-integrity1';
+window.__SanabilLiveBuild='20261104-test-review1';
 const THEME_KEY='sanabil-theme-v1';
 const applySanabilTheme=dark=>{document.documentElement.dataset.sanabilTheme=dark?'dark':'light';
   try{localStorage.setItem(THEME_KEY,dark?'dark':'light')}catch{}};
@@ -2096,10 +2096,10 @@ async function outcomesPage(root){
     const prior=testSnapshots.get(s.studentId)||[];
     const recent=prior.find(x=>x.type==='recent_review');
     return {...s,memorization:null,
-      recentReview:recent?{planId:recent.planId,planName:recent.name,from:recent.from,to:recent.to,dayId:null,rating:recent.grade}:null,
+      recentReview:recent?{planId:recent.planId,planName:recent.name,from:recent.from,to:recent.to,dayId:null,testReview:true,rating:recent.grade}:null,
       recentReviewRating:recent?.grade||'',
       reviews:prior.filter(x=>x.type==='review').map(x=>({
-        planId:x.planId,planName:x.name,from:x.from,to:x.to,rating:x.grade,dayId:null
+        planId:x.planId,planName:x.name,from:x.from,to:x.to,rating:x.grade,dayId:null,testReview:true
       }))};
   });
   const stateBanner=(!navigator.onLine?'<div class="sl-outcome-info" role="status">وضع دون اتصال: البيانات محفوظة من آخر فتح؛ تظهر الحصائل الجديدة «معلقة» حتى يؤكدها الخادم.</div>':'')+(!students.length?'<div class="sl-outcome-info sl-outcome-info-empty" role="status">لا يوجد طلاب نشطون مسندون لهذه الحلقة. اختر حلقة أخرى، أو راجع إسناد الطلاب في صفحة الطلاب.</div>':
@@ -2194,7 +2194,7 @@ async function outcomesPage(root){
       '<div class="sl-track-head"><div class="sl-lesson-summary"><b>'+esc(title)+'</b>'+
       '<span class="sl-lesson-range" data-range-display="'+id+'">'+display+'</span></div>'+
       '<div class="sl-lesson-tools">'+button('فتح المصحف','mushaf-'+actionId)+
-      (allowRangeEdit&&a.dayId?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+id+'" aria-expanded="false">تعديل المقرر</button>':'')+
+      (allowRangeEdit&&(a.dayId||(a.testReview&&a.planId))?'<button type="button" class="button button-soft sl-edit-daily-amount" data-action="adjust-'+id+'" aria-expanded="false">تعديل المقرر</button>':'')+
       '</div></div>'+editor+
       '<div class="sl-grade-grid">'+gradeButtons(i,key,gradeValue(states[i],key))+'</div>'+metricControls(i,key)+'</section>';
   };
@@ -2266,11 +2266,20 @@ async function outcomesPage(root){
       inform('جارٍ التحقق من المقرر وحماية الحصائل المعتمدة وإعادة حساب الترحيل…');
       try{
         saveDrafts();
-        const changed=await rpc('update_quran_daily_range_guarded',{
-          p_day_id:assignment.dayId,
-          p_from_surah:values[0],p_from_ayah:values[1],
-          p_to_surah:values[2],p_to_ayah:values[3]
-        });
+        const range={p_from_surah:values[0],p_from_ayah:values[1],p_to_surah:values[2],p_to_ayah:values[3]};
+        if(assignment.testReview){
+          await rpcDirect('update_test_review_range_guarded',{...range,p_student_id:studentId,p_date:date,
+            p_plan_id:assignment.planId,p_old_from:assignment.from,p_old_to:assignment.to});
+          const info=await rpcDirect('get_day_types_guarded',{p_circle_id:circle,p_date:date});
+          const saved=info.testReviews?.find(x=>x.studentId===studentId&&x.planId===assignment.planId);
+          if(!saved||[saved.from?.surahNo,saved.from?.ayahNo,saved.to?.surahNo,saved.to?.ayahNo].some((v,i)=>Number(v)!==values[i]))
+            throw Error('تعذر تأكيد مقرر الاختبار. أعد تحميل الحصيلة.');
+          assignment.from=saved.from;assignment.to=saved.to;
+          label.textContent=lessonRangeLabel(assignment);
+          toggle(false);msg(box,'تم حفظ مقرر مراجعة الاختبار.');
+          return;
+        }
+        const changed=await rpc('update_quran_daily_range_guarded',{p_day_id:assignment.dayId,...range});
         const confirmed=await result(sb().from('plan_days').select('target_from,target_to')
           .eq('id',assignment.dayId).single());
         if(!confirmed||Number(confirmed.target_from?.ayahIndex)!==Number(changed.from?.ayahIndex)
@@ -2387,9 +2396,12 @@ async function outcomesPage(root){
       if(att?.status!==x.att||(x.att==='absent'&&att.absence_reason!==x.absenceReason))
         throw Error('حالة حضور الاختبار أو سبب الغياب لم يتطابق مع الخادم.');
       if(['absent','excused'].includes(x.att))return att;
+      const expectedMetrics=testReviewMetrics(s,x);
       for(const [planId,rating] of Object.entries(testReviewRatings(s,x))){
         const saved=(dayInfo.testReviews||[]).find(q=>q.studentId===s.studentId&&q.planId===planId);
         if(!saved||saved.grade!==rating)throw Error('درجة المراجعة في يوم الاختبار لم تتطابق مع المحفوظ.');
+        for(const field of ['errors','doubts','tajweed'])if(Number(saved.metrics?.[field]??0)!==Number(expectedMetrics[planId]?.[field]??0))
+          throw Error('عدادات المراجعة في يوم الاختبار لم تتطابق مع المحفوظ.');
       }
       return att;
     }
