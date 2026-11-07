@@ -1815,6 +1815,7 @@ async function outcomesPage(root){
    rpcDirect('get_complex_teacher_plan_permission',{p_complex_id:circleMeta?.complex_id})
     .catch(error=>{console.warn('تعذر قراءة صلاحية تعديل المقرر',error);return null})
   ]);
+  const showCounters=planEditPolicy?.showCounters!==false;
   const readOnly=!sessionInfo?.allowed;
   const allowRangeEdit=!readOnly && (
    a.roles?.some(role=>['admin','manager','supervisor'].includes(role)) ||
@@ -2156,6 +2157,7 @@ async function outcomesPage(root){
     return m.reviewPlans?.[id]||((students[i].reviews||[]).length===1?m.review:metricEmpty());
   };
   const metricControls=(i,key)=>{
+    if(!showCounters)return '';
     const m=metricFor(i,key);
     return '<div class="sl-metric-bar" role="group" aria-label="عدادات التسميع المستقلة">'+
       [['errors','الأخطاء'],['doubts','الشكوك'],['tajweed','التجويد']].map(([f,label])=>
@@ -2634,7 +2636,7 @@ async function outcomesPage(root){
   window.SanabilLiveOps?.record?.(circle,'session_open',performance.now()-liveSessionOpenedAt,true);
   // Quick mode uses the same guarded draft, grading, and server-verified save pipeline.
   window.SanabilQuickOutcomes?.mount?.({
-    box,form,students,states,readOnly,activeKind,needsDayAttendance,
+    box,form,students,states,readOnly,activeKind,needsDayAttendance,showCounters,
     gradeValue,setGrade,metricFor,setMetric,persistDraft,syncCard,
     complexId:l.circles.find(c=>c.id===circle)?.complex_id||'',
     sessionDate:date,
@@ -4393,6 +4395,9 @@ async function dashboard(root){
   planButton.className='button button-soft';planButton.dataset.action='teacher-plan-permission';
   planButton.textContent='⚙️ صلاحية تعديل المقرر';toolbar.append(planButton);
   planButton.addEventListener('click',()=>window.SanabilTeacherPlanPermissions?.open?.());
+  const counterButton=document.createElement('button');
+  counterButton.type='button';counterButton.className='button button-soft';counterButton.textContent='عرض عدّادات التسميع';
+  toolbar.append(counterButton);counterButton.addEventListener('click',()=>window.SanabilCounterVisibility?.open?.());
  }
  await window.SanabilComplexStaff?.decorateDashboard?.(root,a);
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigateView(b.dataset.go)));

@@ -28,7 +28,7 @@
  ];
  function mount(ctx){
   const {box,form,students,states,readOnly,activeKind,needsDayAttendance,gradeValue,setGrade,
-   metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance,bulkNominate}=ctx;
+   showCounters=true,metricFor,setMetric,persistDraft,syncCard,complexId,sessionDate,bulkDayKind,changeAttendance,bulkNominate}=ctx;
   let rubric=defaultRubric;
   if(!box?.isConnected||!form||!students?.length)return null;
   // Switching modes must not destroy the original form: the existing guarded
@@ -134,7 +134,8 @@
     const option=el('option','',label);option.value=value;rating.field.append(option);
    }
    d.insertBefore(el('p','sl-quick-explain','ينطبق التقييم على الواجب المحدد فقط. لن تُمس الواجبات الأخرى أو نتائج الطلاب غير المحددين.'),end);
-   for(const item of [track,errors,doubts,tajweed,rating])d.insertBefore(item.line,end);
+   if(!showCounters){rating.field.options[0].remove();rating.field.value='ممتاز'}
+   for(const item of (showCounters?[track,errors,doubts,tajweed,rating]:[track,rating]))d.insertBefore(item.line,end);
    const commit=button('تطبيق التقييم المحدد',()=>{
     const n=[errors,doubts,tajweed].map(x=>Number(x.field.value));
     if(n.some(x=>!Number.isInteger(x)||x<0||x>100)){inform('أدخل أعدادًا صحيحة من صفر إلى مئة.');return}
@@ -145,7 +146,7 @@
     if(!planned.every(({i,key})=>trackList(students[i]).some(x=>x.key===key))){inform('المقرر غير مشترك بين جميع الطلاب.');return}
     if(!window.confirm('أؤكد أنني سمّعت الواجب المختار للطلاب '+ids.length+'، وأن القيم تنطبق عليهم جميعًا.'))return;
     for(const {i,key} of planned){
-      for(const [field,value] of [['errors',n[0]],['doubts',n[1]],['tajweed',n[2]]])setMetric(i,key,field,value);
+      if(showCounters)for(const [field,value] of [['errors',n[0]],['doubts',n[1]],['tajweed',n[2]]])setMetric(i,key,field,value);
       const final=rating.field.value==='auto'?gradeFor(key,n[0],n[1],rubric):rating.field.value;
       setGrade(states[i],key,final);store(i);
     }
@@ -247,8 +248,8 @@
     const m=metricFor(i,selected),rating=gradeValue(states[i],selected);
     content.replaceChildren();
     const score=selected.startsWith('review:')?2*int(m.errors)+int(m.doubts):null;
-    content.append(el('h3','',t.name),el('p','sl-quick-metric-summary',score!==null?'وحدات الخصم: '+score:'يشترط صفر أخطاء وصفر شكوك للإتقان؛ أي خطأ أو شك = لم يحفظ'));
-    for(const [field,label] of [['errors','الأخطاء'],['doubts','الشكوك'],['tajweed','ملاحظات التجويد']]){
+    if(showCounters)content.append(el('h3','',t.name),el('p','sl-quick-metric-summary',score!==null?'وحدات الخصم: '+score:'يشترط صفر أخطاء وصفر شكوك للإتقان؛ أي خطأ أو شك = لم يحفظ'));
+    for(const [field,label] of (showCounters?[['errors','الأخطاء'],['doubts','الشكوك'],['tajweed','ملاحظات التجويد']]:[])){
      const holder=el('div','sl-quick-counter');
      const legend=el('strong','',label);
      const controls=el('div','sl-quick-counter-controls');
@@ -281,7 +282,7 @@
      setGrade(states[i],selected,g);override=true;store(i);render()
     },rating===g?'is-active':''));
     content.append(grades);
-    if(override)content.append(el('small','sl-quick-explain','التقدير المحدد يدويًا؛ تعديل الأخطاء أو الشكوك سيعيد حسابه تلقائيًا.'));
+    if(override&&showCounters)content.append(el('small','sl-quick-explain','التقدير المحدد يدويًا؛ تعديل الأخطاء أو الشكوك سيعيد حسابه تلقائيًا.'));
     content.append(el('small','sl-quick-explain','التغيير محفوظ كمسودة محلية. يعتمد بعد نجاح حفظ الحصيلة والتحقق من الخادم.'));
    };
    render();dialog.addEventListener('close',()=>{dialog.remove();dialog=null;refresh(i)},{once:true});
