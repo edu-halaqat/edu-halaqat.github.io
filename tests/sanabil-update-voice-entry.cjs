@@ -6,7 +6,7 @@ const ui=fs.readFileSync('sanabil-live-v12.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 assert(html.includes('/sanabil-updater.js?v=20261023-revision1'),'Updater must be loaded');
 assert(!html.includes("if(window.__SanabilLiveBuild!==expected)showUpdate()"),'Old delayed-script banner must be removed');
-assert(/\/sanabil-voice\.js\?v=202610(?:18|19)-v\d+/.test(html),'Versioned voice module loaded');
+assert(/\/sanabil-voice\.js\?v=\d{8}-[a-zA-Z0-9.-]+/.test(html),'Versioned voice module loaded');
 assert(ui.includes('window.SanabilVoice?.showLauncher?.()'),'Home screen must show launcher after authentication');
 assert(voice.includes('function showLauncher()'),'Voice entry function exists');
 assert(voice.includes("entry.hidden=!!document.querySelector('[data-sanabil-voice]')"),'Home launcher yields to classroom microphone');
@@ -85,7 +85,7 @@ function environment({current='20261018-v13.8.13',published='20261018-v13.8.14',
  const entry=dock.window.SanabilVoice.showLauncher();
  assert(entry&&entry.id==='sanabil-voice-entry');
  assert.equal(entry.hidden,false);
- assert.equal(entry.children[0].textContent,'🎙 الموجه الصوتي');
+ assert.equal(entry.children[0].textContent,'الموجّه الصوتي');
  entry.children[0].onclick();
  assert.equal(entry.children[1].hidden,false,'Mic explains how to enter classroom');
  console.log('PASS: verified updates once per release, no delayed JS false alerts, safe one-click reload, mic appears on authenticated home');

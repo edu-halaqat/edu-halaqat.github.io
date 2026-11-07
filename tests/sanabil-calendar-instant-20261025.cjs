@@ -8,9 +8,9 @@ const fast=fs.readFileSync('supabase/migrations/20261025040000_calendar_fast_app
 const optim=fs.readFileSync('supabase/migrations/20261025041000_calendar_reflow_set_based_and_horizon.sql','utf8');
 const archive=fs.readFileSync('supabase/migrations/20261025042000_calendar_archived_plan_guard.sql','utf8');
 new vm.Script(calendar);new vm.Script(host);
-assert(html.includes('sanabil-build" content="20261030-v13.8.76"'));
+assert(html.includes('sanabil-build" content="20261102-review-integrity1"'));
 assert(html.includes('/sanabil-plan-calendar.js?v=20261025-bulk-default1'));
-assert(host.includes("window.__SanabilLiveBuild='20261030-v13.8.76'"));
+assert(host.includes("window.__SanabilLiveBuild='20261102-review-integrity1'"));
 assert(sw.includes('sanabil-shell-20261030-v53-view-query'));
 assert(calendar.includes("client.rpc('apply_calendar_days_bulk_guarded'"),'authorized range classification RPC');
 assert(calendar.includes('p_circle_ids:circlesBatch'),'bounded group of circles per transaction');

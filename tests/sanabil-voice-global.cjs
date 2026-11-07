@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const base=fs.readFileSync('sanabil-voice.js','utf8');
 const global=fs.readFileSync('sanabil-voice-global.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
-assert(html.includes('/sanabil-voice-global.js?v=20261019-v1'),'global assistant loads after base');
+assert(html.includes('/sanabil-voice-global.js?v=20261031-logout1'),'global assistant loads after base');
 assert(base.includes('const SILENCE_MS=2000'),'classroom stops two seconds after speech');
 assert(global.includes('quiet(!!heard.trim())'),'global recorder resets its timer after a transcript');
 assert(global.includes('quiet=heard=>{clearTimeout(silence);silence=setTimeout(stop,heard?2000:7500)}'),'global stops two seconds after speech');
