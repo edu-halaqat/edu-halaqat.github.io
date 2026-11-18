@@ -52,6 +52,7 @@ assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body
 assert.match(css,/fieldset\.sl-review-builder/);
 assert.match(css,/html\[data-sanabil-theme="dark"\] body > \.sl-dialog \.sl-body form select option/);
 assert.match(css,/\.sl-plan-circle-filter label/);
-assert.match(html,/\/sanabil-live-v12\.js\?v=2026102[3-9]-[a-z0-9-]+/);
+const liveBuild=html.match(/\/sanabil-live-v12\.js\?v=(\d{8})-[a-z0-9-]+/);
+assert.ok(liveBuild && liveBuild[1]>='20261023','load the scoped-plan build or a later version');
 assert.ok(html.includes('/sanabil-identity.css?v=36'));
 console.log('PASS: plan lists are circle-specific, teacher choices are assigned, archived plans stay scoped, and dark modal styles are versioned.');
