@@ -224,7 +224,7 @@
 @media print{.tools-toggle,.workspace-panel-top{display:none!important}}
 
 /* Tablet v8: reading-first layout, contextual left pane. Keeps desktop and narrow phones unchanged. */
-@media (min-width:801px) and (max-width:1366px){
+@media (min-width:801px) and (max-width:1366px), (min-width:801px) and (max-width:1600px) and (pointer:coarse){
  :root{--tq-tablet-dock:clamp(270px,30vw,350px);--tq-tablet-top:158px}
  .app{grid-template-columns:68px minmax(0,1fr);max-width:100vw;overflow:hidden}
  .sidebar{min-width:0;padding:10px 5px;gap:14px}
@@ -366,14 +366,14 @@ const icon=(isAudio)=>isAudio?'♫':'✎';
 let workspaceReaderWidth=0;
 function closeMobileToolRail(){const rail=$('reviewTools'),toggle=$('toolsToggle');if(rail)rail.classList.remove('rail-open');if(toggle)toggle.setAttribute('aria-expanded','false')}
 function syncWorkspaceLayout(){
- const mobile=window.innerWidth<=1366;
+ const mobile=window.innerWidth<=1366||(window.innerWidth<=1600&&window.matchMedia('(pointer:coarse)').matches);
  const opened=mobile&&(!$('noteModal').hidden||!$('detailModal').hidden||$('sidepanel').classList.contains('open')||['notes','files','settings'].some(p=>!$('page-'+p).hidden));
  document.documentElement.classList.toggle('tq-panel-open',opened);
  if(opened)closeMobileToolRail();
  requestAnimationFrame(()=>{
   const width=$('readScroll').clientWidth;
   const r=$('page-reader').querySelector('.reader-layout').getBoundingClientRect();
-  if(window.innerWidth>800&&window.innerWidth<=1366)document.documentElement.style.setProperty('--tq-tablet-top',Math.round(r.top)+'px');
+  if(window.innerWidth>800&&(window.innerWidth<=1366||(window.innerWidth<=1600&&window.matchMedia('(pointer:coarse)').matches)))document.documentElement.style.setProperty('--tq-tablet-top',Math.round(r.top)+'px');
   if(width&&Math.abs(width-workspaceReaderWidth)>2){
    workspaceReaderWidth=width;
    if(state.pdf){if(state.rendering)state.pendingResize=true;else renderPdf()}
@@ -381,7 +381,7 @@ function syncWorkspaceLayout(){
  });
 }
 function selectPage(p){
- const mobile=window.innerWidth<=1366;
+ const mobile=window.innerWidth<=1366||(window.innerWidth<=1600&&window.matchMedia('(pointer:coarse)').matches);
  for(const view of document.querySelectorAll('.view'))view.hidden=true;
  if(mobile)$('page-reader').hidden=false;
  $('page-'+p).hidden=false;
@@ -407,7 +407,7 @@ const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+(modern?'4.10.38/':'
 try{state.pdf=await lib.getDocument({data:new Uint8Array(state.pdfBytes.slice(0)),cMapUrl:base+'cmaps/',cMapPacked:true,standardFontDataUrl:base+'standard_fonts/',disableFontFace:state.compat,useSystemFonts:!state.compat,disableRange:true}).promise;}
 catch(e){if(modern&&window.pdfjsLib){console.warn('Modern worker failed, retrying legacy',e);state.pdfLib=window.pdfjsLib;window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';state.pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(state.pdfBytes.slice(0)),cMapUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',cMapPacked:true,standardFontDataUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',disableFontFace:state.compat,useSystemFonts:!state.compat}).promise;}else throw e;}
 state.total=state.pdf.numPages;d.pageCount=state.total;persist();state.page=Math.min(state.total,initialPage);$('emptyState').hidden=true;$('paper').hidden=false;await renderPdf();renderNotes()}catch(e){$('emptyState').hidden=false;$('paper').hidden=true;$('emptyState').innerHTML=`<h2>تعذّر عرض PDF</h2><p>${esc(e.message)}</p><button class="btn" id="retryPdf">عرض عبر قارئ الجهاز</button>`;$('retryPdf').onclick=()=>changePdfMode('native')}}
-async function renderPdf(){if(!state.pdf)return;if(state.rendering){state.renderNext=state.page;return}state.rendering=true;let current=state.page;try{let page=await state.pdf.getPage(current);let docked=window.innerWidth<=1366&&document.documentElement.classList.contains('tq-panel-open');let available=Math.max(135,$('readScroll').clientWidth-(docked?12:30));let base=page.getViewport({scale:1});let scale=Math.min(2.3,Math.max(docked?0.18:0.45,available/base.width))*(docked?Math.min(1,state.zoom):state.zoom);let vp=page.getViewport({scale});let cvs=$('pdfCanvas'), dpr=Math.min(window.devicePixelRatio||1,2.5);cvs.width=Math.round(vp.width*dpr);cvs.height=Math.round(vp.height*dpr);cvs.style.width=vp.width+'px';cvs.style.height=vp.height+'px';$('paper').style.width=vp.width+'px';$('paper').style.height=vp.height+'px';$('textLayer').innerHTML='';$('textLayer').style.width=vp.width+'px';$('textLayer').style.height=vp.height+'px';$('markLayer').style.width=vp.width+'px';$('markLayer').style.height=vp.height+'px';let context=cvs.getContext('2d',{alpha:false});await page.render({canvasContext:context,viewport:vp,transform:[dpr,0,0,dpr,0,0]}).promise;try{let tc=await page.getTextContent();let lib=state.pdfLib||window.pdfjsLib;if(lib.TextLayer){let job=new lib.TextLayer({textContentSource:tc,container:$('textLayer'),viewport:vp});await job.render()}else{let job=lib.renderTextLayer({textContentSource:tc,textContent:tc,container:$('textLayer'),viewport:vp,textDivs:[]});if(job?.promise)await job.promise}}catch(e){console.warn('Text layer:',e)}$('pageCount').textContent=`${ar(current)} / ${ar(state.total)}`;$('zoomLabel').textContent=Math.round(scale*100)+'%';renderMarks()}catch(e){toast('تعذّر عرض الصفحة: '+e.message,true)}finally{state.rendering=false;if(state.renderNext&&state.renderNext!==current){state.page=state.renderNext;state.renderNext=null;state.pendingResize=false;renderPdf()}else if(state.pendingResize){state.pendingResize=false;state.renderNext=null;renderPdf()}else state.renderNext=null}}
+async function renderPdf(){if(!state.pdf)return;if(state.rendering){state.renderNext=state.page;return}state.rendering=true;let current=state.page;try{let page=await state.pdf.getPage(current);let docked=(window.innerWidth<=1366||(window.innerWidth<=1600&&window.matchMedia('(pointer:coarse)').matches))&&document.documentElement.classList.contains('tq-panel-open');let available=Math.max(135,$('readScroll').clientWidth-(docked?12:30));let base=page.getViewport({scale:1});let scale=Math.min(2.3,Math.max(docked?0.18:0.45,available/base.width))*(docked?Math.min(1,state.zoom):state.zoom);let vp=page.getViewport({scale});let cvs=$('pdfCanvas'), dpr=Math.min(window.devicePixelRatio||1,2.5);cvs.width=Math.round(vp.width*dpr);cvs.height=Math.round(vp.height*dpr);cvs.style.width=vp.width+'px';cvs.style.height=vp.height+'px';$('paper').style.width=vp.width+'px';$('paper').style.height=vp.height+'px';$('textLayer').innerHTML='';$('textLayer').style.width=vp.width+'px';$('textLayer').style.height=vp.height+'px';$('markLayer').style.width=vp.width+'px';$('markLayer').style.height=vp.height+'px';let context=cvs.getContext('2d',{alpha:false});await page.render({canvasContext:context,viewport:vp,transform:[dpr,0,0,dpr,0,0]}).promise;try{let tc=await page.getTextContent();let lib=state.pdfLib||window.pdfjsLib;if(lib.TextLayer){let job=new lib.TextLayer({textContentSource:tc,container:$('textLayer'),viewport:vp});await job.render()}else{let job=lib.renderTextLayer({textContentSource:tc,textContent:tc,container:$('textLayer'),viewport:vp,textDivs:[]});if(job?.promise)await job.promise}}catch(e){console.warn('Text layer:',e)}$('pageCount').textContent=`${ar(current)} / ${ar(state.total)}`;$('zoomLabel').textContent=Math.round(scale*100)+'%';renderMarks()}catch(e){toast('تعذّر عرض الصفحة: '+e.message,true)}finally{state.rendering=false;if(state.renderNext&&state.renderNext!==current){state.page=state.renderNext;state.renderNext=null;state.pendingResize=false;renderPdf()}else if(state.pendingResize){state.pendingResize=false;state.renderNext=null;renderPdf()}else state.renderNext=null}}
 
 function showOfficialDrive(d,initialPage){
  state.viewMode='native';$('pdfMode').value='native';state.page=initialPage||1;state.total=d.pageCount||921;
