@@ -222,6 +222,84 @@
  #noteModal .modal-actions{padding-inline:5px}
 }
 @media print{.tools-toggle,.workspace-panel-top{display:none!important}}
+
+/* Tablet v8: reading-first layout, contextual left pane. Keeps desktop and narrow phones unchanged. */
+@media (min-width:801px) and (max-width:1366px){
+ :root{--tq-tablet-dock:clamp(270px,30vw,350px);--tq-tablet-top:158px}
+ .app{grid-template-columns:68px minmax(0,1fr);max-width:100vw;overflow:hidden}
+ .sidebar{min-width:0;padding:10px 5px;gap:14px}
+ .sidebar .brand{padding:0;justify-content:center}
+ .sidebar .brand-mark{height:39px;width:39px}
+ .sidebar .nav{gap:5px}
+ .sidebar .nav button{padding:9px 5px;max-width:56px}
+ .main{position:relative;min-width:0;min-height:0;overflow:hidden;isolation:isolate}
+ .topbar{min-height:58px;height:58px;padding:5px 12px;gap:8px}
+ .topbar>div:first-child{min-width:0;flex:1}
+ .topbar h1{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .topbar p{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .topbar .actions{gap:5px;min-width:0;flex:0 0 auto}
+ .topbar .actions .btn{padding:8px 10px;font-size:12px}
+ .topbar .pill{max-width:158px;padding:7px 9px}
+ #cloudText{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .view.reader{min-height:0;flex:1;min-width:0;width:100%;overflow:hidden}
+ .reader-top{display:flex;flex-direction:column;align-items:stretch;padding:7px 12px;gap:5px;min-width:0;flex-shrink:0;max-width:100%}
+ .reader-top .group{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;max-width:100%}
+ .reader-top .group:first-child{width:100%}
+ .reader-top .group .doc-title{flex:1;min-width:0;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .reader-top .group:nth-child(2){width:100%;justify-content:flex-start;flex-wrap:wrap;padding:0;margin:0}
+ .reader-top .group:nth-child(2) .reader-extras{flex-wrap:wrap}
+ .reader-top .smallbtn{height:35px;min-width:35px;padding:0 7px}
+ .reader-top .pdf-mode-select{max-width:190px;width:auto;min-width:130px}
+ .reader-layout{display:grid;grid-template-columns:minmax(0,1fr) 0px;position:relative;gap:0;min-width:0;min-height:0;overflow:hidden;flex:1}
+ html.tq-panel-open .reader-layout{grid-template-columns:minmax(0,1fr) var(--tq-tablet-dock)}
+ .document-stage,.tools-wrap{min-width:0;min-height:0;overflow:hidden}
+ .read-scroll{padding:10px 9px 90px;min-width:0;min-height:0;scrollbar-gutter:auto}
+ .read-scroll.native{display:flex!important;flex-direction:column!important;flex:1;height:100%;padding:0!important;overflow:hidden!important}
+ .native-stage{height:100%;flex:1 1 auto;min-height:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+ .native-stage iframe{width:100%;height:0;min-height:0;flex:1 1 auto;border:0}
+ .native-help{flex-shrink:0;max-height:60px;overflow-y:auto;font-size:10px;padding:5px 9px;line-height:1.4}
+ .paper{margin-inline:auto}
+ #sidepanel{position:absolute;inset:0 auto 0 0;left:0;right:auto;top:0;bottom:0;width:var(--tq-tablet-dock);min-width:0;height:100%;max-height:none;z-index:43;border-radius:0;box-shadow:none;transform:translateX(-110%);visibility:hidden}
+ #sidepanel.open{transform:translateX(0);visibility:visible}
+ #sidepanel .panel-head{padding:12px 10px}
+ #sidepanel .panel-head h3{font-size:15px}
+ #sidepanel .panel-stats{gap:4px}
+ #sidepanel .stat-mini{padding:6px 3px}
+ #sidepanel .stat-mini strong{font-size:16px}
+ #sidepanel .tabs{gap:3px;padding:7px 5px}
+ #sidepanel .tabs button{font-size:11px;padding:7px 5px}
+ #sidepanel .note-list{padding:7px}
+ .drawer-close{display:block}
+ .workspace-view:not([hidden]){position:absolute;top:58px;left:0;bottom:0;z-index:48;display:block;width:var(--tq-tablet-dock);height:auto;min-width:0;min-height:0;padding:12px;overflow-y:auto;overscroll-behavior:contain;background:#fff;border-right:1px solid var(--line);box-shadow:3px 0 18px #153e3614}
+ .workspace-panel-top{display:flex;position:sticky;top:-12px;z-index:6;background:#fff;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:4px 0 9px;margin-bottom:10px}
+ .workspace-view .form-row,.workspace-view .files-grid{display:grid;grid-template-columns:1fr;gap:8px}
+ .workspace-view .sheet{padding:12px}
+ .workspace-view .field{min-width:0}
+ .workspace-view .btn{white-space:normal;overflow-wrap:anywhere}
+ .workspace-view input,.workspace-view textarea,.workspace-view select{max-width:100%;min-width:0}
+ .workspace-view .hflex{flex-wrap:wrap;gap:6px}
+ .workspace-view .section-title{font-size:16px}
+ #noteModal,#detailModal{position:fixed;inset:var(--tq-tablet-top) auto 0 0;left:0;right:auto;top:var(--tq-tablet-top);bottom:0;width:var(--tq-tablet-dock);height:calc(100dvh - var(--tq-tablet-top));min-height:0;max-height:none;padding:0;z-index:80;background:transparent;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
+ #noteModal>.modal,#detailModal>.modal{pointer-events:auto;display:flex;flex-direction:column;min-height:0;max-height:none;height:100%;width:100%;max-width:none;margin:0;border-radius:0;border:0;border-right:1px solid #d4dfd6;box-shadow:4px 0 18px #173e3927;overflow:hidden}
+ #noteModal .modal-head,#detailModal .modal-head{flex:0 0 auto;position:relative;padding:10px 12px}
+ #noteModal .modal-head h3,#detailModal .modal-head h3{font-size:16px}
+ #noteModal .modal-body,#detailModal .modal-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:10px 12px;gap:9px}
+ #noteModal .modal-body textarea,#detailModal .modal-body textarea{max-width:100%}
+ #noteModal .modal-actions{position:relative;flex:0 0 auto;display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border-top:1px solid var(--line);background:#fff}
+ #noteModal .modal-actions .btn{min-width:0;flex:1}
+ #noteModal .voice{padding:10px}
+ #noteModal .voice .hflex{gap:7px;flex-wrap:wrap}
+ #noteModal .voice .hflex .btn{padding:8px 9px}
+ #noteModal .voice audio,#detailModal audio{max-width:100%}
+ .tools-toggle{position:fixed;display:grid;place-items:center;left:10px;bottom:13px;width:45px;height:45px;border-radius:13px;background:var(--green);color:#fff;font-size:21px;z-index:53;box-shadow:0 6px 18px #163e3933}
+ .tools-toggle[aria-expanded="true"]{background:var(--gold)}
+ .floating-tools{position:fixed;display:none;left:9px;right:auto;top:auto;bottom:65px;transform:none;z-index:54;flex-direction:column;width:48px;max-width:48px;max-height:calc(100dvh - 200px);padding:4px;overflow:auto;gap:3px;border-radius:12px}
+ .floating-tools.rail-open{display:flex}
+ .floating-tools .tool{padding:9px 7px;min-height:39px;justify-content:center}
+ .floating-tools .tool span{display:none}
+ html.tq-panel-open .tools-toggle,html.tq-panel-open .floating-tools{display:none!important}
+ html.tq-panel-open .hintline{display:none}
+}
 </style>
 </head>
 <body>
@@ -288,12 +366,14 @@ const icon=(isAudio)=>isAudio?'♫':'✎';
 let workspaceReaderWidth=0;
 function closeMobileToolRail(){const rail=$('reviewTools'),toggle=$('toolsToggle');if(rail)rail.classList.remove('rail-open');if(toggle)toggle.setAttribute('aria-expanded','false')}
 function syncWorkspaceLayout(){
- const mobile=window.innerWidth<=800;
+ const mobile=window.innerWidth<=1366;
  const opened=mobile&&(!$('noteModal').hidden||!$('detailModal').hidden||$('sidepanel').classList.contains('open')||['notes','files','settings'].some(p=>!$('page-'+p).hidden));
  document.documentElement.classList.toggle('tq-panel-open',opened);
  if(opened)closeMobileToolRail();
  requestAnimationFrame(()=>{
   const width=$('readScroll').clientWidth;
+  const r=$('page-reader').querySelector('.reader-layout').getBoundingClientRect();
+  if(window.innerWidth>800&&window.innerWidth<=1366)document.documentElement.style.setProperty('--tq-tablet-top',Math.round(r.top)+'px');
   if(width&&Math.abs(width-workspaceReaderWidth)>2){
    workspaceReaderWidth=width;
    if(state.pdf){if(state.rendering)state.pendingResize=true;else renderPdf()}
@@ -301,7 +381,7 @@ function syncWorkspaceLayout(){
  });
 }
 function selectPage(p){
- const mobile=window.innerWidth<=800;
+ const mobile=window.innerWidth<=1366;
  for(const view of document.querySelectorAll('.view'))view.hidden=true;
  if(mobile)$('page-reader').hidden=false;
  $('page-'+p).hidden=false;
@@ -327,7 +407,7 @@ const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+(modern?'4.10.38/':'
 try{state.pdf=await lib.getDocument({data:new Uint8Array(state.pdfBytes.slice(0)),cMapUrl:base+'cmaps/',cMapPacked:true,standardFontDataUrl:base+'standard_fonts/',disableFontFace:state.compat,useSystemFonts:!state.compat,disableRange:true}).promise;}
 catch(e){if(modern&&window.pdfjsLib){console.warn('Modern worker failed, retrying legacy',e);state.pdfLib=window.pdfjsLib;window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';state.pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(state.pdfBytes.slice(0)),cMapUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',cMapPacked:true,standardFontDataUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',disableFontFace:state.compat,useSystemFonts:!state.compat}).promise;}else throw e;}
 state.total=state.pdf.numPages;d.pageCount=state.total;persist();state.page=Math.min(state.total,initialPage);$('emptyState').hidden=true;$('paper').hidden=false;await renderPdf();renderNotes()}catch(e){$('emptyState').hidden=false;$('paper').hidden=true;$('emptyState').innerHTML=`<h2>تعذّر عرض PDF</h2><p>${esc(e.message)}</p><button class="btn" id="retryPdf">عرض عبر قارئ الجهاز</button>`;$('retryPdf').onclick=()=>changePdfMode('native')}}
-async function renderPdf(){if(!state.pdf)return;if(state.rendering){state.renderNext=state.page;return}state.rendering=true;let current=state.page;try{let page=await state.pdf.getPage(current);let docked=window.innerWidth<=800&&document.documentElement.classList.contains('tq-panel-open');let available=Math.max(135,$('readScroll').clientWidth-(docked?12:30));let base=page.getViewport({scale:1});let scale=Math.min(2.3,Math.max(docked?0.18:0.45,available/base.width))*(docked?Math.min(1,state.zoom):state.zoom);let vp=page.getViewport({scale});let cvs=$('pdfCanvas'), dpr=Math.min(window.devicePixelRatio||1,2.5);cvs.width=Math.round(vp.width*dpr);cvs.height=Math.round(vp.height*dpr);cvs.style.width=vp.width+'px';cvs.style.height=vp.height+'px';$('paper').style.width=vp.width+'px';$('paper').style.height=vp.height+'px';$('textLayer').innerHTML='';$('textLayer').style.width=vp.width+'px';$('textLayer').style.height=vp.height+'px';$('markLayer').style.width=vp.width+'px';$('markLayer').style.height=vp.height+'px';let context=cvs.getContext('2d',{alpha:false});await page.render({canvasContext:context,viewport:vp,transform:[dpr,0,0,dpr,0,0]}).promise;try{let tc=await page.getTextContent();let lib=state.pdfLib||window.pdfjsLib;if(lib.TextLayer){let job=new lib.TextLayer({textContentSource:tc,container:$('textLayer'),viewport:vp});await job.render()}else{let job=lib.renderTextLayer({textContentSource:tc,textContent:tc,container:$('textLayer'),viewport:vp,textDivs:[]});if(job?.promise)await job.promise}}catch(e){console.warn('Text layer:',e)}$('pageCount').textContent=`${ar(current)} / ${ar(state.total)}`;$('zoomLabel').textContent=Math.round(scale*100)+'%';renderMarks()}catch(e){toast('تعذّر عرض الصفحة: '+e.message,true)}finally{state.rendering=false;if(state.renderNext&&state.renderNext!==current){state.page=state.renderNext;state.renderNext=null;state.pendingResize=false;renderPdf()}else if(state.pendingResize){state.pendingResize=false;state.renderNext=null;renderPdf()}else state.renderNext=null}}
+async function renderPdf(){if(!state.pdf)return;if(state.rendering){state.renderNext=state.page;return}state.rendering=true;let current=state.page;try{let page=await state.pdf.getPage(current);let docked=window.innerWidth<=1366&&document.documentElement.classList.contains('tq-panel-open');let available=Math.max(135,$('readScroll').clientWidth-(docked?12:30));let base=page.getViewport({scale:1});let scale=Math.min(2.3,Math.max(docked?0.18:0.45,available/base.width))*(docked?Math.min(1,state.zoom):state.zoom);let vp=page.getViewport({scale});let cvs=$('pdfCanvas'), dpr=Math.min(window.devicePixelRatio||1,2.5);cvs.width=Math.round(vp.width*dpr);cvs.height=Math.round(vp.height*dpr);cvs.style.width=vp.width+'px';cvs.style.height=vp.height+'px';$('paper').style.width=vp.width+'px';$('paper').style.height=vp.height+'px';$('textLayer').innerHTML='';$('textLayer').style.width=vp.width+'px';$('textLayer').style.height=vp.height+'px';$('markLayer').style.width=vp.width+'px';$('markLayer').style.height=vp.height+'px';let context=cvs.getContext('2d',{alpha:false});await page.render({canvasContext:context,viewport:vp,transform:[dpr,0,0,dpr,0,0]}).promise;try{let tc=await page.getTextContent();let lib=state.pdfLib||window.pdfjsLib;if(lib.TextLayer){let job=new lib.TextLayer({textContentSource:tc,container:$('textLayer'),viewport:vp});await job.render()}else{let job=lib.renderTextLayer({textContentSource:tc,textContent:tc,container:$('textLayer'),viewport:vp,textDivs:[]});if(job?.promise)await job.promise}}catch(e){console.warn('Text layer:',e)}$('pageCount').textContent=`${ar(current)} / ${ar(state.total)}`;$('zoomLabel').textContent=Math.round(scale*100)+'%';renderMarks()}catch(e){toast('تعذّر عرض الصفحة: '+e.message,true)}finally{state.rendering=false;if(state.renderNext&&state.renderNext!==current){state.page=state.renderNext;state.renderNext=null;state.pendingResize=false;renderPdf()}else if(state.pendingResize){state.pendingResize=false;state.renderNext=null;renderPdf()}else state.renderNext=null}}
 
 function showOfficialDrive(d,initialPage){
  state.viewMode='native';$('pdfMode').value='native';state.page=initialPage||1;state.total=d.pageCount||921;
@@ -449,6 +529,6 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.tok
 $('toolsToggle').onclick=()=>{const open=$('reviewTools').classList.toggle('rail-open');$('toolsToggle').setAttribute('aria-expanded',String(open))};document.querySelectorAll('[data-close-workspace]').forEach(btn=>btn.onclick=()=>selectPage('reader'));
 const tqPanelObserver=new MutationObserver(()=>syncWorkspaceLayout());for(const id of ['noteModal','detailModal','sidepanel','page-notes','page-files','page-settings'])tqPanelObserver.observe($(id),{attributes:true,attributeFilter:['hidden','class']});
 const mobileReaderMore=$('readerMore'),mobileReaderGroup=mobileReaderMore.parentElement;mobileReaderMore.onclick=()=>{const isOpen=mobileReaderGroup.classList.toggle('expanded');mobileReaderMore.setAttribute('aria-expanded',String(isOpen))};document.addEventListener('click',e=>{if(!mobileReaderGroup.contains(e.target)){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});document.addEventListener('keydown',e=>{if(e.key==='Escape'){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});
-if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=7').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=8').catch(()=>{});
 })();
 </script></body></html>
