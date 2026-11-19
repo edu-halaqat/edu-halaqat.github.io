@@ -148,7 +148,7 @@
 @media(max-width:800px){
  :root{--tq-dock-size:clamp(164px,47vw,360px);--tq-dock-top:97px}
  .main{position:relative;min-height:0;isolation:isolate}
- html.tq-panel-open .main #page-reader{width:calc(100% - var(--tq-dock-size));max-width:none;min-width:0;margin-left:auto;margin-right:0;align-self:flex-end}
+ html.tq-panel-open .main #page-reader{width:calc(100% - var(--tq-dock-size));max-width:none;min-width:0;margin-left:auto;margin-right:0;align-self:flex-start}
  html.tq-panel-open #page-reader .reader-top{padding:4px;gap:2px}
  html.tq-panel-open #page-reader .reader-top .group:first-child{display:none}
  html.tq-panel-open #page-reader .reader-top .group:nth-child(2){gap:1px}
@@ -442,6 +442,7 @@ $('headingFont').onchange=()=>loadFont('headingFont','DoranLocal','--head');$('b
 $('clientIdInput').value=get(K.client,'');$('originText').textContent=location.origin;restoreFonts();updateUndo();updateCloudUI();renderNotes();renderFiles();renderFullNotes();if(state.current&&doc())openDoc(state.current);else{selectPage('reader');if(state.pendingDoc){$('emptyState').innerHTML='<div class="empty-illustration">🔗</div><h2>بحث مشترك بانتظار التفويض</h2><p>اربط حساب Google من «الربط والإعدادات»؛ وستظهر الرسالة والملحوظات إذا كانت لديك صلاحية على مجلد تعقيب.</p><button class="btn primary" id="deepLinkConnect">ربط Google Drive</button>';$('deepLinkConnect').onclick=()=>selectPage('settings')}};setInterval(()=>{if(state.token&&!state.syncing&&!document.hidden)syncCloud(false)},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.token&&!state.syncing)syncCloud(false)});
 $('toolsToggle').onclick=()=>{const open=$('reviewTools').classList.toggle('rail-open');$('toolsToggle').setAttribute('aria-expanded',String(open))};document.querySelectorAll('[data-close-workspace]').forEach(btn=>btn.onclick=()=>selectPage('reader'));
+const tqPanelObserver=new MutationObserver(()=>syncWorkspaceLayout());for(const id of ['noteModal','detailModal','sidepanel','page-notes','page-files','page-settings'])tqPanelObserver.observe($(id),{attributes:true,attributeFilter:['hidden','class']});
 const mobileReaderMore=$('readerMore'),mobileReaderGroup=mobileReaderMore.parentElement;mobileReaderMore.onclick=()=>{const isOpen=mobileReaderGroup.classList.toggle('expanded');mobileReaderMore.setAttribute('aria-expanded',String(isOpen))};document.addEventListener('click',e=>{if(!mobileReaderGroup.contains(e.target)){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});document.addEventListener('keydown',e=>{if(e.key==='Escape'){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=6').catch(()=>{});
 })();
