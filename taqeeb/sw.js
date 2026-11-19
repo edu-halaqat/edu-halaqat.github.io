@@ -1,4 +1,4 @@
-const CACHE='taqeeb-shell-v6';
+const CACHE='taqeeb-shell-v7';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(names=>Promise.all(names.filter(n=>n.startsWith('taqeeb-shell-')&&n!==CACHE).map(n=>caches.delete(n)))).then(()=>self.clients.claim()))});
