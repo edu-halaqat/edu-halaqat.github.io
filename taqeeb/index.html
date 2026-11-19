@@ -77,6 +77,71 @@
 .native-stage iframe{width:100%;flex:1;min-height:0;border:0;background:white}#toast{pointer-events:none}
 #copyReviewLink{font-size:17px}
 @media(max-width:750px){.native-help{font-size:10px;padding:5px 8px}.read-scroll.native{height:100%}#copyReviewLink{min-width:34px}}
+
+/* Mobile compact reading layout v5: scoped to Ta'qib, preserving desktop. */
+#readerMore{display:none}
+.reader-extras{display:flex;align-items:center;gap:8px}
+#noteModal .modal-actions{padding:0 22px 22px}
+@media(max-width:800px){
+  .sidebar{height:49px;min-height:49px;padding:4px 8px;gap:4px}
+  .brand{gap:6px}
+  .brand-name{font-size:19px}
+  .brand-mark{height:32px;width:32px;font-size:19px}
+  .nav{gap:2px}
+  .nav button{width:36px;height:36px;padding:7px}
+  .topbar{height:48px;min-height:48px;padding:4px 9px;gap:5px}
+  .topbar>div:first-child{min-width:0;flex:1}
+  .topbar h1{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar p{display:none}
+  .topbar .actions{gap:4px;flex-shrink:0}
+  .topbar .pill{padding:6px 8px;min-width:0}
+  #cloudText{max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar .btn{padding:6px 9px;min-width:34px;min-height:34px}
+  .reader-top{position:relative;z-index:20;display:grid;grid-template-columns:minmax(0,1fr);padding:6px 8px;gap:6px}
+  .reader-top .group{width:100%;max-width:none;min-width:0;gap:6px}
+  .reader-top .group:first-child{display:flex;justify-content:space-between}
+  .reader-top .group .doc-title{flex:1;min-width:0;max-width:none;font-size:12px}
+  .reader-top .smallbtn{width:35px;min-width:35px;height:35px;padding:0 5px;flex-shrink:0}
+  .reader-top .group:nth-child(2){display:flex;position:relative;width:100%;margin-right:0;padding-top:0;justify-content:space-between}
+  .reader-top #pageCount{flex:1;min-width:68px;text-align:center;font-size:12px}
+  #readerMore{display:grid}
+  #readerMore[aria-expanded="true"]{background:var(--soft);border-color:#acbfb1}
+  .reader-top .reader-extras{display:none;position:absolute;top:calc(100% + 6px);inset-inline:0;z-index:30;background:white;border:1px solid var(--line);border-radius:13px;box-shadow:0 12px 26px #143d342d;padding:9px;gap:7px;flex-wrap:wrap;justify-content:center}
+  .reader-top .group.expanded .reader-extras{display:flex}
+  .reader-extras .pdf-mode-select{flex:1 1 118px;min-height:35px;max-width:none}
+  .read-scroll{padding:8px 6px 83px}
+  .native-help{font-size:10px;line-height:1.45;padding:5px 8px;max-height:56px;overflow:auto;overscroll-behavior:contain}
+  .floating-tools{bottom:7px}
+  #noteModal,#detailModal{position:fixed;inset:0;width:100%;height:100%;padding:0;display:flex;align-items:flex-end;justify-content:center;background:rgba(18,45,40,.54)}
+  #noteModal>.modal,#detailModal>.modal{width:100%;max-width:none;min-height:0;height:min(76dvh,680px);max-height:calc(100dvh - 8px);margin:0;display:flex;flex-direction:column;overflow:hidden;border-radius:20px 20px 0 0;box-shadow:0 -8px 32px #0b302f45}
+  #detailModal>.modal{height:min(70dvh,620px)}
+  #noteModal .modal-head,#detailModal .modal-head{flex-shrink:0;padding:10px 13px}
+  #noteModal .modal-head h3,#detailModal .modal-head h3{font-size:16px}
+  #noteModal .modal-body,#detailModal .modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:9px 12px 12px;gap:8px}
+  #noteModal .detail-meta{gap:4px}
+  #noteModal .review-helper{display:none}
+  #noteModal .field label{font-size:11px}
+  #noteModal #quoteText{min-height:42px;max-height:70px}
+  #noteModal #noteText{min-height:65px;max-height:120px}
+  #noteModal .voice{padding:9px;gap:7px}
+  #noteModal .voice-head{flex-wrap:wrap;gap:4px}
+  #noteModal .voice .hflex{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+  #noteModal .voice .hflex .btn{min-height:42px;padding:7px 4px;white-space:normal}
+  #noteModal .voice .hflex label{grid-column:1/-1;font-size:11px}
+  #noteModal .voice small{font-size:10px;line-height:1.45}
+  #noteModal .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;flex-shrink:0;margin:0;padding:9px 12px calc(9px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:white}
+  #noteModal .modal-actions .btn{min-height:43px;width:100%}
+}
+@media(max-width:360px){
+  .brand-name{font-size:17px}
+  .topbar h1{font-size:13px}
+  .topbar .pill{padding:5px 6px}
+  #cloudText{max-width:43px}
+  .reader-top .group{gap:4px}
+  .reader-top .group .doc-title{font-size:11px}
+  .reader-top .smallbtn{min-width:32px;width:32px;height:34px}
+  .reader-top #pageCount{min-width:60px}
+}
 </style>
 </head>
 <body>
@@ -88,7 +153,7 @@
 <button data-page="settings" title="الربط والإعدادات" aria-label="الربط والإعدادات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4 4l2 2m12 12 2 2M2 12h3m14 0h3M4 20l2-2M18 6l2-2"/></svg><span class="nav-label">الربط والإعدادات</span></button>
 </nav></div><div class="sidebar-bottom"><div class="tip"><b>نصيحة للمشرف</b><br>حدد العبارة داخل الصفحة، ثم اختر تعليقًا صوتيًا أو كتابيًا. لا حاجة إلى ملف ملحوظات مستقل.</div></div></aside>
 <main class="main"><header class="topbar"><div><h1 id="headerTitle">قراءة الرسالة العلمية</h1><p id="headerSubtitle">قراءة هادئة، وملحوظات دقيقة، ومتابعة منظمة</p></div><div class="actions"><span class="pill"><span id="cloudDot" class="dot"></span><span id="cloudText">محلي</span></span><button class="btn" id="syncBtn" title="تحديث المزامنة">↻ <span class="cloud-label">مزامنة</span></button><button class="btn primary" id="connectTop">☁ <span class="cloud-label">Google Drive</span></button></div></header>
-<section class="view reader" id="page-reader"><div class="reader-top"><div class="group"><button class="smallbtn" id="importTop" title="رفع PDF">＋</button><button class="smallbtn" id="copyReviewLink" title="نسخ رابط البحث المشترك" aria-label="نسخ رابط البحث المشترك">🔗</button><span class="doc-title" id="currentTitle">لم تُفتح رسالة بعد</span><button class="smallbtn" id="mobileNotes" title="فتح الملحوظات">☰</button></div><div class="group"><button class="smallbtn" id="nextPage" title="الصفحة التالية">‹</button><span class="counter" id="pageCount">— / —</span><button class="smallbtn" id="prevPage" title="الصفحة السابقة">›</button><button class="smallbtn" id="zoomOut" title="تصغير">−</button><span class="counter" id="zoomLabel">100%</span><button class="smallbtn" id="zoomIn" title="تكبير">＋</button><button class="smallbtn" id="fitWidth" title="ملاءمة العرض">⛶</button><select class="pdf-mode-select" id="pdfMode" aria-label="طريقة عرض PDF" title="تبديل طريقة عرض PDF عند تشوّه الخط العربي"><option value="standard">العرض العربي المحسّن</option><option value="compat">توافق الخطوط البديل</option><option value="native">قارئ الجهاز داخل المنصة</option></select></div></div>
+<section class="view reader" id="page-reader"><div class="reader-top"><div class="group"><button class="smallbtn" id="importTop" title="رفع PDF">＋</button><button class="smallbtn" id="copyReviewLink" title="نسخ رابط البحث المشترك" aria-label="نسخ رابط البحث المشترك">🔗</button><span class="doc-title" id="currentTitle">لم تُفتح رسالة بعد</span><button class="smallbtn" id="mobileNotes" title="فتح الملحوظات">☰</button></div><div class="group"><button class="smallbtn" id="nextPage" title="الصفحة التالية">‹</button><span class="counter" id="pageCount">— / —</span><button class="smallbtn" id="prevPage" title="الصفحة السابقة">›</button><button class="smallbtn" id="readerMore" type="button" aria-label="المزيد: التكبير وطريقة عرض PDF" aria-expanded="false" aria-controls="readerExtras" title="التكبير وطريقة عرض PDF">⋯</button><div class="reader-extras" id="readerExtras"><button class="smallbtn" id="zoomOut" title="تصغير">−</button><span class="counter" id="zoomLabel">100%</span><button class="smallbtn" id="zoomIn" title="تكبير">＋</button><button class="smallbtn" id="fitWidth" title="ملاءمة العرض">⛶</button><select class="pdf-mode-select" id="pdfMode" aria-label="طريقة عرض PDF" title="تبديل طريقة عرض PDF عند تشوّه الخط العربي"><option value="standard">العرض العربي المحسّن</option><option value="compat">توافق الخطوط البديل</option><option value="native">قارئ الجهاز داخل المنصة</option></select></div></div></div>
 <div class="reader-layout"><div class="document-stage"><div class="tools-wrap"><div class="read-scroll" id="readScroll"><div class="empty" id="emptyState"><div class="empty-illustration">▤</div><h2>رسالتك، في مكان واحد</h2><p>ارفع الفصل أو الرسالة بصيغة PDF. يمكن لك وللمشرف إضافة ملحوظات مرتبطة بالصفحات، وتسجيل الصوت، وتظليل النصوص.</p><button class="btn primary" id="importEmpty">＋ رفع ملف PDF</button><p style="margin:14px 0 0;font-size:11px">الملفات غير المشتركة سحابيًا تبقى على هذا المتصفح فقط.</p></div><div class="paper" id="paper" hidden><canvas id="pdfCanvas"></canvas><div class="textLayer" id="textLayer"></div><div class="mark-layer" id="markLayer"></div></div><div id="nativeStage" class="native-stage" hidden><div class="native-help">عرض عبر قارئ الجهاز عند تشوه الخط. استخدم أسهم الصفحات في شريط تعقيب لتحديد رقم صفحة التعليق؛ التعليق الصوتي والكتابي متاحان هنا، والتظليل الدقيق في العرض المحسّن.</div><iframe id="nativeFrame" title="قارئ PDF الأصلي داخل تعقيب"></iframe></div></div><div class="hintline" id="hintline" hidden>للتظليل أو التسطير: حدّد النص أولًا أو اسحب بإصبعك فوق الموضع. للتعليق: اضغط على الصفحة ثم سجل ملحوظتك.</div><div class="floating-tools" role="toolbar" aria-label="أدوات المراجعة">
 <button class="tool record" data-tool="audio" title="تعليق صوتي"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg><span>ملحوظة صوتية</span></button>
 <button class="tool" data-tool="text" title="تعليق كتابي"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H9l-5 4z"/><path d="M8 10h8M8 13h6"/></svg><span>تعليق</span></button>
@@ -104,7 +169,7 @@
 <section class="view" id="page-settings" hidden><h2 class="section-title">إعداد Google Drive والواجهة</h2><div class="sheet"><h2>التخزين السحابي المشترك</h2><p>جهزنا مجلدًا خاصًا في حسابك على Google Drive. لتمكين الرفع والمزامنة من هذا الموقع، أنشئ معرّف OAuth لتطبيق ويب في مشروع Google Cloud الذي تملكه، ثم امنح الإذن من حسابك. لا تُدخل كلمة مرورك في المنصة.</p><div class="notice" id="driveNotice">لم يتم منح الموقع إذن Google Drive بعد. أي ملحوظة تُكتب الآن تحفظ محليًا على هذا الجهاز فقط.</div><div class="form-row" style="margin-top:16px"><div class="field"><label>Google OAuth Client ID (ليس مفتاحًا سريًا)</label><input id="clientIdInput" type="text" dir="ltr" placeholder="123456-xxxx.apps.googleusercontent.com" autocomplete="off"></div><button class="btn primary" id="connectSettings">ربط حساب Google</button></div><p class="muted">للمراجعة من جهازين: ارفع الرسالة بعد ربط الحساب، وشارك مجلد تعقيب مع المشرف، ثم اضغط رمز 🔗 في القارئ لنسخ رابط المستند. يستلزم فتح الرابط تفويض Google لكل مستخدم مخوّل؛ الرابط وحده لا يمنح حق الوصول.</p><p class="muted">لتجهيز Google Cloud: فعّل Drive API، ثم أنشئ OAuth Client ID من نوع Web application، وأضف هذا الأصل إلى Authorized JavaScript origins: <b class="url-plain" id="originText"></b>. أضف بريد المشرف وبريدك إلى Test users إذا كان التطبيق في وضع الاختبار. لا تضف Client Secret إلى هذه الصفحة.</p><div class="hflex"><a target="_blank" rel="noopener" href="https://console.cloud.google.com/apis/credentials">إعداد بيانات اعتماد Google</a><a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/1CZN828oPd43Pz4LsXuY8_QMfpld0dgtV">فتح مجلد تعقيب</a><button class="btn" id="syncSettings">↻ مزامنة الآن</button></div><div class="divider"></div><p id="googleUser" class="muted">الحساب: غير متصل</p><div class="form-row"><div class="field"><label>بريد المشرف لإتاحة الوصول إلى المجلد</label><input id="supervisorEmail" type="email" dir="ltr" placeholder="supervisor@example.com"></div><button class="btn" id="shareFolder">منح المشرف صلاحية التحرير</button></div><p class="muted">لا تُمكّن المشرف من الرفع قبل إضافته إلى صلاحيات المجلد وفي قائمة مستخدمي اختبار OAuth إن لزم. يتعرف النظام على الباحث والمشرف من البريد الفعلي لحساب Google، وليس من زر لتغيير الهوية.</p></div><div class="sheet"><h2>خطوط الواجهة</h2><p>صُممت العناوين بخط «دوران» والنصوص بخط «اليمامة». يستخدم الموقع الخطين إن كانا مثبتين على جهازك، وإلا يظهر بديل عربي واضح. ويمكن تفعيل ملفي الخطين محليًا وحفظهما في هذا المتصفح لاستخدامهما بعد إعادة فتح الصفحة، دون رفعهما إلى الخادم.</p><div class="form-row"><div class="field"><label>تفعيل خط دوران محليًا</label><input type="file" id="headingFont" accept=".ttf,.otf,.woff,.woff2"></div><div class="field"><label>تفعيل خط اليمامة محليًا</label><input type="file" id="bodyFont" accept=".ttf,.otf,.woff,.woff2"></div></div><p class="muted" id="fontStatus" aria-live="polite">العناوين بخط دوران والنصوص بخط اليمامة عند توفر ملفيهما. لم يُضمَّن أي خط مرخّص في الموقع؛ فعّل الملفين من هنا ليظهرا على هذا الجهاز.</p></div><div class="sheet"><h2>الخصوصية والنسخ الاحتياطية</h2><p>ملفات البحث والملحوظات لا تُنشر في مستودع الموقع. تكون داخل Google Drive الخاص بك بعد التفويض. ويحتفظ المتصفح بنسخ محلية تُمكّنك من متابعة العمل عند تعطل الاتصال، مع التنبيه إلى الملفات التي لم تتم مزامنتها.</p><div class="hflex"><button class="btn" id="exportJson">تنزيل نسخة JSON من السجل</button><button class="btn" id="disconnectDrive">فصل الحساب من هذا المتصفح</button></div></div></section>
 </main></div>
 <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple hidden><input id="archiveInput" type="file" accept=".zip,.json,application/zip,application/json" hidden>
-<div class="modal-backdrop" id="noteModal" hidden><div class="modal"><div class="modal-head"><h3 id="modalTitle">تعليق مع إبقاء البحث ظاهرًا</h3><button class="smallbtn" id="modalClose" title="إغلاق">×</button></div><div class="modal-body"><div class="detail-meta"><span class="label-tag" id="notePageLabel">صفحة ١</span><span class="label-tag" id="noteActorLabel">مراجعتي الذاتية</span><span class="label-tag dim" id="noteAnchorLabel">موضع محدد</span></div><div class="review-helper">يمكن متابعة قراءة الصفحة أثناء الكتابة أو تسجيل الصوت؛ هذه لوحة داخل مساحة القراءة وليست صفحة جديدة.</div><div class="field"><label>الموضع المحدد من البحث</label><textarea id="quoteText" placeholder="يظهر النص الذي حددته في الصفحة، أو يمكنك وصف الموضع" rows="2"></textarea></div><div class="field"><label>نص الملحوظة / التفريغ الكتابي</label><textarea id="noteText" placeholder="اكتب ملحوظتك هنا، أو سجلها صوتيًا..." rows="4"></textarea></div><div class="voice" id="recordPanel"><div class="voice-head"><b>التعليق الصوتي</b><span id="recState" class="muted">لا يوجد تسجيل بعد</span></div><div class="hflex"><button class="btn gold" id="recordStart">● بدء التسجيل</button><button class="btn" id="recordStop" disabled>■ إيقاف</button><label class="muted"><input type="checkbox" id="speechOpt"> تفريغ تلقائي تجريبي*</label></div><audio id="recPlayer" controls hidden></audio><small class="muted">*التفريغ يعتمد على دعم المتصفح وقد تُرسل مادة صوتية إلى خدمة التعرف على الكلام الخاصة به. اتركه مغلقًا إذا كان البحث سريًا.</small></div><div class="modal-actions"><button class="btn" id="cancelNote">إلغاء</button><button class="btn primary" id="saveNote">حفظ الملحوظة</button></div></div></div></div>
+<div class="modal-backdrop" id="noteModal" hidden><div class="modal"><div class="modal-head"><h3 id="modalTitle">تعليق مع إبقاء البحث ظاهرًا</h3><button class="smallbtn" id="modalClose" title="إغلاق">×</button></div><div class="modal-body"><div class="detail-meta"><span class="label-tag" id="notePageLabel">صفحة ١</span><span class="label-tag" id="noteActorLabel">مراجعتي الذاتية</span><span class="label-tag dim" id="noteAnchorLabel">موضع محدد</span></div><div class="review-helper">يمكن متابعة قراءة الصفحة أثناء الكتابة أو تسجيل الصوت؛ هذه لوحة داخل مساحة القراءة وليست صفحة جديدة.</div><div class="field"><label>الموضع المحدد من البحث</label><textarea id="quoteText" placeholder="يظهر النص الذي حددته في الصفحة، أو يمكنك وصف الموضع" rows="2"></textarea></div><div class="field"><label>نص الملحوظة / التفريغ الكتابي</label><textarea id="noteText" placeholder="اكتب ملحوظتك هنا، أو سجلها صوتيًا..." rows="4"></textarea></div><div class="voice" id="recordPanel"><div class="voice-head"><b>التعليق الصوتي</b><span id="recState" class="muted">لا يوجد تسجيل بعد</span></div><div class="hflex"><button class="btn gold" id="recordStart">● بدء التسجيل</button><button class="btn" id="recordStop" disabled>■ إيقاف</button><label class="muted"><input type="checkbox" id="speechOpt"> تفريغ تلقائي تجريبي*</label></div><audio id="recPlayer" controls hidden></audio><small class="muted">*التفريغ يعتمد على دعم المتصفح وقد تُرسل مادة صوتية إلى خدمة التعرف على الكلام الخاصة به. اتركه مغلقًا إذا كان البحث سريًا.</small></div></div><div class="modal-actions"><button class="btn" id="cancelNote">إلغاء</button><button class="btn primary" id="saveNote">حفظ الملحوظة</button></div></div></div>
 <div class="modal-backdrop" id="detailModal" hidden><div class="modal"><div class="modal-head"><h3>الملحوظة والرد — والصفحة أمامك</h3><button class="smallbtn" id="detailClose">×</button></div><div class="modal-body" id="detailBody"></div></div></div>
 <div class="busy" id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -268,6 +333,7 @@ $('disconnectDrive').onclick=()=>{if(state.token&&window.google?.accounts?.oauth
 $('headingFont').onchange=()=>loadFont('headingFont','DoranLocal','--head');$('bodyFont').onchange=()=>loadFont('bodyFont','YamamaLocal','--body');
 $('clientIdInput').value=get(K.client,'');$('originText').textContent=location.origin;restoreFonts();updateUndo();updateCloudUI();renderNotes();renderFiles();renderFullNotes();if(state.current&&doc())openDoc(state.current);else{selectPage('reader');if(state.pendingDoc){$('emptyState').innerHTML='<div class="empty-illustration">🔗</div><h2>بحث مشترك بانتظار التفويض</h2><p>اربط حساب Google من «الربط والإعدادات»؛ وستظهر الرسالة والملحوظات إذا كانت لديك صلاحية على مجلد تعقيب.</p><button class="btn primary" id="deepLinkConnect">ربط Google Drive</button>';$('deepLinkConnect').onclick=()=>selectPage('settings')}};setInterval(()=>{if(state.token&&!state.syncing&&!document.hidden)syncCloud(false)},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.token&&!state.syncing)syncCloud(false)});
-if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});
+const mobileReaderMore=$('readerMore'),mobileReaderGroup=mobileReaderMore.parentElement;mobileReaderMore.onclick=()=>{const isOpen=mobileReaderGroup.classList.toggle('expanded');mobileReaderMore.setAttribute('aria-expanded',String(isOpen))};document.addEventListener('click',e=>{if(!mobileReaderGroup.contains(e.target)){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});document.addEventListener('keydown',e=>{if(e.key==='Escape'){mobileReaderGroup.classList.remove('expanded');mobileReaderMore.setAttribute('aria-expanded','false')}});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=5').catch(()=>{});
 })();
 </script></body></html>
