@@ -1,1 +1,20 @@
-{"name":"تعقيب — المراجعة والإشراف العلمي","short_name":"تعقيب","description":"الملحوظات الصوتية والكتابية على الرسائل العلمية","lang":"ar","dir":"rtl","start_url":"./","scope":"./","display":"standalone","background_color":"#f5f6f2","theme_color":"#173e39","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "تعقيب — منصة المراجعة العلمية المستقلة",
+  "short_name": "تعقيب",
+  "description": "قارئ الرسالة العلمية، والتعليقات الصوتية والكتابية والتظليل والمراجعة الذاتية؛ مستقل عن أي نظام آخر.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f2",
+  "theme_color": "#173e39",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
