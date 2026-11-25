@@ -40,6 +40,13 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
   .paper .print-tail .approval-images img{max-height:18mm}
   .paper .print-tail .approval-images img:only-child{max-height:25mm}
 }
+.editor-toolbar{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 7px}
+.editor-toolbar button{padding:4px 8px}
+#body[contenteditable]{min-height:185px;max-height:540px;overflow:auto;border:1px solid #afc5bf;border-radius:8px;background:#fbfdfc;padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+#body[contenteditable]:focus-visible{outline:2px solid #a47930;outline-offset:2px}
+#body,.content{text-align:justify}
+.content :is(p,div){margin:0}
+.text-small{font-size:.85em}.text-normal{font-size:1em}.text-large{font-size:1.2em}
 </style></head>
 <body>
 <header><div class="brand"><span class="mark" aria-hidden="true">برّ</span> مكتب حلقات بر الوالدين</div><nav aria-label="القائمة"><a class="sanabil" href="https://snabilalwahy.com/?app=1">سنابل الوحي</a><button data-tab="create" class="active">إنشاء مستند</button><button data-tab="archive">سجل الصادر</button><button data-tab="settings">الإعدادات</button></nav></header>
@@ -53,7 +60,15 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 <label for="names" id="namesLabel">الأسماء</label><textarea id="names" placeholder="اسم واحد في كل سطر"></textarea><small id="namesHelp"></small>
 <label for="recipient">الجهة أو الشخص المخاطَب</label><input id="recipient" placeholder="إلى من يهمه الأمر">
 <label for="attachments">المرفقات</label><input id="attachments" maxlength="40" placeholder="اختياري"><div id="attendanceFields" hidden><label for="surah">سورة الحفظ</label><input id="surah" placeholder="اختياري"><label for="level">مستوى الطالب</label><input id="level" placeholder="اختياري"><label for="teacher">اسم المعلم</label><input id="teacher" placeholder="اختياري"></div><label for="subject">الموضوع</label><input id="subject" required maxlength="250">
-<label for="body">نص المستند</label><textarea id="body" required></textarea>
+<label id="bodyLabel">نص المستند</label>
+<div class="editor-toolbar" role="group" aria-label="تنسيق نص المستند">
+  <button type="button" data-format="bold">غامق</button><button type="button" data-format="italic">مائل</button><button type="button" data-format="underline">تسطير</button>
+  <button type="button" data-format="fontSize" data-value="2">تصغير</button><button type="button" data-format="fontSize" data-value="3">حجم عادي</button><button type="button" data-format="fontSize" data-value="4">تكبير</button>
+  <button type="button" data-format="justifyFull">ضبط</button><button type="button" data-format="justifyRight">يمين</button><button type="button" data-format="justifyCenter">توسيط</button><button type="button" data-format="justifyLeft">يسار</button>
+  <button type="button" data-format="removeFormat">إزالة التنسيق</button>
+</div>
+<div id="body" contenteditable="true" role="textbox" aria-labelledby="bodyLabel" aria-multiline="true"></div>
+<div class="actions"><button id="saveDraftTemplate" type="button">حفظ النص قالبًا</button></div>
 <small>يُدرج {الاسم} من قائمة الأسماء، ويُدرج {الجهة} من حقل الجهة المخاطَبة.</small>
 <div class="actions"><button class="primary" id="issue" type="submit">اعتماد وإصدار</button></div>
 <div class="status" id="editorStatus" role="status"></div>
@@ -90,7 +105,7 @@ const templates = [
   [
     "أثر لا ينقطع",
     "أثر لا ينقطع – دعوة لكفالة حلقة قرآنية",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nتدعوكم إدارة حلقات بر الوالدين إلى كفالة حلقة قرآنية. تسهم الكفالة في استمرار الحلقة، وتمكين طلابها من الانتظام في التلاوة والحفظ والمراجعة بإشراف معلمهم.\n\nمدة الكفالة: ⟦مدة الكفالة⟧\nقيمة الكفالة: ⟦قيمة الكفالة المعتمدة⟧\nقناة المساهمة الرسمية: ⟦قناة المساهمة الرسمية⟧\n\nنسأل الله أن يبارك في عطائكم، وأن يجعل أثره باقيًا فيمن يتعلّم كتابه.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم إلى كفالة حلقة قرآنية لمدة عام؛ إسهامًا في استمرار تعليم القرآن الكريم، وتمكين الطلاب من الانتظام في التلاوة والحفظ والمراجعة تحت إشراف معلم الحلقة.\n\nتفاصيل الكفالة\nمدة الكفالة: سنة كاملة.\nقيمة الكفالة السنوية: ⟦قيمة الكفالة المعتمدة⟧، وتشمل مكافأة المعلم ومستلزمات تشغيل الحلقة.\nقناة المساهمة الرسمية: ⟦بيانات التحويل المعتمدة⟧.\n\nنأمل التكرّم بإرسال إيصال التحويل إلى ⟦رقم التواصل المعتمد⟧، ليُقيَّد الدعم باسم مشروع كفالة الحلقة.\n\nنسأل الله أن يبارك في عطائكم، وأن يجعل لكم نصيبًا من أجر ما يتعلّمه طلاب الحلقة. وتفضلوا بقبول خالص التقدير.",
     false
   ],
   [
@@ -168,6 +183,59 @@ function node(tag,value='',className=''){
   element.textContent=value;element.className=className;return element;
 }
 function img(src,alt){const element=node('img');element.src=src;element.alt=alt;return element}
+const formatTags=new Set(['B','STRONG','I','EM','U','P','DIV','BR','SPAN','FONT']);
+const sizeClasses=['text-small','text-normal','text-large'];
+function formatted(source,fill=value=>value){
+  const template=document.createElement('template');
+  template.innerHTML=source;
+  function copy(original,parent){
+    if(original.nodeType===3){parent.append(document.createTextNode(fill(original.nodeValue)));return}
+    if(original.nodeType!==1||['SCRIPT','STYLE','NOSCRIPT'].includes(original.tagName))return;
+    let target=parent;
+    if(formatTags.has(original.tagName)){
+      target=node(original.tagName==='FONT'?'span':original.tagName.toLowerCase());
+      const size=original.tagName==='FONT'?sizeClasses[Number(original.getAttribute('size'))-2]:sizeClasses.find(name=>original.classList.contains(name));
+      if(size)target.className=size;
+      const align=original.style.textAlign||original.getAttribute('align');
+      if(['justify','right','left','center'].includes(align))target.style.textAlign=align;
+      if(original.style.fontWeight==='bold'||Number(original.style.fontWeight)>=600)target.style.fontWeight='bold';
+      if(original.style.fontStyle==='italic')target.style.fontStyle='italic';
+      if(original.style.textDecorationLine==='underline'||original.style.textDecoration==='underline')target.style.textDecoration='underline';
+      parent.append(target);
+    }
+    for(const child of original.childNodes)copy(child,target);
+  }
+  const result=node('div');
+  for(const child of template.content.childNodes)copy(child,result);
+  return result;
+}
+function editorText(){return $('body').innerText.trim()}
+function setEditor(template){
+  const editor=$('body');
+  editor.textContent=template.body;
+  if(typeof template.bodyHtml==='string')editor.replaceChildren(...formatted(template.bodyHtml).childNodes);
+}
+let editorSelection;
+document.addEventListener('selectionchange',()=>{
+  const selection=window.getSelection();
+  if(selection?.rangeCount&&$('body').contains(selection.getRangeAt(0).commonAncestorContainer))editorSelection=selection.getRangeAt(0).cloneRange();
+});
+document.querySelectorAll('[data-format]').forEach(button=>{
+  button.onmousedown=event=>event.preventDefault();
+  button.onclick=()=>{
+    $('body').focus();
+    if(editorSelection&&$('body').contains(editorSelection.commonAncestorContainer)){
+      const selection=window.getSelection();
+      selection.removeAllRanges();selection.addRange(editorSelection);
+    }
+    document.execCommand(button.dataset.format,false,button.dataset.value||null);
+    resetPreview();
+  };
+});
+$('body').onpaste=event=>{
+  event.preventDefault();
+  document.execCommand('insertText',false,event.clipboardData.getData('text/plain'));
+};
 function paper(record){
   const page=node('article','','paper'),head=node('div','','letterhead'),meta=node('div','','meta');
   const dateRow=node('div','','dates');
@@ -187,7 +255,9 @@ function paper(record){
   bism.append(img('bismillah.png','بسم الله الرحمن الرحيم'));
   page.append(head,bism,node('h2','الموضوع / '+record.subject,'subject'));
   if(record.addressee)page.append(node('p','إلى / '+record.addressee,'address'));
-  page.append(node('div',record.body,'content'));
+  const content=node('div',record.body,'content');
+  if(typeof record.bodyHtml==='string')content.replaceChildren(...formatted(record.bodyHtml).childNodes);
+  page.append(content);
   if(record.attendance){
     const table=node('table','','attendance');
     table.append(node('caption','بيانات الطالب'));
@@ -206,13 +276,13 @@ function paper(record){
   return page;
 }
 function drafts(settings){
-  const date=dates(),people=names(),chosen=people.length?people:[''];
+  const date=dates(),people=names(),chosen=people.length?people:[''],body=editorText(),markup=$('body').innerHTML;
   return chosen.map(name=>{
     const attendance=$('template').value==='0'?{surah:$('surah').value.trim(),level:$('level').value.trim(),teacher:$('teacher').value.trim()}:undefined;
     const recipient=$('recipient').value.trim()||(attendance?'من يهمه الأمر':name||'من يهمه الأمر');
     const addressee=attendance||name||$('recipient').value.trim()?recipient:'';
     const fill=value=>value.replace(/\{(الاسم|الجهة)\}/g,(_,key)=>key==='الاسم'?(name||'[الاسم]'):recipient);
-    return {...date,name,recipient,addressee,attendance,attachments:$('attachments').value.trim(),subject:fill($('subject').value.trim()),body:fill($('body').value.trim()),
+    return {...date,name,recipient,addressee,attendance,attachments:$('attachments').value.trim(),subject:fill($('subject').value.trim()),body:fill(body),bodyHtml:formatted(markup,fill).innerHTML,
       signer:settings.signer,signature:settings.signature,stamp:settings.stamp};
   });
 }
@@ -232,7 +302,7 @@ function loadTemplate(){
   $('attendanceFields').hidden=!isAttendance;
   $('namesLabel').textContent=isAttendance?'أسماء الطلاب المذكورين في الإفادة':'الأسماء';
   $('namesHelp').textContent=isAttendance?'يصدر مستند لكل طالب، وتبقى الجهة المخاطَبة واحدة للدفعة.':'يصدر مستند لكل اسم. اترك الجهة فارغة لتوجيه كل خطاب إلى الاسم المقابل له.';
-  const chosen=list()[Number($('template').value)];$('subject').value=chosen.subject;$('body').value=chosen.body;
+  const chosen=list()[Number($('template').value)];$('subject').value=chosen.subject;setEditor(chosen);editorSelection=undefined;
   resetPreview();
 }
 function resetPreview(){issuedView=false;previewIndex=0;status('editorStatus','');preview()}
@@ -260,9 +330,10 @@ $('printLast').onclick=()=>printRows(last);
 $('editor').onsubmit=async event=>{
   event.preventDefault();
   const template=list()[Number($('template').value)];
-  if((template.person||/\{الاسم\}/.test($('body').value+$('subject').value))&&!names().length)return status('editorStatus','أدخل اسمًا واحدًا على الأقل.',true);
-  if(!($('subject').value.trim()&&$('body').value.trim()))return status('editorStatus','أدخل الموضوع والنص.',true);
-  const missing=[...($('subject').value+'\n'+$('body').value).matchAll(/⟦([^⟦⟧\n]+)⟧/g)].map(match=>match[1]);
+  const body=editorText();
+  if((template.person||/\{الاسم\}/.test(body+$('subject').value))&&!names().length)return status('editorStatus','أدخل اسمًا واحدًا على الأقل.',true);
+  if(!($('subject').value.trim()&&body))return status('editorStatus','أدخل الموضوع والنص.',true);
+  const missing=[...($('subject').value+'\n'+body).matchAll(/⟦([^⟦⟧\n]+)⟧/g)].map(match=>match[1]);
   if(missing.length)return status('editorStatus','أكمل الحقول التالية باستبدال العلامة كاملة بالقيمة: '+[...new Set(missing)].join('، '),true);
   if(names().length>250)return status('editorStatus','الحد الأقصى ٢٥٠ مستندًا لكل دفعة.',true);
   $('issue').disabled=true;
@@ -277,23 +348,33 @@ $('editor').onsubmit=async event=>{
   }catch(e){status('editorStatus',e.message,true)}
   finally{$('issue').disabled=false}
 };
-$('newType').onclick=()=>{
+function openTemplateSave(title=''){
   $('typeBuilder').hidden=false;
-  $('typeName').value='';
+  $('typeName').value=title;
   $('typeName').focus();
+}
+$('newType').onclick=()=>openTemplateSave();
+$('saveDraftTemplate').onclick=()=>{
+  const index=Number($('template').value),chosen=list()[index];
+  openTemplateSave(index>=templates.length?chosen.title:chosen.title+' – نسخة محفوظة');
 };
 $('cancelType').onclick=()=>{$('typeBuilder').hidden=true};
 $('saveType').onclick=async()=>{
-  const title=$('typeName').value.trim(),subject=$('subject').value.trim(),body=$('body').value.trim();
+  const title=$('typeName').value.trim(),subject=$('subject').value.trim(),body=editorText();
   if(!(title&&subject&&body))return status('editorStatus','أدخل اسم النوع والموضوع والنص لحفظه.',true);
-  const item={title,subject,body,person:/\{الاسم\}/.test(subject+body)};
+  const item={title,subject,body,bodyHtml:formatted($('body').innerHTML).innerHTML,person:/\{الاسم\}/.test(subject+body)};
+  const selected=list()[Number($('template').value)],isUpdate=Number($('template').value)>=templates.length&&selected.title===title;
   $('saveType').disabled=true;
   try{
     state=await change(s=>{
-      if(templates.concat(s.custom).some(template=>template.title===title))throw Error('هذا الاسم مستخدم. أدخل اسمًا آخر لنوع المستند.');
-      s.custom.push(item);
+      const index=s.custom.findIndex(template=>template.title===title);
+      if(isUpdate&&index>=0)s.custom[index]=item;
+      else{
+        if(index>=0||templates.some(template=>template.title===title))throw Error('هذا الاسم مستخدم. أدخل اسمًا آخر للقالب.');
+        s.custom.push(item);
+      }
     });
-    fillSelect(list().length-1);$('typeBuilder').hidden=true;status('editorStatus','تم حفظ نوع المستند وإضافته إلى القائمة.');
+    fillSelect(list().findIndex(template=>template.title===title));$('typeBuilder').hidden=true;status('editorStatus','تم حفظ القالب مع تنسيقه.');
   }catch(e){status('editorStatus',e.message,true)}
   finally{$('saveType').disabled=false}
 };
@@ -383,6 +464,7 @@ $('names').value=initialNames;
 fillSelect();loadTemplate();
 change().then(snapshot=>{state=snapshot;fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
 </script></body></html>
+
 
 
 
