@@ -301,6 +301,11 @@
  html.tq-panel-open .hintline{display:none}
 }
 </style>
+<style id="taqeebSyncLayout">
+.app:has(#privateSyncPanel){grid-template-rows:minmax(0,1fr)}
+.app:has(#privateSyncPanel)>.sidebar{min-height:0;overflow-y:auto}
+.app:has(#privateSyncPanel)>.main{min-height:0;flex:1 1 0%}
+</style>
 </head>
 <body>
 <div class="app">
@@ -417,8 +422,8 @@ async function renderPdf(){if(!state.pdf)return;if(state.rendering){state.render
 function showOfficialDrive(d,initialPage){
  state.viewMode='native';$('pdfMode').value='native';state.page=initialPage||1;state.total=d.pageCount||921;
  state.nativeURL='https://drive.google.com/file/d/'+encodeURIComponent(d.fileId)+'/preview';
- $('nativeStage').querySelector('.native-help').innerHTML='<b>نسخة قراءة عربية متوافقة — ٩٢١ صفحة.</b> تعرض هنا من Google Drive، ولا يمكن مشاهدة محتواها دون صلاحية على الملف. <a href="https://drive.google.com/file/d/1Ecrv0x1rFD2eJago96tQ9eErHlE_daaz/view?usp=drivesdk" target="_blank" rel="noopener">فتح الملف في Google Drive</a> · <a href="https://drive.google.com/file/d/1ALQpsoVF0JjCR3Wt8qvHLaFX3TNb8_K_/view?usp=drivesdk" target="_blank" rel="noopener">فتح الأصل القابل لنسخ النص</a>. التسجيلات والملحوظات التي تضاف الآن محلية فقط حتى تفعيل المزامنة.';
- showNativePdf();renderNotes();toast('عُرضت الرسالة المحفوظة في Drive؛ الربط السحابي للتعليقات لم يُفعّل بعد');
+ $('nativeStage').querySelector('.native-help').innerHTML='<b>نسخة قراءة عربية متوافقة — ٩٢١ صفحة.</b> تعرض هنا من Google Drive، ولا يمكن مشاهدة محتواها دون صلاحية على الملف. <a href="https://drive.google.com/file/d/1Ecrv0x1rFD2eJago96tQ9eErHlE_daaz/view?usp=drivesdk" target="_blank" rel="noopener">فتح الملف في Google Drive</a> · <a href="https://drive.google.com/file/d/1ALQpsoVF0JjCR3Wt8qvHLaFX3TNb8_K_/view?usp=drivesdk" target="_blank" rel="noopener">فتح الأصل القابل لنسخ النص</a>. لمشاركة الملحوظات والتسجيلات من رابط المشرف، استخدم المزامنة أسفل الصفحة.';
+ showNativePdf();renderNotes();
 }
 function showNativePdf(){if(!state.nativeURL)return;$('readScroll').classList.add('native');$('paper').hidden=true;$('emptyState').hidden=true;$('nativeStage').hidden=false;$('nativeFrame').src=state.nativeURL+'#page='+state.page+'&view=Fit';$('pageCount').textContent=ar(state.page)+' / '+(state.total?ar(state.total):'—');$('zoomLabel').textContent='تلقائي';}
 async function changePdfMode(mode){const current=state.page;state.viewMode=mode;state.compat=mode==='compat';$('pdfMode').value=mode;if(!state.current)return;await openDoc(state.current);pageGo(Math.min(current,state.total||current));toast(mode==='native'?'قارئ الجهاز: التعليق متاح بجانب الملف؛ التظليل الدقيق متاح في العرض المحسّن':state.compat?'جرّب وضع توافق الخطوط':'العرض العربي المحسّن')}
