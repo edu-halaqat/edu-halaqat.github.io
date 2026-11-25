@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#084c51"><title>مكتب حلقات بر الوالدين</title>
+<style>
+:root{--deep:#103d40;--teal:#086064;--gold:#e2c18b;--ink:#183638;--muted:#536b6c;--line:#d9e4e0;--wash:#f2f6f3}*{box-sizing:border-box}body{margin:0;background:var(--wash);color:var(--ink);font:16px/1.65 Tahoma,Arial,sans-serif}header{background:var(--deep);color:white;padding:16px max(20px,calc((100vw - 1260px)/2));display:flex;align-items:center;justify-content:space-between;gap:15px}.brand{display:flex;align-items:center;gap:12px;font-weight:bold}.mark{border:1px solid #83aaa7;border-radius:12px;padding:5px 11px;color:var(--gold);font-size:22px}nav,.actions,.meta,.section-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}nav button{color:white;background:transparent;border-color:transparent}nav button.active{background:#286266}main{max-width:1300px;margin:auto;padding:24px 20px 50px}.hero{border-radius:20px;padding:23px 27px;background:#dcece3;border:1px solid #cadfd3;display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:19px}h1,h2,h3,p{margin:0}h1{font-size:clamp(24px,4vw,35px)}h2{font-size:20px}h3{font-size:16px}.hero p,small,.muted{color:var(--muted)}.pill{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 12px}.workspace{display:grid;grid-template-columns:minmax(310px,.85fr) minmax(0,1.15fr);gap:18px;align-items:start}.panel{background:white;padding:18px;border:1px solid var(--line);border-radius:17px;min-width:0}.section-title{justify-content:space-between;margin-bottom:12px}label{display:block;font-weight:bold;font-size:14px;margin:11px 0 4px}input,textarea,select,button{font:inherit}input,textarea,select{width:100%;padding:8px 10px;background:#fbfdfc;color:var(--ink);border:1px solid #afc5bf;border-radius:8px}textarea{resize:vertical;min-height:70px}#body{min-height:177px}button{cursor:pointer;border-radius:9px;border:1px solid #bfcfc9;background:white;color:var(--deep);padding:7px 12px;font-weight:bold;font-size:14px}button:hover{filter:brightness(.94)}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #a47930;outline-offset:2px}.primary{background:var(--teal);color:white;border-color:var(--teal)}.actions{margin-top:14px}.paper{background:#fff;color:#172a2c;border:1px solid var(--line);padding:clamp(15px,3.5vw,37px);line-height:1.95;overflow-wrap:anywhere;min-height:530px}.preview-panel{background:#e9efeb}.letterhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:12px;border-bottom:2px solid #bd985a}.letterhead img{width: min(46%,190px);object-fit:contain}.letterhead .meta{display:block;font-size:12px;color:#225f62}.bism{margin:20px 0 9px;text-align:center}.subject{text-align:center;color:#15575b;margin:0 0 12px}.content{white-space:pre-wrap;font-size:15px}.closing{margin-top:25px;color:#15575b;font-weight:bold;break-inside:avoid}.closing img{display:block;width:150px;max-height:82px;object-fit:contain;object-position:right}.letterfoot{margin-top:22px;border-top:1px solid #c5a263;padding-top:6px;color:#225f62;font-size:12px}.records{display:grid;gap:8px;margin-top:14px}.record{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:9px}.settings{max-width:750px}.asset{max-width:180px;max-height:85px;object-fit:contain;display:block;margin-top:8px}.status{min-height:26px;margin-top:8px;color:#086064;font-size:14px}.error{color:#9b2121}.preview-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.preview-tools select{width:auto;max-width:180px}[hidden]{display:none!important}#printArea{display:none}
+@media(max-width:850px){.workspace{grid-template-columns:1fr}.preview-panel{grid-row:2}}@media(max-width:540px){header{align-items:flex-start;flex-direction:column;gap:7px;padding:12px 16px}main{padding:14px 10px 35px}.hero{padding:15px;align-items:flex-start;flex-direction:column;gap:7px}.panel{padding:12px}.record{align-items:flex-start;flex-direction:column}}@page{size:A4;margin:15mm}@media print{body{background:white}header,main{display:none!important}#printArea{display:block}.paper{min-height:0;border:0;padding:0;break-after:page}.paper:last-child{break-after:auto}.letterhead,.subject{break-after:avoid}.content{font-size:12pt}}
+@font-face{font-family:Doran;src:url(Doran-Bold.ttf) format('truetype');font-weight:700;font-display:swap}@font-face{font-family:Alyamama;src:url(Alyamama-Regular.ttf) format('truetype');font-weight:400;font-display:swap}@font-face{font-family:Alyamama;src:url(Alyamama-Bold.ttf) format('truetype');font-weight:700;font-display:swap}
+body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand,button{font-family:Doran,Alyamama,Tahoma,sans-serif}.paper{aspect-ratio:210/297;display:flex;flex-direction:column;padding:clamp(13px,3vw,34px);line-height:1.65;min-height:0}.letterhead{border:0;padding:0;align-items:flex-start}.letterhead img{width:34%;max-width:190px}.letterhead .meta{font-size:13px;color:#134c52}.bism{display:flex;justify-content:center;margin:10px 0 15px}.bism img{width:105px;max-width:30%}.paper .subject{color:#173e57;font-size:clamp(16px,2.4vw,22px);margin:5px 0 14px}.attendance{border-collapse:collapse;width:100%;margin:15px 0;text-align:center;break-inside:avoid}.attendance caption{background:#d2b78c;color:#07595d;font-weight:700;padding:5px;font-size:19px}.attendance th{background:#07595d;color:#f3d49d}.attendance :is(th,td){border:1px solid #07595d;padding:6px}.address{color:#123d56;font-weight:700;margin-bottom:4px}.content{font-family:Alyamama,Tahoma,sans-serif;font-size:17px}.letterfoot{margin-top:auto;border:0;padding-top:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px}.letterfoot .contact{width:38%;max-width:170px;object-fit:contain}.closing{margin:0;color:#173e57;text-align:center}.closing img{object-position:center}.border{width:100%;margin-top:6px;display:block}.sanabil{color:white;text-decoration:none;border-bottom:1px solid #d8ba84;padding:2px 4px}.new-template{margin:12px 0;border:1px solid var(--line);padding:12px;border-radius:10px;background:#f6faf7}.new-template h3{margin-bottom:6px}.format-row{display:grid;grid-template-columns:1fr auto;align-items:end;gap:8px}.format-row button{white-space:nowrap}.letterhead .meta bdi{display:inline-block}
+@media(max-width:420px){.format-row{grid-template-columns:1fr}.format-row button{justify-self:start}.letterhead .meta{font-size:11px}.content{font-size:15px}}
+@page{margin:8mm}@media print{.paper{padding:5mm 6mm 0;min-height:275mm;aspect-ratio:auto}.paper .subject{font-size:20pt}.content{font-size:14pt}.letterfoot{break-inside:avoid}.border{height:13mm}.bism img{width:35mm}}
+</style></head>
+<body>
+<header><div class="brand"><span class="mark" aria-hidden="true">برّ</span> مكتب حلقات بر الوالدين</div><nav aria-label="القائمة"><a class="sanabil" href="https://snabilalwahy.com/?app=1">سنابل الوحي</a><button data-tab="create" class="active">إنشاء مستند</button><button data-tab="archive">سجل الصادر</button><button data-tab="settings">الإعدادات</button></nav></header>
+<main>
+<section class="hero"><div><h1 id="heading">إعداد خطاب أو تقرير</h1><p id="subtitle">اختر قالبًا، راجع النص، واعتمد الإصدار عند اكتماله.</p></div><span class="pill" id="today"></span></section>
+<section id="create" class="workspace">
+<form class="panel" id="editor"><div class="section-title"><h2>بيانات المستند</h2><span class="pill">مسودة</span></div>
+<div class="format-row"><div><label for="template">نوع المستند</label><select id="template"></select></div><button type="button" id="newType">إضافة نوع مستند</button></div>
+<section class="new-template" id="typeBuilder" hidden><h3>حفظ نوع مستند جديد</h3><label for="typeName">اسم النوع في القائمة</label><input id="typeName" maxlength="90" placeholder="مثال: طلب زيارة">
+<small>حرّر الموضوع والنص أدناه، ثم احفظهما لإعادة استخدامهما.</small><div class="actions"><button id="saveType" class="primary" type="button">حفظ نوع المستند</button><button id="cancelType" type="button">إلغاء</button></div></section>
+<label for="names">أسماء المخاطَبين</label><textarea id="names" placeholder="اسم واحد في كل سطر"></textarea><small>سيُوجّه كل خطاب إلى الاسم المقابل له.</small>
+<label for="recipient">الجهة المخاطَبة عند عدم إدخال أسماء</label><input id="recipient" placeholder="مثال: إدارة الجمعية">
+<div id="attendanceFields" hidden><label for="level">مستوى الطالب</label><input id="level" placeholder="اختياري"><label for="teacher">اسم المعلم</label><input id="teacher" placeholder="اختياري"></div><label for="subject">الموضوع</label><input id="subject" required maxlength="250">
+<label for="body">نص المستند</label><textarea id="body" required></textarea>
+<small>يظهر اسم المخاطَب تلقائيًا في صدر الخطاب. أدرج {الاسم} في النص إذا أردت تكراره داخله.</small>
+<div class="actions"><button class="primary" id="issue" type="submit">اعتماد وإصدار</button></div>
+<div class="status" id="editorStatus" role="status"></div>
+</form>
+<section class="panel preview-panel"><div class="section-title"><h2>معاينة المستند</h2><div class="preview-tools"><select id="previewSelect" aria-label="اختيار مستند المعاينة" hidden></select><button id="printLast" hidden>طباعة / PDF</button></div></div><div id="preview"></div></section>
+</section>
+<section id="archive" class="panel" hidden><div class="section-title"><h2>المستندات المعتمدة</h2><button id="printMatches" hidden>طباعة النتائج / PDF</button></div><label for="search">البحث بالرقم أو الاسم أو الموضوع</label><input id="search" type="search" placeholder="ابحث في سجل الصادر"><div id="records" class="records"></div><div class="status" id="archiveStatus" role="status"></div></section>
+<section id="settings" class="panel settings" hidden><h2>الهوية والترقيم</h2><form id="settingsForm">
+<label for="signer">صفة المعتمِد أو اسمه</label><input id="signer" required maxlength="120">
+<label for="prefix">بادئة رقم الصادر</label><input id="prefix" required maxlength="30" placeholder="مثال: ١٠-٣">
+<label for="next">الرقم التسلسلي التالي</label><input id="next" type="number" min="1" max="999999999" required><small>اضبطه وفق آخر رقم صادر في سجلك الحالي قبل أول إصدار.</small>
+<label for="signature">صورة التوقيع</label><input id="signature" type="file" accept="image/png,image/jpeg,image/webp"><img class="asset" id="signatureView" alt="معاينة التوقيع" hidden>
+<label for="stamp">صورة الختم أو صورة تجمع التوقيع والختم</label><input id="stamp" type="file" accept="image/png,image/jpeg,image/webp"><img class="asset" id="stampView" alt="معاينة الختم" hidden>
+<div class="actions"><button type="submit" class="primary">حفظ الإعدادات</button><button type="button" id="backup">تنزيل نسخة احتياطية</button><button type="button" id="restore">استيراد نسخة احتياطية</button><input type="file" id="backupFile" accept=".json,application/json" hidden></div>
+<div class="status" id="settingsStatus" role="status"></div></form><small>يحفظ المتصفح السجل والقوالب والتوقيع والختم على هذا الجهاز. استخدم النسخة الاحتياطية للنقل بين الأجهزة.</small></section>
+</main><div id="printArea" aria-hidden="true"></div>
+<script>
+const identity = "identity.png";
+const initialStamp = "";
+const initialNames = "";
+const templates = [
+  [
+    "إفادة انتظام طالب",
+    "إفادة انتظام طالب بالحلقات",
+    "الحمد لله رب العالمين، والصلاة والسلام على نبينا محمد وعلى آله وصحبه أجمعين، أما بعد.\n\nتفيد إدارة حلقات بر الوالدين لتحفيظ القرآن الكريم بأن الطالب {الاسم} من الطلاب المنتظمين في الحلقات. وقد صدرت هذه الإفادة بناءً على طلبه لتقديمها إلى من يهمه الأمر.\n\nوتفضلوا بقبول فائق الاحترام والتقدير.",
+    true
+  ],
+  [
+    "إلى من يهمه الأمر",
+    "التعريف بحلقات بر الوالدين",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين بالمدينة المنورة أن تضع بين أيديكم نبذة عن رسالتها في تعليم كتاب الله، وتثبيت الحفظ بالمراجعة، ومتابعة تقدّم الطلاب في التلاوة والإتقان.\n\nوتتطلع الإدارة إلى تعزيز التعاون مع الجهات ذات الاهتمام المشترك بما يدعم استمرارية البرامج ويرفع جودة مخرجاتها.\n\nوتفضلوا بقبول خالص التقدير.",
+    false
+  ],
+  [
+    "أثر لا ينقطع",
+    "أثر لا ينقطع | دعوة إلى كفالة حلقة قرآنية",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم إلى المساهمة في كفالة حلقة قرآنية؛ دعمًا لاستمرار تعليم كتاب الله، وإعانةً للطلاب على إتقان تلاوته وحفظه ومراجعته.\n\nمدة الكفالة: ⟦مدة الكفالة⟧\nقيمة الكفالة: ⟦قيمة الكفالة المعتمدة⟧\nقناة المساهمة: ⟦قناة المساهمة الرسمية⟧\n\nنقدّر لكم عنايتكم ببرامج تعليم القرآن الكريم، ونسأل الله أن يجعل ما تقدّمونه صدقةً جاريةً وأثرًا باقيًا.",
+    false
+  ],
+  [
+    "شهادة شكر وتقدير",
+    "شهادة شكر وتقدير",
+    "تتقدّم إدارة حلقات بر الوالدين بخالص الشكر والتقدير إلى {الاسم}؛ تقديرًا لـ⟦سبب التكريم⟧.\n\nونسأل الله أن يبارك في جهوده، وأن يجزيه خير الجزاء على ما قدّم.",
+    true
+  ],
+  [
+    "دعوة لحضور فعالية",
+    "دعوة لحضور فعالية",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم لحضور ⟦اسم الفعالية⟧، وذلك في ⟦المكان⟧، في تمام ⟦الساعة واليوم⟧.\n\nنأمل تشرّفنا بحضوركم، وتفضّلوا بقبول فائق التقدير.",
+    false
+  ],
+  [
+    "خطاب لولي الأمر",
+    "متابعة الطالب في الحلقة",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nفي إطار المتابعة الدورية لمسيرة الطالب {الاسم} في الحلقة، نحيطكم علمًا بالملاحظة الآتية: ⟦الملاحظة⟧.\n\nونأمل تكرّمكم بالتعاون في ⟦الإجراء المقترح⟧، بما يسهم في دعم تقدّم الطالب.\n\nشاكرين لكم حسن تعاونكم.",
+    true
+  ],
+  [
+    "تقرير دوري",
+    "تقرير سير الحلقات",
+    "الفترة المشمولة: ⟦الفترة⟧\nالحلقات المشمولة: ⟦أسماء الحلقات⟧\n\nملخص التنفيذ\n⟦الأنشطة المنفذة والنتائج⟧\n\nمؤشرات الأداء\n⟦الحضور والحفظ والمراجعة⟧\n\nالإجراءات القادمة\n⟦الإجراءات والمسؤوليات والمواعيد⟧",
+    false
+  ],
+  [
+    "محضر اجتماع",
+    "محضر اجتماع حلقات بر الوالدين",
+    "الموقع: ⟦الموقع⟧\nالحضور: ⟦أسماء الحاضرين⟧\n\nجدول الأعمال\n⟦المحاور⟧\n\nالقرارات والتكليفات\n⟦القرار والمسؤول والموعد⟧",
+    false
+  ],
+  [
+    "مستند عام",
+    "خطاب حلقات بر الوالدين",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\n⟦نص الخطاب⟧\n\nوتفضلوا بقبول فائق الاحترام والتقدير.",
+    false
+  ]
+].map(([title,subject,body,person])=>({title,subject,body,person}));
+const $=id=>document.getElementById(id);
+const defaults=()=>({settings:{signer:'إدارة الحلقات',prefix:'١٠-٣',next:1,signature:'',stamp:initialStamp},custom:[],records:[]});
+const database=new Promise((resolve,reject)=>{
+  const request=indexedDB.open('birr-office-v1',1);
+  request.onupgradeneeded=()=>request.result.createObjectStore('office');
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error);
+});
+async function change(mutate){
+  const db=await database;
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('office',mutate?'readwrite':'readonly');
+    const store=tx.objectStore('office');
+    const request=store.get('state');
+    let snapshot,error;
+    request.onsuccess=()=>{
+      try{snapshot=request.result||defaults();if(mutate){mutate(snapshot);store.put(snapshot,'state')}}
+      catch(e){error=e;tx.abort()}
+    };
+    tx.oncomplete=()=>resolve(snapshot);
+    tx.onabort=()=>reject(error||tx.error||new Error('تعذر حفظ العملية.'));
+  });
+}
+let state=defaults(),last=[],previewIndex=0,issuedView=false,filtered=[];
+const calendar=(date,cal)=>new Intl.DateTimeFormat('ar-SA-u-ca-'+cal,{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+const dates=()=>{const now=new Date();return {hijri:calendar(now,'islamic-umalqura'),gregorian:calendar(now,'gregory')}};
+const digits=n=>String(n).replace(/[0-9]/g,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+const number=(settings,n)=>settings.prefix+'/'+digits(n);
+const list=()=>templates.concat(state.custom);
+const names=()=>$('names').value.split(/\r?\n/).map(n=>n.trim()).filter(Boolean);
+function status(id,message,error=false){
+  $(id).textContent=message;$(id).classList.toggle('error',error);
+}
+function node(tag,value='',className=''){
+  const element=document.createElement(tag);
+  element.textContent=value;element.className=className;return element;
+}
+function img(src,alt){const element=node('img');element.src=src;element.alt=alt;return element}
+function paper(record){
+  const page=node('article','','paper'),head=node('div','','letterhead'),meta=node('div','','meta');
+  head.append(img(identity,'هوية حلقات بر الوالدين'),meta);
+  for(const [label,value] of [['الرقم',(record.number||'يُحدد عند الاعتماد')],['التاريخ',record.hijri],['الموافق',record.gregorian]]){
+    const row=node('div',label+' / ');row.append(node('bdi',value));meta.append(row);
+  }
+  const closing=node('div','','closing');
+  closing.append(node('div',record.signer));
+  if(record.signature)closing.append(img(record.signature,'التوقيع'));
+  if(record.stamp)closing.append(img(record.stamp,'الختم والاعتماد'));
+  const bism=node('div','','bism'), footer=node('footer','','letterfoot');
+  bism.append(img('bismillah.png','بسم الله الرحمن الرحيم'));
+  footer.append(closing);
+  const contact=img('contact.png','بيانات التواصل مع حلقات بر الوالدين');contact.className='contact';footer.append(contact);
+  const border=img('border.png','');border.className='border';
+  page.append(head,bism,node('h2','الموضوع / '+record.subject,'subject'));
+  if(record.addressee)page.append(node('p','إلى / '+record.addressee,'address'));
+  page.append(node('div',record.body,'content'));
+  if(record.attendance){
+    const table=node('table','','attendance');
+    table.append(node('caption','بيانات الطالب'));
+    const header=table.createTHead().insertRow();
+    for(const title of ['م','اسم الطالب','مستوى الطالب','اسم المعلم'])header.append(node('th',title));
+    const row=table.createTBody().insertRow();
+    for(const value of ['١',record.name||'—',record.attendance.level||'—',record.attendance.teacher||'—'])row.append(node('td',value));
+    page.append(table);
+  }
+  page.append(footer,border);
+  return page;
+}
+function drafts(settings){
+  const date=dates(),people=names(),chosen=people.length?people:[''];
+  return chosen.map(name=>{
+    const addressee=name||$('recipient').value.trim();
+    const recipient=addressee||'من يهمه الأمر';
+    const fill=value=>value.replace(/\{(الاسم|الجهة)\}/g,(_,key)=>key==='الاسم'?(name||'[اسم الطالب]'):recipient);
+    const attendance=$('template').value==='0'?{level:$('level').value.trim(),teacher:$('teacher').value.trim()}:undefined;
+    return {...date,name,recipient,addressee,attendance,subject:fill($('subject').value.trim()),body:fill($('body').value.trim()),
+      signer:settings.signer,signature:settings.signature,stamp:settings.stamp};
+  });
+}
+function preview(){
+  const rows=issuedView?last:drafts(state.settings);
+  previewIndex=Math.min(previewIndex,rows.length-1);
+  $('previewSelect').replaceChildren(...rows.map((row,i)=>new Option(row.name||'مستند '+digits(i+1),i)));
+  $('previewSelect').value=previewIndex;$('previewSelect').hidden=rows.length<2;
+  $('preview').replaceChildren(paper(rows[previewIndex]));$('printLast').hidden=!issuedView;
+}
+function fillSelect(index=0){
+  $('template').replaceChildren(...list().map((item,i)=>new Option(item.title,i)));
+  $('template').value=index;
+}
+function loadTemplate(){
+  $('attendanceFields').hidden=$('template').value!=='0';
+  const chosen=list()[Number($('template').value)];$('subject').value=chosen.subject;$('body').value=chosen.body;
+  resetPreview();
+}
+function resetPreview(){issuedView=false;previewIndex=0;status('editorStatus','');preview()}
+function printRows(rows){if(!rows.length)return;$('printArea').replaceChildren(...rows.map(paper));window.print()}
+$('today').textContent=dates().hijri;
+$('template').onchange=loadTemplate;
+for(const id of ['names','recipient','subject','body','level','teacher'])$(id).oninput=resetPreview;
+$('previewSelect').onchange=()=>{previewIndex=Number($('previewSelect').value);preview()};
+$('printLast').onclick=()=>printRows(last);
+$('editor').onsubmit=async event=>{
+  event.preventDefault();
+  const template=list()[Number($('template').value)];
+  if((template.person||/\{الاسم\}/.test($('body').value+$('subject').value))&&!names().length)return status('editorStatus','أدخل اسمًا واحدًا على الأقل.',true);
+  if(!($('subject').value.trim()&&$('body').value.trim()))return status('editorStatus','أدخل الموضوع والنص.',true);
+  const missing=[...($('subject').value+'\n'+$('body').value).matchAll(/⟦([^⟦⟧\n]+)⟧/g)].map(match=>match[1]);
+  if(missing.length)return status('editorStatus','أكمل الحقول التالية باستبدال العلامة كاملة بالقيمة: '+[...new Set(missing)].join('، '),true);
+  if(names().length>250)return status('editorStatus','الحد الأقصى ٢٥٠ مستندًا لكل دفعة.',true);
+  $('issue').disabled=true;
+  try{
+    let batch;
+    state=await change(current=>{
+      batch=drafts(current.settings).map((draft,i)=>({...draft,number:number(current.settings,current.settings.next+i)}));
+      current.settings.next+=batch.length;
+      current.records.unshift(...batch.slice().reverse());
+    });
+    last=batch;issuedView=true;previewIndex=0;preview();status('editorStatus','تم اعتماد '+digits(batch.length)+' مستند. يمكنك طباعتها أو حفظها بصيغة PDF.');
+  }catch(e){status('editorStatus',e.message,true)}
+  finally{$('issue').disabled=false}
+};
+$('newType').onclick=()=>{
+  $('typeBuilder').hidden=false;
+  $('typeName').value='';
+  $('typeName').focus();
+};
+$('cancelType').onclick=()=>{$('typeBuilder').hidden=true};
+$('saveType').onclick=async()=>{
+  const title=$('typeName').value.trim(),subject=$('subject').value.trim(),body=$('body').value.trim();
+  if(!(title&&subject&&body))return status('editorStatus','أدخل اسم النوع والموضوع والنص لحفظه.',true);
+  const item={title,subject,body,person:/\{الاسم\}/.test(subject+body)};
+  $('saveType').disabled=true;
+  try{
+    state=await change(s=>{
+      if(templates.concat(s.custom).some(template=>template.title===title))throw Error('هذا الاسم مستخدم. أدخل اسمًا آخر لنوع المستند.');
+      s.custom.push(item);
+    });
+    fillSelect(list().length-1);$('typeBuilder').hidden=true;status('editorStatus','تم حفظ نوع المستند وإضافته إلى القائمة.');
+  }catch(e){status('editorStatus',e.message,true)}
+  finally{$('saveType').disabled=false}
+};
+function archive(){
+  const query=$('search').value.trim().toLowerCase();
+  filtered=state.records.filter(r=>[r.number,r.name,r.subject,r.recipient].some(v=>v.toLowerCase().includes(query)));
+  $('printMatches').hidden=!filtered.length;
+  $('records').replaceChildren(...filtered.map(row=>{
+    const entry=node('div','','record'),info=node('div'),button=node('button','طباعة / PDF');
+    info.append(node('strong',row.subject+(row.name?' · '+row.name:'')),node('div',row.number+' · '+row.hijri,'muted'));
+    button.onclick=()=>printRows([row]);entry.append(info,button);return entry;
+  }));
+  if(!filtered.length)$('records').append(node('p',query?'لا توجد نتائج مطابقة.':'تظهر الخطابات والتقارير هنا بعد اعتمادها.','muted'));
+}
+$('search').oninput=archive;$('printMatches').onclick=()=>printRows(filtered.slice().reverse());
+function imagePreview(id,value){const element=$(id+'View');element.hidden=!value;if(value)element.src=value}
+function settings(){
+  for(const id of ['signer','prefix','next'])$(id).value=state.settings[id];
+  for(const id of ['signature','stamp']){ $(id).value='';imagePreview(id,state.settings[id]) }
+}
+async function readImage(id){
+  const file=$(id).files[0];if(!file)return;
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2000000)throw new Error('اختر صورة PNG أو JPEG أو WebP بحجم أقل من ٢ ميغابايت.');
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);
+  });
+}
+$('settingsForm').onsubmit=async event=>{
+  event.preventDefault();
+  try{
+    const [signature,stamp]=await Promise.all([readImage('signature'),readImage('stamp')]);
+    const signer=$('signer').value.trim(),prefix=$('prefix').value.trim(),next=Number($('next').value);
+    if(!signer||!prefix)throw new Error('أدخل اسم المعتمِد وبادئة رقم الصادر.');
+    state=await change(s=>{
+      if(next<s.settings.next&&s.records.length)throw new Error('الرقم التالي يجب أن يساوي الرقم الحالي أو يتجاوزه.');
+      s.settings={signer,prefix,next,signature:signature??s.settings.signature,stamp:stamp??s.settings.stamp};
+    });
+    settings();status('settingsStatus','تم حفظ الإعدادات.');
+  }catch(e){status('settingsStatus',e.message,true)}
+};
+$('backup').onclick=async()=>{
+  try{
+    const snapshot=await change();
+    const file=new Blob([JSON.stringify(snapshot)],{type:'application/json'}),url=URL.createObjectURL(file),a=node('a');
+    a.href=url;a.download='birr-office-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){status('settingsStatus',e.message,true)}
+};
+$('restore').onclick=()=>$('backupFile').click();
+function validImage(value){return typeof value==='string'&&(!value||/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value))}
+function validStrings(value,fields){return value&&fields.every(field=>typeof value[field]==='string')}
+$('backupFile').onchange=async()=>{
+  const file=$('backupFile').files[0];$('backupFile').value='';if(!file)return;
+  try{
+    const incoming=JSON.parse(await file.text());
+    const s=incoming.settings;
+    if(!validStrings(s,['signer','prefix'])||!Number.isSafeInteger(s.next)||s.next<1||!validImage(s.stamp)||!validImage(s.signature)||
+      !Array.isArray(incoming.custom)||!incoming.custom.every(t=>validStrings(t,['title','subject','body']))||
+      !Array.isArray(incoming.records)||!incoming.records.every(r=>validStrings(r,['number','name','recipient','subject','body','hijri','gregorian','signer'])&&validImage(r.signature)&&validImage(r.stamp))||
+      new Set(incoming.records.map(r=>r.number)).size!==incoming.records.length)throw new Error('ملف النسخة الاحتياطية غير صالح.');
+    state=await change(current=>{
+      if(current.records.length||current.custom.length)throw new Error('يمكن الاستيراد إلى متصفح يخلو من سجل صادر وقوالب مخصصة.');
+      Object.assign(current,incoming);
+    });
+    settings();fillSelect();loadTemplate();status('settingsStatus','تم استيراد النسخة الاحتياطية.');
+  }catch(e){status('settingsStatus',e.message,true)}
+};
+const pages={create:['إعداد خطاب أو تقرير','اختر قالبًا، راجع النص، واعتمد الإصدار عند اكتماله.'],archive:['سجل الصادر','ابحث في الإصدارات المعتمدة وأعد طباعتها.'],settings:['إعدادات المكتب','اضبط رقم الصادر وأضف صور الاعتماد.']};
+document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=async()=>{
+  const key=button.dataset.tab;
+  try{state=await change()}catch{}
+  Object.keys(pages).forEach(id=>$(id).hidden=id!==key);
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b===button));
+  [$('heading').textContent,$('subtitle').textContent]=pages[key];
+  if(key==='archive')archive();if(key==='settings')settings();if(key==='create')preview();
+});
+$('names').value=initialNames;
+fillSelect();loadTemplate();
+change().then(snapshot=>{state=snapshot;fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
+</script></body></html>
