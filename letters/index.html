@@ -73,7 +73,7 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 <div class="actions"><button class="primary" id="issue" type="submit">اعتماد وإصدار</button></div>
 <div class="status" id="editorStatus" role="status"></div>
 </form>
-<section class="panel preview-panel"><div class="section-title"><h2>معاينة المستند</h2><div class="preview-tools"><select id="previewSelect" aria-label="اختيار مستند المعاينة" hidden></select><button id="printLast" hidden>طباعة / PDF</button></div></div><div id="preview"></div><div class="status" id="printStatus" role="status"></div></section>
+<section class="panel preview-panel"><div class="section-title"><h2>معاينة المستند</h2><div class="preview-tools"><select id="previewSelect" aria-label="اختيار مستند المعاينة" hidden></select><button id="printOne" hidden>حفظ المحدد باسمه / PDF</button><button id="printLast" hidden>طباعة الدفعة / PDF</button></div></div><div id="preview"></div><div class="status" id="printStatus" role="status"></div></section>
 </section>
 <section id="archive" class="panel" hidden><div class="section-title"><h2>المستندات المعتمدة</h2><button id="printMatches" hidden>طباعة النتائج / PDF</button></div><label for="search">البحث بالرقم أو الاسم أو الموضوع</label><input id="search" type="search" placeholder="ابحث في سجل الصادر"><div id="records" class="records"></div><div class="status" id="archiveStatus" role="status"></div></section>
 <section id="settings" class="panel settings" hidden><h2>الهوية والترقيم</h2><form id="settingsForm">
@@ -254,7 +254,10 @@ function paper(record){
   const bism=node('div','','bism');
   bism.append(img('bismillah.png','بسم الله الرحمن الرحيم'));
   page.append(head,bism,node('h2','الموضوع / '+record.subject,'subject'));
-  if(record.addressee)page.append(node('p','إلى / '+record.addressee,'address'));
+  if(record.addressee){
+    const blessing=record.addressee==='من يهمه الأمر'||record.addressee.includes('حفظكم الله')?'':' · حفظكم الله';
+    page.append(node('p','إلى / '+record.addressee+blessing,'address'));
+  }
   const content=node('div',record.body,'content');
   if(typeof record.bodyHtml==='string')content.replaceChildren(...formatted(record.bodyHtml).childNodes);
   page.append(content);
@@ -291,7 +294,8 @@ function preview(){
   previewIndex=Math.min(previewIndex,rows.length-1);
   $('previewSelect').replaceChildren(...rows.map((row,i)=>new Option(row.name||'مستند '+digits(i+1),i)));
   $('previewSelect').value=previewIndex;$('previewSelect').hidden=rows.length<2;
-  $('preview').replaceChildren(paper(rows[previewIndex]));$('printLast').hidden=!issuedView;
+  $('preview').replaceChildren(paper(rows[previewIndex]));
+  $('printOne').hidden=!issuedView;$('printLast').hidden=!issuedView||rows.length<2;
 }
 function fillSelect(index=0){
   $('template').replaceChildren(...list().map((item,i)=>new Option(item.title,i)));
@@ -307,6 +311,13 @@ function loadTemplate(){
 }
 function resetPreview(){issuedView=false;previewIndex=0;status('editorStatus','');preview()}
 let printing=false;
+const officeTitle=document.title;
+function pdfTitle(rows){
+  if(rows.length>1)return 'حلقات بر الوالدين - دفعة خطابات - '+rows[0].number;
+  const row=rows[0],recipient=row.addressee||row.recipient;
+  const person=row.name&&row.name!==recipient?row.name:'';
+  return [recipient,person,row.subject,row.number].filter(Boolean).join(' - ').replace(/[<>:"/\\|?*]/g,'-').replace(/\s+/g,' ').trim();
+}
 async function printRows(rows){
   if(!rows.length||printing)return;
   printing=true;
@@ -318,6 +329,8 @@ async function printRows(rows){
     await Promise.all([...area.querySelectorAll('img')].map(image=>image.decode()));
     await document.fonts.ready;
     status(statusId,'');
+    document.title=pdfTitle(rows);
+    window.addEventListener('afterprint',()=>{document.title=officeTitle},{once:true});
     window.print();
   }catch(e){status(statusId,'تعذّر تحميل إحدى صور المستند. أعد المحاولة بعد اكتمال تحميل الصفحة.',true)}
   finally{printing=false}
@@ -326,6 +339,7 @@ $('today').textContent=dates().hijri;
 $('template').onchange=loadTemplate;
 for(const id of ['names','recipient','subject','body','level','teacher','surah','attachments'])$(id).oninput=resetPreview;
 $('previewSelect').onchange=()=>{previewIndex=Number($('previewSelect').value);preview()};
+$('printOne').onclick=()=>printRows([last[previewIndex]].filter(Boolean));
 $('printLast').onclick=()=>printRows(last);
 $('editor').onsubmit=async event=>{
   event.preventDefault();
@@ -384,7 +398,7 @@ function archive(){
   $('printMatches').hidden=!filtered.length;
   $('records').replaceChildren(...filtered.map(row=>{
     const entry=node('div','','record'),info=node('div'),buttons=node('div','','meta');
-    const button=node('button','طباعة / PDF');
+    const button=node('button','حفظ باسمه / PDF');
     info.append(node('strong',row.subject+(row.name?' · '+row.name:'')),node('div',row.number+' · '+row.hijri,'muted'));
     button.onclick=()=>printRows([row]);buttons.append(button);
     if(state.settings.signature||state.settings.stamp){
