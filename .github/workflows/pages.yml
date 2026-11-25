@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -132,10 +133,27 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: .
+          name: github-pages-${{ github.run_attempt }}
+
+      - name: Wait for the Pages artifact to become visible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
+        run: |
+          for attempt in {1..12}; do
+            if artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$PAGES_ARTIFACT" --jq '.artifacts[] | select(.expired == false) | .id') && [[ -n "$artifact_id" ]]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::GitHub Pages artifact is not visible to the deployment API"
+          exit 1
 
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
 
       - name: Verify published Sanabil PWA and user WhatsApp release
         run: |
