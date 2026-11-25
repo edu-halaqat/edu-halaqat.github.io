@@ -8,6 +8,15 @@
 body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand,button{font-family:Doran,Alyamama,Tahoma,sans-serif}.paper{aspect-ratio:210/297;display:flex;flex-direction:column;padding:clamp(13px,3vw,34px);line-height:1.65;min-height:0}.letterhead{border:0;padding:0;align-items:flex-start}.letterhead img{width:34%;max-width:190px}.letterhead .meta{font-size:13px;color:#134c52}.bism{display:flex;justify-content:center;margin:10px 0 15px}.bism img{width:105px;max-width:30%}.paper .subject{color:#173e57;font-size:clamp(16px,2.4vw,22px);margin:5px 0 14px}.attendance{border-collapse:collapse;width:100%;margin:15px 0;text-align:center;break-inside:avoid}.attendance caption{background:#d2b78c;color:#07595d;font-weight:700;padding:5px;font-size:19px}.attendance th{background:#07595d;color:#f3d49d}.attendance :is(th,td){border:1px solid #07595d;padding:6px}.address{color:#123d56;font-weight:700;margin-bottom:4px}.content{font-family:Alyamama,Tahoma,sans-serif;font-size:17px}.letterfoot{margin-top:auto;border:0;padding-top:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px}.letterfoot .contact{width:38%;max-width:170px;object-fit:contain}.closing{margin:0;color:#173e57;text-align:center}.closing img{object-position:center}.print-tail{margin-top:auto;break-inside:avoid;page-break-inside:avoid;flex:none}.print-tail .letterfoot{margin-top:0;align-items:flex-end;gap:14px}.print-tail .closing{flex:0 1 54%;min-width:0}.print-tail .closing img{width:min(100%,185px);height:auto;max-height:none;margin-inline:auto}.border{width:100%;height:auto;margin-top:9px;display:block}.sanabil{color:white;text-decoration:none;border-bottom:1px solid #d8ba84;padding:2px 4px}.new-template{margin:12px 0;border:1px solid var(--line);padding:12px;border-radius:10px;background:#f6faf7}.new-template h3{margin-bottom:6px}.format-row{display:grid;grid-template-columns:1fr auto;align-items:end;gap:8px}.format-row button{white-space:nowrap}.letterhead .meta bdi{display:inline-block}
 @media(max-width:420px){.format-row{grid-template-columns:1fr}.format-row button{justify-self:start}.letterhead .meta{font-size:11px}.content{font-size:15px}}
 @page{margin:8mm}@media print{.paper{print-color-adjust:exact;-webkit-print-color-adjust:exact;padding:5mm 6mm 0;min-height:275mm;aspect-ratio:auto}.paper .subject{font-size:20pt}.content{font-size:14pt}.letterfoot{break-inside:avoid}.border{height:auto}.print-tail .closing img{width:min(100%,58mm)}.bism img{width:35mm}}
+@media print{
+  @page{size:A4;margin:0}
+  .paper{width:210mm;min-height:296.7mm;padding:8mm 13mm 0;overflow:visible}
+  .paper>.letterhead img{width:64mm;max-width:none}
+  .paper .print-tail{margin-inline:-13mm;padding-top:4mm}
+  .paper .letterfoot{padding:0 13mm;min-height:24mm}
+  .paper .closing img{width:60mm;max-width:100%;height:auto}
+  .paper .border{width:210mm;height:auto;margin-top:2mm}
+}
 </style></head>
 <body>
 <header><div class="brand"><span class="mark" aria-hidden="true">برّ</span> مكتب حلقات بر الوالدين</div><nav aria-label="القائمة"><a class="sanabil" href="https://snabilalwahy.com/?app=1">سنابل الوحي</a><button data-tab="create" class="active">إنشاء مستند</button><button data-tab="archive">سجل الصادر</button><button data-tab="settings">الإعدادات</button></nav></header>
@@ -45,56 +54,56 @@ const initialNames = "";
 const templates = [
   [
     "إفادة انتظام طالب",
-    "إفادة انتظام طالب بالحلقات",
-    "الحمد لله رب العالمين، والصلاة والسلام على نبينا محمد وعلى آله وصحبه أجمعين، أما بعد.\n\nتفيد إدارة حلقات بر الوالدين لتحفيظ القرآن الكريم بأن الطالب {الاسم} من الطلاب المنتظمين في الحلقات. وقد صدرت هذه الإفادة بناءً على طلبه لتقديمها إلى {الجهة}.\n\nوتفضلوا بقبول فائق الاحترام والتقدير.",
+    "إفادة بانتظام طالب في حلقات بر الوالدين",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nتفيد إدارة حلقات بر الوالدين لتحفيظ القرآن الكريم بأن الطالب {الاسم} منتظم في الدراسة بالحلقات حتى تاريخ صدور هذه الإفادة. وترد بياناته في الجدول أدناه.\n\nوقد حُرّرت هذه الإفادة بناءً على طلبه لتقديمها إلى الجهة المخاطَبة.\n\nوتفضلوا بقبول خالص التقدير.",
     true
   ],
   [
     "إلى من يهمه الأمر",
     "التعريف بحلقات بر الوالدين",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين بالمدينة المنورة أن تضع بين أيديكم نبذة عن رسالتها في تعليم كتاب الله، وتثبيت الحفظ بالمراجعة، ومتابعة تقدّم الطلاب في التلاوة والإتقان.\n\nوتتطلع الإدارة إلى تعزيز التعاون مع الجهات ذات الاهتمام المشترك بما يدعم استمرارية البرامج ويرفع جودة مخرجاتها.\n\nوتفضلوا بقبول خالص التقدير.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nتُعنى حلقات بر الوالدين بالمدينة المنورة بتعليم القرآن الكريم، من خلال تصحيح التلاوة، ومتابعة الحفظ، وتثبيته بالمراجعة المنتظمة. ويتابع المعلمون تقدّم الطلاب وفق ما يُنجزونه في الحفظ والمراجعة.\n\nيسرّ إدارة الحلقات بحث أوجه التعاون مع جهتكم في دعم هذه البرامج وتيسير استفادة الطلاب منها.\n\nوتفضلوا بقبول خالص التقدير.",
     false
   ],
   [
     "أثر لا ينقطع",
-    "أثر لا ينقطع | دعوة إلى كفالة حلقة قرآنية",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم إلى المساهمة في كفالة حلقة قرآنية؛ دعمًا لاستمرار تعليم كتاب الله، وإعانةً للطلاب على إتقان تلاوته وحفظه ومراجعته.\n\nمدة الكفالة: ⟦مدة الكفالة⟧\nقيمة الكفالة: ⟦قيمة الكفالة المعتمدة⟧\nقناة المساهمة: ⟦قناة المساهمة الرسمية⟧\n\nنقدّر لكم عنايتكم ببرامج تعليم القرآن الكريم، ونسأل الله أن يجعل ما تقدّمونه صدقةً جاريةً وأثرًا باقيًا.",
+    "أثر لا ينقطع – دعوة لكفالة حلقة قرآنية",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nتدعوكم إدارة حلقات بر الوالدين إلى كفالة حلقة قرآنية. تسهم الكفالة في استمرار الحلقة، وتمكين طلابها من الانتظام في التلاوة والحفظ والمراجعة بإشراف معلمهم.\n\nمدة الكفالة: ⟦مدة الكفالة⟧\nقيمة الكفالة: ⟦قيمة الكفالة المعتمدة⟧\nقناة المساهمة الرسمية: ⟦قناة المساهمة الرسمية⟧\n\nنسأل الله أن يبارك في عطائكم، وأن يجعل أثره باقيًا فيمن يتعلّم كتابه.",
     false
   ],
   [
     "شهادة شكر وتقدير",
     "شهادة شكر وتقدير",
-    "تتقدّم إدارة حلقات بر الوالدين بخالص الشكر والتقدير إلى {الاسم}؛ تقديرًا لـ⟦سبب التكريم⟧.\n\nونسأل الله أن يبارك في جهوده، وأن يجزيه خير الجزاء على ما قدّم.",
+    "تمنح إدارة حلقات بر الوالدين هذه الشهادة لـ{الاسم}، تقديرًا لـ⟦سبب التكريم⟧، وعرفانًا بما بذله من جهد.\n\nوتتقدم الإدارة بخالص الشكر، سائلةً الله له دوام التوفيق وحسن الأثر.",
     true
   ],
   [
     "دعوة لحضور فعالية",
     "دعوة لحضور فعالية",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم لحضور ⟦اسم الفعالية⟧، وذلك في ⟦المكان⟧، في تمام ⟦الساعة واليوم⟧.\n\nنأمل تشرّفنا بحضوركم، وتفضّلوا بقبول فائق التقدير.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nيسرّ إدارة حلقات بر الوالدين دعوتكم لحضور ⟦اسم الفعالية⟧، التي تُقام في ⟦المكان⟧، يوم ⟦اليوم والتاريخ⟧، الساعة ⟦الوقت⟧.\n\nنتطلع إلى حضوركم ومشاركتكم، وتفضلوا بقبول خالص التقدير.",
     false
   ],
   [
     "خطاب لولي الأمر",
     "متابعة الطالب في الحلقة",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nفي إطار المتابعة الدورية لمسيرة الطالب {الاسم} في الحلقة، نحيطكم علمًا بالملاحظة الآتية: ⟦الملاحظة⟧.\n\nونأمل تكرّمكم بالتعاون في ⟦الإجراء المقترح⟧، بما يسهم في دعم تقدّم الطالب.\n\nشاكرين لكم حسن تعاونكم.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nنحيطكم علمًا بما رصده المعلم خلال متابعة الطالب {الاسم} في الحلقة: ⟦الملاحظة⟧.\n\nونأمل تعاونكم في ⟦الإجراء المقترح⟧. ويسعد إدارة الحلقة التنسيق معكم لمتابعة ما يُتفق عليه ودعم تقدّم الطالب.\n\nشاكرين لكم تعاونكم.",
     true
   ],
   [
     "تقرير دوري",
     "تقرير سير الحلقات",
-    "الفترة المشمولة: ⟦الفترة⟧\nالحلقات المشمولة: ⟦أسماء الحلقات⟧\n\nملخص التنفيذ\n⟦الأنشطة المنفذة والنتائج⟧\n\nمؤشرات الأداء\n⟦الحضور والحفظ والمراجعة⟧\n\nالإجراءات القادمة\n⟦الإجراءات والمسؤوليات والمواعيد⟧",
+    "الفترة محل التقرير: ⟦الفترة⟧\nالحلقات المشمولة: ⟦أسماء الحلقات⟧\n\nما نُفّذ خلال الفترة\n⟦الأنشطة المنفذة ونتائجها⟧\n\nالحضور والحفظ والمراجعة\n⟦المؤشرات والملاحظات الموثقة⟧\n\nالإجراءات للفترة القادمة\n⟦الإجراء والمسؤول عنه وموعد تنفيذه⟧",
     false
   ],
   [
     "محضر اجتماع",
     "محضر اجتماع حلقات بر الوالدين",
-    "الموقع: ⟦الموقع⟧\nالحضور: ⟦أسماء الحاضرين⟧\n\nجدول الأعمال\n⟦المحاور⟧\n\nالقرارات والتكليفات\n⟦القرار والمسؤول والموعد⟧",
+    "موعد الاجتماع: ⟦اليوم والوقت⟧\nمكان الاجتماع: ⟦الموقع⟧\nالحضور: ⟦أسماء الحاضرين⟧\n\nالموضوعات التي نوقشت\n⟦الموضوعات وخلاصة المناقشة⟧\n\nالقرارات والتكليفات\n⟦القرار والمسؤول عن التنفيذ والموعد⟧\n\nالمتابعة\n⟦موعد المتابعة أو آلية التحقق من التنفيذ⟧",
     false
   ],
   [
     "مستند عام",
     "خطاب حلقات بر الوالدين",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\n⟦نص الخطاب⟧\n\nوتفضلوا بقبول فائق الاحترام والتقدير.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\n⟦الغرض من الخطاب وتفاصيله وما يُطلب من المخاطَب⟧\n\nوتفضلوا بقبول خالص التقدير.",
     false
   ]
 ].map(([title,subject,body,person])=>({title,subject,body,person}));
@@ -263,9 +272,19 @@ function archive(){
   filtered=state.records.filter(r=>[r.number,r.name,r.subject,r.recipient].some(v=>v.toLowerCase().includes(query)));
   $('printMatches').hidden=!filtered.length;
   $('records').replaceChildren(...filtered.map(row=>{
-    const entry=node('div','','record'),info=node('div'),button=node('button','طباعة / PDF');
+    const entry=node('div','','record'),info=node('div'),buttons=node('div','','meta');
+    const button=node('button','طباعة / PDF');
     info.append(node('strong',row.subject+(row.name?' · '+row.name:'')),node('div',row.number+' · '+row.hijri,'muted'));
-    button.onclick=()=>printRows([row]);entry.append(info,button);return entry;
+    button.onclick=()=>printRows([row]);buttons.append(button);
+    if(!row.signature&&!row.stamp&&(state.settings.signature||state.settings.stamp)){
+      const approval=node('button','إعادة الطباعة بالاعتماد الحالي','primary');
+      approval.onclick=()=>{
+        const {signature,stamp}=state.settings;
+        printRows([{...row,signature,stamp}]);
+      };
+      buttons.append(approval);
+    }
+    entry.append(info,buttons);return entry;
   }));
   if(!filtered.length)$('records').append(node('p',query?'لا توجد نتائج مطابقة.':'تظهر الخطابات والتقارير هنا بعد اعتمادها.','muted'));
 }
@@ -334,5 +353,6 @@ $('names').value=initialNames;
 fillSelect();loadTemplate();
 change().then(snapshot=>{state=snapshot;fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
 </script></body></html>
+
 
 
