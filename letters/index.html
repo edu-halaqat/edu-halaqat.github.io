@@ -21,19 +21,24 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 .paper .letterhead{position:relative;display:block;flex:none;aspect-ratio:792/115;margin-inline:calc(-1 * var(--paper-inset));overflow:hidden}
 .paper .letterhead .stationery,.paper .print-tail .stationery{position:absolute;left:0;width:100%;max-width:none;height:auto;display:block}
 .paper .letterhead .stationery{top:0}
-.paper .letterhead .meta{position:absolute;left:2%;top:32%;width:19%;height:55%;display:grid;grid-template-rows:repeat(3,1fr);font-size:clamp(7px,1.3vw,12px);line-height:1;align-items:center;text-align:right}
-.letterhead .meta .dates{font-size:.88em;line-height:.96}
-.letterhead .meta .dates bdi{display:block}
+.paper .letterhead .meta{position:absolute;left:1%;top:0;width:20.5%;height:100%;font-size:clamp(7px,1.3vw,12px);line-height:1;display:block;text-align:right}
+.letterhead .meta>*{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
+.letterhead .meta .serial{top:41%}
+.letterhead .meta .dates{top:59%;display:flex;align-items:center;gap:.35em;font-size:.82em}
+.letterhead .meta .attachments{top:77%}
 .paper .print-tail{position:relative;aspect-ratio:792/215;margin-inline:calc(-1 * var(--paper-inset));padding:0;overflow:hidden}
 .paper .print-tail .stationery{bottom:0}
 .paper .print-tail .closing{position:absolute;right:8%;bottom:35.4%;width:37%;line-height:1.1;font-size:clamp(10px,1.7vw,15px)}
-.paper .print-tail .closing img{width:76%;max-width:none;max-height:none;margin-inline:auto}
-.paper .print-tail .closing img+img{width:52%}
+.paper .approval-images{display:flex;align-items:center;justify-content:center;gap:4%;margin-top:4px}
+.paper .print-tail .approval-images img{display:block;width:45%;height:auto;max-height:clamp(22px,7vw,64px);object-fit:contain;object-position:center;margin:0}
+.paper .print-tail .approval-images img:only-child{width:80%;max-height:clamp(30px,10vw,88px)}
 .paper .bism{margin-top:4px}
 @media print{
   .paper{--paper-inset:13mm;width:210mm;min-height:296.7mm;padding:0 var(--paper-inset)}
   .paper .letterhead .meta{font-size:9pt}
   .paper .print-tail .closing{font-size:11pt}
+  .paper .print-tail .approval-images img{max-height:18mm}
+  .paper .print-tail .approval-images img:only-child{max-height:25mm}
 }
 </style></head>
 <body>
@@ -166,14 +171,18 @@ function img(src,alt){const element=node('img');element.src=src;element.alt=alt;
 function paper(record){
   const page=node('article','','paper'),head=node('div','','letterhead'),meta=node('div','','meta');
   const dateRow=node('div','','dates');
-  dateRow.append(node('bdi',record.hijri),node('bdi',record.gregorian+' م'));
-  meta.append(node('bdi',record.number||'عند الاعتماد'),dateRow,node('bdi',record.attachments||'—'));
+  dateRow.append(node('bdi',record.hijri),node('span','·'),node('bdi',record.gregorian+' م'));
+  const serial=node('bdi',record.number||'عند الاعتماد','serial');
+  if(record.number)serial.dir='ltr';
+  meta.append(serial,dateRow,node('bdi',record.attachments||'—','attachments'));
   const topArt=img(stationery,'كليشة حلقات بر الوالدين');topArt.className='stationery';
   head.append(topArt,meta);
   const closing=node('div','','closing');
   closing.append(node('div',record.signer));
-  if(record.signature)closing.append(img(record.signature,'التوقيع'));
-  if(record.stamp)closing.append(img(record.stamp,'الختم والاعتماد'));
+  const approvals=node('div','','approval-images');
+  if(record.signature)approvals.append(img(record.signature,'التوقيع'));
+  if(record.stamp)approvals.append(img(record.stamp,'الختم والاعتماد'));
+  closing.append(approvals);
   const bism=node('div','','bism');
   bism.append(img('bismillah.png','بسم الله الرحمن الرحيم'));
   page.append(head,bism,node('h2','الموضوع / '+record.subject,'subject'));
@@ -297,7 +306,7 @@ function archive(){
     const button=node('button','طباعة / PDF');
     info.append(node('strong',row.subject+(row.name?' · '+row.name:'')),node('div',row.number+' · '+row.hijri,'muted'));
     button.onclick=()=>printRows([row]);buttons.append(button);
-    if(!row.signature&&!row.stamp&&(state.settings.signature||state.settings.stamp)){
+    if(state.settings.signature||state.settings.stamp){
       const approval=node('button','إعادة الطباعة بالاعتماد الحالي','primary');
       approval.onclick=()=>{
         const {signature,stamp}=state.settings;
