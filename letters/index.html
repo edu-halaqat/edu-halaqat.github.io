@@ -17,6 +17,24 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
   .paper .closing img{width:60mm;max-width:100%;height:auto}
   .paper .border{width:210mm;height:auto;margin-top:2mm}
 }
+.paper{--paper-inset:clamp(13px,3vw,34px);padding:0 var(--paper-inset);overflow:visible}
+.paper .letterhead{position:relative;display:block;flex:none;aspect-ratio:792/115;margin-inline:calc(-1 * var(--paper-inset));overflow:hidden}
+.paper .letterhead .stationery,.paper .print-tail .stationery{position:absolute;left:0;width:100%;max-width:none;height:auto;display:block}
+.paper .letterhead .stationery{top:0}
+.paper .letterhead .meta{position:absolute;left:2%;top:32%;width:19%;height:55%;display:grid;grid-template-rows:repeat(3,1fr);font-size:clamp(7px,1.3vw,12px);line-height:1;align-items:center;text-align:right}
+.letterhead .meta .dates{font-size:.88em;line-height:.96}
+.letterhead .meta .dates bdi{display:block}
+.paper .print-tail{position:relative;aspect-ratio:792/215;margin-inline:calc(-1 * var(--paper-inset));padding:0;overflow:hidden}
+.paper .print-tail .stationery{bottom:0}
+.paper .print-tail .closing{position:absolute;right:8%;bottom:35.4%;width:37%;line-height:1.1;font-size:clamp(10px,1.7vw,15px)}
+.paper .print-tail .closing img{width:76%;max-width:none;max-height:none;margin-inline:auto}
+.paper .print-tail .closing img+img{width:52%}
+.paper .bism{margin-top:4px}
+@media print{
+  .paper{--paper-inset:13mm;width:210mm;min-height:296.7mm;padding:0 var(--paper-inset)}
+  .paper .letterhead .meta{font-size:9pt}
+  .paper .print-tail .closing{font-size:11pt}
+}
 </style></head>
 <body>
 <header><div class="brand"><span class="mark" aria-hidden="true">برّ</span> مكتب حلقات بر الوالدين</div><nav aria-label="القائمة"><a class="sanabil" href="https://snabilalwahy.com/?app=1">سنابل الوحي</a><button data-tab="create" class="active">إنشاء مستند</button><button data-tab="archive">سجل الصادر</button><button data-tab="settings">الإعدادات</button></nav></header>
@@ -29,7 +47,7 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 <small>حرّر الموضوع والنص أدناه، ثم احفظهما لإعادة استخدامهما.</small><div class="actions"><button id="saveType" class="primary" type="button">حفظ نوع المستند</button><button id="cancelType" type="button">إلغاء</button></div></section>
 <label for="names" id="namesLabel">الأسماء</label><textarea id="names" placeholder="اسم واحد في كل سطر"></textarea><small id="namesHelp"></small>
 <label for="recipient">الجهة أو الشخص المخاطَب</label><input id="recipient" placeholder="إلى من يهمه الأمر">
-<div id="attendanceFields" hidden><label for="level">مستوى الطالب</label><input id="level" placeholder="اختياري"><label for="teacher">اسم المعلم</label><input id="teacher" placeholder="اختياري"></div><label for="subject">الموضوع</label><input id="subject" required maxlength="250">
+<label for="attachments">المرفقات</label><input id="attachments" maxlength="40" placeholder="اختياري"><div id="attendanceFields" hidden><label for="surah">سورة الحفظ</label><input id="surah" placeholder="اختياري"><label for="level">مستوى الطالب</label><input id="level" placeholder="اختياري"><label for="teacher">اسم المعلم</label><input id="teacher" placeholder="اختياري"></div><label for="subject">الموضوع</label><input id="subject" required maxlength="250">
 <label for="body">نص المستند</label><textarea id="body" required></textarea>
 <small>يُدرج {الاسم} من قائمة الأسماء، ويُدرج {الجهة} من حقل الجهة المخاطَبة.</small>
 <div class="actions"><button class="primary" id="issue" type="submit">اعتماد وإصدار</button></div>
@@ -48,14 +66,14 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 <div class="status" id="settingsStatus" role="status"></div></form><small>يحفظ المتصفح السجل والقوالب والتوقيع والختم على هذا الجهاز. استخدم النسخة الاحتياطية للنقل بين الأجهزة.</small></section>
 </main><div id="printArea" aria-hidden="true"></div>
 <script>
-const identity = "identity.png";
+const stationery = "letterhead.jpg";
 const initialStamp = "";
 const initialNames = "";
 const templates = [
   [
     "إفادة انتظام طالب",
     "إفادة بانتظام طالب في حلقات بر الوالدين",
-    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nتفيد إدارة حلقات بر الوالدين لتحفيظ القرآن الكريم بأن الطالب {الاسم} منتظم في الدراسة بالحلقات حتى تاريخ صدور هذه الإفادة. وترد بياناته في الجدول أدناه.\n\nوقد حُرّرت هذه الإفادة بناءً على طلبه لتقديمها إلى الجهة المخاطَبة.\n\nوتفضلوا بقبول خالص التقدير.",
+    "السلام عليكم ورحمة الله وبركاته، وبعد.\n\nنفيدكم بأن الطالب {الاسم} من طلاب حلقات بر الوالدين المنتظمين في الدراسة حتى تاريخ صدور هذه الإفادة، وفق البيانات الموضحة أدناه.\n\nوقد حُرّرت هذه الإفادة بناءً على طلبه لتقديمها إلى الجهة المخاطَبة، وهي إفادة بانتظامه في الحلقات.\n\nوتفضلوا بقبول خالص التقدير.",
     true
   ],
   [
@@ -147,19 +165,17 @@ function node(tag,value='',className=''){
 function img(src,alt){const element=node('img');element.src=src;element.alt=alt;return element}
 function paper(record){
   const page=node('article','','paper'),head=node('div','','letterhead'),meta=node('div','','meta');
-  head.append(img(identity,'هوية حلقات بر الوالدين'),meta);
-  for(const [label,value,suffix] of [['الرقم',(record.number||'يُحدد عند الاعتماد')],['التاريخ',record.hijri],['الموافق',record.gregorian,' م']]){
-    const row=node('div',label+' / ');row.append(node('bdi',value),suffix||'');meta.append(row);
-  }
+  const dateRow=node('div','','dates');
+  dateRow.append(node('bdi',record.hijri),node('bdi',record.gregorian+' م'));
+  meta.append(node('bdi',record.number||'عند الاعتماد'),dateRow,node('bdi',record.attachments||'—'));
+  const topArt=img(stationery,'كليشة حلقات بر الوالدين');topArt.className='stationery';
+  head.append(topArt,meta);
   const closing=node('div','','closing');
   closing.append(node('div',record.signer));
   if(record.signature)closing.append(img(record.signature,'التوقيع'));
   if(record.stamp)closing.append(img(record.stamp,'الختم والاعتماد'));
-  const bism=node('div','','bism'), footer=node('footer','','letterfoot');
+  const bism=node('div','','bism');
   bism.append(img('bismillah.png','بسم الله الرحمن الرحيم'));
-  footer.append(closing);
-  const contact=img('contact.png','بيانات التواصل مع حلقات بر الوالدين');contact.className='contact';footer.append(contact);
-  const border=img('border.png','');border.className='border';
   page.append(head,bism,node('h2','الموضوع / '+record.subject,'subject'));
   if(record.addressee)page.append(node('p','إلى / '+record.addressee,'address'));
   page.append(node('div',record.body,'content'));
@@ -167,22 +183,27 @@ function paper(record){
     const table=node('table','','attendance');
     table.append(node('caption','بيانات الطالب'));
     const header=table.createTHead().insertRow();
-    for(const title of ['م','اسم الطالب','مستوى الطالب','اسم المعلم'])header.append(node('th',title));
+    const titles=['م','اسم الطالب','سورة الحفظ','مستوى الطالب'];
+    const values=['١',record.name||'—',record.attendance.surah||'—',record.attendance.level||'—'];
+    if(record.attendance.teacher){titles.push('اسم المعلم');values.push(record.attendance.teacher)}
+    for(const title of titles)header.append(node('th',title));
     const row=table.createTBody().insertRow();
-    for(const value of ['١',record.name||'—',record.attendance.level||'—',record.attendance.teacher||'—'])row.append(node('td',value));
+    for(const value of values)row.append(node('td',value));
     page.append(table);
   }
-  const tail=node('div','','print-tail');tail.append(footer,border);page.append(tail);
+  const tail=node('footer','','print-tail');
+  const bottomArt=img(stationery,'بيانات التواصل مع حلقات بر الوالدين');bottomArt.className='stationery';
+  tail.append(bottomArt,closing);page.append(tail);
   return page;
 }
 function drafts(settings){
   const date=dates(),people=names(),chosen=people.length?people:[''];
   return chosen.map(name=>{
-    const attendance=$('template').value==='0'?{level:$('level').value.trim(),teacher:$('teacher').value.trim()}:undefined;
+    const attendance=$('template').value==='0'?{surah:$('surah').value.trim(),level:$('level').value.trim(),teacher:$('teacher').value.trim()}:undefined;
     const recipient=$('recipient').value.trim()||(attendance?'من يهمه الأمر':name||'من يهمه الأمر');
     const addressee=attendance||name||$('recipient').value.trim()?recipient:'';
     const fill=value=>value.replace(/\{(الاسم|الجهة)\}/g,(_,key)=>key==='الاسم'?(name||'[الاسم]'):recipient);
-    return {...date,name,recipient,addressee,attendance,subject:fill($('subject').value.trim()),body:fill($('body').value.trim()),
+    return {...date,name,recipient,addressee,attendance,attachments:$('attachments').value.trim(),subject:fill($('subject').value.trim()),body:fill($('body').value.trim()),
       signer:settings.signer,signature:settings.signature,stamp:settings.stamp};
   });
 }
@@ -224,7 +245,7 @@ async function printRows(rows){
 }
 $('today').textContent=dates().hijri;
 $('template').onchange=loadTemplate;
-for(const id of ['names','recipient','subject','body','level','teacher'])$(id).oninput=resetPreview;
+for(const id of ['names','recipient','subject','body','level','teacher','surah','attachments'])$(id).oninput=resetPreview;
 $('previewSelect').onchange=()=>{previewIndex=Number($('previewSelect').value);preview()};
 $('printLast').onclick=()=>printRows(last);
 $('editor').onsubmit=async event=>{
@@ -353,6 +374,7 @@ $('names').value=initialNames;
 fillSelect();loadTemplate();
 change().then(snapshot=>{state=snapshot;fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
 </script></body></html>
+
 
 
 
