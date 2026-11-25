@@ -325,6 +325,11 @@
 <section class="view workspace-view" id="page-notes" hidden><div class="workspace-panel-top"><b>سجل الملحوظات</b><button class="smallbtn workspace-close" type="button" data-close-workspace aria-label="إغلاق اللوحة">×</button></div><div class="hflex"><div><h2 class="section-title">سجل الملحوظات الموحد</h2><p class="muted">يجمع ملحوظات المشرف ومراجعتك الذاتية، مرتبة حسب الملف والصفحة والموضع.</p></div><div class="actions"><button class="btn" id="exportHtml">⇩ تقرير قابل للطباعة</button><button class="btn primary" id="exportBundle">⇩ الأرشيف الكامل ZIP</button><button class="btn" id="importBundle">↥ استيراد الأرشيف السابق</button></div></div><div class="sheet"><div class="form-row"><div class="field"><label>تصفية بحسب الملف</label><select id="notesDocFilter"><option value="all">جميع الملفات</option></select></div><div class="field"><label>نوع المراجعة</label><select id="notesRoleFilter"><option value="all">جميع الملحوظات</option><option value="self">مراجعتي الذاتية</option><option value="supervisor">ملحوظات المشرف</option></select></div></div></div><div id="fullNotes"></div></section>
 <section class="view workspace-view" id="page-files" hidden><div class="workspace-panel-top"><b>ملفات الرسالة</b><button class="smallbtn workspace-close" type="button" data-close-workspace aria-label="إغلاق اللوحة">×</button></div><div class="hflex"><div><h2 class="section-title">ملفات الرسالة وفصولها</h2><p class="muted">ارفع الملفات بصيغة PDF، واحتفظ بالنسخ السابقة لتبقى مواضع الملحوظات مرتبطة بها.</p></div><button class="btn primary" id="importFiles">＋ إضافة ملف PDF</button></div><div class="files-grid" id="filesGrid"></div></section>
 <section class="view workspace-view" id="page-settings" hidden><div class="workspace-panel-top"><b>الإعدادات</b><button class="smallbtn workspace-close" type="button" data-close-workspace aria-label="إغلاق اللوحة">×</button></div><h2 class="section-title">إعداد Google Drive والواجهة</h2><div class="sheet"><h2>التخزين السحابي المشترك</h2><p>جهزنا مجلدًا خاصًا في حسابك على Google Drive. لتمكين الرفع والمزامنة من هذا الموقع، أنشئ معرّف OAuth لتطبيق ويب في مشروع Google Cloud الذي تملكه، ثم امنح الإذن من حسابك. لا تُدخل كلمة مرورك في المنصة.</p><div class="notice" id="driveNotice">لم يتم منح الموقع إذن Google Drive بعد. أي ملحوظة تُكتب الآن تحفظ محليًا على هذا الجهاز فقط.</div><div class="form-row" style="margin-top:16px"><div class="field"><label>Google OAuth Client ID (ليس مفتاحًا سريًا)</label><input id="clientIdInput" type="text" dir="ltr" placeholder="123456-xxxx.apps.googleusercontent.com" autocomplete="off"></div><button class="btn primary" id="connectSettings">ربط حساب Google</button></div><p class="muted">للمراجعة من جهازين: ارفع الرسالة بعد ربط الحساب، وشارك مجلد تعقيب مع المشرف، ثم اضغط رمز 🔗 في القارئ لنسخ رابط المستند. يستلزم فتح الرابط تفويض Google لكل مستخدم مخوّل؛ الرابط وحده لا يمنح حق الوصول.</p><p class="muted">لتجهيز Google Cloud: فعّل Drive API، ثم أنشئ OAuth Client ID من نوع Web application، وأضف هذا الأصل إلى Authorized JavaScript origins: <b class="url-plain" id="originText"></b>. أضف بريد المشرف وبريدك إلى Test users إذا كان التطبيق في وضع الاختبار. لا تضف Client Secret إلى هذه الصفحة.</p><div class="hflex"><a target="_blank" rel="noopener" href="https://console.cloud.google.com/apis/credentials">إعداد بيانات اعتماد Google</a><a target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/1CZN828oPd43Pz4LsXuY8_QMfpld0dgtV">فتح مجلد تعقيب</a><button class="btn" id="syncSettings">↻ مزامنة الآن</button></div><div class="divider"></div><p id="googleUser" class="muted">الحساب: غير متصل</p><div class="form-row"><div class="field"><label>بريد المشرف لإتاحة الوصول إلى المجلد</label><input id="supervisorEmail" type="email" dir="ltr" placeholder="supervisor@example.com"></div><button class="btn" id="shareFolder">منح المشرف صلاحية التحرير</button></div><div class="hflex" style="margin-top:10px"><button class="btn primary" type="button" id="copySupervisorInvite">نسخ رابط دعوة المشرف — بدون إعداد OAuth</button></div><p class="muted">يحمّل رابط الدعوة معرّف تطبيق تعقيب المعتمد تلقائيًا، ولا يرسل أي كلمة مرور أو رمز وصول. يكتفي المشرف بفتح الرابط واختيار حساب Google والموافقة على الاتصال؛ الصلاحيات الفعلية تضبط من مجلد Drive.</p><p class="muted">لا تُمكّن المشرف من الرفع قبل إضافته إلى صلاحيات المجلد وفي قائمة مستخدمي اختبار OAuth إن لزم. يتعرف النظام على الباحث والمشرف من البريد الفعلي لحساب Google، وليس من زر لتغيير الهوية.</p></div><div class="sheet"><h2>خطوط الواجهة</h2><p>صُممت العناوين بخط «دوران» والنصوص بخط «اليمامة». يستخدم الموقع الخطين إن كانا مثبتين على جهازك، وإلا يظهر بديل عربي واضح. ويمكن تفعيل ملفي الخطين محليًا وحفظهما في هذا المتصفح لاستخدامهما بعد إعادة فتح الصفحة، دون رفعهما إلى الخادم.</p><div class="form-row"><div class="field"><label>تفعيل خط دوران محليًا</label><input type="file" id="headingFont" accept=".ttf,.otf,.woff,.woff2"></div><div class="field"><label>تفعيل خط اليمامة محليًا</label><input type="file" id="bodyFont" accept=".ttf,.otf,.woff,.woff2"></div></div><p class="muted" id="fontStatus" aria-live="polite">العناوين بخط دوران والنصوص بخط اليمامة عند توفر ملفيهما. لم يُضمَّن أي خط مرخّص في الموقع؛ فعّل الملفين من هنا ليظهرا على هذا الجهاز.</p></div><div class="sheet"><h2>الخصوصية والنسخ الاحتياطية</h2><p><a href="./privacy.html" target="_blank" rel="noopener">سياسة خصوصية تعقيب — اطلع على كيفية معالجة ملفات البحث والملحوظات وبيانات Google Drive</a></p><p>ملفات البحث والملحوظات لا تُنشر في مستودع الموقع. تكون داخل Google Drive الخاص بك بعد التفويض. ويحتفظ المتصفح بنسخ محلية تُمكّنك من متابعة العمل عند تعطل الاتصال، مع التنبيه إلى الملفات التي لم تتم مزامنتها.</p><div class="hflex"><button class="btn" id="exportJson">تنزيل نسخة JSON من السجل</button><button class="btn" id="disconnectDrive">فصل الحساب من هذا المتصفح</button></div></div></section>
+<section class="sheet" style="flex:none;margin:0;padding:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px" id="privateSyncPanel" aria-label="مزامنة الملحوظات بالرابط الخاص">
+ <button class="btn primary" id="privateSyncButton" type="button">مزامنة الملحوظات</button>
+ <button class="btn" id="privateInviteButton" type="button">نسخ رابط المشرف</button>
+ <span id="privateSyncStatus" role="status"></span>
+</section>
 </main></div>
 <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple hidden><input id="archiveInput" type="file" accept=".zip,.json,application/zip,application/json" hidden>
 <div class="modal-backdrop" id="noteModal" hidden><div class="modal"><div class="modal-head"><h3 id="modalTitle">تعليق مع إبقاء البحث ظاهرًا</h3><button class="smallbtn" id="modalClose" title="إغلاق">×</button></div><div class="modal-body"><div class="detail-meta"><span class="label-tag" id="notePageLabel">صفحة ١</span><span class="label-tag" id="noteActorLabel">مراجعتي الذاتية</span><span class="label-tag dim" id="noteAnchorLabel">موضع محدد</span></div><div class="review-helper">يمكن متابعة قراءة الصفحة أثناء الكتابة أو تسجيل الصوت؛ هذه لوحة داخل مساحة القراءة وليست صفحة جديدة.</div><div class="field"><label>الموضع المحدد من البحث</label><textarea id="quoteText" placeholder="يظهر النص الذي حددته في الصفحة، أو يمكنك وصف الموضع" rows="2"></textarea></div><div class="field"><label>نص الملحوظة / التفريغ الكتابي</label><textarea id="noteText" placeholder="اكتب ملحوظتك هنا، أو سجلها صوتيًا..." rows="4"></textarea></div><div class="voice" id="recordPanel"><div class="voice-head"><b>التعليق الصوتي</b><span id="recState" class="muted">لا يوجد تسجيل بعد</span></div><div class="hflex"><button class="btn gold" id="recordStart">● بدء التسجيل</button><button class="btn" id="recordStop" disabled>■ إيقاف</button><label class="muted"><input type="checkbox" id="speechOpt"> تفريغ تلقائي تجريبي*</label></div><audio id="recPlayer" controls hidden></audio><small class="muted">*التفريغ يعتمد على دعم المتصفح وقد تُرسل مادة صوتية إلى خدمة التعرف على الكلام الخاصة به. اتركه مغلقًا إذا كان البحث سريًا.</small></div></div><div class="modal-actions"><button class="btn" id="cancelNote">إلغاء</button><button class="btn primary" id="saveNote">حفظ الملحوظة</button></div></div></div>
@@ -430,6 +435,8 @@ async function recordStart(){if(!navigator.mediaDevices?.getUserMedia||!window.M
 function recordStop(){if(state.recorder?.state==='recording'){state.recorder.stop();$('recordStop').disabled=true;$('recordStart').disabled=false;$('recState').textContent='جاري تجهيز التسجيل...'}}
 async function saveNote(){let d=state.noteDraft;if(!d)return;let txt=$('noteText').value.trim();if(!txt&&!state.recBlob&&d.type!=='pin'){toast('اكتب ملحوظة أو سجّل ملفًا صوتيًا',true);return}let id=uid(),audioLocalId=null;if(state.recBlob){audioLocalId=uid();await idb('put','audio:'+audioLocalId,state.recBlob)}let a=d.anchor;let ev={kind:'note',id,docId:state.current,docName:doc().name,page:a.page,line:lineFromY(a.y),x:a.x,y:a.y,rects:a.rects||[],quote:$('quoteText').value.trim(),text:txt,type:state.recBlob?'audio':d.type,role:state.role,actor:state.email||'مراجعتي الذاتية',at:new Date().toISOString(),audioLocalId,audioFileId:null};makeEvent(ev);await closeNote();toast('حُفظت الملحوظة '+(state.token?'، وجارٍ رفعها إلى Drive':'على الجهاز الحالي'));}
 function makeEvent(ev,recordHistory=true){
+ const room=privateRoomForCurrentDoc();
+ if(room)ev.linkDraft=room.key.slice(0,16);
  if(!ev.id)ev.id=uid();if(!ev.at)ev.at=new Date().toISOString();
  if(!state.events.some(x=>x.id===ev.id)){
   state.events.push(ev);
@@ -439,6 +446,7 @@ function makeEvent(ev,recordHistory=true){
  }
  persist();updateUndo();renderNotes();renderMarks();updateCloudUI();
  if(state.token){if(state.syncing)state.syncPending=true;else scheduleSync(1200)}
+ if(privateRoomForCurrentDoc())schedulePrivateSync();
 }
 
 function renderNotes(){let all=nlist().filter(n=>n.docId===state.current);$('statAll').textContent=ar(all.length);$('statOwn').textContent=ar(all.filter(isSelf).length);$('statOpen').textContent=ar(all.filter(n=>noteStatus(n.id)!=='done').length);let visible=all.filter(n=>state.filter==='all'||(state.filter==='self'&&isSelf(n))||(state.filter==='supervisor'&&!isSelf(n))||(state.filter==='open'&&noteStatus(n.id)!=='done')||(state.filter==='done'&&noteStatus(n.id)==='done'));let box=$('noteList');box.replaceChildren();if(!visible.length){box.innerHTML='<div class="muted" style="text-align:center;padding:22px">لا توجد ملحوظات في هذه الفئة.</div>';return}for(let n of visible){let e=document.createElement('article');e.className='note-card';let self=isSelf(n),status=noteStatus(n.id);e.innerHTML=`<div class="note-card-top"><span class="label-tag ${self?'':'supervisor'}">${self?'مراجعتي الذاتية':'المشرف'}</span><small>ص ${ar(n.page)}${n.line?' · س '+ar(n.line):''} · ${typeName[n.type]||'ملحوظة'}</small></div><p>${esc(n.text||n.quote||'تحديد موضع دون تعليق')}</p><div class="hflex"><small>${dt(n.at)} · ${ar(replies(n.id).length)} ردود</small><span class="badge-status ${status==='done'?'done':''}">${status==='done'?'تم التعديل':'بانتظار المعالجة'}</span></div><div class="hflex" style="margin-top:7px;justify-content:flex-end">${canDelete(n)?`<button class="note-quick-delete" data-delete-id="${esc(n.id)}" title="حذف الملحوظة">حذف</button>`:''}</div>`;e.onclick=()=>showDetail(n.id);e.querySelectorAll('[data-delete-id]').forEach(b=>b.onclick=event=>{event.stopPropagation();deleteAnnotation(b.dataset.deleteId)});box.appendChild(e)}}
@@ -455,7 +463,7 @@ let replyBlob=null,replyRec=null,replyStream=null;const start=$('startReplyAudio
 stop.onclick=()=>{if(replyRec?.state==='recording')replyRec.stop();stop.disabled=true;start.disabled=false};
 $('sendReply').onclick=async()=>{let txt=$('replyText').value.trim();if(!txt&&!replyBlob){toast('أضف ردًا نصيًا أو صوتيًا',true);return}let audioLocalId=null;if(replyBlob){audioLocalId=uid();await idb('put','audio:'+audioLocalId,replyBlob)}makeEvent({kind:'reply',id:uid(),noteId:id,text:txt,role:state.role,actor:state.email||'مراجعتي الذاتية',audioLocalId,audioFileId:null,at:new Date().toISOString()});toast('حُفظ الرد');showDetail(id)};
 $('detailModal').hidden=false;syncWorkspaceLayout()}
-async function playAudio(ev,button){try{let blob=ev.audioLocalId?await idb('get','audio:'+ev.audioLocalId):null;if(!blob&&ev.audioFileId&&state.token){blob=await downloadDrive(ev.audioFileId);if(ev.audioLocalId)await idb('put','audio:'+ev.audioLocalId,blob)}if(!blob)throw Error('التسجيل غير موجود على هذا الجهاز. اربط Drive لتشغيله.');let url=URL.createObjectURL(blob);let a=document.createElement('audio');a.controls=true;a.autoplay=true;a.src=url;a.onended=()=>URL.revokeObjectURL(url);button.replaceWith(a)}catch(e){toast(e.message,true)}}
+async function playAudio(ev,button){try{let blob=ev.audioLocalId?await idb('get','audio:'+ev.audioLocalId):null;if(!blob&&ev.linkAudio)blob=await downloadPrivateAudio(ev);if(!blob&&ev.audioFileId&&state.token){blob=await downloadDrive(ev.audioFileId);if(ev.audioLocalId)await idb('put','audio:'+ev.audioLocalId,blob)}if(!blob)throw Error('التسجيل غير موجود على هذا الجهاز. اربط Drive لتشغيله.');let url=URL.createObjectURL(blob);let a=document.createElement('audio');a.controls=true;a.autoplay=true;a.src=url;a.onended=()=>URL.revokeObjectURL(url);button.replaceWith(a)}catch(e){toast(e.message,true)}}
 function exportReport(){let all=nlist();let text=all.map((n,i)=>`<section class="row"><div class="num">${i+1}</div><div><h3>${esc(n.docName)} — صفحة ${ar(n.page)}${n.line?' — سطر تقريبي '+ar(n.line):''} — ${esc(typeName[n.type]||'ملحوظة')}</h3><p class="meta">${isSelf(n)?'مراجعتي الذاتية':'ملحوظات المشرف'} · ${dt(n.at)} · ${noteStatus(n.id)==='done'?'تم التعديل':'لم تكتمل المعالجة'}</p>${n.quote?`<p class="quote">النص: ${esc(n.quote)}</p>`:''}<p>${esc(n.text||'(تظليل أو علامة بصرية، بدون تعليق كتابي)')}</p>${n.audioLocalId||n.audioFileId?`<p class="meta">♫ يوجد تسجيل صوتي محفوظ في أرشيف المنصة</p>`:''}${replies(n.id).map(r=>`<div class="reply-print"><b>رد ${esc(r.actor||'الباحث')}:</b> ${esc(r.text||'(رد صوتي)')}</div>`).join('')}</div></section>`).join('');return `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>سجل ملحوظات الرسالة — تعقيب</title><style>@page{size:A4;margin:17mm}body{font-family:'Al Yamama','Traditional Arabic',serif;color:#263f37;padding:20px;line-height:1.8}h1,h2,h3{font-family:'Doran','Traditional Arabic',serif}.cover{margin:0 0 36px;text-align:center;border-bottom:4px solid #26594e;padding:25px}.row{display:flex;gap:15px;border-bottom:1px solid #d8e0da;padding:18px 0;break-inside:avoid}.row h3{margin:0;color:#255748;font-size:17px}.num{color:#a18455;font-weight:bold;font-size:22px}.row p{margin:7px 0}.meta{color:#77877d;font-size:12px}.quote{background:#f4f4ed;padding:8px}.reply-print{background:#eef4ed;padding:8px;margin:8px 0}</style><div class="cover"><h1>سجل ملحوظات الرسالة العلمية</h1><h2>تعقيب — المراجعة الإشرافية والذاتية</h2><p>عدد الملحوظات: ${ar(all.length)} · تاريخ الاستخراج: ${dt(new Date().toISOString())}</p></div>${text||'<p>لا توجد ملحوظات</p>'}</html>`}
 function download(name,blob){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000)}
 async function exportHtml(){let blob=new Blob([exportReport()],{type:'text/html;charset=utf-8'});download('تعقيب-سجل-الملحوظات.html',blob);toast('تم تنزيل تقرير الملحوظات؛ افتحه ثم اطبعه PDF إذا رغبت');if(state.token)try{await uploadToDrive('تقرير-ملحوظات-'+Date.now()+'.html',blob,F.reports);toast('تم حفظ التقرير كذلك في Google Drive')}catch(e){toast('نُزّل التقرير محليًا، لكن تعذّر رفعه إلى Drive: '+e.message,true)}}
@@ -538,7 +546,7 @@ async function syncCloud(show=true){
   // Read remote names first. Reuse an existing upload after interruption to avoid duplicates.
   const [remote,cloudBooks]=await Promise.all([driveList(F.notes),driveList(F.books)]);
   const remoteNames=new Map(remote.map(f=>[f.name,f.id]));
-  for(const ev of state.events.filter(e=>!e.cloudFileId)){
+  for(const ev of state.events.filter(e=>!e.cloudFileId&&!e.linkSource)){
    const found=remoteNames.get('tq-event-'+ev.id+'.json');
    if(found)ev.cloudFileId=found;
   }
@@ -548,9 +556,9 @@ async function syncCloud(show=true){
    if(existing)d.fileId=existing;
    else await uploadDoc(d);
   }
-  const unsentAudio=state.events.filter(e=>!e.cloudFileId&&e.audioLocalId&&!e.audioFileId);
+  const unsentAudio=state.events.filter(e=>!e.cloudFileId&&!e.linkSource&&e.audioLocalId&&!e.audioFileId);
   const existingAudio=unsentAudio.length?new Map((await driveList(F.audio)).map(f=>[f.name,f.id])):new Map();
-  for(const ev of state.events.filter(e=>!e.cloudFileId)){
+  for(const ev of state.events.filter(e=>!e.cloudFileId&&!e.linkSource)){
    if(ev.audioLocalId&&!ev.audioFileId){
     const audio=await idb('get','audio:'+ev.audioLocalId);
     if(!audio)throw Error('التسجيل الصوتي المحلي غير موجود، ولن تُرسل الملحوظة دون تسجيلها');
@@ -617,12 +625,149 @@ async function syncCloud(show=true){
  return success;
 }
 
+
+const PRIVATE_SYNC_ORIGIN = 'https://taqeeb-sync.abdulkareem20112011.workers.dev';
+const privateRoomKey = 'tq_private_rooms_v1';
+const privateRooms = get(privateRoomKey,{});
+const privateFragment = /^#review=([a-f0-9]{64})$/.exec(location.hash);
+if(privateFragment && /^[a-z0-9-]{1,100}$/i.test(requestedDoc)){
+ privateRooms[requestedDoc] = {key:privateFragment[1], supervisor:true};
+ put(privateRoomKey,privateRooms);
+ history.replaceState(null,'',location.pathname+location.search);
+}
+const privateRoomForCurrentDoc = () => Object.hasOwn(privateRooms,state.current)?privateRooms[state.current]:null;
+const PRIVATE_AUDIO_CHUNK = 256*1024;
+let privateSyncTimer, privateSyncRunning;
+function schedulePrivateSync(delay=900){
+ clearTimeout(privateSyncTimer);
+ privateSyncTimer=setTimeout(()=>syncPrivateNotes(),delay);
+}
+async function privateRequest(room,path,options={}){
+ const response=await fetch(PRIVATE_SYNC_ORIGIN+path,{
+  ...options,headers:{Authorization:'Bearer '+room.key,...options.headers},cache:'no-store',
+  signal:AbortSignal.timeout(25000)
+ });
+ if(!response.ok)throw Error(response.status===413?'الملحوظة تتجاوز الحجم المتاح':'تعذّر الاتصال بمزامنة الرابط');
+ return response;
+}
+async function downloadPrivateAudio(event){
+ const room=Object.values(privateRooms).find(item=>item.key.slice(0,16)===event.linkSource);
+ if(!room)throw Error('افتح رابط المشرف لتشغيل التسجيل.');
+ const blobs=[];
+ for(let part=0;part<event.linkAudio.parts;part++){
+  blobs.push(await (await privateRequest(room,'/audio/'+event.id+'/'+part)).blob());
+ }
+ return new Blob(blobs,{type:event.linkAudio.type});
+}
+async function preparePrivateEvent(room,event){
+ const copy={...event};
+ for(const field of ['cloudFileId','audioFileId','audioLocalId','linkSource'])delete copy[field];
+ if(event.audioLocalId||event.audioFileId){
+  let blob=event.audioLocalId?await idb('get','audio:'+event.audioLocalId):null;
+  if(!blob&&event.audioFileId&&state.token)blob=await downloadDrive(event.audioFileId);
+  if(!blob)throw Error('تعذّر العثور على التسجيل الأصلي لإرساله.');
+  const parts=Math.ceil(blob.size/PRIVATE_AUDIO_CHUNK);
+  if(parts>64||!parts)throw Error('يجب ألا يتجاوز حجم التسجيل ١٦ ميغابايت.');
+  for(let part=0;part<parts;part++){
+   await privateRequest(room,'/audio/'+event.id+'/'+part,{method:'PUT',body:blob.slice(part*PRIVATE_AUDIO_CHUNK,(part+1)*PRIVATE_AUDIO_CHUNK)});
+  }
+  copy.linkAudio={parts,type:blob.type||'audio/webm'};
+ }
+ delete copy.linkSent;
+ delete copy.linkDraft;
+ return copy;
+}
+function privateDocEvents(docId){
+ const notes=state.events.filter(event=>event.kind==='note'&&event.docId===docId);
+ const noteIds=new Set(notes.map(event=>event.id));
+ const replies=state.events.filter(event=>event.kind==='reply'&&noteIds.has(event.noteId));
+ const targets=new Set([...noteIds,...replies.map(event=>event.id)]);
+ return [...notes,...replies,...state.events.filter(event=>['status','delete','restore'].includes(event.kind)&&targets.has(event.noteId))];
+}
+async function syncPrivateNotes(show=false){
+ const room=privateRoomForCurrentDoc();
+ if(!room||!navigator.onLine||privateSyncRunning)return;
+ const docId=state.current;
+ privateSyncRunning=true;
+ const status=$('privateSyncStatus');
+ $('privateSyncButton').disabled=true;
+ status.textContent='تجري المزامنة…';
+ let failures=0;
+ try{
+  for(const event of privateDocEvents(docId)){
+   if(event.linkSource||event.linkSent===room.key.slice(0,16))continue;
+   if(room.supervisor&&event.linkDraft!==room.key.slice(0,16))continue;
+   try{
+    const copy=await preparePrivateEvent(room,event);
+    await privateRequest(room,'/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(copy)});
+    event.linkSent=room.key.slice(0,16);
+    persist();
+   }catch(error){failures++;console.warn('Taqeeb link sync:',error.message)}
+  }
+  let more;
+  do{
+   const cursor=room.cursor||0;
+   const data=await (await privateRequest(room,'/events?after='+cursor)).json();
+   for(const event of data.events){
+    if(!event.id||state.events.some(local=>local.id===event.id))continue;
+    const allowed=['kind','id','at','docId','docName','page','line','x','y','rects','quote','text','type','role','actor','noteId','status','prevStatus','linkAudio'];
+    const clean=Object.fromEntries(allowed.filter(key=>Object.hasOwn(event,key)).map(key=>[key,event[key]]));
+    if(clean.kind==='note'&&clean.docId!==docId)continue;
+    if(clean.rects&&!Array.isArray(clean.rects))delete clean.rects;
+    if(Array.isArray(clean.rects))clean.rects=clean.rects.filter(rect=>rect&&['x','y','w','h'].every(key=>Number.isFinite(rect[key])));
+    if(!Number.isSafeInteger(clean.linkAudio?.parts)||clean.linkAudio.parts<1||clean.linkAudio.parts>64)delete clean.linkAudio;
+    state.events.push({...clean,linkSource:room.key.slice(0,16)});
+   }
+   persist();
+   room.cursor=data.cursor;
+   put(privateRoomKey,privateRooms);
+   more=data.more&&data.cursor>cursor;
+  }while(more);
+  renderNotes();renderMarks();renderFullNotes();
+  status.textContent=failures?'بعض الملحوظات بانتظار الإرسال':'الملحوظات متزامنة';
+  if(show)toast(status.textContent,Boolean(failures));
+ }catch(error){
+  status.textContent='تعذّرت المزامنة. الملحوظات محفوظة على جهازك.';
+  if(show)toast(status.textContent,true);
+ }finally{
+  privateSyncRunning=false;
+  $('privateSyncButton').disabled=false;
+ }
+}
+$('privateSyncButton').onclick=()=>{
+ if(!privateRoomForCurrentDoc()){toast('انسخ رابط المشرف أولًا لإنشاء مساحة المراجعة.',true);return}
+ syncPrivateNotes(true);
+};
+$('privateInviteButton').onclick=async()=>{
+ const current=doc();
+ if(!current?.official){toast('المشاركة دون تسجيل دخول متاحة للرسالة المعتمدة.',true);return}
+ let room=privateRoomForCurrentDoc();
+ if(!room){
+  const key=Array.from(crypto.getRandomValues(new Uint8Array(32)),value=>value.toString(16).padStart(2,'0')).join('');
+  room={key,supervisor:false};
+  privateRooms[current.id]=room;
+  put(privateRoomKey,privateRooms);
+ }
+ const url=new URL(location.pathname,location.origin);
+ url.searchParams.set('doc',current.id);
+ url.searchParams.set('page',String(state.page));
+ url.hash='review='+room.key;
+ try{await navigator.clipboard.writeText(url.href);toast('نُسخ رابط المشرف الخاص.')}
+ catch{window.prompt('انسخ رابط المشرف الخاص:',url.href)}
+ syncPrivateNotes();
+};
+if(privateRoomForCurrentDoc()?.supervisor)state.role='supervisor';
+window.addEventListener('online',()=>schedulePrivateSync(100));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedulePrivateSync(100)});
+setInterval(()=>{if(!document.hidden&&privateRoomForCurrentDoc())syncPrivateNotes()},20000);
+if(privateRoomForCurrentDoc())schedulePrivateSync(100);
+
 function supervisorInviteUrl(){const cid=$('clientIdInput').value.trim();if(!trustedOauthClientId(cid)){toast('تأكد من إدخال معرّف OAuth الذي يبدأ برقم مشروع تعقيب 747993213196',true);selectPage('settings');return null}if(!state.token){toast('اربط حساب مالك البحث بـGoogle أولًا، ثم انسخ دعوة المشرف',true);selectPage('settings');return null}const d=doc();if(!d){toast('اختر الرسالة أولًا',true);return null}const url=new URL(location.origin+'/taqeeb/');url.searchParams.set('doc',d.id);url.searchParams.set('page',String(state.page));url.searchParams.set('client_id',cid);return url}
 async function copySupervisorInvite(){const url=supervisorInviteUrl();if(!url)return;const link=url.toString();try{await navigator.clipboard.writeText(link);toast('نُسخ رابط الدعوة: أرسله للمشرف ليوافق من حسابه فقط')}catch(e){window.prompt('انسخ رابط دعوة المشرف:',link)}}
 async function copyDocumentLink(){let d=doc();if(!d){toast('افتح البحث الذي تريد مشاركته أولًا',true);return}if((!state.token||!d.fileId)&&!d.official){toast('اربط Google Drive وارفع الملف سحابيًا قبل مشاركة رابط البحث',true);selectPage('settings');return}const url=supervisorInviteUrl();if(!url)return;try{await navigator.clipboard.writeText(url.toString());toast('نُسخ رابط القراءة والدعوة؛ على المشرف الموافقة من حساب Google الخاص به')}catch(e){window.prompt('انسخ رابط البحث:',url.toString())}}
 function updateCloudUI(){
  const yes=!!state.token,offline=!navigator.onLine;
- const pending=state.events.filter(e=>!e.cloudFileId).length+state.docs.filter(d=>!d.fileId).length;
+ const pending=state.events.filter(e=>!e.cloudFileId&&!e.linkSource).length+state.docs.filter(d=>!d.fileId).length;
  const remembered=get(K.lastAccount,null);
  $('cloudDot').classList.toggle('online',yes&&!offline&&!state.cloudError);
  let status='';
