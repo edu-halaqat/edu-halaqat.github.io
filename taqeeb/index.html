@@ -536,12 +536,12 @@ async function syncCloud(show=true){
  let success=false;
  try{
   // Read remote names first. Reuse an existing upload after interruption to avoid duplicates.
-  const remote=await driveList(F.notes),remoteNames=new Map(remote.map(f=>[f.name,f.id]));
+  const [remote,cloudBooks]=await Promise.all([driveList(F.notes),driveList(F.books)]);
+  const remoteNames=new Map(remote.map(f=>[f.name,f.id]));
   for(const ev of state.events.filter(e=>!e.cloudFileId)){
    const found=remoteNames.get('tq-event-'+ev.id+'.json');
    if(found)ev.cloudFileId=found;
   }
-  let cloudBooks=await driveList(F.books);
   const cloudBookNames=new Map(cloudBooks.map(f=>[f.name,f.id]));
   for(const d of state.docs.filter(x=>!x.fileId)){
    const existing=cloudBookNames.get('tq-'+d.id+'__'+d.name);
@@ -566,23 +566,43 @@ async function syncCloud(show=true){
    persist();
   }
   // Download colleagues' notes; accept existing local IDs without duplicating them.
-  cloudBooks=await driveList(F.books);
   for(const f of cloudBooks){
    const m=/^tq-([0-9a-z-]+)__(.+\.pdf)$/i.exec(f.name);if(!m)continue;
    const existing=state.docs.find(d=>d.id===m[1]);
    if(existing)existing.fileId=f.id;
    else state.docs.push({id:m[1],name:m[2],fileId:f.id,at:f.createdTime||new Date().toISOString(),source:'cloud'});
   }
-  for(const f of remote.filter(x=>/^tq-event-.*\.json$/.test(x.name))){
-   const local=state.events.find(e=>e.cloudFileId===f.id||f.name==='tq-event-'+e.id+'.json');
+  const localEvents=new Map(state.events.map(e=>['tq-event-'+e.id+'.json',e]));
+  const downloads=[];
+  for(const f of remote){
+   if(!/^tq-event-.+\.json$/.test(f.name))continue;
+   const local=localEvents.get(f.name);
    if(local){local.cloudFileId=f.id;continue}
-   try{
-    const response=await driveReq(API+'/'+f.id+'?alt=media'),ev=await response.json();
-    if(!ev?.id||!['note','reply','status','delete','restore'].includes(ev.kind))continue;
-    ev.cloudFileId=f.id;state.events.push(ev);
-   }catch(e){console.warn('Skipped unreadable event',f.name,e)}
+   downloads.push(f);
+  }
+  let failedDownloads=0;
+  for(let offset=0;offset<downloads.length;offset+=4){
+   const results=await Promise.allSettled(downloads.slice(offset,offset+4).map(async f=>{
+    const response=await driveReq(API+'/'+encodeURIComponent(f.id)+'?alt=media');
+    const ev=await response.json();
+    if(!ev?.id||f.name!=='tq-event-'+ev.id+'.json'||!['note','reply','status','delete','restore'].includes(ev.kind)){
+     throw Error('ملف ملحوظة غير صالح');
+    }
+    return {...ev,cloudFileId:f.id};
+   }));
+   for(const result of results){
+    if(result.status==='rejected'){
+     failedDownloads++;
+     console.warn('Could not download Taqeeb event',result.reason);
+     continue;
+    }
+    const ev=result.value;
+    if(state.events.some(e=>e.id===ev.id))continue;
+    state.events.push(ev);
+   }
   }
   persist();renderNotes();renderMarks();renderFiles();renderFullNotes();
+  if(failedDownloads)throw Error('تعذّر جلب '+ar(failedDownloads)+' من الملحوظات. ستُعاد المحاولة في المزامنة التالية.');
   state.lastSyncAt=Date.now();state.cloudError=null;success=true;
   if(state.pendingDoc&&!state.deepLinkOpened&&state.docs.some(d=>d.id===state.pendingDoc)){selectPage('reader');await openDoc(state.pendingDoc)}
   if(show)toast('اكتملت المزامنة؛ ملحوظات الباحث والمشرف محدثة');
