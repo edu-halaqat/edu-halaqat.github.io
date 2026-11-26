@@ -44,6 +44,7 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 .editor-toolbar button{padding:4px 8px}
 #body[contenteditable]{min-height:185px;max-height:540px;overflow:auto;border:1px solid #afc5bf;border-radius:8px;background:#fbfdfc;padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
 #body[contenteditable]:focus-visible{outline:2px solid #a47930;outline-offset:2px}
+.achievement-text{min-height:130px;max-height:420px;overflow:auto;border:1px solid #afc5bf;border-radius:8px;background:#fbfdfc;padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
 #body,.content{text-align:justify}
 .content :is(p,div){margin:0}
 .text-small{font-size:.85em}.text-normal{font-size:1em}.text-large{font-size:1.2em}
@@ -88,8 +89,12 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 <div class="actions"><button id="saveDraftTemplate" type="button">حفظ النص قالبًا</button></div>
 <label class="appendix-option"><input id="includeAchievements" type="checkbox"> إرفاق صفحة منجزات الحلقات</label>
 <section class="new-template" id="achievementEditor" hidden>
-  <label for="achievements">أبرز المنجزات</label><textarea id="achievements" rows="6"></textarea>
-  <label for="figures">الحلقات في سطور</label><textarea id="figures" rows="6"></textarea>
+  <label id="achievementsLabel">أبرز المنجزات</label>
+  <div class="editor-toolbar" data-editor="achievements" role="group" aria-label="تنسيق أبرز المنجزات"></div>
+  <div id="achievements" class="achievement-text" contenteditable="true" role="textbox" aria-labelledby="achievementsLabel" aria-multiline="true"></div>
+  <label id="figuresLabel">الحلقات في سطور</label>
+  <div class="editor-toolbar" data-editor="figures" role="group" aria-label="تنسيق الحلقات في سطور"></div>
+  <div id="figures" class="achievement-text" contenteditable="true" role="textbox" aria-labelledby="figuresLabel" aria-multiline="true"></div>
   <small>اكتب كل بند في سطر مستقل. يمكنك إضافة البنود أو حذفها أو تعديلها.</small>
   <div class="actions"><button id="saveAchievements" type="button">حفظ قائمة المنجزات</button></div>
 </section>
@@ -257,16 +262,26 @@ function setEditor(template){
   editor.textContent=template.body;
   if(typeof template.bodyHtml==='string')editor.replaceChildren(...formatted(template.bodyHtml).childNodes);
 }
-let editorSelection;
+const editorSelections=new Map(),editorIds=['body','achievements','figures'];
+const sourceToolbar=document.querySelector('.editor-toolbar');
+sourceToolbar.dataset.editor='body';
+for(const toolbar of document.querySelectorAll('.editor-toolbar[data-editor]:empty')){
+  toolbar.replaceChildren(...[...sourceToolbar.children].map(button=>button.cloneNode(true)));
+}
 document.addEventListener('selectionchange',()=>{
   const selection=window.getSelection();
-  if(selection?.rangeCount&&$('body').contains(selection.getRangeAt(0).commonAncestorContainer))editorSelection=selection.getRangeAt(0).cloneRange();
+  if(!selection?.rangeCount)return;
+  const range=selection.getRangeAt(0);
+  const id=editorIds.find(id=>$(id).contains(range.commonAncestorContainer));
+  if(id)editorSelections.set(id,range.cloneRange());
 });
 document.querySelectorAll('[data-format]').forEach(button=>{
   button.onmousedown=event=>event.preventDefault();
   button.onclick=()=>{
-    $('body').focus();
-    if(editorSelection&&$('body').contains(editorSelection.commonAncestorContainer)){
+    const id=button.closest('[data-editor]').dataset.editor,editor=$(id);
+    const editorSelection=editorSelections.get(id);
+    editor.focus();
+    if(editorSelection&&editor.contains(editorSelection.commonAncestorContainer)){
       const selection=window.getSelection();
       selection.removeAllRanges();selection.addRange(editorSelection);
     }
@@ -274,7 +289,7 @@ document.querySelectorAll('[data-format]').forEach(button=>{
     resetPreview();
   };
 });
-$('body').onpaste=event=>{
+for(const id of editorIds)$(id).onpaste=event=>{
   event.preventDefault();
   document.execCommand('insertText',false,event.clipboardData.getData('text/plain'));
 };
@@ -325,26 +340,59 @@ function letterPages(record){
   if(!appendix||typeof appendix.achievements!=='string'||typeof appendix.figures!=='string')return pages;
   const page=paper({...record,subject:'منجزات حلقات بر الوالدين',body:'',bodyHtml:undefined,attendance:undefined,addressee:''});
   const content=page.querySelector('.content');
-  for(const [title,value] of [['أبرز المنجزات',appendix.achievements],['الحلقات في سطور',appendix.figures]]){
-    const items=value.split(/\r?\n/).map(item=>item.trim()).filter(Boolean);
+  for(const [title,key] of [['أبرز المنجزات','achievements'],['الحلقات في سطور','figures']]){
+    const items=achievementLines(appendix[key],appendix[key+'Html']);
     if(!items.length)continue;
     const section=node('section','','appendix-section'),list=node('ul','','appendix-list');
     for(const item of items){
       const line=node('li'),bullet=node('span','•');
       bullet.setAttribute('aria-hidden','true');
-      line.append(bullet,node('span',item));list.append(line);
+      const value=node('span');value.append(item);
+      line.append(bullet,value);list.append(line);
     }
     section.append(node('h3',title),list);content.append(section);
   }
   pages.push(page);
   return pages;
 }
+function achievementLines(plain,markup){
+  const lines=[];
+  if(typeof markup!=='string')return plain.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>node('span',line));
+  function split(parent){
+    let line=node('span');
+    function finish(){if(line.textContent.trim())lines.push(line);line=node('span')}
+    for(const child of parent.childNodes){
+      if(child.nodeType===1&&['DIV','P'].includes(child.tagName)){
+        finish();
+        const start=lines.length;split(child);
+        if(child.style.textAlign)for(const item of lines.slice(start)){item.style.display='block';item.style.textAlign=child.style.textAlign}
+      }else if(child.nodeType===1&&child.tagName==='BR'){finish()}
+      else if(child.nodeType===3&&child.nodeValue.includes('\n')){
+        const pieces=child.nodeValue.split(/\r?\n/);
+        pieces.forEach((piece,i)=>{if(i)finish();line.append(document.createTextNode(piece))});
+      }else line.append(child.cloneNode(true));
+    }
+    finish();
+  }
+  split(formatted(markup));
+  return lines;
+}
 function achievementFields(){
-  return {achievements:$('achievements').value.trim(),figures:$('figures').value.trim()};
+  const fields={};
+  for(const id of ['achievements','figures']){
+    fields[id]=$(id).innerText.trim();
+    fields[id+'Html']=formatted($(id).innerHTML).innerHTML;
+  }
+  return fields;
 }
 function loadAchievements(value=referenceAchievements){
-  $('achievements').value=value.achievements;
-  $('figures').value=value.figures;
+  for(const id of ['achievements','figures']){
+    const text=typeof value?.[id]==='string'?value[id]:referenceAchievements[id];
+    const markup=value?.[id+'Html'];
+    const lines=typeof markup==='string'?[...formatted(markup).childNodes]:text.split(/\r?\n/).map(line=>node('div',line));
+    $(id).replaceChildren(...lines);
+    editorSelections.delete(id);
+  }
 }
 function drafts(settings){
   const date=dates(),people=names(),chosen=people.length?people:[''],body=editorText(),markup=$('body').innerHTML;
@@ -376,7 +424,7 @@ function loadTemplate(){
   $('attendanceFields').hidden=!isAttendance;
   $('namesLabel').textContent=isAttendance?'أسماء الطلاب المذكورين في الإفادة':'الأسماء';
   $('namesHelp').textContent=isAttendance?'يصدر مستند لكل طالب، وتبقى الجهة المخاطَبة واحدة للدفعة.':'يصدر مستند لكل اسم. اترك الجهة فارغة لتوجيه كل خطاب إلى الاسم المقابل له.';
-  const chosen=list()[Number($('template').value)];$('subject').value=chosen.subject;setEditor(chosen);editorSelection=undefined;
+  const chosen=list()[Number($('template').value)];$('subject').value=chosen.subject;setEditor(chosen);editorSelections.delete('body');
   resetPreview();
 }
 function resetPreview(){issuedView=false;previewIndex=0;status('editorStatus','');preview()}
