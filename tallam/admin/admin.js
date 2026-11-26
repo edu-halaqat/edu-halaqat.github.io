@@ -6,6 +6,7 @@
     anonKey: "sb_publishable_wqrt_5bjmxmE-mw4i6EQbw_I7E_AzaZ",
     endpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/admin-teacher-applications",
     revisionEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-revision-admin",
+    placementEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-application-placement",
     exportEndpoint: "https://fvzoogbdezueswyihxiz.supabase.co/functions/v1/teacher-applications-export",
     firstAdminEmail: "Mad3@tallam.sa",
     authStorageKey: "tallam-admin-auth-v1",
@@ -16,6 +17,12 @@
     new: "جديد", under_review: "تحت المراجعة", needs_completion: "يحتاج استكمالًا",
     interview: "مقابلة", accepted: "مقبول", declined: "معتذر عنه", archived: "مؤرشف"
   };
+
+  const placementLabels = Object.freeze({
+    seeking_circle: "باحث عن حلقة",
+    directed: "تم التوجيه",
+    unsuitable: "غير مناسب للتدريس"
+  });
 
   const oneDriveLabels = {
     completed: "محفوظ في OneDrive",
@@ -60,6 +67,7 @@
   let currentRows = [];
   let searchTimer = null;
   const selectedIds = new Set();
+  const pendingPlacementIds = new Set();
   let magicLinkBtn;
   let deleteApplicationBtn;
   let whatsappRevisionBtn;
@@ -247,7 +255,7 @@
   async function loadApplications() {
     clearMessage(dashboardMessage);
     refreshBtn.disabled = true;
-    applicationsBody.innerHTML = `<tr><td colspan="10" class="empty">جارٍ تحميل الطلبات…</td></tr>`;
+    applicationsBody.innerHTML = `<tr><td colspan="11" class="empty">جارٍ تحميل الطلبات…</td></tr>`;
     const params = new URLSearchParams({ page: String(page), limit: "25" });
     const query = searchInput.value.trim();
     const status = statusFilter.value;
@@ -260,7 +268,21 @@
       page = result.pagination?.page || 1;
       pages = result.pagination?.pages || 1;
       document.getElementById("adminName").textContent = result.admin?.display_name || session?.user?.email || "مدير الطلبات";
+      let placementError;
+      if (currentRows.length) {
+        try {
+          const { applications } = await authorizedFetch(CONFIG.placementEndpoint, {
+            method: "POST",
+            body: JSON.stringify({ ids: currentRows.map(({ id }) => id) })
+          });
+          const statuses = new Map(applications.map(({ id, placement_status }) => [id, placement_status]));
+          for (const row of currentRows) row.placement_status = statuses.get(row.id);
+        } catch (error) {
+          placementError = error;
+        }
+      }
       renderRows();
+      if (placementError) message(dashboardMessage, placementError.message || "تعذر تحميل حالات التوجيه.");
       document.getElementById("statTotal").textContent = result.pagination?.total || 0;
       document.getElementById("statPage").textContent = page;
       document.getElementById("statNew").textContent = currentRows.filter((row) => row.status === "new").length;
@@ -289,9 +311,47 @@
         <td>${escapeHtml(row.registration_type)}</td>
         <td>${escapeHtml(row.mosque)}</td>
         <td><span class="status-chip status-${escapeHtml(row.status)}">${escapeHtml(statusLabels[row.status] || row.status)}</span>${row.possible_duplicate ? " ⚠" : ""}</td>
+        <td>
+          <select data-placement-id="${escapeHtml(row.id)}" aria-label="حالة التوجيه للطلب ${escapeHtml(row.reference_number)}" ${row.placement_status === undefined || pendingPlacementIds.has(row.id) ? "disabled" : ""}>
+            <option value="" disabled ${row.placement_status ? "" : "selected"}>اختر الحالة</option>
+            ${Object.entries(placementLabels).map(([value, label]) =>
+              `<option value="${value}" ${row.placement_status === value ? "selected" : ""}>${label}</option>`
+            ).join("")}
+          </select>
+        </td>
         <td>${escapeHtml(formatDate(row.created_at))}</td>
         <td><button class="row-btn" type="button" data-id="${escapeHtml(row.id)}">عرض</button></td>
       </tr>`).join("");
+
+    applicationsBody.querySelectorAll("select[data-placement-id]").forEach((select) => {
+      select.addEventListener("change", async () => {
+        const row = currentRows.find(({ id }) => id === select.dataset.placementId);
+        if (!row) return;
+        const selected = select.value;
+        pendingPlacementIds.add(row.id);
+        select.disabled = true;
+        try {
+          const { application } = await authorizedFetch(CONFIG.placementEndpoint, {
+            method: "PATCH",
+            body: JSON.stringify({ id: row.id, placement_status: selected })
+          });
+          row.placement_status = application.placement_status;
+          message(dashboardMessage, "تم حفظ حالة التوجيه.", "success");
+        } catch (error) {
+          select.value = row.placement_status || "";
+          message(dashboardMessage, error?.message || "تعذر حفظ حالة التوجيه.");
+        } finally {
+          pendingPlacementIds.delete(row.id);
+          const visibleRow = currentRows.find(({ id }) => id === row.id);
+          const visibleSelect = document.querySelector(`select[data-placement-id="${row.id}"]`);
+          if (visibleRow && visibleSelect) {
+            visibleRow.placement_status = row.placement_status;
+            visibleSelect.value = row.placement_status || "";
+            visibleSelect.disabled = false;
+          }
+        }
+      });
+    });
 
     applicationsBody.querySelectorAll("button[data-id]").forEach((button) => {
       button.addEventListener("click", () => openApplication(button.dataset.id));
@@ -348,10 +408,55 @@
     return app[key] ?? "";
   }
 
+  const teacherSheetHeaders = [
+    "اسم المعلم",
+    "الجنسية",
+    "رقم الهوية",
+    "تاريخ انتهائها",
+    "العمل في أكثر من جهة",
+    "الجهة التعليمية الأولى",
+    "نوع الحلقة1",
+    "الجهة التعليمية الثانية",
+    "نوع الحلقة 2",
+    "عدد الفترات",
+    "أوقات الفترات",
+    "المسمى الوظيفي",
+    "رقم الجوال",
+    "حالة المعلم",
+    "رخصة المعلم",
+    "الملف الالكتروني",
+    "استمارة المسح الأمني"
+  ];
+
+  function teacherSheetRow(app) {
+    const details = app.directed_details || {};
+    const previousEntity = app.educational_entity === "لا توجد" ? "" : app.educational_entity;
+    const firstEntity = app.directed_entity || previousEntity;
+    return [
+      app.full_name,
+      app.nationality,
+      app.identity_number,
+      app.identity_expiry,
+      "",
+      firstEntity,
+      app.directed_entity ? details.circle_type : app.circle_type,
+      "",
+      "",
+      details.periods_count,
+      details.period_times || app.period,
+      details.work_role || details.work_type || app.job_title,
+      app.mobile ? String(app.mobile).replace(/^([5][0-9]{8})$/, "0$1") : "",
+      placementLabels[app.placement_status] || "",
+      "",
+      "",
+      ""
+    ].map((value) => value ?? "");
+  }
+
   function downloadExcel(apps) {
-    const rows = [exportColumns.map(([,label]) => label), ...apps.map((app) => exportColumns.map(([key]) => exportValue(app,key)))];
+    const rows = [teacherSheetHeaders, ...apps.map(teacherSheetRow)];
     const table = '<table border="1"><thead><tr>' + rows[0].map((v)=>'<th>'+escapeHtml(v)+'</th>').join("") + '</tr></thead><tbody>' +
-      rows.slice(1).map((row)=>'<tr>'+row.map((v)=>'<td>'+escapeHtml(v)+'</td>').join("")+'</tr>').join("") + '</tbody></table>';
+      rows.slice(1).map((row)=>'<tr>'+row.map((v) => '<td style="mso-number-format:\'\\@\'">' + escapeHtml(v) + '</td>').join("")+'</tr>').join("") + '</tbody></table>';
     const html = '<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body>'+table+'</body></html>';
     const blob = new Blob(["\ufeff", html], { type: "application/vnd.ms-excel;charset=utf-8" });
     const url = URL.createObjectURL(blob);
