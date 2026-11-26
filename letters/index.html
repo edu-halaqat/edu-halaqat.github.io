@@ -47,6 +47,23 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 #body,.content{text-align:justify}
 .content :is(p,div){margin:0}
 .text-small{font-size:.85em}.text-normal{font-size:1em}.text-large{font-size:1.2em}
+.pdf-export-host{position:absolute;top:0;left:0;z-index:-1;pointer-events:none}
+.paper.pdf-export-page{--paper-inset:13mm;width:210mm;min-height:297mm;aspect-ratio:auto;border:0;padding:0 var(--paper-inset)}
+.pdf-export-page .subject{font-size:20pt}
+.pdf-export-page .content{font-size:14pt}
+.pdf-export-page .bism img{width:35mm}
+.paper.pdf-export-page .letterhead .meta{font-size:9pt}
+.paper.pdf-export-page .print-tail .closing{font-size:11pt}
+.paper.pdf-export-page .approval-images img{max-height:18mm}
+.paper.pdf-export-page .approval-images img:only-child{max-height:25mm}
+.appendix-option{display:flex;align-items:center;gap:8px;margin-top:14px}
+.appendix-option input{width:auto}
+.appendix-list{margin:0;padding:0;list-style:none}
+.appendix-list li{display:flex;gap:.55em;align-items:baseline}
+.appendix-list li span:last-child{flex:1}
+.appendix-section{margin:10px 0 15px}
+.appendix-section h3{color:#17575e;margin-bottom:5px}
+#preview>.paper+.paper{margin-top:14px}
 </style></head>
 <body>
 <header><div class="brand"><span class="mark" aria-hidden="true">برّ</span> مكتب حلقات بر الوالدين</div><nav aria-label="القائمة"><a class="sanabil" href="https://snabilalwahy.com/?app=1">سنابل الوحي</a><button data-tab="create" class="active">إنشاء مستند</button><button data-tab="archive">سجل الصادر</button><button data-tab="settings">الإعدادات</button></nav></header>
@@ -69,13 +86,20 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 </div>
 <div id="body" contenteditable="true" role="textbox" aria-labelledby="bodyLabel" aria-multiline="true"></div>
 <div class="actions"><button id="saveDraftTemplate" type="button">حفظ النص قالبًا</button></div>
+<label class="appendix-option"><input id="includeAchievements" type="checkbox"> إرفاق صفحة منجزات الحلقات</label>
+<section class="new-template" id="achievementEditor" hidden>
+  <label for="achievements">أبرز المنجزات</label><textarea id="achievements" rows="6"></textarea>
+  <label for="figures">الحلقات في سطور</label><textarea id="figures" rows="6"></textarea>
+  <small>اكتب كل بند في سطر مستقل. يمكنك إضافة البنود أو حذفها أو تعديلها.</small>
+  <div class="actions"><button id="saveAchievements" type="button">حفظ قائمة المنجزات</button></div>
+</section>
 <small>يُدرج {الاسم} من قائمة الأسماء، ويُدرج {الجهة} من حقل الجهة المخاطَبة.</small>
 <div class="actions"><button class="primary" id="issue" type="submit">اعتماد وإصدار</button></div>
 <div class="status" id="editorStatus" role="status"></div>
 </form>
-<section class="panel preview-panel"><div class="section-title"><h2>معاينة المستند</h2><div class="preview-tools"><select id="previewSelect" aria-label="اختيار مستند المعاينة" hidden></select><button id="printOne" hidden>حفظ المحدد باسمه / PDF</button><button id="printLast" hidden>طباعة الدفعة / PDF</button></div></div><div id="preview"></div><div class="status" id="printStatus" role="status"></div></section>
+<section class="panel preview-panel"><div class="section-title"><h2>معاينة المستند</h2><div class="preview-tools"><select id="previewSelect" aria-label="اختيار مستند المعاينة" hidden></select><button id="zipLast" class="primary" hidden>تنزيل الخطابات منفردة / ZIP</button><button id="printOne" hidden>حفظ المحدد باسمه / PDF</button><button id="printLast" hidden>طباعة الدفعة / PDF</button></div></div><div id="preview"></div><div class="status" id="printStatus" role="status"></div></section>
 </section>
-<section id="archive" class="panel" hidden><div class="section-title"><h2>المستندات المعتمدة</h2><button id="printMatches" hidden>طباعة النتائج / PDF</button></div><label for="search">البحث بالرقم أو الاسم أو الموضوع</label><input id="search" type="search" placeholder="ابحث في سجل الصادر"><div id="records" class="records"></div><div class="status" id="archiveStatus" role="status"></div></section>
+<section id="archive" class="panel" hidden><div class="section-title"><h2>المستندات المعتمدة</h2><div class="preview-tools"><button id="zipMatches" class="primary" hidden>تنزيل النتائج منفردة / ZIP</button><button id="printMatches" hidden>طباعة النتائج / PDF</button></div></div><label for="search">البحث بالرقم أو الاسم أو الموضوع</label><input id="search" type="search" placeholder="ابحث في سجل الصادر"><div id="records" class="records"></div><div class="status" id="archiveStatus" role="status"></div></section>
 <section id="settings" class="panel settings" hidden><h2>الهوية والترقيم</h2><form id="settingsForm">
 <label for="signer">صفة المعتمِد أو اسمه</label><input id="signer" required maxlength="120">
 <label for="prefix">بادئة رقم الصادر</label><input id="prefix" required maxlength="30" placeholder="مثال: ١٠-٣">
@@ -89,6 +113,24 @@ body{font-family:Alyamama,Tahoma,Arial,sans-serif;font-size:17px}h1,h2,h3,.brand
 const stationery = "letterhead.jpg";
 const initialStamp = "";
 const initialNames = "";
+const referenceAchievements={
+  achievements:[
+    'المركز الأول في جائزة موضي بنت حمد للجهات التعليمية بالمدينة المنورة لعام ١٤٤٦هـ.',
+    'المركز الثاني في الفرع الأول في اختبارات القرآن الكريم السنوية على مستوى المدينة المنورة لعام ١٤٤٧هـ.',
+    'المركز الأول في الفرع الثاني لمسابقة القرآن الكريم على مستوى المملكة العربية السعودية لعام ١٤٤٦هـ.',
+    'جائزة الصرح المثالي على مستوى الجهات التعليمية بالمدينة المنورة.'
+  ].join('\n'),
+  figures:[
+    'تأسست الحلقات عام ١٤٣٣هـ.',
+    'استفاد من الحلقات ١٠٥٠ طالبًا منذ التأسيس، وبلغ عدد الطلاب في فترة إعداد المرجع ١٧٠ طالبًا.',
+    'بلغ عدد الحلقات ٧ حلقات.',
+    'بلغ عدد الخاتمين ٣٥ خاتمًا، وعدد المجازين ٤٥ مجازًا.',
+    'بلغ عدد خريجي حلقات القراءة ٢٥٠ طالبًا.',
+    'بلغ مجموع أوجه الحفظ منذ التأسيس ١٬٠٦٥٬٠٠٠ وجه.',
+    'بلغ مجموع أوجه المراجعة منذ التأسيس ٨٬١١٢٬٠٠٠ وجه.',
+    'أقامت الحلقات ١٣٠ برنامجًا نوعيًا حتى تاريخ إعداد المرجع.'
+  ].join('\n')
+};
 const templates = [
   [
     "إفادة انتظام طالب",
@@ -278,14 +320,42 @@ function paper(record){
   tail.append(bottomArt,closing);page.append(tail);
   return page;
 }
+function letterPages(record){
+  const pages=[paper(record)],appendix=record.appendix;
+  if(!appendix||typeof appendix.achievements!=='string'||typeof appendix.figures!=='string')return pages;
+  const page=paper({...record,subject:'منجزات حلقات بر الوالدين',body:'',bodyHtml:undefined,attendance:undefined,addressee:''});
+  const content=page.querySelector('.content');
+  for(const [title,value] of [['أبرز المنجزات',appendix.achievements],['الحلقات في سطور',appendix.figures]]){
+    const items=value.split(/\r?\n/).map(item=>item.trim()).filter(Boolean);
+    if(!items.length)continue;
+    const section=node('section','','appendix-section'),list=node('ul','','appendix-list');
+    for(const item of items){
+      const line=node('li'),bullet=node('span','•');
+      bullet.setAttribute('aria-hidden','true');
+      line.append(bullet,node('span',item));list.append(line);
+    }
+    section.append(node('h3',title),list);content.append(section);
+  }
+  pages.push(page);
+  return pages;
+}
+function achievementFields(){
+  return {achievements:$('achievements').value.trim(),figures:$('figures').value.trim()};
+}
+function loadAchievements(value=referenceAchievements){
+  $('achievements').value=value.achievements;
+  $('figures').value=value.figures;
+}
 function drafts(settings){
   const date=dates(),people=names(),chosen=people.length?people:[''],body=editorText(),markup=$('body').innerHTML;
+  const appendix=$('includeAchievements').checked?achievementFields():undefined;
+  const attachments=$('attachments').value.trim()||(appendix?'صفحة المنجزات':'');
   return chosen.map(name=>{
     const attendance=$('template').value==='0'?{surah:$('surah').value.trim(),level:$('level').value.trim(),teacher:$('teacher').value.trim()}:undefined;
     const recipient=$('recipient').value.trim()||(attendance?'من يهمه الأمر':name||'من يهمه الأمر');
     const addressee=attendance||name||$('recipient').value.trim()?recipient:'';
     const fill=value=>value.replace(/\{(الاسم|الجهة)\}/g,(_,key)=>key==='الاسم'?(name||'[الاسم]'):recipient);
-    return {...date,name,recipient,addressee,attendance,attachments:$('attachments').value.trim(),subject:fill($('subject').value.trim()),body:fill(body),bodyHtml:formatted(markup,fill).innerHTML,
+    return {...date,name,recipient,addressee,attendance,attachments,appendix,subject:fill($('subject').value.trim()),body:fill(body),bodyHtml:formatted(markup,fill).innerHTML,
       signer:settings.signer,signature:settings.signature,stamp:settings.stamp};
   });
 }
@@ -294,8 +364,8 @@ function preview(){
   previewIndex=Math.min(previewIndex,rows.length-1);
   $('previewSelect').replaceChildren(...rows.map((row,i)=>new Option(row.name||'مستند '+digits(i+1),i)));
   $('previewSelect').value=previewIndex;$('previewSelect').hidden=rows.length<2;
-  $('preview').replaceChildren(paper(rows[previewIndex]));
-  $('printOne').hidden=!issuedView;$('printLast').hidden=!issuedView||rows.length<2;
+  $('preview').replaceChildren(...letterPages(rows[previewIndex]));
+  $('zipLast').hidden=!issuedView;$('printOne').hidden=!issuedView;$('printLast').hidden=!issuedView||rows.length<2;
 }
 function fillSelect(index=0){
   $('template').replaceChildren(...list().map((item,i)=>new Option(item.title,i)));
@@ -312,11 +382,105 @@ function loadTemplate(){
 function resetPreview(){issuedView=false;previewIndex=0;status('editorStatus','');preview()}
 let printing=false;
 const officeTitle=document.title;
+function safeFileName(value){
+  return value.replace(/[<>:"/\\|?*]/g,'-').replace(/\s+/g,' ').trim();
+}
 function pdfTitle(rows){
   if(rows.length>1)return 'حلقات بر الوالدين - دفعة خطابات - '+rows[0].number;
   const row=rows[0],recipient=row.addressee||row.recipient;
   const person=row.name&&row.name!==recipient?row.name:'';
-  return [recipient,person,row.subject,row.number].filter(Boolean).join(' - ').replace(/[<>:"/\\|?*]/g,'-').replace(/\s+/g,' ').trim();
+  return safeFileName([recipient,person,row.subject,row.number].filter(Boolean).join(' - '));
+}
+const zipLibraries=['vendor/html2canvas.min.js','vendor/jspdf.umd.min.js','vendor/jszip.min.js'];
+let zipLoad,exportingZip=false;
+function loadZipTools(){
+  if(window.html2canvas&&window.jspdf?.jsPDF&&window.JSZip)return Promise.resolve();
+  if(!zipLoad)zipLoad=Promise.all(zipLibraries.map(src=>new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=src;script.onload=resolve;script.onerror=()=>{script.remove();reject(Error('تعذّر تحميل أدوات التصدير.'))};
+    document.head.append(script);
+  }))).catch(error=>{zipLoad=undefined;throw error});
+  return zipLoad;
+}
+function lastBlankRow(canvas,limit,start){
+  const height=Math.min(120,limit-start);
+  const pixels=canvas.getContext('2d').getImageData(0,limit-height,canvas.width,height).data;
+  let blank=0;
+  for(let y=height-1;y>=0;y--){
+    let white=true;
+    for(let x=0;x<canvas.width;x+=2){
+      const pixel=(y*canvas.width+x)*4;
+      if(pixels[pixel]<245||pixels[pixel+1]<245||pixels[pixel+2]<245){white=false;break}
+    }
+    blank=white?blank+1:0;
+    if(blank===3)return limit-height+y+2;
+  }
+  return limit;
+}
+async function addPdfPage(page,pdf,host,hasPage){
+  page.classList.add('pdf-export-page');
+  host.replaceChildren(page);
+  await Promise.all([...page.querySelectorAll('img')].map(image=>image.decode()));
+  await document.fonts.ready;
+  const canvas=await window.html2canvas(page,{scale:1.65,windowWidth:1100,backgroundColor:'#fff',logging:false});
+  const slice=document.createElement('canvas');
+  slice.width=canvas.width;
+  const maxHeight=Math.ceil(canvas.width*297/210)+3;
+  for(let start=0;start<canvas.height;){
+    const limit=Math.min(start+maxHeight,canvas.height);
+    const end=limit===canvas.height?limit:lastBlankRow(canvas,limit,start);
+    slice.height=end-start;
+    slice.getContext('2d').drawImage(canvas,0,start,canvas.width,slice.height,0,0,canvas.width,slice.height);
+    if(hasPage||start)pdf.addPage();
+    pdf.addImage(slice.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,Math.min(297,slice.height*210/canvas.width));
+    start=end;
+  }
+  canvas.width=0;slice.width=0;
+}
+async function makeLetterPdf(record,host){
+  const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',compress:true});
+  pdf.setProperties({title:pdfTitle([record])});
+  for(const [index,page] of letterPages(record).entries())await addPdfPage(page,pdf,host,index>0);
+  return pdf.output('arraybuffer');
+}
+function uniqueLetterName(record,used){
+  const owner=record.name||record.addressee||record.recipient;
+  const base=safeFileName([owner,record.subject,record.number].filter(Boolean).join(' - ')).slice(0,145)||'خطاب';
+  let name=base+'.pdf',index=2;
+  while(used.has(name)){
+    name=base+' ('+index+').pdf';
+    index++;
+  }
+  used.add(name);
+  return name;
+}
+async function createLettersZip(rows,progress){
+  await loadZipTools();
+  const zip=new window.JSZip(),used=new Set(),host=node('div','','pdf-export-host');
+  host.setAttribute('aria-hidden','true');
+  document.body.append(host);
+  try{
+    for(const [index,row] of rows.entries()){
+      progress(index+1);
+      zip.file(uniqueLetterName(row,used),await makeLetterPdf(row,host));
+    }
+    return await zip.generateAsync({type:'blob'});
+  }finally{host.remove()}
+}
+async function downloadLettersZip(rows,button,statusId){
+  if(!rows.length||exportingZip)return;
+  exportingZip=true;
+  button.disabled=true;
+  status(statusId,'جارٍ تجهيز ملفات الدفعة…');
+  try{
+    const file=await createLettersZip(rows,current=>status(statusId,'جارٍ تجهيز الخطاب '+digits(current)+' من '+digits(rows.length)+'…'));
+    const url=URL.createObjectURL(file),link=node('a');
+    link.href=url;link.download=safeFileName('خطابات بر الوالدين - '+rows[0].number)+'.zip';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    status(statusId,'تم تجهيز ملف ZIP وفيه '+digits(rows.length)+' ملف PDF.');
+  }catch(error){status(statusId,'تعذّر تجهيز ملف ZIP. أعد المحاولة بعد اكتمال تحميل الصفحة.',true)}
+  finally{button.disabled=false;exportingZip=false}
 }
 async function printRows(rows){
   if(!rows.length||printing)return;
@@ -325,7 +489,7 @@ async function printRows(rows){
   const area=$('printArea');
   status(statusId,'جارٍ تجهيز الكليشة وصور الاعتماد للطباعة…');
   try{
-    area.replaceChildren(...rows.map(paper));
+    area.replaceChildren(...rows.flatMap(letterPages));
     await Promise.all([...area.querySelectorAll('img')].map(image=>image.decode()));
     await document.fonts.ready;
     status(statusId,'');
@@ -337,16 +501,30 @@ async function printRows(rows){
 }
 $('today').textContent=dates().hijri;
 $('template').onchange=loadTemplate;
-for(const id of ['names','recipient','subject','body','level','teacher','surah','attachments'])$(id).oninput=resetPreview;
+for(const id of ['names','recipient','subject','body','level','teacher','surah','attachments','achievements','figures'])$(id).oninput=resetPreview;
+$('includeAchievements').onchange=()=>{
+  $('achievementEditor').hidden=!$('includeAchievements').checked;
+  resetPreview();
+};
+$('saveAchievements').onclick=async()=>{
+  try{
+    const updated=achievementFields();
+    state=await change(current=>{current.achievements=updated});
+    status('editorStatus','تم حفظ قائمة المنجزات للخطابات القادمة.');
+  }catch(error){status('editorStatus','تعذّر حفظ قائمة المنجزات.',true)}
+};
 $('previewSelect').onchange=()=>{previewIndex=Number($('previewSelect').value);preview()};
 $('printOne').onclick=()=>printRows([last[previewIndex]].filter(Boolean));
 $('printLast').onclick=()=>printRows(last);
+$('zipLast').onclick=()=>downloadLettersZip(last,$('zipLast'),'printStatus');
 $('editor').onsubmit=async event=>{
   event.preventDefault();
   const template=list()[Number($('template').value)];
   const body=editorText();
   if((template.person||/\{الاسم\}/.test(body+$('subject').value))&&!names().length)return status('editorStatus','أدخل اسمًا واحدًا على الأقل.',true);
   if(!($('subject').value.trim()&&body))return status('editorStatus','أدخل الموضوع والنص.',true);
+  const achievements=achievementFields();
+  if($('includeAchievements').checked&&!achievements.achievements&&!achievements.figures)return status('editorStatus','أدخل بندًا في صفحة المنجزات أو ألغِ إرفاقها.',true);
   const missing=[...($('subject').value+'\n'+body).matchAll(/⟦([^⟦⟧\n]+)⟧/g)].map(match=>match[1]);
   if(missing.length)return status('editorStatus','أكمل الحقول التالية باستبدال العلامة كاملة بالقيمة: '+[...new Set(missing)].join('، '),true);
   if(names().length>250)return status('editorStatus','الحد الأقصى ٢٥٠ مستندًا لكل دفعة.',true);
@@ -395,7 +573,7 @@ $('saveType').onclick=async()=>{
 function archive(){
   const query=$('search').value.trim().toLowerCase();
   filtered=state.records.filter(r=>[r.number,r.name,r.subject,r.recipient].some(v=>v.toLowerCase().includes(query)));
-  $('printMatches').hidden=!filtered.length;
+  $('printMatches').hidden=!filtered.length;$('zipMatches').hidden=!filtered.length;
   $('records').replaceChildren(...filtered.map(row=>{
     const entry=node('div','','record'),info=node('div'),buttons=node('div','','meta');
     const button=node('button','حفظ باسمه / PDF');
@@ -414,6 +592,7 @@ function archive(){
   if(!filtered.length)$('records').append(node('p',query?'لا توجد نتائج مطابقة.':'تظهر الخطابات والتقارير هنا بعد اعتمادها.','muted'));
 }
 $('search').oninput=archive;$('printMatches').onclick=()=>printRows(filtered.slice().reverse());
+$('zipMatches').onclick=()=>downloadLettersZip(filtered.slice().reverse(),$('zipMatches'),'archiveStatus');
 function imagePreview(id,value){const element=$(id+'View');element.hidden=!value;if(value)element.src=value}
 function settings(){
   for(const id of ['signer','prefix','next'])$(id).value=state.settings[id];
@@ -462,7 +641,7 @@ $('backupFile').onchange=async()=>{
       if(current.records.length||current.custom.length)throw new Error('يمكن الاستيراد إلى متصفح يخلو من سجل صادر وقوالب مخصصة.');
       Object.assign(current,incoming);
     });
-    settings();fillSelect();loadTemplate();status('settingsStatus','تم استيراد النسخة الاحتياطية.');
+    settings();loadAchievements(state.achievements);fillSelect();loadTemplate();status('settingsStatus','تم استيراد النسخة الاحتياطية.');
   }catch(e){status('settingsStatus',e.message,true)}
 };
 const pages={create:['إعداد خطاب أو تقرير','اختر قالبًا، راجع النص، واعتمد الإصدار عند اكتماله.'],archive:['سجل الصادر','ابحث في الإصدارات المعتمدة وأعد طباعتها.'],settings:['إعدادات المكتب','اضبط رقم الصادر وأضف صور الاعتماد.']};
@@ -475,8 +654,9 @@ document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=async()=>
   if(key==='archive')archive();if(key==='settings')settings();if(key==='create')preview();
 });
 $('names').value=initialNames;
+loadAchievements();
 fillSelect();loadTemplate();
-change().then(snapshot=>{state=snapshot;fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
+change().then(snapshot=>{state=snapshot;loadAchievements(state.achievements);fillSelect();preview()}).catch(()=>status('editorStatus','تعذر فتح التخزين المحلي. افتح المنصة في متصفح يسمح بحفظ بيانات المواقع.',true));
 </script></body></html>
 
 
